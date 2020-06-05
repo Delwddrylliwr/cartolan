@@ -2,7 +2,3 @@ numpy==1.16.*
 matplotlib==3.*
 scipy
 pandas
-random
-csv
-os
-sys
