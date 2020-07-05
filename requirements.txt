@@ -2,3 +2,6 @@ numpy==1.16.*
 matplotlib==3.*
 scipy
 pandas
+tkinter
+pandas
+ipywidgets
