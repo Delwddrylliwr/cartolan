@@ -1,9 +1,13 @@
 import matplotlib.image as mpimg # for importing tile images
 import tkinter
+import pandas
 from matplotlib import pyplot # for plotting the tiles in a grid
 from scipy import ndimage # for rotating tiles
 import numpy
-from base import CityTile
+import pygame
+from PodSixNet.Connection import ConnectionListener, connection
+from time import sleep
+from base import CityTile, Tile
 from regular import DisasterTile
 from game import GameRegular, GameAdvanced
 from players_heuristical import PlayerRegularExplorer
@@ -644,7 +648,287 @@ class PlayAreaVisualisation:
         from matplotlib import pyplot
         self.text.set_text(None)
         pyplot.show(block=False)
+
+
+class LocalGameVisualisation(ConnectionListener):
+    '''A pygame-based interactive visualisation of the Cartolan game, that can serve as a client to a remote game.
+    
+    Methods:
+    draw_move_options
+    draw_tokens
+    draw_play_area
+    draw_wealth_scores
+    '''
+    MOVE_TIME_LIMIT = 10 #To force a timeout if players aren't responding
+    
+    def __init__(self, play_area, players, local_players):
+        self.move_timer = MOVE_TIME_LIMIT
+        self.game = GameLocal(players)
+        #@TODO May need to iterate through the remote play area matching tiles
         
+        #Initialise the pygame window
+        pygame.init()
+        pygame.font.init()
+        self.initGraphics()
+        self.initSound()
+        width, height = tkinter.Tk().winfo_screenwidth(), tkinter.Tk().winfo_screenheight()
+        self.screen = pygame.display.set_mode((width, height))
+        pygame.display.set_caption("Cartolan - Trade Winds")
+        #Initialise state variables
+        self.clock=pygame.time.Clock()
+        self.local_player_turn = False
+        self.local_win = False
+        self.running = False
+        address = raw_input("Address of Server: ")
+        try:
+            if not address:
+                host, port="localhost", 8000
+            else:
+                host,port=address.split(":")
+            self.Connect((host, int(port)))
+        except:
+            print("Error Connecting to Server")
+            print("Usage:", "host:port")
+            print ("e.g.", "localhost:31425")
+            exit()
+        print("Cartolan client started")
+        self.running = False
+        
+        while not self.running:
+            self.Pump()
+            connection.Pump()
+            sleep(0.01)
+        
+        #link local players to remote
+        
+    
+    def init_sound(self):
+        self.winSound = pygame.mixer.Sound('win.wav')
+        self.loseSound = pygame.mixer.Sound('lose.wav')
+        self.placeSound = pygame.mixer.Sound('place.wav')
+        # pygame.mixer.music.load("music.wav")
+        # pygame.mixer.music.play()
+    
+    def init_graphics(self):
+        # import tile images and establish a mapping
+        if len(self.tile_image_library) == 0:
+            self.tile_image_library = {}
+            self.tile_image_library["water"] = mpimg.imread('./images/water.png')
+            self.tile_image_library["land"] = mpimg.imread('./images/land.png')
+            self.tile_image_library["water_disaster"] = mpimg.imread('./images/water_disaster.png') 
+            self.tile_image_library["land_disaster"] = mpimg.imread('./images/land_disaster.png') 
+            self.tile_image_library["capital"] = mpimg.imread('./images/capital.png') 
+            self.tile_image_library["mythical"] = mpimg.imread('./images/mythical.png') 
+            for uc_water in [True, False]: 
+                for ua_water in [True, False]:
+                    for dc_water in [True, False]:
+                        for da_water in [True, False]:
+                            for wonder in [True, False]:
+                                filename = ""
+                                if uc_water:
+                                    filename += "t"
+                                else:
+                                    filename += "f"
+                                if ua_water:
+                                    filename += "t"
+                                else:
+                                    filename += "f"
+                                if dc_water:
+                                    filename += "t"
+                                else:
+                                    filename += "f"
+                                if da_water:
+                                    filename += "t"
+                                else:
+                                    filename += "f"
+                                if wonder:
+                                    filename += "t"
+                                else:
+                                    filename += "f"
+
+                                self.tile_image_library[str(uc_water)+str(ua_water)+str(dc_water)+str(da_water)
+                                                        +str(wonder)] = mpimg.imread('./images/' +filename+ '.png')
+        
+        # self.normallinev=pygame.image.load("normalline.png")
+        
+    
+    def network_close(self, data):
+        exit()
+    
+    def network_local_turn(self, data):
+        self.local_player_turn = data["local_player_turn"]
+        self.current_player_colour = data["current_player_colour"]
+        if not self.local_player_turn or self.current_player not in self.local_players:
+            pass # handle a remote turn, unless this gets handled elsewhere
+    
+    def network_start_game(self, data):
+        self.running = True
+        self.current_player_colour = data["player_colour"]
+        self.game_id = data["game_id"]
+    
+    def network_place_tile(self, data):
+        self.placeSound.play()
+        #get attributes
+        latitude = data["latitude"]
+        longitude = data["longitude"]
+        tile = data["tile"]
+        self.play_area[latitude][longitude] = Tile()
+    
+    def draw_play_area(self):
+        '''Renders the tiles that have been laid in a particular game of Cartolan - Trade Winds
+        
+        Arguments:
+        Dict of Dict of Cartolan.Tiles, both indexed with Ints, giving the Tiles at different coordinates for the current state of play
+        Dict of Dict of Cartolan.Tiles, both indexed with Ints, giving the Tiles at different coordinates that have been added since last drawing and need to be rendered
+        '''
+        
+        # #Make sure duplicate tiles aren't added, by getting the difference between the play area being drawn and that already drawn
+        # play_area_update = self.play_area_difference(play_area_to_add, self.play_area)
+        play_area_update = self.play_area
+                                       
+        for latitude in play_area_update:
+            if self.origin[0] + latitude in range(0, self.dimensions[0]):
+                for longitude in play_area_update[latitude]:
+                    if self.origin[1] + longitude in range(0, self.dimensions[1]):
+                        #bring in the relevant image from the library
+                        tile = play_area_update[latitude][longitude]
+                        e = tile.tile_edges
+                        if isinstance(tile, CityTile):
+                            if tile.is_capital:
+                                tile_image = self.tile_image_library["capital"]
+                            else:
+                                tile_image = self.tile_image_library["mythical"]
+                        elif isinstance(tile, DisasterTile):
+                            if tile.tile_back == "water":
+                                tile_image = self.tile_image_library["water_disaster"]
+                            else:
+                                tile_image = self.tile_image_library["land_disaster"]
+                        else:
+                            wonder = tile.is_wonder
+                            tile_image = self.tile_image_library[str(e.upwind_clock_water)+str(e.upwind_anti_water)
+                                                                 +str(e.downwind_clock_water)+str(e.downwind_anti_water)
+                                                                 +str(wonder)]            
+
+                        #rotate the image appropriately
+                        if not tile.wind_direction.north and tile.wind_direction.east:
+                            rotated_image = pygame.transform.rotate(tile_image, 90)
+                        elif not tile.wind_direction.north and not tile.wind_direction.east:
+                            rotated_image = pygame.transform.rotate(tile_image, 180)
+                        elif tile.wind_direction.north and not tile.wind_direction.east:
+                            rotated_image = pygame.transform.rotate(tile_image, -90)
+                        else:
+                            rotated_image = tile_image
+
+                        #place the tile image in the grid
+                        horizontal = self.origin[0] + latitude
+                        vertical = self.dimensions[1] - self.origin[1] - longitude
+                        self.screen.blit(rotated_image, [latitude*self.tile_width, longitude*self.tile_height])
+
+        # # Keep track of what the latest play_area to have been visualised was
+        # self.play_area = self.play_area_union(self.play_area, play_area_update)
+        return True
+        
+    def drawHUD(self):
+        #draw the background for the bottom:
+        self.screen.blit(self.score_panel, [0, 389])
+        #create font
+        myfont = pygame.font.SysFont(None, 32)
+         
+        #create text surface
+        label = myfont.render("Your Turn:", 1, (255,255,255))
+         
+        #draw surface
+        self.screen.blit(label, (10, 400))
+        self.screen.blit(self.greenindicator if self.turn else self.redindicator, (130, 395))
+        #same thing here
+        myfont64 = pygame.font.SysFont(None, 64)
+        myfont20 = pygame.font.SysFont(None, 20)
+
+        scoreme = myfont64.render(str(self.me), 1, (255,255,255))
+        scoreother = myfont64.render(str(self.otherplayer), 1, (255,255,255))
+        scoretextme = myfont20.render("You", 1, (255,255,255))
+        scoretextother = myfont20.render("Other Player", 1, (255,255,255))
+
+        self.screen.blit(scoretextme, (10, 425))
+        self.screen.blit(scoreme, (10, 435))
+        self.screen.blit(scoretextother, (280, 425))
+        self.screen.blit(scoreother, (340, 435))
+
+    def update(self):
+        if self.me+self.otherplayer==36:
+            self.didiwin=True if self.me>self.otherplayer else False
+            return 1
+        #sleep to make the game 60 fps
+        self.move_timer -= 1
+        self.clock.tick(60)
+        connection.Pump()
+        self.Pump()
+        #clear the screen
+        self.screen.fill(0)
+        self.drawBoard()
+        self.drawHUD()
+        self.drawOwnermap()
+
+        for event in pygame.event.get():
+            #quit if the quit button was pressed
+            if event.type == pygame.QUIT:
+                exit()
+     
+        #update the screen
+        #@TODO move mouse event handling to Player objects, letting them play interface between 
+        #Get mouse input and translate this into tile coordinates
+        mouse = pygame.mouse.get_pos()
+        xpos = int(math.ceil((mouse[0])/self.tile_width))
+        ypos = int(math.ceil((mouse[1])/self.tile_height)
+        #Highlight potential placements and place tiles, in response to mouse position and clicks
+        try: 
+            if not board[ypos][xpos]: self.screen.blit(self.hoverlineh if is_horizontal else self.hoverlinev, [xpos*64+5 if is_horizontal else xpos*64, ypos*64 if is_horizontal else ypos*64+5])
+        except:
+            isoutofbounds=True
+            pass
+        if not isoutofbounds:
+            alreadyplaced=board[ypos][xpos]
+        else:
+            alreadyplaced=False
+        if pygame.mouse.get_pressed()[0] and not alreadyplaced and not isoutofbounds and self.turn and self.justplaced<=0:
+            self.move_timer = MOVE_TIME_LIMIT
+            if is_horizontal:
+                self.boardh[ypos][xpos]=True
+                self.Send({"action": "place", "x":xpos, "y":ypos, "is_horizontal": is_horizontal, "num": self.num, "gameid": self.gameid})
+            else:
+                self.boardv[ypos][xpos]=True
+                self.Send({"action": "place", "x":xpos, "y":ypos, "is_horizontal": is_horizontal, "num": self.num, "gameid": self.gameid})
+        pygame.display.flip()
+    
+    def network_win(self, data):
+        self.owner[data["x"]][data["y"]]="win"
+        self.boardh[data["y"]][data["x"]]=True
+        self.boardv[data["y"]][data["x"]]=True
+        self.boardh[data["y"]+1][data["x"]]=True
+        self.boardv[data["y"]][data["x"]+1]=True
+        #add one point to my score
+        self.winSound.play()
+        self.me+=1
+    
+    def network_lose(self, data):
+        self.owner[data["x"]][data["y"]]="lose"
+        self.boardh[data["y"]][data["x"]]=True
+        self.boardv[data["y"]][data["x"]]=True
+        self.boardh[data["y"]+1][data["x"]]=True
+        self.boardv[data["y"]][data["x"]+1]=True
+        #add one to other players score
+        self.loseSound.play()
+        self.otherplayer+=1
+    
+    def finished(self):
+        self.screen.blit(self.gameover if not self.local_win else self.winningscreen, (0,0))
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    exit()
+            pygame.display.flip()
+    
+
     
 class PlayStatsVisualisation:
     '''A set of methods for drawing charts that report summary statistics from many simulations of Cartolan - Trade Winds
@@ -653,16 +937,12 @@ class PlayStatsVisualisation:
     __init__ takes a Pandas.DataFrame of play statistics to render
     ... various methods render the statistics as histograms
     '''
-    import pandas
-    from matplotlib import pyplot
-    
     def __init__(self, play_stats):
         self.visual_area_width = self.get_screen_width()/120.0 #iPython defaults visuals to @80dpi 
         self.play_stats = play_stats
         self.fig = self.pyplot.figure(num="Statistics for all simulated games that ended", figsize=(self.visual_area_width, self.visual_area_width), clear=True )
     
     def get_screen_width(self):
-        import tkinter
         root = tkinter.Tk()
         return root.winfo_screenwidth()
 #         return 1366

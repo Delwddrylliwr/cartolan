@@ -1,4 +1,4 @@
-from base import Adventurer, Agent, Tile, TileEdges
+from base import Token, Adventurer, Agent, Tile, TileEdges
 from beginner import AdventurerBeginner, AgentBeginner, CityTileBeginner
 
 
