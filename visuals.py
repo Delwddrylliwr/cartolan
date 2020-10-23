@@ -5,9 +5,11 @@ from matplotlib import pyplot # for plotting the tiles in a grid
 from scipy import ndimage # for rotating tiles
 import numpy
 import pygame
+import json
+from types import SimpleNamespace
 from PodSixNet.Connection import ConnectionListener, connection
 from time import sleep
-from base import CityTile, Tile
+from base import Player, CityTile, Tile, WindDirection, TileEdges
 from regular import DisasterTile
 from game import GameRegular, GameAdvanced
 from players_heuristical import PlayerRegularExplorer
@@ -650,8 +652,18 @@ class PlayAreaVisualisation:
         pyplot.show(block=False)
 
 
-class LocalGameVisualisation(ConnectionListener):
-    '''A pygame-based interactive visualisation of the Cartolan game, that can serve as a client to a remote game.
+class ClientGameVisualisation(ConnectionListener):
+    '''A pygame-based interactive visualisation serving as client to a remote game.
+    
+    Architecture:
+    Server Side             |    Client Side
+    Game       ->  Server  <->   Visualisation -> Player -> Adventurer
+    |             /\                                |
+    \/             |                               \/
+                  \/                            
+    Adventurer -> Player                         Agent
+    
+    Client side Player, Adventurer, and Agent, used for data storage but not methods
     
     Methods:
     draw_move_options
@@ -659,32 +671,57 @@ class LocalGameVisualisation(ConnectionListener):
     draw_play_area
     draw_wealth_scores
     '''
+    #define some constants that will not vary game by game
     MOVE_TIME_LIMIT = 10 #To force a timeout if players aren't responding
+    PLAYER_OFFSETS = [[0.25, 0.25],  [0.25, 0.75],  [0.75, 0.25], [0.75, 0.75]]
+    AGENT_OFFSET = [0.5, 0.5] #the placement of agents on the tile, the same for all players and agents, because there will only be one per tile
+    ADVENTURER_OFFSETS = [[0.0, 0.0], [0.1, -0.1], [-0.1, 0.1], [-0.1, -0.1], [0.1, 0.1]] #the offset to differentiate multiple adventurers on the same tile
+    DIMENSION_INCREMENT = 5 #the number of tiles by which the play area is extended when methods are called
+    TOKEN_SCALE = 0.2 #relative to tile sizes
+    TOKEN_FONT_SCALE = 0.5 #relative to tile sizes
+    SCORES_POSITION = (0, 0)
+    SCORES_FONT_SCALE = 0.02 #relative to window size
+    SCORES_SPACING = 3 #the multiple of the score pixel scale to leave for each number
     
-    def __init__(self, play_area, players, local_players):
-        self.move_timer = MOVE_TIME_LIMIT
-        self.game = GameLocal(players)
-        #@TODO May need to iterate through the remote play area matching tiles
+    def __init__(self, players, local_player_colours, dimensions, origin):
         
-        #Initialise the pygame window
+        #Initialise the pygame window and GUI
         pygame.init()
         pygame.font.init()
-        self.initGraphics()
-        self.initSound()
-        width, height = tkinter.Tk().winfo_screenwidth(), tkinter.Tk().winfo_screenheight()
-        self.screen = pygame.display.set_mode((width, height))
+        self.init_graphics()
+        self.init_sound()
+        self.width = tkinter.Tk().winfo_screenwidth()
+        self.height = tkinter.Tk().winfo_screenheight()
+        self.window = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption("Cartolan - Trade Winds")
+        self.dimensions = dimensions
+        self.origin = origin
+        #Initialise visuals scale variables
+        if self.height < self.width:
+            #Tiles will be scaled to fit the smaller dimension
+            self.tile_size = self.height // dimensions[1]
+        else:
+            self.tile_size = self.width // dimensions[0]
+        self.token_size = TOKEN_SCALE * tile_size #token size will be proportional to the tiles
+        self.token_font = pygame.font.SysFont(None, self.tile_size * TOKEN_FONT_SCALE) #the font size for tokens will be proportionate to the window size
+        self.scores_font = pygame.font.SysFont(None, self.height * SCORES_FONT_SCALE) #the font size for scores will be proportionate to the window size
         #Initialise state variables
-        self.clock=pygame.time.Clock()
+        self.clock = pygame.time.Clock()
+        self.move_timer = MOVE_TIME_LIMIT
+        self.local_player_colours = local_player_colours
+        self.highlights = {"valid_move":[], "invalid_move":[], "buy":[], "attack":[]}
+        self.play_area = {}
+        #@TODO May need to iterate through the remote play area matching tiles
         self.local_player_turn = False
         self.local_win = False
         self.running = False
-        address = raw_input("Address of Server: ")
+        #Establish connection to the server
+        address = input("Address of Server: ")
         try:
             if not address:
                 host, port="localhost", 8000
             else:
-                host,port=address.split(":")
+                host, port = address.split(":")
             self.Connect((host, int(port)))
         except:
             print("Error Connecting to Server")
@@ -693,13 +730,11 @@ class LocalGameVisualisation(ConnectionListener):
             exit()
         print("Cartolan client started")
         self.running = False
-        
+        #Keep the connection live until the game is active?
         while not self.running:
             self.Pump()
             connection.Pump()
             sleep(0.01)
-        
-        #link local players to remote
         
     
     def init_sound(self):
@@ -711,81 +746,179 @@ class LocalGameVisualisation(ConnectionListener):
     
     def init_graphics(self):
         # import tile images and establish a mapping
-        if len(self.tile_image_library) == 0:
-            self.tile_image_library = {}
-            self.tile_image_library["water"] = mpimg.imread('./images/water.png')
-            self.tile_image_library["land"] = mpimg.imread('./images/land.png')
-            self.tile_image_library["water_disaster"] = mpimg.imread('./images/water_disaster.png') 
-            self.tile_image_library["land_disaster"] = mpimg.imread('./images/land_disaster.png') 
-            self.tile_image_library["capital"] = mpimg.imread('./images/capital.png') 
-            self.tile_image_library["mythical"] = mpimg.imread('./images/mythical.png') 
-            for uc_water in [True, False]: 
-                for ua_water in [True, False]:
-                    for dc_water in [True, False]:
-                        for da_water in [True, False]:
-                            for wonder in [True, False]:
-                                filename = ""
-                                if uc_water:
-                                    filename += "t"
-                                else:
-                                    filename += "f"
-                                if ua_water:
-                                    filename += "t"
-                                else:
-                                    filename += "f"
-                                if dc_water:
-                                    filename += "t"
-                                else:
-                                    filename += "f"
-                                if da_water:
-                                    filename += "t"
-                                else:
-                                    filename += "f"
-                                if wonder:
-                                    filename += "t"
-                                else:
-                                    filename += "f"
-
-                                self.tile_image_library[str(uc_water)+str(ua_water)+str(dc_water)+str(da_water)
-                                                        +str(wonder)] = mpimg.imread('./images/' +filename+ '.png')
-        
-        # self.normallinev=pygame.image.load("normalline.png")
-        
+        self.tile_image_library = {}
+        self.tile_image_library["water"] = mpimg.imread('./images/water.png')
+        self.tile_image_library["land"] = mpimg.imread('./images/land.png')
+        self.tile_image_library["water_disaster"] = mpimg.imread('./images/water_disaster.png') 
+        self.tile_image_library["land_disaster"] = mpimg.imread('./images/land_disaster.png') 
+        self.tile_image_library["capital"] = mpimg.imread('./images/capital.png') 
+        self.tile_image_library["mythical"] = mpimg.imread('./images/mythical.png') 
+        for uc_water in [True, False]: 
+            for ua_water in [True, False]:
+                for dc_water in [True, False]:
+                    for da_water in [True, False]:
+                        for wonder in [True, False]:
+                            filename = ""
+                            if uc_water:
+                                filename += "t"
+                            else:
+                                filename += "f"
+                            if ua_water:
+                                filename += "t"
+                            else:
+                                filename += "f"
+                            if dc_water:
+                                filename += "t"
+                            else:
+                                filename += "f"
+                            if da_water:
+                                filename += "t"
+                            else:
+                                filename += "f"
+                            if wonder:
+                                filename += "t"
+                            else:
+                                filename += "f"
+                            #scale the image down now, it will only be scaled down and lose more fidelity with subsequent resizing
+                            tile_image = pygame.transform.scale(mpimg.imread('./images/' +filename+ '.png')
+                                , [self.tile_width, self.tile_height])
+                            #Rotate the image for different wind directions
+                            #North East wind
+                            self.tile_image_library[str(uc_water)+str(ua_water)
+                                +str(dc_water)+str(da_water)+str(wonder)+True+True] = tile_image
+                            #South East wind
+                            self.tile_image_library[str(uc_water)+str(ua_water)
+                                +str(dc_water)+str(da_water)+str(wonder)+False+True] = pygame.transform.rotate(tile_image, 90)
+                            #South West wind
+                            self.tile_image_library[str(uc_water)+str(ua_water)
+                                +str(dc_water)+str(da_water)+str(wonder)+False+False] = pygame.transform.rotate(tile_image, 180)
+                            #North West wind
+                            self.tile_image_library[str(uc_water)+str(ua_water)
+                                +str(dc_water)+str(da_water)+str(wonder)+True+False] = pygame.transform.rotate(tile_image, -90)
     
-    def network_close(self, data):
+        # import the masks used to highlight movement options
+        self.highlight_library = {}
+        self.highlight_library["valid_move"] = mpimg.imread('./images/option_valid_move.png')
+        self.highlight_library["invalid_move"] = mpimg.imread('./images/option_invalid_move.png')
+        self.highlight_library["buy"] = mpimg.imread('./images/option_buy.png') 
+        self.highlight_library["attack"] = mpimg.imread('./images/option_attack.png') 
+    
+    def rescale_graphics(self, dimensions):
+        #Update the dimensions that will be used for drawing the play area
+        self.dimensions = dimensions        
+        #Tiles, tokens and text will need adjusting to the new dimensions
+        if self.height < self.width:
+            #Tiles will be scaled to fit the smaller dimension
+            self.tile_size = self.height // dimensions[1]
+        else:
+            self.tile_size = self.width // dimensions[0]
+        self.token_size = TOKEN_SCALE * self.tile_size #token size will be proportional to the tiles
+        self.token_font = pygame.font.SysFont(None, self.tile_size * TOKEN_FONT_SCALE) #the font size for tokens will be proportionate to the window size
+        self.scores_font = pygame.font.SysFont(None, self.height * SCORES_FONT_SCALE) #the font size for scores will be proportionate to the window size
+        #As the dimensions of the grid are changed, scale down the images rather than when placing
+        for tile_image in self.tile_image_library:
+            tile_image = pygame.transform.scale(tile_image, [self.tile_width, self.tile_height])
+        for highlight_image in self.highlight_library:
+            highlight_image = pygame.transform.scale(highlight_image, [self.tile_width, self.tile_height])
+    
+    #Now for a set of methods that will use PodSixNet to respond to messages from the server to progress the game
+    def Network_start_game(self, data):
+        self.running = True #keep track of active games
+        self.game_id = data["game_id"] #allow game state to be synched between server and client
+        self.game_type = data["game_type"] #needed to identify the class of other elements like Adventurers and Agents
+#       # Parse JSON into an object with attributes corresponding to dict keys.
+#        = json.loads(data["players"], object_hook=lambda d: SimpleNamespace(**d))
+        #Rather than convert the JSON to an object, with broken references to other objects
+        players_data = data["players"]
+        for player_data in range(len(players_data)):
+            player = Player(player_data["colour"])
+            self.players.append(player)
+            for adventurer_data in player_data["adventurers"]:
+                aventurer = component_types[game_type]["adventurer"]()
+                player.adventurers.append()
+            
+         
+    
+    def Network_close(self, data):
         exit()
     
-    def network_local_turn(self, data):
+    def Network_local_turn(self, data):
+        '''Switches to local based on data following an {"action":"move_token"} from the server
+        '''
         self.local_player_turn = data["local_player_turn"]
         self.current_player_colour = data["current_player_colour"]
-        if not self.local_player_turn or self.current_player not in self.local_players:
+        if not self.local_player_turn or self.current_player_colour not in self.local_player_colours:
             pass # handle a remote turn, unless this gets handled elsewhere
     
-    def network_start_game(self, data):
-        self.running = True
-        self.current_player_colour = data["player_colour"]
-        self.game_id = data["game_id"]
-    
-    def network_place_tile(self, data):
+    def Network_place_tile(self, data):
+        '''Places a tile based on data following an {"action":"place_tile"} message from the server
+        '''
         self.placeSound.play()
-        #get attributes
+        #read location to place at
         latitude = data["latitude"]
         longitude = data["longitude"]
-        tile = data["tile"]
-        self.play_area[latitude][longitude] = Tile()
+        #read tile characteristics to visualise
+        tile_data = data["tile"]
+        is_wonder = tile_data["is_wonder"]
+        tile_back = tile_data["tile_back"]
+        tile_edges_data = tile_data["tile_edges"]
+        tile_edges = TileEdges(tile_edges_data["north"], tile_edges_data["east"], tile_edges_data["south"], tile_edges_data["west"])
+        wind_direction_data = tile_data["wind_direction"]
+        wind_direction = WindDirection(wind_direction_data["north"], wind_direction_data["east"])
+        #Place the tile in the play area
+        self.play_area[latitude][longitude] = Tile(None, tile_back, wind_direction, tile_edges, is_wonder)
+        
+    def Network_move_token(self, data):
+        '''Moves an Adventurer or Agent based on data following an {"action":"move_token"} message from the server
+        '''
+        self.placeSound.play()
+        #read location to move to
+        latitude = data["latitude"]
+        longitude = data["longitude"]
+        #identify token to move
+        player_colour = data["player_colour"]
+        token_is_adventurer = data["token_is_adventurer"]
+        token_num = data["token_num"]
+        #Check that it is this player's turn
+        player = self.players[player_colour]
+#        if not self.current_player_colour == player_colour:
+            #@TODO return a message to the server complaining that the wrong player has tried to move
+        #Place the token on the tile at the coordinates
+        if token_is_adventurer:
+            
+            token = player.adventurers[token_num]
+        else:
+            token = player.agents[token_num]
+        #Check that the tile exists before moving the token there
+        if self.game.play_area.get(latitude):
+            tile = self.game.play_area.get(latitude).get(longitude)
+            if tile:
+                tile.move_onto_tile(token)
+#        else:
+            #@TODO returna  message to the server complaining that it wasn't a valid tile provided
+        
+    def Network_win(self, data):
+        #add one point to my score
+        self.winSound.play()
+        self.me+=1
+    
+    def Network_lose(self, data):
+        self.owner[data["x"]][data["y"]]="lose"
+        self.boardh[data["y"]][data["x"]]=True
+        self.boardv[data["y"]][data["x"]]=True
+        self.boardh[data["y"]+1][data["x"]]=True
+        self.boardv[data["y"]][data["x"]+1]=True
+        #add one to other players score
+        self.loseSound.play()
+        self.otherplayer+=1
     
     def draw_play_area(self):
         '''Renders the tiles that have been laid in a particular game of Cartolan - Trade Winds
-        
-        Arguments:
-        Dict of Dict of Cartolan.Tiles, both indexed with Ints, giving the Tiles at different coordinates for the current state of play
-        Dict of Dict of Cartolan.Tiles, both indexed with Ints, giving the Tiles at different coordinates that have been added since last drawing and need to be rendered
         '''
-        
         # #Make sure duplicate tiles aren't added, by getting the difference between the play area being drawn and that already drawn
         # play_area_update = self.play_area_difference(play_area_to_add, self.play_area)
         play_area_update = self.play_area
-                                       
+        #For each location in the play area draw the tile, rotating as needed
         for latitude in play_area_update:
             if self.origin[0] + latitude in range(0, self.dimensions[0]):
                 for longitude in play_area_update[latitude]:
@@ -805,56 +938,114 @@ class LocalGameVisualisation(ConnectionListener):
                                 tile_image = self.tile_image_library["land_disaster"]
                         else:
                             wonder = tile.is_wonder
+                            north = tile.wind_direction.north
+                            east = tile.wind_direction.east
                             tile_image = self.tile_image_library[str(e.upwind_clock_water)+str(e.upwind_anti_water)
                                                                  +str(e.downwind_clock_water)+str(e.downwind_anti_water)
-                                                                 +str(wonder)]            
-
-                        #rotate the image appropriately
-                        if not tile.wind_direction.north and tile.wind_direction.east:
-                            rotated_image = pygame.transform.rotate(tile_image, 90)
-                        elif not tile.wind_direction.north and not tile.wind_direction.east:
-                            rotated_image = pygame.transform.rotate(tile_image, 180)
-                        elif tile.wind_direction.north and not tile.wind_direction.east:
-                            rotated_image = pygame.transform.rotate(tile_image, -90)
-                        else:
-                            rotated_image = tile_image
-
-                        #place the tile image in the grid
+                                                                 +str(wonder)+str(north)+str(east)]
+                        #place the rescaled tile image in the grid
                         horizontal = self.origin[0] + latitude
                         vertical = self.dimensions[1] - self.origin[1] - longitude
-                        self.screen.blit(rotated_image, [latitude*self.tile_width, longitude*self.tile_height])
-
+                        self.window.blit(tile_image, [latitude*self.tile_width, longitude*self.tile_height])
         # # Keep track of what the latest play_area to have been visualised was
         # self.play_area = self.play_area_union(self.play_area, play_area_update)
         return True
+     
+    def draw_move_options(self):
+        '''Outlines tiles where moves or actions are possible, designated by colour
+        '''
+        # cycle through the various highlights' grid coordinates, outlining the tiles that can and can't be subject to moves
+        for highlight_type in highlights:
+            if highlights[highlight_type]:
+                scaled_highlight = pygame.transform.scale(highlight_library[highlight_type]
+                    , [self.tile_width, self.tile_height])
+                for tile_coords in highlights[highlight_type]:
+                    self.window.blit(scaled_highlight, tile_coords)
+    
+    def draw_tokens(self):
+        '''Illustrates the current location of Adventurers and Agents in a game, along with their paths over the last turn
+        '''
+        # cycle through the players, drawing the adventurers and agents as markers
+        players = self.players
+        for player in players:
+            #We'll want to differentiate players by colour and the offset from the tile location
+            colour = player.colour
+            player_offset = self.PLAYER_OFFSETS[players.index(player)]
+            #Each player may have multiple Adventurers to draw
+            adventurers = player.adventurers
+            for adventurer in player.adventurers:
+                # we want to draw a circle anywhere an Adventurer is, differentiating with offsets
+                tile = adventurer.current_tile
+                location = [self.origin[0] + tile.tile_position.latitude
+                            , self.origin[1] + tile.tile_position.longitude]
+                adventurer_offset = player_offset + self.ADVENTURER_OFFSETS[adventurers.index(adventurer)]
+                # we want it to be coloured differently for each player
+                # draw the filled circle 
+                pygame.draw.circle(self.window, colour, location + adventurer_offset, self.token_size)
+                token_label = token_font.render(str(adventurers.index(adventurer)+1), 1, (255,255,255))
+                self.window.blit(token_label, location - (self.token_size // 2, self.token_size // 2))
+                if type(adventurer) in [AdventurerRegular, AdventurerAdvanced]:
+                    if adventurer.pirate_token:
+                        # we'll outline pirates in black
+                        pygame.draw.circle(self.window, (255, 255, 255), location + adventurer_offset, self.token_size // 2, width=self.outline_width)
+            
+            for agent in player.agents: 
+                # we want to draw a square anywhere that an agent is
+                tile = agent.current_tile
+                location = [self.origin[0] + tile.tile_position.latitude
+                            , self.origin[1] + tile.tile_position.longitude]
+                #Agents will be differentiated by colour, but they will always have the same position because there will only be one per tile
+                colour = player.colour
+                agent_shape = pygame.Rect(location[0]*self.tile_width + self.AGENT_OFFSET[0]
+                  , location[1]*self.tile_height + self.AGENT_OFFSET[1]
+                  , 2.0*self.token_size, 2.0*self.token_size)
+                # we'll only outline the Agents that are dispossessed
+                if type(agent) in [AgentRegular, AgentAdvanced] and agent.is_dispossessed:
+                        pygame.draw.rect(self.window, colour, agent_shape, width=self.outline_width)
+                else:
+                    #for a filled rectangle the fill method could be quicker: https://www.pygame.org/docs/ref/draw.html#pygame.draw.rect
+                    self.window.fill(color, rect=agent_shape)
+                token_label = token_font.render(str(agent.wealth), 1, (255,255,255))
+                self.window.blit(token_label, location)
+        return True
         
-    def drawHUD(self):
-        #draw the background for the bottom:
-        self.screen.blit(self.score_panel, [0, 389])
-        #create font
-        myfont = pygame.font.SysFont(None, 32)
-         
-        #create text surface
-        label = myfont.render("Your Turn:", 1, (255,255,255))
-         
-        #draw surface
-        self.screen.blit(label, (10, 400))
-        self.screen.blit(self.greenindicator if self.turn else self.redindicator, (130, 395))
-        #same thing here
-        myfont64 = pygame.font.SysFont(None, 64)
-        myfont20 = pygame.font.SysFont(None, 20)
-
-        scoreme = myfont64.render(str(self.me), 1, (255,255,255))
-        scoreother = myfont64.render(str(self.otherplayer), 1, (255,255,255))
-        scoretextme = myfont20.render("You", 1, (255,255,255))
-        scoretextother = myfont20.render("Other Player", 1, (255,255,255))
-
-        self.screen.blit(scoretextme, (10, 425))
-        self.screen.blit(scoreme, (10, 435))
-        self.screen.blit(scoretextother, (280, 425))
-        self.screen.blit(scoreother, (340, 435))
+    def draw_scores(self):
+        '''Prints a table of current wealth scores in players' Vaults and Adventurers' Chests
+        '''        
+        print("Creating a table of the wealth held by Players and their Adventurers")
+        #Draw the column headings
+        score_title = scores_font.render("Vault", 1, (255,255,255))
+        self.window.blit(score_title, self.SCORES_POSITION)
+        #Work out the maximum number of Adventurers in play, to only draw this many columns
+        max_num_adventurers = 1
+        score_title = scores_font.render("Chest #1", 1, (255,255,255))
+        self.window.blit(score_title, self.SCORES_POSITION 
+                         + (self.SCORES_FONT_SCALE * self.SCORES_SPACING, 0))
+        for player in players:
+            if len(player.adventurers) > max_num_adventurers:
+                max_num_adventurers = len(player.adventurers)
+                score_title = scores_font.render("Chest #"+str(max_num_adventurers)
+                                                 , 1, (255,255,255))
+                self.window.blit(score_title, self.SCORES_POSITION 
+                    + (self.SCORES_FONT_SCALE * self.SCORES_SPACING * max_num_adventurers, 0))
+        row_position = self.SCORES_POSITION[1]
+        for player in players:
+            #Shift to a new row
+            row_position += self.SCORES_FONT_SCALE
+            score_value = scores_font.render(str(player.vault_wealth), 1, player.colour)
+            self.window.blit(score_value, self.SCORES_POSITION 
+                             + (0, row_position))
+            col_position = self.SCORES_POSITION[0]
+            for adventurer in player.adventurers:
+                    #Shift to a new column
+                    col_position += self.SCORES_FONT_SCALE * self.SCORES_SPACING
+                    score_value = scores_font.render(str(adventurer.wealth), 1, player.colour)
+                    self.window.blit(score_value, self.SCORES_POSITION 
+                                     + (col_position, row_position))
 
     def update(self):
+        '''
+        '''
         if self.me+self.otherplayer==36:
             self.didiwin=True if self.me>self.otherplayer else False
             return 1
@@ -863,26 +1054,26 @@ class LocalGameVisualisation(ConnectionListener):
         self.clock.tick(60)
         connection.Pump()
         self.Pump()
-        #clear the screen
-        self.screen.fill(0)
-        self.drawBoard()
-        self.drawHUD()
-        self.drawOwnermap()
+        #clear the window
+        self.window.fill(0)
+        self.draw_play_area()
+        self.draw_tokens()
+        self.draw_scores()
 
         for event in pygame.event.get():
             #quit if the quit button was pressed
             if event.type == pygame.QUIT:
                 exit()
      
-        #update the screen
-        #@TODO move mouse event handling to Player objects, letting them play interface between 
+        #update the window
+        #@TODO at the point of seeking player input for an Adventurer for the first time this turn, clear its route history
         #Get mouse input and translate this into tile coordinates
         mouse = pygame.mouse.get_pos()
         xpos = int(math.ceil((mouse[0])/self.tile_width))
-        ypos = int(math.ceil((mouse[1])/self.tile_height)
+        ypos = int(math.ceil((mouse[1])/self.tile_height))
         #Highlight potential placements and place tiles, in response to mouse position and clicks
         try: 
-            if not board[ypos][xpos]: self.screen.blit(self.hoverlineh if is_horizontal else self.hoverlinev, [xpos*64+5 if is_horizontal else xpos*64, ypos*64 if is_horizontal else ypos*64+5])
+            if not board[ypos][xpos]: self.window.blit(self.hoverlineh if is_horizontal else self.hoverlinev, [xpos*64+5 if is_horizontal else xpos*64, ypos*64 if is_horizontal else ypos*64+5])
         except:
             isoutofbounds=True
             pass
@@ -900,28 +1091,8 @@ class LocalGameVisualisation(ConnectionListener):
                 self.Send({"action": "place", "x":xpos, "y":ypos, "is_horizontal": is_horizontal, "num": self.num, "gameid": self.gameid})
         pygame.display.flip()
     
-    def network_win(self, data):
-        self.owner[data["x"]][data["y"]]="win"
-        self.boardh[data["y"]][data["x"]]=True
-        self.boardv[data["y"]][data["x"]]=True
-        self.boardh[data["y"]+1][data["x"]]=True
-        self.boardv[data["y"]][data["x"]+1]=True
-        #add one point to my score
-        self.winSound.play()
-        self.me+=1
-    
-    def network_lose(self, data):
-        self.owner[data["x"]][data["y"]]="lose"
-        self.boardh[data["y"]][data["x"]]=True
-        self.boardv[data["y"]][data["x"]]=True
-        self.boardh[data["y"]+1][data["x"]]=True
-        self.boardv[data["y"]][data["x"]+1]=True
-        #add one to other players score
-        self.loseSound.play()
-        self.otherplayer+=1
-    
     def finished(self):
-        self.screen.blit(self.gameover if not self.local_win else self.winningscreen, (0,0))
+        self.window.blit(self.gameover if not self.local_win else self.winningscreen, (0,0))
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
