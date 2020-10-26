@@ -7,7 +7,6 @@ class Game:
     '''
     MAX_PLAYERS = 4
     MIN_PLAYERS = 2
-    PLAYER_COLOURS = ["blue","red","yellow","green"]
     
     def __init__(self, players):
         if len(players) in range(self.MIN_PLAYERS, self.MAX_PLAYERS +1):
@@ -103,7 +102,7 @@ class Adventurer(Token):
         '''placeholder for movement'''
         pass
         
-    def explore(self, latitude, longitude):
+    def explore(self, longitude, latitude):
         '''placeholder for exploration'''
         pass
         
@@ -147,10 +146,10 @@ class Agent(Token):
 
 class TilePosition: 
     '''keeps track of the coordinates of a Tile entity in a PlayArea for the game Cartolan'''
-    def __init__(self, latitude = None, longitude = None):
+    def __init__(self, longitude = None, latitude = None):
         '''keep track of the tile's position in two ints'''
-        self.latitude = latitude
         self.longitude = longitude
+        self.latitude = latitude
 
 
 class WindDirection:
@@ -193,21 +192,21 @@ class Tile:
         self.adventurers = [] # to keep track of the Adventurer tokens on a tile at any point
         self.agent = None # there can only be one Agent token on a given tile
     
-    def place_tile(self, latitude, longitude):
+    def place_tile(self, longitude, latitude):
         '''records the location of a Tile object in the PlayArea of a Cartolan game
         
         key arguments:
-        int latitude
         int longitude
+        int latitude
         '''
-        print("Placing tile " +str(latitude)+", "+str(longitude))
+        print("Placing tile " +str(longitude)+", "+str(latitude))
         play_area = self.game.play_area
-        if play_area.get(latitude) is None:
-            play_area[latitude] = {longitude:self}
-            self.tile_position = TilePosition(latitude, longitude)
-        elif play_area.get(latitude).get(longitude) is None: 
-            play_area[latitude][longitude] = self
-            self.tile_position = TilePosition(latitude, longitude)
+        if play_area.get(longitude) is None:
+            play_area[longitude] = {latitude:self}
+            self.tile_position = TilePosition(longitude, latitude)
+        elif play_area.get(longitude).get(latitude) is None: 
+            play_area[longitude][latitude] = self
+            self.tile_position = TilePosition(longitude, latitude)
         else: raise Exception("Tried to place a tile on top of another")
     
     def rotate_tile_clock(self):
@@ -314,7 +313,7 @@ class Tile:
         '''
         if isinstance(token, Token):
             if isinstance(token, Adventurer):
-                print("Moving adventurer for " +str(token.player.colour)+ " player onto tile at " +str(self.tile_position.latitude)+ ", " +str(self.tile_position.longitude))
+                print("Moving adventurer for " +str(token.player.colour)+ " player onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                 if token.current_tile:
                     if token in token.current_tile.adventurers:
                         token.current_tile.adventurers.remove(token)
@@ -324,7 +323,7 @@ class Tile:
                 
             elif isinstance(token, Agent):
                 if self.agent is None:
-                    print("Moving agent for " +str(token.player.colour)+ " player onto tile at " +str(self.tile_position.latitude)+ ", " +str(self.tile_position.longitude))
+                    print("Moving agent for " +str(token.player.colour)+ " player onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                     if token.current_tile:
                         token.current_tile.agent = None
                     token.current_tile = self
@@ -333,7 +332,7 @@ class Tile:
                 elif self.agent.is_dispossessed:
                     self.agent.player.agents.remove(self.agent)
                     self.agent.current_tile = None
-                    print("Moving agent for " +str(token.player.colour)+ " player onto tile at " +str(self.tile_position.latitude)+ ", " +str(self.tile_position.longitude))
+                    print("Moving agent for " +str(token.player.colour)+ " player onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                     self.agent = token
                     token.route.append(self) # relevant only in Regular and Advanced mode
                 else: raise Exception("Tried to add multiple Agents to a tile: adding and agent of " +token.player.colour+ " player where there was an existing agent of " +self.agent.player.colour)

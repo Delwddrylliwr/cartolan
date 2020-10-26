@@ -131,3 +131,8 @@ server = BoxesServer(localaddr = (host, int(port)))
 while True:
     server.tick()
     sleep(0.01)
+
+class PlayerClient(Player):
+    
+class PlayerHost(PlayerHuman):
+    

@@ -67,8 +67,8 @@ class AdventurerRegular(AdventurerBeginner):
         
         # check whether move is possible over the edge
         print("Adventurer is checking whether movement is possible over the " +compass_point
-              + " edge from their tile at " +str(self.current_tile.tile_position.latitude)+ "," 
-              + str(self.current_tile.tile_position.longitude))
+              + " edge from their tile at " +str(self.current_tile.tile_position.longitude)+ "," 
+              + str(self.current_tile.tile_position.latitude))
         if self.game.movement_rules == "initial": #this version 1 of movement allows land and upwind movement only initially after resting
             moves_since_rest = self.land_moves + self.downwind_moves + self.upwind_moves
             print("Adventurer has determined that they have moved " +str(moves_since_rest)+ " times since resting")
@@ -220,8 +220,8 @@ class AdventurerRegular(AdventurerBeginner):
             if self.game.COST_AGENT_RESTORE <= self.wealth:
                 print("Paying " +str(self.game.COST_AGENT_RESTORE)+ " to restore " 
                       +agent.player.colour+"'s Agent at position " 
-                      +str(agent.current_tile.tile_position.latitude)
-                     +","+ str(agent.current_tile.tile_position.longitude))
+                      +str(agent.current_tile.tile_position.longitude)
+                     +","+ str(agent.current_tile.tile_position.latitude))
                 self.wealth -= self.game.COST_AGENT_RESTORE
                 agent.is_dispossessed = False
                 #Make sure that the Adventurer can't use this Agent this turn

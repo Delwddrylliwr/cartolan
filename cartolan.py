@@ -164,7 +164,7 @@ def setup_simulation3(players, game_mode, movement_rules, exploration_rules, myt
 #             for da_water in [True, False]:
 #                 if uc_water or ua_water:
 #                     for tile_num in range(0, int(tile_distribution[row_count])):
-#                         tile_position = TilePosition(latitude = None, longitude = None)
+#                         tile_position = TilePosition(longitude = None, latitude = None)
 #                         wind_direction = WindDirection(north = True, east = True)
 #                         tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
 #                         tile_pile.add_tile(WaterTile(game, tile_position, wind_direction, tile_edges))
@@ -245,7 +245,7 @@ def setup_simulation4(players, game_mode, movement_rules, exploration_rules, myt
 #             for da_water in [True, False]:
 #                 if not uc_water or not ua_water:
 #                     for tile_num in range(0, int(tile_distribution[row_count])):
-#                         tile_position = TilePosition(latitude = None, longitude = None)
+#                         tile_position = TilePosition(longitude = None, latitude = None)
 #                         wind_direction = WindDirection(north = True, east = True)
 #                         tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
 #                         tile_pile.add_tile(LandTile(game, tile_position, wind_direction, tile_edges))
@@ -632,16 +632,16 @@ class Simulations():
             #work out the ideal dimensions for the visualisation
             h_dimension = max(play_area_to_vis.keys())-min(play_area_to_vis.keys())
             h_origin = abs(min(play_area_to_vis.keys()))
-            max_longitude = 0
-            min_longitude = 0
+            max_latitude = 0
+            min_latitude = 0
             v_dimension = 0
-            for latitude in play_area_to_vis:
-                if max(play_area_to_vis[latitude].keys()) > max_longitude:
-                    max_longitude = max(play_area_to_vis[latitude].keys())
-                if min(play_area_to_vis[latitude].keys()) < min_longitude:
-                    min_longitude = min(play_area_to_vis[latitude].keys())
-            v_dimension = max_longitude - min_longitude
-            v_origin = abs(min_longitude)
+            for longitude in play_area_to_vis:
+                if max(play_area_to_vis[longitude].keys()) > max_latitude:
+                    max_latitude = max(play_area_to_vis[longitude].keys())
+                if min(play_area_to_vis[longitude].keys()) < min_latitude:
+                    min_latitude = min(play_area_to_vis[longitude].keys())
+            v_dimension = max_latitude - min_latitude
+            v_origin = abs(min_latitude)
             dimensions = [h_dimension + 1, v_dimension + 1]
             origin = [h_origin, v_origin] 
             #render the play area and routes

@@ -20,15 +20,15 @@ class PlayerBeginnerExplorer(Player):
     check_buy_agent takes a Cartolan.Adventurer
     check_move_agent takes a Cartolan.Adventurer
     '''
-    def check_location_to_avoid(self, latitude, longitude):
+    def check_location_to_avoid(self, longitude, latitude):
         '''Compares coordinates to a list to avoid'''
         #Check each of the coordinate pairs to avoid in turn
         for location in self.locations_to_avoid:
-            if location[0] == latitude and location[1] == longitude:
-                print("Identified these coordinates as a location to avoid: " +str(latitude)+ ", " +str(longitude))
+            if location[0] == longitude and location[1] == latitude:
+                print("Identified these coordinates as a location to avoid: " +str(longitude)+ ", " +str(latitude))
                 return True
         #If the given coordinates didn't match any of the locations to avoid
-        print("Identified these coordinates as NOT a location to avoid: " +str(latitude)+ ", " +str(longitude))
+        print("Identified these coordinates as NOT a location to avoid: " +str(longitude)+ ", " +str(latitude))
         return False
     
     def explore_best_space(self, adventurer):
@@ -51,15 +51,15 @@ class PlayerBeginnerExplorer(Player):
         for compass_point in potential_moves:
             if adventurer.can_move(compass_point):
                 #translate the compass point into coordinates
-                latitude_increment = int(compass_point.lower() in ["east","e"]) - int(compass_point.lower() in ["west","w"])
-                new_latitude = adventurer.current_tile.tile_position.latitude + latitude_increment
-                longitude_increment = int(compass_point.lower() in ["north","n"]) - int(compass_point.lower() in ["south","s"])
+                longitude_increment = int(compass_point.lower() in ["east","e"]) - int(compass_point.lower() in ["west","w"])
                 new_longitude = adventurer.current_tile.tile_position.longitude + longitude_increment
+                latitude_increment = int(compass_point.lower() in ["north","n"]) - int(compass_point.lower() in ["south","s"])
+                new_latitude = adventurer.current_tile.tile_position.latitude + latitude_increment
                 #check whether empty or otherwise designated to avoid
-                if (adventurer.exploration_needed(new_latitude, new_longitude) 
-                    and not self.check_location_to_avoid(new_latitude, new_longitude)):
+                if (adventurer.exploration_needed(new_longitude, new_latitude) 
+                    and not self.check_location_to_avoid(new_longitude, new_latitude)):
                     #Check whether the score from exploring here beats any checked so far
-                    potential_score = adventurer.get_exploration_value(adventurer.get_adjoining_edges(new_latitude, new_longitude), compass_point)
+                    potential_score = adventurer.get_exploration_value(adventurer.get_adjoining_edges(new_longitude, new_latitude), compass_point)
                     if potential_score > preferred_score:
                         preferred_move = compass_point
                         preferred_score = potential_score
@@ -70,7 +70,7 @@ class PlayerBeginnerExplorer(Player):
                 #If movement failed because the turn is over then leave here
                 if adventurer.turns_moved >= adventurer.game.turn:
                     return True
-                self.locations_to_avoid.append([new_latitude, new_longitude])
+                self.locations_to_avoid.append([new_longitude, new_latitude])
                 return False
         #If no valid exploration moves were found, then simply move away slowly from the Adventurer's city of choice
         return self.move_away_from_tile(adventurer, adventurer.latest_city)
@@ -78,29 +78,29 @@ class PlayerBeginnerExplorer(Player):
     def move_away_from_tile(self, adventurer, tile):
         '''A heuristic that moves the Adventurer in the direction that increases the distance from a given tile, but by the minimum'''
         import random
-        print(str(adventurer.player.colour) +": trying heuristic that prefers moves away from the tile at " +str(tile.tile_position.latitude)+ ", " +str(tile.tile_position.latitude))
-        #establish directions to the tile, as preferring to increase the distance in the lesser dimension first, between longitude and latitude
-        if (abs(adventurer.current_tile.tile_position.latitude - tile.tile_position.latitude) 
-            > abs(adventurer.current_tile.tile_position.longitude - tile.tile_position.longitude)):
+        print(str(adventurer.player.colour) +": trying heuristic that prefers moves away from the tile at " +str(tile.tile_position.longitude)+ ", " +str(tile.tile_position.longitude))
+        #establish directions to the tile, as preferring to increase the distance in the lesser dimension first, between latitude and longitude
+        if (abs(adventurer.current_tile.tile_position.longitude - tile.tile_position.longitude) 
+            > abs(adventurer.current_tile.tile_position.latitude - tile.tile_position.latitude)):
             #Now establish which cardinal compass direction would be moving away rather than towards
-            if adventurer.current_tile.tile_position.longitude > tile.tile_position.longitude:
-                if adventurer.current_tile.tile_position.latitude >= tile.tile_position.latitude:
+            if adventurer.current_tile.tile_position.latitude > tile.tile_position.latitude:
+                if adventurer.current_tile.tile_position.longitude >= tile.tile_position.longitude:
                     preferred_moves = ['n', 'e']
                 else:
                     preferred_moves = ['n', 'w']
             else:
-                if adventurer.current_tile.tile_position.latitude >= tile.tile_position.latitude:
+                if adventurer.current_tile.tile_position.longitude >= tile.tile_position.longitude:
                     preferred_moves = ['s', 'e']
                 else:
                     preferred_moves = ['s', 'w']
         else:
-            if adventurer.current_tile.tile_position.latitude >= tile.tile_position.latitude:
-                if adventurer.current_tile.tile_position.longitude > tile.tile_position.longitude:
+            if adventurer.current_tile.tile_position.longitude >= tile.tile_position.longitude:
+                if adventurer.current_tile.tile_position.latitude > tile.tile_position.latitude:
                     preferred_moves = ['e', 'n']
                 else:
                     preferred_moves = ['e', 's']
             else:
-                if adventurer.current_tile.tile_position.longitude > tile.tile_position.longitude:
+                if adventurer.current_tile.tile_position.latitude > tile.tile_position.latitude:
                     preferred_moves = ['w', 'n']
                 else:
                     preferred_moves = ['w', 's']
@@ -108,16 +108,16 @@ class PlayerBeginnerExplorer(Player):
         #Try the moves in sequence
         for compass_point in preferred_moves:
             #translate the compass point into coordinates
-            latitude_increment = int(compass_point.lower() in ["east","e"]) - int(compass_point.lower() in ["west","w"])
-            new_latitude = adventurer.current_tile.tile_position.latitude + latitude_increment
-            longitude_increment = int(compass_point.lower() in ["north","n"]) - int(compass_point.lower() in ["south","s"])
+            longitude_increment = int(compass_point.lower() in ["east","e"]) - int(compass_point.lower() in ["west","w"])
             new_longitude = adventurer.current_tile.tile_position.longitude + longitude_increment
+            latitude_increment = int(compass_point.lower() in ["north","n"]) - int(compass_point.lower() in ["south","s"])
+            new_latitude = adventurer.current_tile.tile_position.latitude + latitude_increment
             #try moving, but if this ends up with failed exploration, then remember and avoid in future
-            if not self.check_location_to_avoid(new_latitude, new_longitude):
+            if not self.check_location_to_avoid(new_longitude, new_latitude):
                 if adventurer.move(compass_point):
                     return True
                 else:
-                    self.locations_to_avoid.append([new_latitude, new_longitude])
+                    self.locations_to_avoid.append([new_longitude, new_latitude])
                     #If movement failed because the turn is over then leave here
                     if adventurer.turns_moved >= adventurer.game.turn:
                         return True
@@ -127,29 +127,29 @@ class PlayerBeginnerExplorer(Player):
             
     def move_towards_tile(self, adventurer, tile):
         '''A heuristic that moves the Adventurer in the direction that decreases the distance from a given tile, by the maximum, but if unable moves away by the minimum'''
-        print(str(adventurer.player.colour) +": trying heuristic that prefers moves towards the tile at " +str(tile.tile_position.latitude)+ ", " +str(tile.tile_position.latitude))
-        #establish directions to the tile, as preferring to decrease the distance in the greater dimension first, between longitude and latitude
-        if (abs(adventurer.current_tile.tile_position.latitude - tile.tile_position.latitude) 
-            < abs(adventurer.current_tile.tile_position.longitude - tile.tile_position.longitude)):
+        print(str(adventurer.player.colour) +": trying heuristic that prefers moves towards the tile at " +str(tile.tile_position.longitude)+ ", " +str(tile.tile_position.longitude))
+        #establish directions to the tile, as preferring to decrease the distance in the greater dimension first, between latitude and longitude
+        if (abs(adventurer.current_tile.tile_position.longitude - tile.tile_position.longitude) 
+            < abs(adventurer.current_tile.tile_position.latitude - tile.tile_position.latitude)):
             #Now establish which cardinal compass direction would be moving towards rather than away
-            if adventurer.current_tile.tile_position.longitude < tile.tile_position.longitude:
-                if adventurer.current_tile.tile_position.latitude <= tile.tile_position.latitude:
+            if adventurer.current_tile.tile_position.latitude < tile.tile_position.latitude:
+                if adventurer.current_tile.tile_position.longitude <= tile.tile_position.longitude:
                     preferred_moves = ['n', 'e', 'w']
                 else:
                     preferred_moves = ['n', 'w', 'e']
             else:
-                if adventurer.current_tile.tile_position.latitude <= tile.tile_position.latitude:
+                if adventurer.current_tile.tile_position.longitude <= tile.tile_position.longitude:
                     preferred_moves = ['s', 'e', 'w']
                 else:
                     preferred_moves = ['s', 'w', 'e']
         else:
-            if adventurer.current_tile.tile_position.latitude <= tile.tile_position.latitude:
-                if adventurer.current_tile.tile_position.longitude < tile.tile_position.longitude:
+            if adventurer.current_tile.tile_position.longitude <= tile.tile_position.longitude:
+                if adventurer.current_tile.tile_position.latitude < tile.tile_position.latitude:
                     preferred_moves = ['e', 'n', 's']
                 else:
                     preferred_moves = ['e', 's', 'n']
             else:
-                if adventurer.current_tile.tile_position.longitude < tile.tile_position.longitude:
+                if adventurer.current_tile.tile_position.latitude < tile.tile_position.latitude:
                     preferred_moves = ['w', 'n', 's']
                 else:
                     preferred_moves = ['w', 's', 'n']
@@ -159,16 +159,16 @@ class PlayerBeginnerExplorer(Player):
             if compass_point == preferred_moves[-1]:
                 print("Can't move in desired direction so risking a move away to get a favourable wind direction")
             #translate the compass point into coordinates
-            latitude_increment = int(compass_point.lower() in ["east","e"]) - int(compass_point.lower() in ["west","w"])
-            new_latitude = adventurer.current_tile.tile_position.latitude + latitude_increment
-            longitude_increment = int(compass_point.lower() in ["north","n"]) - int(compass_point.lower() in ["south","s"])
+            longitude_increment = int(compass_point.lower() in ["east","e"]) - int(compass_point.lower() in ["west","w"])
             new_longitude = adventurer.current_tile.tile_position.longitude + longitude_increment
+            latitude_increment = int(compass_point.lower() in ["north","n"]) - int(compass_point.lower() in ["south","s"])
+            new_latitude = adventurer.current_tile.tile_position.latitude + latitude_increment
             #try moving, but if this ends up with failed exploration, then remember and avoid in future
-            if not self.check_location_to_avoid(new_latitude, new_longitude):
+            if not self.check_location_to_avoid(new_longitude, new_latitude):
                 if adventurer.move(compass_point):
                     return True
                 else:
-                    self.locations_to_avoid.append([new_latitude, new_longitude])
+                    self.locations_to_avoid.append([new_longitude, new_latitude])
                     #If movement failed because the turn is over then leave here
                     if adventurer.turns_moved >= adventurer.game.turn:
                         return True
@@ -198,15 +198,15 @@ class PlayerBeginnerExplorer(Player):
         print(str(adventurer.player.colour)+ " player is moving an Adventurer, which has " 
               +str(adventurer.wealth)+ " wealth, and is on the "
               +adventurer.current_tile.tile_back+ " tile at position " 
-              +str(adventurer.current_tile.tile_position.latitude)+ "," 
-              +str(adventurer.current_tile.tile_position.longitude))
+              +str(adventurer.current_tile.tile_position.longitude)+ "," 
+              +str(adventurer.current_tile.tile_position.latitude))
         
         #reset the record of tiles already visited this turn
         self.locations_to_avoid = []
         
         while adventurer.turns_moved < adventurer.game.turn:
             #record the current tile so that it can be avoided in subsequent moves to prevent degenerate yo-yoing
-            self.locations_to_avoid.append([adventurer.current_tile.tile_position.latitude, adventurer.current_tile.tile_position.longitude])
+            self.locations_to_avoid.append([adventurer.current_tile.tile_position.longitude, adventurer.current_tile.tile_position.latitude])
             self.continue_move(adventurer)
                 
         return True
@@ -416,13 +416,13 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
         print(str(adventurer.player.colour)+ " player is moving an Adventurer, which has " 
               +str(adventurer.wealth)+ " wealth, and is on the "
               +adventurer.current_tile.tile_back+ " tile at position " 
-              +str(adventurer.current_tile.tile_position.latitude)+ "," 
-              +str(adventurer.current_tile.tile_position.longitude))
+              +str(adventurer.current_tile.tile_position.longitude)+ "," 
+              +str(adventurer.current_tile.tile_position.latitude))
         
         #update awareness of disaster tiles, to avoid them, and reset the record of tiles already visited this turn
         self.locations_to_avoid = []
         for disaster_tile in adventurer.game.disaster_tiles:
-            self.locations_to_avoid.append([disaster_tile.tile_position.latitude, disaster_tile.tile_position.longitude])
+            self.locations_to_avoid.append([disaster_tile.tile_position.longitude, disaster_tile.tile_position.latitude])
         
         #check whether already on a tile with an adventurer, and wait here in order to attack/arrest
         for other_adventurer in adventurer.current_tile.adventurers:
@@ -433,7 +433,7 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
         
         while adventurer.turns_moved < adventurer.game.turn:
             #record the current tile so that it can be avoided in subsequent moves to prevent degenerate yo-yoing
-            self.locations_to_avoid.append([adventurer.current_tile.tile_position.latitude, adventurer.current_tile.tile_position.longitude])
+            self.locations_to_avoid.append([adventurer.current_tile.tile_position.longitude, adventurer.current_tile.tile_position.latitude])
             self.continue_move(adventurer)
         return True    
         
@@ -486,7 +486,7 @@ class PlayerRegularPirate(PlayerRegularExplorer):
         #update awareness of disaster tiles, to avoid them, if not a pirate
         for disaster_tile in adventurer.game.disaster_tiles:
             if not disaster_tile in self.locations_to_avoid and not adventurer.pirate_token:
-                self.locations_to_avoid.append([disaster_tile.tile_position.latitude, disaster_tile.tile_position.longitude])
+                self.locations_to_avoid.append([disaster_tile.tile_position.longitude, disaster_tile.tile_position.latitude])
         
         #check whether already on a tile with an adventurer, and wait here in order to attack/arrest
         for other_adventurer in adventurer.current_tile.adventurers:

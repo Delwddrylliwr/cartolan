@@ -9,9 +9,9 @@ import json
 from types import SimpleNamespace
 from PodSixNet.Connection import ConnectionListener, connection
 from time import sleep
-from base import Player, CityTile, Tile, WindDirection, TileEdges
+from base import Game, Player, CityTile, Tile, WindDirection, TileEdges
 from regular import DisasterTile
-from game import GameRegular, GameAdvanced
+from game import GameBeginner, GameRegular, GameAdvanced
 from players_heuristical import PlayerRegularExplorer
         
      
@@ -23,12 +23,12 @@ class PlayAreaVisualisation:
     get_screen_width
     get_screen_height
     renew_tile_grid
-    increase_max_latitude
-    decrease_min_latitude
     increase_max_longitude
     decrease_min_longitude
-    play_area_difference takes two nested Dicts of Cartolan.Tiles indexed by longitude and latitude Ints {0:{0:Tile}}
-    draw_play_area takes two nested Dicts of Cartolan.Tiles indexed by longitude and latitude Ints {0:{0:Tile}}
+    increase_max_latitude
+    decrease_min_latitude
+    play_area_difference takes two nested Dicts of Cartolan.Tiles indexed by latitude and longitude Ints {0:{0:Tile}}
+    draw_play_area takes two nested Dicts of Cartolan.Tiles indexed by latitude and longitude Ints {0:{0:Tile}}
     draw_routes takes a List of Cartolan.Player
     draw_tokens takes a List of Cartolan.Player
     draw_move_options takes two lists of two Ints
@@ -209,26 +209,26 @@ class PlayAreaVisualisation:
         pyplot.subplots_adjust(left=self.GRID_SPEC["left"], right=self.GRID_SPEC["right"]
                               , bottom=self.GRID_SPEC["bottom"], top=self.GRID_SPEC["top"])
     
-    def increase_max_latitude(self):
+    def increase_max_longitude(self):
         '''Increases the maximum horiztonal extent of the play area by a standard increment'''
         print("Increasing the right-hand limit of tiles")
         self.dimensions[0] += self.DIMENSION_INCREMENT
         self.renew_tile_grid()
     
-    def decrease_min_latitude(self):
+    def decrease_min_longitude(self):
         '''Increases the maximum horiztonal extent of the play area by a standard increment, moving the origin right'''
         print("Increasing the left-hand limit of tiles")
         self.dimensions[0] += self.DIMENSION_INCREMENT
         self.origin[0] += self.DIMENSION_INCREMENT
         self.renew_tile_grid()
     
-    def increase_max_longitude(self):
+    def increase_max_latitude(self):
         '''Increases the maximum vertical extent of the play area by a standard increment'''
         print("Increasing the upper limit of tiles")
         self.dimensions[1] += self.DIMENSION_INCREMENT
         self.renew_tile_grid()
     
-    def decrease_min_longitude(self):
+    def decrease_min_latitude(self):
         '''Increases the maximum vertical extent of the play area by a standard increment, moving the origin up'''
         print("Increasing the lower limit of tiles")
         self.dimensions[1] += self.DIMENSION_INCREMENT
@@ -242,17 +242,17 @@ class PlayAreaVisualisation:
         Dict of Dict of Cartolan.Tiles, both indexed with Ints, giving the Tiles at different coordinates for the play area of interest
         Dict of Dict of Cartolan.Tiles, both indexed with Ints, giving the Tiles at different coordinates for the play area with tiles to disregard
         '''
-        difference = { latitude : play_area_new[latitude].copy() for latitude in set(play_area_new) - set(play_area_old) }
-        for latitude in play_area_old:
-            if latitude in play_area_new:
-                latitude_difference = { longitude : play_area_new[latitude][longitude] 
-                                                for longitude in set(play_area_new[latitude])
-                                                - set(play_area_old[latitude]) }
-                if latitude_difference:
-                    if difference.get(latitude):
-                        difference[latitude].update(latitude_difference)
+        difference = { longitude : play_area_new[longitude].copy() for longitude in set(play_area_new) - set(play_area_old) }
+        for longitude in play_area_old:
+            if longitude in play_area_new:
+                longitude_difference = { latitude : play_area_new[longitude][latitude] 
+                                                for latitude in set(play_area_new[longitude])
+                                                - set(play_area_old[longitude]) }
+                if longitude_difference:
+                    if difference.get(longitude):
+                        difference[longitude].update(longitude_difference)
                     else:
-                        difference[latitude] = latitude_difference
+                        difference[longitude] = longitude_difference
         return difference
     
     def play_area_union(self, play_area_new, play_area_old):
@@ -266,12 +266,12 @@ class PlayAreaVisualisation:
         difference = self.play_area_difference(play_area_new, play_area_old)
         #Now add all of these different entries onto the old play area
         union = {}
-        for latitude in play_area_old:
-            union[latitude] = play_area_old[latitude].copy()
-            if latitude in difference:
-                union[latitude].update(difference[latitude])
-        for latitude in set(difference) - set(play_area_old):
-            union[latitude] = difference[latitude].copy()
+        for longitude in play_area_old:
+            union[longitude] = play_area_old[longitude].copy()
+            if longitude in difference:
+                union[longitude].update(difference[longitude])
+        for longitude in set(difference) - set(play_area_old):
+            union[longitude] = difference[longitude].copy()
                 
         return union
     
@@ -287,12 +287,12 @@ class PlayAreaVisualisation:
         #Make sure duplicate tiles aren't added, by getting the difference between the play area being drawn and that already drawn
         play_area_update = self.play_area_difference(play_area_to_add, self.play_area)
                                        
-        for latitude in play_area_update:
-            if self.origin[0] + latitude in range(0, self.dimensions[0]):
-                for longitude in play_area_update[latitude]:
-                    if self.origin[1] + longitude in range(0, self.dimensions[1]):
+        for longitude in play_area_update:
+            if self.origin[0] + longitude in range(0, self.dimensions[0]):
+                for latitude in play_area_update[longitude]:
+                    if self.origin[1] + latitude in range(0, self.dimensions[1]):
                         #bring in the relevant image from the library
-                        tile = play_area_update[latitude][longitude]
+                        tile = play_area_update[longitude][latitude]
                         e = tile.tile_edges
                         if isinstance(tile, CityTile):
                             if tile.is_capital:
@@ -321,10 +321,10 @@ class PlayAreaVisualisation:
                             rotated_image = ndimage.rotate(tile_image, 0)
 
                         #place the tile image in the grid
-                        horizontal = self.origin[0] + latitude
-                        vertical = self.dimensions[1] - self.origin[1] - longitude
+                        horizontal = self.origin[0] + longitude
+                        vertical = self.dimensions[1] - self.origin[1] - latitude
 #                         print(str(vertical)+","+str(horizontal))
-#                         title_loc = str(latitude)+","+str(longitude)
+#                         title_loc = str(longitude)+","+str(latitude)
 #                         self.axarr[vertical, horizontal].imshow(rotated_image, interpolation='nearest')
                         self.axarr[vertical-1, horizontal].imshow((rotated_image * 255).astype(numpy.uint8), interpolation='nearest')
 
@@ -366,8 +366,8 @@ class PlayAreaVisualisation:
             for adventurer in player.adventurers:
                 if adventurer.route:
                     adventurer_offset = player_offset + player.adventurers.index(adventurer)*self.ADVENTURER_OFFSET
-                    previous_step = [self.origin[0] + adventurer.route[0].tile_position.latitude
-                                     , self.origin[1] + adventurer.route[0].tile_position.longitude]
+                    previous_step = [self.origin[0] + adventurer.route[0].tile_position.longitude
+                                     , self.origin[1] + adventurer.route[0].tile_position.latitude]
                     # we'll introduce a gradual offset during the course of the game, to help keep track of when a route was travelled
 #                     previous_offset = 0.25
                     previous_offset = [0.5, 0.5]
@@ -377,7 +377,7 @@ class PlayAreaVisualisation:
                         # you'll need to get the centre-point for each tile_image
 #                         offset = 0.25 + float(move)/float(len(adventurer.route))*0.5
                         offset = [0.5 + float(move)/float(len(adventurer.route))*(x - 0.5) for x in adventurer_offset]
-                        step = [self.origin[0] + tile.tile_position.latitude, self.origin[1] + tile.tile_position.longitude]
+                        step = [self.origin[0] + tile.tile_position.longitude, self.origin[1] + tile.tile_position.latitude]
     #                     self.fig.add_axes(rect=[1.0,1.0]).plot([previous_step[0]+0.5,step[0]+0.5],[previous_step[1]+0.5,step[1]+0.5]
     #                                   , color=player.colour)
 #                         routeax.plot([previous_step[0]+previous_offset,step[0]+offset],[previous_step[1]+previous_offset,step[1]+offset]
@@ -396,8 +396,8 @@ class PlayAreaVisualisation:
 #                         face_colour = player.colour
 #                     else:
 #                         face_colour = "none"
-#                     location = [self.origin[0] + tile.tile_position.latitude
-#                                 , self.origin[1] + tile.tile_position.longitude]
+#                     location = [self.origin[0] + tile.tile_position.longitude
+#                                 , self.origin[1] + tile.tile_position.latitude]
 #                     routeax.scatter([location[0]+self.AGENT_OFFSET[0]],[location[1]+self.AGENT_OFFSET[1]]
 #                                   , linewidth=1, edgecolors=player.colour, facecolor=face_colour, marker="s", s=self.token_width)
                 
@@ -409,8 +409,8 @@ class PlayAreaVisualisation:
                     else:
                         face_colour = "none"
                     tile = attack[0]
-                    location = [self.origin[0] + tile.tile_position.latitude + player_offset[0]
-                                , self.origin[1] + tile.tile_position.longitude + player_offset[1]]
+                    location = [self.origin[0] + tile.tile_position.longitude + player_offset[0]
+                                , self.origin[1] + tile.tile_position.latitude + player_offset[1]]
                     routeax.scatter([location[0]],[location[1]]
                                   , linewidth=1, edgecolors=player.colour, facecolor=face_colour, marker="X", s=self.token_width)
 
@@ -445,8 +445,8 @@ class PlayAreaVisualisation:
             for adventurer in player.adventurers:
                 # we want to draw a circle anywhere an Adventurer is
                 tile = adventurer.current_tile
-                location = [self.origin[0] + tile.tile_position.latitude
-                            , self.origin[1] + tile.tile_position.longitude]
+                location = [self.origin[0] + tile.tile_position.longitude
+                            , self.origin[1] + tile.tile_position.latitude]
                 edge_colour = player.colour
                 if type(adventurer.game) in [GameRegular, GameAdvanced]:
                     if adventurer.pirate_token:
@@ -463,8 +463,8 @@ class PlayAreaVisualisation:
             for agent in player.agents: 
                 # we want to draw a square anywhere that an agent is
                 tile = agent.current_tile
-                location = [self.origin[0] + tile.tile_position.latitude
-                            , self.origin[1] + tile.tile_position.longitude]
+                location = [self.origin[0] + tile.tile_position.longitude
+                            , self.origin[1] + tile.tile_position.latitude]
                 face_colour = player.colour
                 if type(adventurer.game) in [GameRegular, GameAdvanced]:
                     if agent.is_dispossessed:
@@ -652,7 +652,7 @@ class PlayAreaVisualisation:
         pyplot.show(block=False)
 
 
-class ClientGameVisualisation(ConnectionListener):
+class ClientGameVisualisation(ConnectionListener, Game):
     '''A pygame-based interactive visualisation serving as client to a remote game.
     
     Architecture:
@@ -677,6 +677,7 @@ class ClientGameVisualisation(ConnectionListener):
     AGENT_OFFSET = [0.5, 0.5] #the placement of agents on the tile, the same for all players and agents, because there will only be one per tile
     ADVENTURER_OFFSETS = [[0.0, 0.0], [0.1, -0.1], [-0.1, 0.1], [-0.1, -0.1], [0.1, 0.1]] #the offset to differentiate multiple adventurers on the same tile
     DIMENSION_INCREMENT = 5 #the number of tiles by which the play area is extended when methods are called
+    TILE_BORDER = 0.02 #the share of grid width/height that is used for border
     TOKEN_SCALE = 0.2 #relative to tile sizes
     TOKEN_FONT_SCALE = 0.5 #relative to tile sizes
     SCORES_POSITION = (0, 0)
@@ -702,16 +703,15 @@ class ClientGameVisualisation(ConnectionListener):
             self.tile_size = self.height // dimensions[1]
         else:
             self.tile_size = self.width // dimensions[0]
-        self.token_size = TOKEN_SCALE * tile_size #token size will be proportional to the tiles
-        self.token_font = pygame.font.SysFont(None, self.tile_size * TOKEN_FONT_SCALE) #the font size for tokens will be proportionate to the window size
-        self.scores_font = pygame.font.SysFont(None, self.height * SCORES_FONT_SCALE) #the font size for scores will be proportionate to the window size
+        self.token_size = self.TOKEN_SCALE * self.tile_size #token size will be proportional to the tiles
+        self.token_font = pygame.font.SysFont(None, self.tile_size * self.TOKEN_FONT_SCALE) #the font size for tokens will be proportionate to the window size
+        self.scores_font = pygame.font.SysFont(None, self.height * self.SCORES_FONT_SCALE) #the font size for scores will be proportionate to the window size
         #Initialise state variables
         self.clock = pygame.time.Clock()
-        self.move_timer = MOVE_TIME_LIMIT
+        self.move_timer = self.MOVE_TIME_LIMIT
         self.local_player_colours = local_player_colours
         self.highlights = {"valid_move":[], "invalid_move":[], "buy":[], "attack":[]}
         self.play_area = {}
-        #@TODO May need to iterate through the remote play area matching tiles
         self.local_player_turn = False
         self.local_win = False
         self.running = False
@@ -737,14 +737,18 @@ class ClientGameVisualisation(ConnectionListener):
             sleep(0.01)
         
     
-    def init_sound(self):
-        self.winSound = pygame.mixer.Sound('win.wav')
-        self.loseSound = pygame.mixer.Sound('lose.wav')
-        self.placeSound = pygame.mixer.Sound('place.wav')
-        # pygame.mixer.music.load("music.wav")
-        # pygame.mixer.music.play()
+#    def init_sound(self):
+#        '''Imports sounds to accompany play
+#        '''
+#        self.winSound = pygame.mixer.Sound('win.wav')
+#        self.loseSound = pygame.mixer.Sound('lose.wav')
+#        self.placeSound = pygame.mixer.Sound('place.wav')
+#        # pygame.mixer.music.load("music.wav")
+#        # pygame.mixer.music.play()
     
     def init_graphics(self):
+        '''Reads in the images for visualising play
+        '''
         # import tile images and establish a mapping
         self.tile_image_library = {}
         self.tile_image_library["water"] = mpimg.imread('./images/water.png')
@@ -779,9 +783,7 @@ class ClientGameVisualisation(ConnectionListener):
                                 filename += "t"
                             else:
                                 filename += "f"
-                            #scale the image down now, it will only be scaled down and lose more fidelity with subsequent resizing
-                            tile_image = pygame.transform.scale(mpimg.imread('./images/' +filename+ '.png')
-                                , [self.tile_width, self.tile_height])
+                            tile_image = mpimg.imread('./images/' +filename+ '.png')
                             #Rotate the image for different wind directions
                             #North East wind
                             self.tile_image_library[str(uc_water)+str(ua_water)
@@ -795,15 +797,27 @@ class ClientGameVisualisation(ConnectionListener):
                             #North West wind
                             self.tile_image_library[str(uc_water)+str(ua_water)
                                 +str(dc_water)+str(da_water)+str(wonder)+True+False] = pygame.transform.rotate(tile_image, -90)
-    
+        #rescale the tiles to match the current play area dimensions now, it will only be scaled down and lose more fidelity with subsequent resizing
+        bordered_tile_size = round(self.tile_size * (1 - self.TILE_BORDER))
+        for tile_image in self.tile_image_library:
+            tile_image = pygame.transform.scale(tile_image, [bordered_tile_size, bordered_tile_size])
+        
         # import the masks used to highlight movement options
         self.highlight_library = {}
         self.highlight_library["valid_move"] = mpimg.imread('./images/option_valid_move.png')
         self.highlight_library["invalid_move"] = mpimg.imread('./images/option_invalid_move.png')
-        self.highlight_library["buy"] = mpimg.imread('./images/option_buy.png') 
-        self.highlight_library["attack"] = mpimg.imread('./images/option_attack.png') 
+        self.highlight_library["buy"] = mpimg.imread('./images/option_buy.png')
+        self.highlight_library["attack"] = mpimg.imread('./images/option_attack.png')
+        #rescale the tiles to match the current play area dimensions now, it will only be scaled down and lose more fidelity with subsequent resizing
+        for highlight_image in self.highlight_image_library:
+            highlight_image = pygame.transform.scale(highlight_image, [self.tile_size, self.tile_size])
     
     def rescale_graphics(self, dimensions):
+        '''Rescales images in response to updated dimensions for the play grid
+        
+        Arguments:
+        dimensions should be a 2-tuple of positive integers, denoting the [horizontal, vertical] grid dimensions
+        '''
         #Update the dimensions that will be used for drawing the play area
         self.dimensions = dimensions        
         #Tiles, tokens and text will need adjusting to the new dimensions
@@ -812,38 +826,53 @@ class ClientGameVisualisation(ConnectionListener):
             self.tile_size = self.height // dimensions[1]
         else:
             self.tile_size = self.width // dimensions[0]
-        self.token_size = TOKEN_SCALE * self.tile_size #token size will be proportional to the tiles
-        self.token_font = pygame.font.SysFont(None, self.tile_size * TOKEN_FONT_SCALE) #the font size for tokens will be proportionate to the window size
-        self.scores_font = pygame.font.SysFont(None, self.height * SCORES_FONT_SCALE) #the font size for scores will be proportionate to the window size
+        self.token_size = self.TOKEN_SCALE * self.tile_size #token size will be proportional to the tiles
+        self.token_font = pygame.font.SysFont(None, self.tile_size * self.TOKEN_FONT_SCALE) #the font size for tokens will be proportionate to the window size
+        self.scores_font = pygame.font.SysFont(None, self.height * self.SCORES_FONT_SCALE) #the font size for scores will be proportionate to the window size
         #As the dimensions of the grid are changed, scale down the images rather than when placing
+        bordered_tile_size = round(self.tile_size * (1 - self.TILE_BORDER))
         for tile_image in self.tile_image_library:
-            tile_image = pygame.transform.scale(tile_image, [self.tile_width, self.tile_height])
+            tile_image = pygame.transform.scale(tile_image, [bordered_tile_size, bordered_tile_size])
         for highlight_image in self.highlight_library:
-            highlight_image = pygame.transform.scale(highlight_image, [self.tile_width, self.tile_height])
+            highlight_image = pygame.transform.scale(highlight_image, [self.tile_size, self.tile_size])
     
     #Now for a set of methods that will use PodSixNet to respond to messages from the server to progress the game
     def Network_start_game(self, data):
+        '''Initiates network game based on data following an {"action":"start_game"} message from the server
+        '''
         self.running = True #keep track of active games
         self.game_id = data["game_id"] #allow game state to be synched between server and client
         self.game_type = data["game_type"] #needed to identify the class of other elements like Adventurers and Agents
-#       # Parse JSON into an object with attributes corresponding to dict keys.
-#        = json.loads(data["players"], object_hook=lambda d: SimpleNamespace(**d))
-        #Rather than convert the JSON to an object, with broken references to other objects
-        players_data = data["players"]
-        for player_data in range(len(players_data)):
-            player = Player(player_data["colour"])
+        #place the initial tiles and identify the Capital for player placement
+        #@TODO genericise this to allow multiple starting cities or be robust to city coordinates not being 0, 0
+        initial_tiles = data["initial_tiles"]
+        for tile_json in initial_tiles:
+            self.Network_place_tile(tile_json)
+        starting_city = self.play_area[0][0]
+        #player data could alternatively be structured as a dict, for better data integrity
+        player_colours = data["player_colours"] #expects a list of colours for players in the order of play
+        player_is_locals = data["player_is_locals"] #expects a list of Booleans giving the status of whether each player is local to this GUI 
+        player_adventurers = data["player_adventurers"] #expects a list of ints giving the number of initial Adventurers for each player
+        if not (len(player_colours) == len(player_is_locals)
+            and len(player_colours) == len(player_adventurers)):
+            raise Exception("Player attributes from Host have different lengths")
+        for player_num in range(len(player_colours)):
+            player = PlayerClient(player_colours[player_num], player_is_locals[player_num])
             self.players.append(player)
-            for adventurer_data in player_data["adventurers"]:
-                aventurer = component_types[game_type]["adventurer"]()
-                player.adventurers.append()
+            num_adventurers = range(player_adventurers[player_num])
+            for adventurer_num in range(num_adventurers):
+                adventurer = self.game_type.ADVENTURER_TYPE(self, player, starting_city)
+                player.adventurers.append(adventurer)
             
          
     
     def Network_close(self, data):
+        '''Allows remote closing of game through an {"action":"close"} message from the server
+        '''
         exit()
     
     def Network_local_turn(self, data):
-        '''Switches to local based on data following an {"action":"move_token"} from the server
+        '''Switches to local game control based on data following an {"action":"move_token"} message from the server
         '''
         self.local_player_turn = data["local_player_turn"]
         self.current_player_colour = data["current_player_colour"]
@@ -855,8 +884,8 @@ class ClientGameVisualisation(ConnectionListener):
         '''
         self.placeSound.play()
         #read location to place at
-        latitude = data["latitude"]
         longitude = data["longitude"]
+        latitude = data["latitude"]
         #read tile characteristics to visualise
         tile_data = data["tile"]
         is_wonder = tile_data["is_wonder"]
@@ -866,15 +895,15 @@ class ClientGameVisualisation(ConnectionListener):
         wind_direction_data = tile_data["wind_direction"]
         wind_direction = WindDirection(wind_direction_data["north"], wind_direction_data["east"])
         #Place the tile in the play area
-        self.play_area[latitude][longitude] = Tile(None, tile_back, wind_direction, tile_edges, is_wonder)
+        self.play_area[longitude][latitude] = Tile(None, tile_back, wind_direction, tile_edges, is_wonder)
         
     def Network_move_token(self, data):
         '''Moves an Adventurer or Agent based on data following an {"action":"move_token"} message from the server
         '''
         self.placeSound.play()
         #read location to move to
-        latitude = data["latitude"]
         longitude = data["longitude"]
+        latitude = data["latitude"]
         #identify token to move
         player_colour = data["player_colour"]
         token_is_adventurer = data["token_is_adventurer"]
@@ -890,27 +919,21 @@ class ClientGameVisualisation(ConnectionListener):
         else:
             token = player.agents[token_num]
         #Check that the tile exists before moving the token there
-        if self.game.play_area.get(latitude):
-            tile = self.game.play_area.get(latitude).get(longitude)
+        if self.game.play_area.get(longitude):
+            tile = self.game.play_area.get(longitude).get(latitude)
             if tile:
                 tile.move_onto_tile(token)
 #        else:
             #@TODO returna  message to the server complaining that it wasn't a valid tile provided
         
-    def Network_win(self, data):
+    def Network_end_game(self, data):
+        '''Notifies player who won the game based on data following an {"action":"end_game"} message from the server
+        '''
         #add one point to my score
         self.winSound.play()
         self.me+=1
-    
-    def Network_lose(self, data):
-        self.owner[data["x"]][data["y"]]="lose"
-        self.boardh[data["y"]][data["x"]]=True
-        self.boardv[data["y"]][data["x"]]=True
-        self.boardh[data["y"]+1][data["x"]]=True
-        self.boardv[data["y"]][data["x"]+1]=True
-        #add one to other players score
-        self.loseSound.play()
-        self.otherplayer+=1
+        #@TODO prompt a mouse click to quit
+        exit()
     
     def draw_play_area(self):
         '''Renders the tiles that have been laid in a particular game of Cartolan - Trade Winds
@@ -919,12 +942,12 @@ class ClientGameVisualisation(ConnectionListener):
         # play_area_update = self.play_area_difference(play_area_to_add, self.play_area)
         play_area_update = self.play_area
         #For each location in the play area draw the tile, rotating as needed
-        for latitude in play_area_update:
-            if self.origin[0] + latitude in range(0, self.dimensions[0]):
-                for longitude in play_area_update[latitude]:
-                    if self.origin[1] + longitude in range(0, self.dimensions[1]):
+        for longitude in play_area_update:
+            if self.origin[0] + longitude in range(0, self.dimensions[0]):
+                for latitude in play_area_update[longitude]:
+                    if self.origin[1] + latitude in range(0, self.dimensions[1]):
                         #bring in the relevant image from the library
-                        tile = play_area_update[latitude][longitude]
+                        tile = play_area_update[longitude][latitude]
                         e = tile.tile_edges
                         if isinstance(tile, CityTile):
                             if tile.is_capital:
@@ -944,9 +967,9 @@ class ClientGameVisualisation(ConnectionListener):
                                                                  +str(e.downwind_clock_water)+str(e.downwind_anti_water)
                                                                  +str(wonder)+str(north)+str(east)]
                         #place the rescaled tile image in the grid
-                        horizontal = self.origin[0] + latitude
-                        vertical = self.dimensions[1] - self.origin[1] - longitude
-                        self.window.blit(tile_image, [latitude*self.tile_width, longitude*self.tile_height])
+                        horizontal = self.origin[0] + longitude
+                        vertical = self.dimensions[1] - self.origin[1] - latitude
+                        self.window.blit(tile_image, [longitude*self.tile_width, latitude*self.tile_height])
         # # Keep track of what the latest play_area to have been visualised was
         # self.play_area = self.play_area_union(self.play_area, play_area_update)
         return True
@@ -976,8 +999,8 @@ class ClientGameVisualisation(ConnectionListener):
             for adventurer in player.adventurers:
                 # we want to draw a circle anywhere an Adventurer is, differentiating with offsets
                 tile = adventurer.current_tile
-                location = [self.origin[0] + tile.tile_position.latitude
-                            , self.origin[1] + tile.tile_position.longitude]
+                location = [self.origin[0] + tile.tile_position.longitude
+                            , self.origin[1] + tile.tile_position.latitude]
                 adventurer_offset = player_offset + self.ADVENTURER_OFFSETS[adventurers.index(adventurer)]
                 # we want it to be coloured differently for each player
                 # draw the filled circle 
@@ -992,8 +1015,8 @@ class ClientGameVisualisation(ConnectionListener):
             for agent in player.agents: 
                 # we want to draw a square anywhere that an agent is
                 tile = agent.current_tile
-                location = [self.origin[0] + tile.tile_position.latitude
-                            , self.origin[1] + tile.tile_position.longitude]
+                location = [self.origin[0] + tile.tile_position.longitude
+                            , self.origin[1] + tile.tile_position.latitude]
                 #Agents will be differentiated by colour, but they will always have the same position because there will only be one per tile
                 colour = player.colour
                 agent_shape = pygame.Rect(location[0]*self.tile_width + self.AGENT_OFFSET[0]

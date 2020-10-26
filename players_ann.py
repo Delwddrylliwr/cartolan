@@ -142,8 +142,8 @@ class PlayerFeedFwd(Player):
             # Overwrite zero with Chest wealth once adventurers have been brought into the game
             state_own_adventurers_wealth[own_adventurers.index(own_adventurer)] = own_adventurer.wealth
             # Overwrite zeroes with coordinates once adventurers have been brought into the game
-            state_own_adventurers_positions[2 * own_adventurers.index(own_adventurer)] = own_adventurer.current_tile.tile_position.latitude
-            state_own_adventurers_positions[2 * own_adventurers.index(own_adventurer) + 1] = own_adventurer.current_tile.tile_position.longitude
+            state_own_adventurers_positions[2 * own_adventurers.index(own_adventurer)] = own_adventurer.current_tile.tile_position.longitude
+            state_own_adventurers_positions[2 * own_adventurers.index(own_adventurer) + 1] = own_adventurer.current_tile.tile_position.latitude
         
         #Compile a list of own agents' wealth
         state_own_agents_wealth = [0] * game.MAX_AGENTS # Start out with a vector of zeroes, even if there isn't an Adventurer to represent: for the AI they will appear to hold no wealth until they exist
@@ -153,8 +153,8 @@ class PlayerFeedFwd(Player):
             # Overwrite zero with Chest wealth once adventurers have been brought into the game
             state_own_agents_wealth[own_agents.index(own_agent)] = own_agent.wealth
             # Overwrite zeroes with coordinates once adventurers have been brought into the game
-            state_own_agents_positions[2 * own_agents.index(own_agents)] = own_agent.current_tile.tile_position.latitude
-            state_own_agents_positions[2 * own_agents.index(own_agents) + 1] = own_agent.current_tile.tile_position.longitude
+            state_own_agents_positions[2 * own_agents.index(own_agents)] = own_agent.current_tile.tile_position.longitude
+            state_own_agents_positions[2 * own_agents.index(own_agents) + 1] = own_agent.current_tile.tile_position.latitude
         
         #Compile a list of opponents' Vault wealths, listing opponents in the order they will play after this turn, to ease comparison for the AI (given that turn order doesn't seem to be a strong determinant of game position)
         # we're assuming that the AI can safely treat games with fewer opponents the same as with wealthless opponents (although behaviour can still respond to adventurer wealth) 
@@ -185,16 +185,16 @@ class PlayerFeedFwd(Player):
                     opp_adventurer_index = opp_adventurers.index(opp_adventurer)
                     state_opp_adventurers_wealths[3 * opponent_index + opp_adventurer_index] = opp_adventurer.wealth
                     state_opp_adventurers_pirates[3 * opponent_index + opp_adventurer_index] = opp_adventurer.pirate_token
-                    state_opp_adventurers_positions[2 * 3 * opponent_index + opp_adventurer_index] = opp_adventurer.current_tile.tile_position.latitude
-                    state_opp_adventurers_positions[2 * 3 * opponent_index + opp_adventurer_index + 1] = opp_adventurer.current_tile.tile_position.longitude
+                    state_opp_adventurers_positions[2 * 3 * opponent_index + opp_adventurer_index] = opp_adventurer.current_tile.tile_position.longitude
+                    state_opp_adventurers_positions[2 * 3 * opponent_index + opp_adventurer_index + 1] = opp_adventurer.current_tile.tile_position.latitude
                 # Overwrite zeroes with wealth scores, dispossessed statuses, and positions once Agents have been brought into the game, starting with players later than the AI in play order
                 opp_agents = players[later_opponent_index].agents
                 for opp_agent in opp_agents:
                     opp_agent_index = opp_agents.index(opp_agent)
                     state_opp_agents_wealths[3 * opponent_index + opp_agent_index] = opp_agent.wealth
                     state_opp_agents_dispossessed[3 * opponent_index + opp_agent_index] = opp_agent.is_dispossessed
-                    state_opp_agents_positions[2 * 3 * opponent_index + opp_agent_index] = opp_agent.current_tile.tile_position.latitude
-                    state_opp_agents_positions[2 * 3 * opponent_index + opp_agent_index + 1] = opp_agent.current_tile.tile_position.longitude
+                    state_opp_agents_positions[2 * 3 * opponent_index + opp_agent_index] = opp_agent.current_tile.tile_position.longitude
+                    state_opp_agents_positions[2 * 3 * opponent_index + opp_agent_index + 1] = opp_agent.current_tile.tile_position.latitude
                 opponent_index += 1
         for earlier_opponent_index in range(0, own_index):
             # Overwrite zeroes with wealth scores, now for opponents earlier in the play order - that is, playing less immediately after the AI
@@ -206,15 +206,15 @@ class PlayerFeedFwd(Player):
                 opp_adventurer_index = opp_adventurers.index(opp_adventurer)
                 state_opp_adventurers_wealths[3 * opponent_index + opp_adventurer_index] = opp_adventurer.wealth
                 state_opp_adventurers_pirates[3 * opponent_index + opp_adventurer_index] = opp_adventurer.pirate_token
-                state_opp_adventurers_positions[2 * 3 * opponent_index + opp_adventurer_index] = opp_adventurer.current_tile.tile_position.latitude
-                state_opp_adventurers_positions[2 * 3 * opponent_index + opp_adventurer_index + 1] = opp_adventurer.current_tile.tile_position.longitude
+                state_opp_adventurers_positions[2 * 3 * opponent_index + opp_adventurer_index] = opp_adventurer.current_tile.tile_position.longitude
+                state_opp_adventurers_positions[2 * 3 * opponent_index + opp_adventurer_index + 1] = opp_adventurer.current_tile.tile_position.latitude
             # Overwrite zeroes with wealth scores, dispossessed statuses, and positions once Agents have been brought into the game, now for players earlier than the AI in play order
             opp_agents = players[later_opponent_index].agents
             for opp_agent in opp_agents:
                 opp_agent_index = opp_agents.index(opp_agent)
                 state_opp_agents_wealths[3 * opponent_index + opp_agent_index] = opp_agent.wealth
-                state_opp_agents_dispossessed[3 * opponent_index + opp_agent_index] = opp_agent.is_nt_tile.tile_position.latitude
-                state_opp_agents_positions[2 * 3 * opponent_index + opp_agent_index + 1] = opp_agent.current_tile.tile_position.longitude
+                state_opp_agents_dispossessed[3 * opponent_index + opp_agent_index] = opp_agent.is_nt_tile.tile_position.longitude
+                state_opp_agents_positions[2 * 3 * opponent_index + opp_agent_index + 1] = opp_agent.current_tile.tile_position.latitude
             opponent_index += 1       
         
         

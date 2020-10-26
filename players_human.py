@@ -25,7 +25,7 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
 #         pyplot.show(block=False)
         if not move_click:
             print(self.colour+" player failed to choose a move, so it is assumed the Adventurer will wait in place")
-            move_coords = [adventurer.current_tile.tile_position.latitude, adventurer.current_tile.tile_position.longitude]
+            move_coords = [adventurer.current_tile.tile_position.longitude, adventurer.current_tile.tile_position.latitude]
         else:
             move_coords = [int(move_click[0][0]) - self.play_area_vis.origin[0], int(move_click[0][1]) - self.play_area_vis.origin[1]]
 #                 move_coords = [int(move_click[0][0] * play_area_vis.dimensions[0]) - play_area_vis.origin[0]
@@ -40,11 +40,11 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
         Arguments
         adventurer takes a Cartolan.Adventurer
         '''
-        valid_moves = [[adventurer.current_tile.tile_position.latitude
-                        , adventurer.current_tile.tile_position.longitude]]
+        valid_moves = [[adventurer.current_tile.tile_position.longitude
+                        , adventurer.current_tile.tile_position.latitude]]
         chance_moves = []
         invalid_moves = []
-        move_map = {adventurer.current_tile.tile_position.latitude:{adventurer.current_tile.tile_position.longitude:'wait'}}
+        move_map = {adventurer.current_tile.tile_position.longitude:{adventurer.current_tile.tile_position.latitude:'wait'}}
         
         #prompt the player to choose a tile to move on to
         print("Prompting the "+self.colour+" player for input")
@@ -56,22 +56,22 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
         #highlight the tiles that can be reached this move
         for compass_point in ['n', 'e', 's', 'w']:
             #locate the space in the play area that the Adventurer is moving into
-            latitude_increment = int(compass_point.lower() in ["east","e"]) - int(compass_point.lower() in ["west","w"])
-            potential_latitude = adventurer.current_tile.tile_position.latitude + latitude_increment
-            longitude_increment = int(compass_point.lower() in ["north","n"]) - int(compass_point.lower() in ["south","s"])
+            longitude_increment = int(compass_point.lower() in ["east","e"]) - int(compass_point.lower() in ["west","w"])
             potential_longitude = adventurer.current_tile.tile_position.longitude + longitude_increment
+            latitude_increment = int(compass_point.lower() in ["north","n"]) - int(compass_point.lower() in ["south","s"])
+            potential_latitude = adventurer.current_tile.tile_position.latitude + latitude_increment
             can_move = adventurer.can_move(compass_point)
             if can_move:
-                valid_moves.append([potential_latitude, potential_longitude])
+                valid_moves.append([potential_longitude, potential_latitude])
             elif can_move is None:
-                chance_moves.append([potential_latitude, potential_longitude])
+                chance_moves.append([potential_longitude, potential_latitude])
             else:
-                invalid_moves.append([potential_latitude, potential_longitude])
+                invalid_moves.append([potential_longitude, potential_latitude])
             #keep track of what compass point these coordinates correspond to
-            if move_map.get(potential_latitude):
-                move_map[potential_latitude][potential_longitude] = compass_point
+            if move_map.get(potential_longitude):
+                move_map[potential_longitude][potential_latitude] = compass_point
             else:
-                move_map[potential_latitude] = {potential_longitude:compass_point}
+                move_map[potential_longitude] = {potential_latitude:compass_point}
         
         #highlight the tiles
         print("Highlighting the available moves for the "+self.colour+" player's Adventurer #"+str(self.adventurers.index(adventurer)+1))
@@ -101,21 +101,21 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
 #         self.play_area_vis.give_prompt("Click to reveal available moves")
         #if the tile that has just been reached is at the edge of the visualised area, then grow this
         current_tile_position = adventurer.current_tile.tile_position
-        if current_tile_position.latitude + 1 >= self.play_area_vis.dimensions[0] - self.play_area_vis.origin[0]:
-            self.play_area_vis.give_prompt("Expanding visible play area, please wait.")
-            self.play_area_vis.increase_max_latitude()
-            self.play_area_vis.draw_play_area(adventurer.game.play_area)
-        elif current_tile_position.latitude <= - self.play_area_vis.origin[0]:
-            self.play_area_vis.give_prompt("Expanding visible play area, please wait.")
-            self.play_area_vis.decrease_min_latitude()
-            self.play_area_vis.draw_play_area(adventurer.game.play_area)
-        elif current_tile_position.longitude + 1 >= self.play_area_vis.dimensions[1] - self.play_area_vis.origin[1]:
+        if current_tile_position.longitude + 1 >= self.play_area_vis.dimensions[0] - self.play_area_vis.origin[0]:
             self.play_area_vis.give_prompt("Expanding visible play area, please wait.")
             self.play_area_vis.increase_max_longitude()
             self.play_area_vis.draw_play_area(adventurer.game.play_area)
-        elif current_tile_position.longitude <= - self.play_area_vis.origin[1]:
+        elif current_tile_position.longitude <= - self.play_area_vis.origin[0]:
             self.play_area_vis.give_prompt("Expanding visible play area, please wait.")
-            self.play_area_vis.decrease_min_longitude() 
+            self.play_area_vis.decrease_min_longitude()
+            self.play_area_vis.draw_play_area(adventurer.game.play_area)
+        elif current_tile_position.latitude + 1 >= self.play_area_vis.dimensions[1] - self.play_area_vis.origin[1]:
+            self.play_area_vis.give_prompt("Expanding visible play area, please wait.")
+            self.play_area_vis.increase_max_latitude()
+            self.play_area_vis.draw_play_area(adventurer.game.play_area)
+        elif current_tile_position.latitude <= - self.play_area_vis.origin[1]:
+            self.play_area_vis.give_prompt("Expanding visible play area, please wait.")
+            self.play_area_vis.decrease_min_latitude() 
             self.play_area_vis.draw_play_area(adventurer.game.play_area)
         else: #add in the tiles that have not been visualised so far, which should only ever be the current tile of the adventurer    
             self.play_area_vis.draw_play_area(adventurer.game.play_area)
@@ -183,8 +183,8 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
         if agent.player == self:
             return True
         else:
-            buy_coords = [[adventurer.current_tile.tile_position.latitude
-                        , adventurer.current_tile.tile_position.longitude]]
+            buy_coords = [[adventurer.current_tile.tile_position.longitude
+                        , adventurer.current_tile.tile_position.latitude]]
 
             #make sure that tiles and token positions are up to date
             self.play_area_vis.draw_tokens(adventurer.game.players)
@@ -224,8 +224,8 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
     def check_buy_adventurer(self, adventurer, report="Player is being asked whether to buy an Adventurer"):
         print(report)
         if self.vault_wealth >= adventurer.game.COST_ADVENTURER:
-            buy_coords = [[adventurer.current_tile.tile_position.latitude
-                        , adventurer.current_tile.tile_position.longitude]]
+            buy_coords = [[adventurer.current_tile.tile_position.longitude
+                        , adventurer.current_tile.tile_position.latitude]]
 
             #make sure that tiles and token positions are up to date
             self.play_area_vis.draw_tokens(adventurer.game.players)
@@ -261,12 +261,12 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
     # Let the player choose whether to place an agent when offered
     def check_place_agent(self, adventurer):
         if adventurer.wealth >= adventurer.game.COST_AGENT_EXPLORING:
-            buy_coords = [[adventurer.current_tile.tile_position.latitude
-                        , adventurer.current_tile.tile_position.longitude]]
+            buy_coords = [[adventurer.current_tile.tile_position.longitude
+                        , adventurer.current_tile.tile_position.latitude]]
 
             #make sure that tiles and token positions are up to date
             # current_tile_position = adventurer.current_tile.tile_position
-            # new_play_area = {current_tile_position.latitude:{current_tile_position.longitude:adventurer.current_tile}}
+            # new_play_area = {current_tile_position.longitude:{current_tile_position.latitude:adventurer.current_tile}}
 #             self.play_area_vis.draw_play_area(adventurer.game.play_area, new_play_area)
             self.play_area_vis.draw_play_area(adventurer.game.play_area)
             self.play_area_vis.draw_tokens(adventurer.game.players)
@@ -306,23 +306,23 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
             #Establish a list of all tiles without an active Agent, to offer the player
             buy_coords = []
             play_area = adventurer.game.play_area
-            for latitude in play_area:
-                for longitude in play_area[latitude]:
-                    #Check that this lat and longitude are outside any city's domain
+            for longitude in play_area:
+                for latitude in play_area[longitude]:
+                    #Check that this lat and latitude are outside any city's domain
                     outside_city_domains = True
                     for city_tile in adventurer.game.cities:
-                        city_latitude = city_tile.tile_position.latitude
                         city_longitude = city_tile.tile_position.longitude
-                        if abs(latitude - city_latitude)+abs(longitude - city_longitude) <= adventurer.game.CITY_DOMAIN_RADIUS:
+                        city_latitude = city_tile.tile_position.latitude
+                        if abs(longitude - city_longitude)+abs(latitude - city_latitude) <= adventurer.game.CITY_DOMAIN_RADIUS:
                             outside_city_domains = False
                     #If outside all cities' domains then this is a valid location to place an agent
                     if outside_city_domains:
-                        tile = play_area[latitude][longitude] 
+                        tile = play_area[longitude][latitude] 
                         if tile.agent is None:
-                            buy_coords.append([tile.tile_position.latitude, tile.tile_position.longitude])
+                            buy_coords.append([tile.tile_position.longitude, tile.tile_position.latitude])
                         elif isinstance(adventurer.game, GameRegular):
                             if tile.agent.is_dispossessed:
-                                buy_coords.append([tile.tile_position.latitude, tile.tile_position.longitude])
+                                buy_coords.append([tile.tile_position.longitude, tile.tile_position.latitude])
             
             #make sure that tiles and token positions are up to date
             self.play_area_vis.draw_tokens(adventurer.game.players)
@@ -357,7 +357,7 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
     def check_move_agent(self, adventurer):     
         agent_coords = []
         for agent in self.agents:
-            agent_coords.append([agent.current_tile.tile_position.latitude, agent.current_tile.tile_position.longitude])
+            agent_coords.append([agent.current_tile.tile_position.longitude, agent.current_tile.tile_position.latitude])
 
         #make sure that tiles and token positions are up to date
         self.play_area_vis.draw_tokens(adventurer.game.players)
@@ -389,8 +389,8 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
     #Give the player the choice to attack
     #@TODO highlight specific tokens to attack
     def check_attack_adventurer(self, adventurer, other_adventurer):
-        attack_coords = [[adventurer.current_tile.tile_position.latitude
-                    , adventurer.current_tile.tile_position.longitude]]
+        attack_coords = [[adventurer.current_tile.tile_position.longitude
+                    , adventurer.current_tile.tile_position.latitude]]
 
         #make sure that tiles and token positions are up to date
         self.play_area_vis.draw_tokens(adventurer.game.players)
@@ -423,8 +423,8 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
         return attack
     
     def check_attack_agent(self, adventurer, agent):
-        attack_coords = [[adventurer.current_tile.tile_position.latitude
-                        , adventurer.current_tile.tile_position.longitude]]
+        attack_coords = [[adventurer.current_tile.tile_position.longitude
+                        , adventurer.current_tile.tile_position.latitude]]
 
         #make sure that tiles and token positions are up to date
         self.play_area_vis.draw_tokens(adventurer.game.players)

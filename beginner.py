@@ -72,8 +72,8 @@ class AdventurerBeginner(Adventurer):
         
         # check whether move is possible over the edge
         print("Adventurer is checking whether movement is possible over the " +compass_point
-              + " edge from their tile at " +str(self.current_tile.tile_position.latitude)+ "," 
-              + str(self.current_tile.tile_position.longitude))
+              + " edge from their tile at " +str(self.current_tile.tile_position.longitude)+ "," 
+              + str(self.current_tile.tile_position.latitude))
         if self.game.movement_rules == "initial": #this version 1 of movement allows land and upwind movement only initially after resting
             moves_since_rest = self.land_moves + self.downwind_moves + self.upwind_moves
             print("Adventurer has determined that they have moved " +str(moves_since_rest)+ " times since resting")
@@ -104,14 +104,14 @@ class AdventurerBeginner(Adventurer):
         else: raise Exception("Invalid movement rules specified")
         
     
-    def exploration_needed(self, latitude, longitude):
+    def exploration_needed(self, longitude, latitude):
         '''check whether there is a tile already in a given space, or if exploration is needed
         
         key arguments:
-        int latitude
         int longitude
+        int latitude
         '''
-        return self.game.play_area.get(latitude) is None or self.game.play_area.get(latitude).get(longitude) is None
+        return self.game.play_area.get(longitude) is None or self.game.play_area.get(longitude).get(latitude) is None
         
     def choose_pile(self, compass_point):
         ''' establish which pile to draw from - always the water tile in beginner mode'''
@@ -190,21 +190,21 @@ class AdventurerBeginner(Adventurer):
                 self.upwind_moves += 1
             
             #locate the space in the play area that the Adventurer is moving into
-            latitude_increment = int(compass_point.lower() in ["east","e"]) - int(compass_point.lower() in ["west","w"])
-            new_latitude = self.current_tile.tile_position.latitude + latitude_increment
-            longitude_increment = int(compass_point.lower() in ["north","n"]) - int(compass_point.lower() in ["south","s"])
+            longitude_increment = int(compass_point.lower() in ["east","e"]) - int(compass_point.lower() in ["west","w"])
             new_longitude = self.current_tile.tile_position.longitude + longitude_increment
+            latitude_increment = int(compass_point.lower() in ["north","n"]) - int(compass_point.lower() in ["south","s"])
+            new_latitude = self.current_tile.tile_position.latitude + latitude_increment
 
             #is this an existing tile or is exploration needed?
-            if self.exploration_needed(new_latitude, new_longitude):
+            if self.exploration_needed(new_longitude, new_latitude):
                 # establish which pile to draw from - always the water tile in beginner mode
                 tile_pile = self.choose_pile(compass_point)
                 discard_pile = self.choose_discard_pile(compass_point)
                 
-                if self.explore(tile_pile, discard_pile, new_latitude, new_longitude, compass_point):
+                if self.explore(tile_pile, discard_pile, new_longitude, new_latitude, compass_point):
                     #place the Adventurer on the newly placed Tile
                     self.current_tile.move_off_tile(self)
-                    self.current_tile = self.game.play_area.get(new_latitude).get(new_longitude)
+                    self.current_tile = self.game.play_area.get(new_longitude).get(new_latitude)
                     self.current_tile.move_onto_tile(self)
                     
                     # if this is a Wonder then discovery should be automatic
@@ -220,7 +220,7 @@ class AdventurerBeginner(Adventurer):
             else:
                 #place the Adventurer on the next existing Tile
                 self.current_tile.move_off_tile(self)
-                self.current_tile = self.game.play_area.get(new_latitude).get(new_longitude)
+                self.current_tile = self.game.play_area.get(new_longitude).get(new_latitude)
                 self.current_tile.move_onto_tile(self)
                 #carry out any actions that are possible given this tile or tokens on it
                 self.interact_tile()                
@@ -263,24 +263,24 @@ class AdventurerBeginner(Adventurer):
         
         return True
     
-    def get_adjoining_edges(self, latitude, longitude):
+    def get_adjoining_edges(self, longitude, latitude):
         '''for a given set of coordinates, gets the adjoining edges from the neighbouring tiles, if any'''
         adjoining_edges_water = {"n":None, "e":None, "s":None, "w":None}
-        for latitude_increment in [- 1, 1]:
-            if not self.game.play_area.get(latitude + latitude_increment) is None:
-                neighbour_tile = self.game.play_area.get(latitude + latitude_increment).get(longitude)
+        for longitude_increment in [- 1, 1]:
+            if not self.game.play_area.get(longitude + longitude_increment) is None:
+                neighbour_tile = self.game.play_area.get(longitude + longitude_increment).get(latitude)
                 if not neighbour_tile is None:
-                    #for the tile -1 latitude it will be the eastern edge that is relevant
-                    if latitude_increment == -1:
+                    #for the tile -1 longitude it will be the eastern edge that is relevant
+                    if longitude_increment == -1:
                         adjoining_edges_water["w"] = neighbour_tile.compass_edge_water("east")
                     else:
                         adjoining_edges_water["e"] = neighbour_tile.compass_edge_water("west")
-        for longitude_increment in [- 1, 1]:
-            if not self.game.play_area.get(latitude) is None:
-                neighbour_tile = self.game.play_area.get(latitude).get(longitude + longitude_increment)
+        for latitude_increment in [- 1, 1]:
+            if not self.game.play_area.get(longitude) is None:
+                neighbour_tile = self.game.play_area.get(longitude).get(latitude + latitude_increment)
                 if not neighbour_tile is None:
-                    #for the tile -1 longitude it will be the northern edge that is relevant
-                    if longitude_increment == -1:
+                    #for the tile -1 latitude it will be the northern edge that is relevant
+                    if latitude_increment == -1:
                         adjoining_edges_water["s"] = neighbour_tile.compass_edge_water("north")
                     else:
                         adjoining_edges_water["n"] = neighbour_tile.compass_edge_water("south")
@@ -311,20 +311,20 @@ class AdventurerBeginner(Adventurer):
         return exploration_value
         
     
-    def explore(self, tile_pile, discard_pile, latitude, longitude, compass_point_moving):        
+    def explore(self, tile_pile, discard_pile, longitude, latitude, compass_point_moving):        
         '''Randomly tries and suitably places a Tile where an Adventurer moves into a space with no Tile
         
         key arguments:
         TilePile the tile of piles that should be drawn from given the edge that is being moved over.
         TilePile the corresponding discard pile for unsuitable tiles
-        int the latitude of the space to explore
         int the longitude of the space to explore
+        int the latitude of the space to explore
         String giving the word or letter for cardinal compass direction from which the Adventurer is moving
         '''
-        print("Exploring to the " +compass_point_moving+ " into the slot at " +str(latitude)+ "," +str(longitude)+ " which has edges...")
+        print("Exploring to the " +compass_point_moving+ " into the slot at " +str(longitude)+ "," +str(latitude)+ " which has edges...")
         
         #establish what edges adjoin the given space
-        adjoining_edges_water = self.get_adjoining_edges(latitude, longitude)
+        adjoining_edges_water = self.get_adjoining_edges(longitude, latitude)
         
         # take multiple attempts at drawing a suitable tile from the pile
         for attempt in range(0, self.max_exploration_attempts):
@@ -396,7 +396,7 @@ class AdventurerBeginner(Adventurer):
 
                 if edge_matches:
                     # place tile and feed back to calling function that tile has been placed
-                    potential_tile.place_tile(latitude, longitude)
+                    potential_tile.place_tile(longitude, latitude)
                     # if this filled a gap in the map then award the Adventurer accordingly 
                     self.wealth += self.get_exploration_value(adjoining_edges_water, compass_point_moving)
                     return True
@@ -428,10 +428,10 @@ class AdventurerBeginner(Adventurer):
         '''
         #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm, and just trade instead if so
         for city_tile in self.game.cities:
-            city_latitude = city_tile.tile_position.latitude
             city_longitude = city_tile.tile_position.longitude
-            if (abs(tile.tile_position.latitude - city_latitude) 
-                + abs(tile.tile_position.longitude - city_longitude) <= self.game.CITY_DOMAIN_RADIUS):
+            city_latitude = city_tile.tile_position.latitude
+            if (abs(tile.tile_position.longitude - city_longitude) 
+                + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
                 self.trade(tile)
                 return False
         
@@ -465,7 +465,7 @@ class AdventurerBeginner(Adventurer):
         
         # collect appropriate wealth into Chest
         print("Adventurer is trading on tile " 
-                  +str(tile.tile_position.latitude)+ "," +str(tile.tile_position.longitude))
+                  +str(tile.tile_position.longitude)+ "," +str(tile.tile_position.latitude))
         self.wealth += self.game.VALUE_TRADE
         
         # keep track of visiting this Wonder
@@ -488,10 +488,10 @@ class AdventurerBeginner(Adventurer):
         tile = self.current_tile
         #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm
         for city_tile in self.game.cities:
-            city_latitude = city_tile.tile_position.latitude
             city_longitude = city_tile.tile_position.longitude
-            if (abs(tile.tile_position.latitude - city_latitude) 
-                + abs(tile.tile_position.longitude - city_longitude) <= self.game.CITY_DOMAIN_RADIUS):
+            city_latitude = city_tile.tile_position.latitude
+            if (abs(tile.tile_position.longitude - city_longitude) 
+                + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
                 return False
         
         #check that the adventurer has requisite wealth in their Chest
@@ -554,7 +554,7 @@ class AdventurerBeginner(Adventurer):
         # use the agent if there is enough Chest wealth to
         if tile.agent.player == self.player or self.wealth >= self.game.COST_AGENT_REST:
             print("Adventurer is resting with the agent on tile " 
-                  +str(tile.tile_position.latitude)+ "," +str(tile.tile_position.longitude))
+                  +str(tile.tile_position.longitude)+ "," +str(tile.tile_position.latitude))
             tile.agent.give_rest(self)
             return True
         else:
@@ -589,7 +589,7 @@ class AdventurerBeginner(Adventurer):
             if tile.agent.player == self.player:
                 #transfer wealth
                 print("Adventurer is collecting " +str(agent.wealth)+ " wealth from the agent on tile "
-                     +str(agent.current_tile.tile_position.latitude)+","+str(agent.current_tile.tile_position.longitude))
+                     +str(agent.current_tile.tile_position.longitude)+","+str(agent.current_tile.tile_position.latitude))
                 self.wealth += agent.wealth
                 agent.wealth = 0
                 return True
@@ -660,14 +660,14 @@ class AgentBeginner(Agent):
         '''
         #check whether Adventurer trading is from the same player
         if adventurer.player == self.player:
-            print("Agent on tile " +str(self.current_tile.tile_position.latitude)+","
-                  +str(self.current_tile.tile_position.latitude)+ " has given monopoly bonus to Adventurer")
+            print("Agent on tile " +str(self.current_tile.tile_position.longitude)+","
+                  +str(self.current_tile.tile_position.longitude)+ " has given monopoly bonus to Adventurer")
             # pay as necessary
             adventurer.wealth += self.game.VALUE_AGENT_TRADE
         else:
             # retain wealth if they are a different player
-            print("Agent on tile " +str(self.current_tile.tile_position.latitude)+","
-                  +str(self.current_tile.tile_position.latitude)+ " has kept monopoly bonus")
+            print("Agent on tile " +str(self.current_tile.tile_position.longitude)+","
+                  +str(self.current_tile.tile_position.longitude)+ " has kept monopoly bonus")
             self.wealth += self.game.VALUE_AGENT_TRADE
         
         return True
@@ -753,7 +753,7 @@ class CityTileBeginner(CityTile):
 #                 new_adventurer.turns_moved = adventurer.game.turn - 1 # This new Adventurer will play immediately
                 new_adventurer.turns_moved = adventurer.game.turn # This new Adventurer will play from the next turn
                 print(adventurer.player.colour+ " player has bought an adventurer from the city at " 
-                      +str(self.tile_position.latitude)+","+str(self.tile_position.longitude))
+                      +str(self.tile_position.longitude)+","+str(self.tile_position.latitude))
             else:
                 return False
         return True
@@ -774,10 +774,10 @@ class CityTileBeginner(CityTile):
             if not tile is None:
                 #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm
                 for city_tile in self.game.cities:
-                    city_latitude = city_tile.tile_position.latitude
                     city_longitude = city_tile.tile_position.longitude
-                    if (abs(tile.tile_position.latitude - city_latitude) 
-                        + abs(tile.tile_position.longitude - city_longitude) <= self.game.CITY_DOMAIN_RADIUS):
+                    city_latitude = city_tile.tile_position.latitude
+                    if (abs(tile.tile_position.longitude - city_longitude) 
+                        + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
                         continue
             else:
                 return False
@@ -792,8 +792,8 @@ class CityTileBeginner(CityTile):
                     agent = adventurer.player.check_move_agent(adventurer)
                     if not agent is None:
                         print(adventurer.player.colour+ " player is recalling their agent from the tile at " 
-                          +str(agent.current_tile.tile_position.latitude)
-                              +","+str(agent.current_tile.tile_position.longitude))
+                          +str(agent.current_tile.tile_position.longitude)
+                              +","+str(agent.current_tile.tile_position.latitude))
                         agent.current_tile.move_off_tile(agent)
                         #place the Agent on that tile
                         tile.move_onto_tile(agent)
@@ -806,9 +806,9 @@ class CityTileBeginner(CityTile):
                 #take payment from the Player's Vault
                 adventurer.player.vault_wealth -= adventurer.game.COST_AGENT_FROM_CITY
                 print(adventurer.player.colour+ " player has hired an agent from the city at " 
-                  +str(self.tile_position.latitude)+","+str(self.tile_position.longitude)
+                  +str(self.tile_position.longitude)+","+str(self.tile_position.latitude)
                      +" and sent them to the tile at "
-                     +str(tile.tile_position.latitude)+","+str(tile.tile_position.longitude))
+                     +str(tile.tile_position.longitude)+","+str(tile.tile_position.latitude))
         return True
 
 # class WonderTile(Tile):
