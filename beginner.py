@@ -486,6 +486,7 @@ class AdventurerBeginner(Adventurer):
         self.placed = True
         
         tile = self.current_tile
+        #@DEPRECATED city tile domains are no longer a feature
         #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm
         for city_tile in self.game.cities:
             city_longitude = city_tile.tile_position.longitude

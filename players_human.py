@@ -469,8 +469,7 @@ class PlayerHuman(Player):
 class PlayerHost(Player):
     '''The server-side representation of a player with full methods, in a PyGame-based network game.
     
-    This player will be able to draw input either locally or through the network,
-    
+    This player will be able to draw input either locally or through the network
     '''
     def __init__(self, colour, ):
         super().__init__(colour)
@@ -525,8 +524,6 @@ class PlayerHost(Player):
             can_move = adventurer.can_move(compass_point)
             if can_move:
                 valid_moves.append([potential_longitude, potential_latitude])
-            elif can_move is None:
-                chance_moves.append([potential_longitude, potential_latitude])
             else:
                 invalid_moves.append([potential_longitude, potential_latitude])
             #keep track of what compass point these coordinates correspond to
@@ -537,11 +534,11 @@ class PlayerHost(Player):
         
         #highlight the tiles
         print("Highlighting the available moves for the "+self.colour+" player's Adventurer #"+str(self.adventurers.index(adventurer)+1))
-        self.play_area_vis.draw_move_options(valid_moves, invalid_moves, chance_coords=chance_moves)
+#        self.play_area_vis.draw_move_options(valid_moves, invalid_moves, chance_coords=chance_moves)
         
         #Carry out the player's chosen move
         move_coords = self.get_coords_from_figure(adventurer)
-        if move_coords in valid_moves or move_coords in chance_moves:
+        if move_coords in valid_moves:
             print(self.colour+" player chose valid coordinates to move to.")
             if move_map[move_coords[0]].get(move_coords[1]) == "wait":
                 self.play_area_vis.clear_move_options()

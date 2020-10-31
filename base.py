@@ -335,6 +335,7 @@ class Tile:
                     self.agent.current_tile = None
                     print("Moving agent for " +str(token.player.colour)+ " player onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                     self.agent = token
+                    self.agent.curren_tile = self
                     token.route.append(self) # relevant only in Regular and Advanced mode
                 else: raise Exception("Tried to add multiple Agents to a tile: adding and agent of " +token.player.colour+ " player where there was an existing agent of " +self.agent.player.colour)
             else: raise Exception("Didn't know how to handle this kind of token")
