@@ -2,37 +2,52 @@ import PodSixNet.Channel
 import PodSixNet.Server
 from time import sleep
 class ClientChannel(PodSixNet.Channel.Channel):
+    '''The receiving methods for messages from clients for a pygame-based server
+    '''
     def Network(self, data):
         print(data)
-    def Network_place(self, data):
+    
+    def Network_move(self, data):
+        '''The receiving method for "move" messages from clients
+        '''
+    
+    #@TODO may want to differentiate client instructions more deeply in future, if multiple moves are to be offered at the same time    
+    def generic_move_or_action(self, data):
         #deconsolidate all of the data from the dictionary
-     
-        #horizontal or vertical?
-        hv = data["is_horizontal"]
-        #x of placed line
-        x = data["x"]
-     
-        #y of placed line
-        y = data["y"]
-     
-        #player number (1 or 0)
-        num=data["num"]
-     
-        #id of game given by server at start of game
-        self.gameid = data["gameid"]
+        longitude = data["longitude"]
+        latitude = data["latitude"]
+        
+        self.gameid = data["gameid"] #id of game given by server at start of game
      
         #tells server to place line
-        self._server.placeLine(hv, x, y, data, self.gameid, num)
+#        self._server.placeLine(hv, x, y, data, self.gameid, num)
+    
     def Close(self):
+        '''Closes the channel to the client
+        '''
         self._server.close(self.gameid)
 
-class BoxesServer(PodSixNet.Server.Server):
+class CartolanServer(PodSixNet.Server.Server):
+    '''A pygame-based server hosting a game and communicating with client visuals.
+    
+    Architecture:
+    Server Side                               |    Client Side
+    Visualisation <-  Game       ->  Server  <->   Visualisation -> Player -> Adventurer
+         /\             /\            /\                                |
+          |              |             |                               \/
+         \/             \/            \/                            
+        Player     <- Adventurer -> Player                         Agent
+    
+    Client side Player, Adventurer, and Agent, used for data storage but not methods
+    '''
     channelClass = ClientChannel
+    
     def __init__(self, *args, **kwargs):
         PodSixNet.Server.Server.__init__(self, *args, **kwargs)
         self.games = []
         self.queue = None
         self.currentIndex = 0
+    
     def Connected(self, channel, addr):
         print('new connection:', channel)
         if self.queue == None:
@@ -46,10 +61,12 @@ class BoxesServer(PodSixNet.Server.Server):
             self.queue.player1.Send({"action": "startgame","player":1, "gameid": self.queue.gameid})
             self.games.append(self.queue)
             self.queue = None
+    
     def placeLine(self, is_h, x, y, data, gameid, num):
         game = [a for a in self.games if a.gameid == gameid]
         if len(game) == 1:
             game[0].placeLine(is_h, x, y, data, num)
+    
     def close(self, gameid):
         '''Passes on close instruction to each of the clients
         
@@ -62,6 +79,7 @@ class BoxesServer(PodSixNet.Server.Server):
             game.player1.Send({"action":"close"})
         except:
             pass
+    
     def tick(self):
         # Check for any wins
         # Loop through all of the squares
@@ -87,6 +105,7 @@ class BoxesServer(PodSixNet.Server.Server):
             game.player1.Send({"action":"yourturn", "torf":True if self.games[index].turn == 1 else False})
             game.player0.Send({"action":"yourturn", "torf":True if self.games[index].turn == 0 else False})
             index += 1
+        
         self.Pump()
 
 class Game:
@@ -131,8 +150,4 @@ server = BoxesServer(localaddr = (host, int(port)))
 while True:
     server.tick()
     sleep(0.01)
-
-class PlayerClient(Player):
-    
-class PlayerHost(PlayerHuman):
     

@@ -30,7 +30,7 @@ class GameBeginner(Game):
     VALUE_AGENT_TRADE = 0
     VALUE_FILL_MAP_GAP = [[3 * land_edges + 2 * water_edges for land_edges in range(0,5)] for water_edges in range(0,5)] # These are the rewards for filling a gap with, 0,1,2,3, and 4 adjacent water tiles respectively, for each number of adjacent land tiles
     
-    COST_ADVENTURER = GAME_WINNING_DIFFERENCE
+    COST_ADVENTURER = 10
     COST_AGENT_EXPLORING = 1
     COST_AGENT_FROM_CITY = 3
     COST_AGENT_REST = 1

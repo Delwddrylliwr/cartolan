@@ -37,6 +37,7 @@ class Game:
         import random
         random.shuffle(self.players)
 
+#@TODO allow players to join multiple games, through maintaining a game-indexed dict of wealth/adventurers/agents/game-specific stats. This will help allow AI players to learn across multiple games in parallel
 class Player:
     '''A template for actual Players responding to play in a Game of Cartolan.
     
