@@ -7,13 +7,13 @@ from game import GameBeginner, GameRegular, GameAdvanced
 from players_human import PlayerHuman
 from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
 from players_heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
-from visuals import PlayAreaVisualisation, PlayStatsVisualisation
+from visuals import PlayAreaVisualisation, GameVisualisation, PlayStatsVisualisation
 from regular import DisasterTile
 from base import WaterTile, LandTile, WindDirection, TileEdges
 
 
 #First some global functions to set up the game area
-def setup_simulation1(players, game_mode, movement_rules, exploration_rules, mythical_city):
+def setup_tiles(players, game_mode, movement_rules, exploration_rules, mythical_city):
     '''Part of game setup for Cartolan, this places the intital tiles ready for play
     
     Arguments:
@@ -50,7 +50,7 @@ def setup_simulation1(players, game_mode, movement_rules, exploration_rules, myt
     print("Placed the Capital tile, and surrounding water tiles")
     return game
 
-def setup_simulation2(players, game_mode, movement_rules, exploration_rules, mythical_city):
+def setup_adventurers(players, game_mode, movement_rules, exploration_rules, mythical_city):
     '''Part of game setup for Cartolan, this places the intital Adventurer tokens for each player
     
     Arguments:
@@ -59,11 +59,11 @@ def setup_simulation2(players, game_mode, movement_rules, exploration_rules, myt
     String giving the movement rules variant that will apply for this game
     String giving the exploration rules variant that will apply for this game
     '''
-    game = setup_simulation1(players, game_mode, movement_rules, exploration_rules, mythical_city)
+    game = setup_tiles(players, game_mode, movement_rules, exploration_rules, mythical_city)
     
     for player in players:
 #         exec("Adventurer" +game_mode+ "(game, player, game.cities[0])") #this should probably work, because it doesn't need to create a local
-        print("adding an adventurer for " +str(player.colour)+ " player, who already has " +str(len(player.adventurers))+ " adventurers")
+        print("adding an adventurer for " +str(player.colour)+ " player, who already has " +str(len(game.adventurers[player]))+ " adventurers")
 #         AdventurerBeginner(game, player, game.cities[0])
         game.ADVENTURER_TYPE(game, player, game.cities[0])
     
@@ -86,8 +86,8 @@ def setup_simulation2(players, game_mode, movement_rules, exploration_rules, myt
 #sheet = client.open("test").sheet1
 #tile_distribution = sheet.col_values(1)
 
-def setup_simulation3(players, game_mode, movement_rules, exploration_rules, mythical_city):
-    '''Part of game setup for Cartolan, this creates a tile of suffled water-backed tiles ready for play
+def setup_water_pile(players, game_mode, movement_rules, exploration_rules, mythical_city):
+    '''Part of game setup for Cartolan, this creates a tile of shuffled water-backed tiles ready for play
     
     Arguments:
     List of Cartolan.Player for the Players involved in the game
@@ -95,7 +95,7 @@ def setup_simulation3(players, game_mode, movement_rules, exploration_rules, myt
     String giving the movement rules variant that will apply for this game
     String giving the exploration rules variant that will apply for this game
     '''
-    game = setup_simulation2(players, game_mode, movement_rules, exploration_rules, mythical_city)
+    game = setup_adventurers(players, game_mode, movement_rules, exploration_rules, mythical_city)
     
     import random
     
@@ -172,8 +172,8 @@ def setup_simulation3(players, game_mode, movement_rules, exploration_rules, myt
 #                     row_count += 1
 # print(len(game.tile_piles["water"].tiles))
 
-def setup_simulation4(players, game_mode, movement_rules, exploration_rules, mythical_city):
-    '''Part of game setup for Cartolan, this creates a tile of suffled land-backed tiles ready for play
+def setup_land_pile(players, game_mode, movement_rules, exploration_rules, mythical_city):
+    '''Part of game set up for Cartolan, this creates a tile of shuffled land-backed tiles ready for play
     
     Arguments:
     List of Cartolan.Player for the Players involved in the game
@@ -181,7 +181,7 @@ def setup_simulation4(players, game_mode, movement_rules, exploration_rules, myt
     String giving the movement rules variant that will apply for this game
     String giving the exploration rules variant that will apply for this game
     '''
-    game = setup_simulation3(players, game_mode, movement_rules, exploration_rules, mythical_city)
+    game = setup_water_pile(players, game_mode, movement_rules, exploration_rules, mythical_city)
     
     if not game_mode in [GameRegular, GameAdvanced]:
         return game
@@ -262,7 +262,7 @@ def setup_simulation(players, game_mode, movement_rules, exploration_rules, myth
     String giving the movement rules variant that will apply for this game
     String giving the exploration rules variant that will apply for this game
     '''
-    game = setup_simulation4(players, game_mode, movement_rules, exploration_rules, mythical_city)
+    game = setup_land_pile(players, game_mode, movement_rules, exploration_rules, mythical_city)
     
     #turn order has been handled by the parent setup
 #     game.players = random.shuffle(game.players)
@@ -312,7 +312,7 @@ class InteractiveGame:
         '''Sets up a list of Cartolan.PlayerHuman to play the game'''
         # add human players
         for human_player_num in range(0, self.num_human_players):
-            self.players.append(PlayerHuman(self.HUMAN_PLAYER_COLOURS[human_player_num], self.play_area_vis))
+            self.players.append(PlayerHuman(self.HUMAN_PLAYER_COLOURS[human_player_num]))
 
     
     def play_game(self):
@@ -322,24 +322,7 @@ class InteractiveGame:
         # sys.stdout = stdout_backup
         self.dimensions = self.STARTING_DIMENSIONS
         self.origin = self.STARTING_ORIGIN 
-        #autogenerate the origin based on game rules and dimensions: e.g. without mythical, and with 3+ players it should be central
-#         if self.mythical_city and self.game_mode in ["Regular", "Advanced"]:
-#             if self.num_players > 2:
-#                 self.origin[0] = self.dimensions[0]//4 - 1
-#                 self.origin[1] = self.dimensions[1]//2 - 1
-#             else:
-#                 self.origin[0] = self.dimensions[0]//4 - 1
-#                 self.origin[1] = 3*self.dimensions[1]//4 - 1
-#         else:
-#             if self.num_players > 2:
-#                 self.origin[0] = self.dimensions[0]//2 - 1
-#                 self.origin[1] = self.dimensions[1]//2 - 1
-#             else:
-#                 self.origin[0] = self.dimensions[0]//4 - 1
-#                 self.origin[1] = 3*self.dimensions[1]//4 - 1
-        
-        self.play_area_vis = PlayAreaVisualisation(self.dimensions, self.origin)
-        
+               
         #Set up a list of players
         self.players = []
         self.setup_players()
@@ -353,29 +336,35 @@ class InteractiveGame:
                                      , self.mythical_city)
         
         #visualise this initial setup
+#        self.game_vis = PlayAreaVisualisation(self.game, self.dimensions, self.origin)
+        self.game_vis = GameVisualisation(self.game, self.dimensions, self.origin)
         print("starting visuals")
-        self.play_area_vis.draw_play_area(self.game.play_area)
-        self.play_area_vis.draw_tokens(self.players)
-
+        self.game_vis.draw_play_area()
+        self.game_vis.draw_tokens()
+        
+        #Let the players reference game and especially visuals, for the GUI
+        for player in self.players:
+            player.connect_gui(self.game_vis)
+        
         #run the game
         self.game.game_over = False
         while not self.game.game_over:
-#             pyplot.show(self.play_area_vis)
+#             pyplot.show(self.game_vis)
             self.game.turn += 1
             self.game.game_over = self.game.play_round()
         
             #Draw the changes to the play area
-#             self.play_area_vis.draw_play_area(self.game.play_area)
+#             self.game_vis.draw_play_area(self.game.play_area)
             
 #             #Draw the computer players' paths but clear their history so that only the last turn is ever drawn
-#             self.play_area_vis.draw_routes(self.players)
+#             self.game_vis.draw_routes(self.players)
 #             for player in self.players:
 #                 for adventurer in player.adventurers:
 #                     adventurer.route = []
                 
-        self.play_area_vis.give_prompt(self.game.winning_player.colour+" player won the game (double click to close)")
+        self.game_vis.give_prompt(self.game.winning_player.colour+" player won the game (double click to close)")
 #         pyplot.waitforbuttonpress() #Delay until the player has read the message
-        PlayerHuman("green",self.play_area_vis).get_coords_from_figure(self.players[0].adventurers[0])
+        self.game_vis.get_input_coords(None)
         pyplot.close()
 
 
@@ -645,12 +634,12 @@ class Simulations():
             dimensions = [h_dimension + 1, v_dimension + 1]
             origin = [h_origin, v_origin] 
             #render the play area and routes
-            play_area_vis = PlayAreaVisualisation(dimensions, origin, title)
-#             play_area_vis_med_wealth_difference.draw_play_area(play_area_to_vis, play_area_to_vis)
-            play_area_vis.draw_play_area(play_area_to_vis)
+            game_vis = PlayAreaVisualisation(dimensions, origin, title)
+#             game_vis_med_wealth_difference.draw_play_area(play_area_to_vis, play_area_to_vis)
+            game_vis.draw_play_area(play_area_to_vis)
             #@TODO earlier agent positions seem to be ignored
-            play_area_vis.draw_tokens(player_sets[sim_id_to_vis])
-            play_area_vis.draw_routes(player_sets[sim_id_to_vis])
+            game_vis.draw_tokens(player_sets[sim_id_to_vis])
+            game_vis.draw_routes(player_sets[sim_id_to_vis])
             print("Determined that the dimensions for the "+title+" are "+ str(h_dimension)+", "+str(v_dimension))
             print("Determined that the origin positions for the "+title+" are "+ str(h_origin)+", "+str(v_origin))
             

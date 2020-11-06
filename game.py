@@ -115,7 +115,7 @@ class GameBeginner(Game):
              +" and a max wealth of " +str(self.max_wealth))
         for player in self.players:
             #some logging
-            print(str(player.colour)+ " player's turn, with " +str(len(player.adventurers)) 
+            print(str(player.colour)+ " player's turn, with " +str(len(self.adventurers[player])) 
                   +" Adventurers, and " +str(player.vault_wealth)+ " wealth in the Vault")
 #             if not player.adventurers[0] is None:
 #                 adventurer = player.adventurers[0]
@@ -125,7 +125,7 @@ class GameBeginner(Game):
             # a more sophisticated simulation might need to let players choose their Adventurers' turn order first
             
             # let players move an adventurer so long as it still has valid moves
-            for adventurer in player.adventurers:
+            for adventurer in self.adventurers[player]:
                 if adventurer.turns_moved < self.turn:
                     player.continue_turn(adventurer)
                     print() #to help log readability
@@ -151,7 +151,7 @@ class GameBeginner(Game):
         self.wealth_difference = 0
         for player in self.players:
             self.total_vault_wealth += player.vault_wealth
-            for adventurer in player.adventurers:
+            for adventurer in self.adventurers[player]:
                 self.total_chest_wealth += adventurer.wealth
             # is this player wealthier than the wealthiest player checked so far?
             if player.vault_wealth > self.max_wealth:
@@ -177,7 +177,7 @@ class GameBeginner(Game):
                     self.win_type = "tiles exhausted but no player banked wealth"
                     max_chest_wealth = 0
                     for player in self.players:
-                        for adventurer in player.adventurers:
+                        for adventurer in self.adventurers[player]:
                             if adventurer.wealth > max_chest_wealth:
                                 self.winning_player = player
                                 max_chest_wealth = adventurer.wealth

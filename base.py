@@ -1,3 +1,6 @@
+import random
+import uuid
+
 class Game:
     '''A template for maintaining a record of the game state in different modes of Cartolan.
     
@@ -14,8 +17,19 @@ class Game:
             self.establish_turn_order()
         else: raise Exception("Game created with an invalid number of players: should be 2-4, but was " +str(len(players)))
         
+        #register this game with each of the players
+        self.game_id = uuid.uuid4()
+        for player in players:
+            player.join_game(self)
+        
         self.tile_piles = {}
         self.play_area = {}
+        self.player_wealths = {}
+        self.adventurers = {}
+        self.agents = {}
+        for player in players:
+            self.adventurers[player] = []
+            self.agents[player] = []
 
         self.turn = 0
         
@@ -34,7 +48,6 @@ class Game:
         
     def establish_turn_order(self):
         '''Randomises the order in which Player objects will be activated'''
-        import random
         random.shuffle(self.players)
 
 #@TODO allow players to join multiple games, through maintaining a game-indexed dict of wealth/adventurers/agents/game-specific stats. This will help allow AI players to learn across multiple games in parallel
@@ -51,11 +64,21 @@ class Player:
         self.colour = colour
         
         self.vault_wealth = 0
-        self.adventurers = []
-        self.agents = []
-        
-        self.locations_to_avoid = [] #tiles to remember to avoid for artificial players
-        self.p_deviate = 0.1 #some randomness for artificial player behaviour
+        self.games = {}
+    
+    def join_game(self, game):
+        '''Establishes dict to retain strategic info for each game
+        '''
+        self.games[game.game_id] = {"game":game
+                  , "locations_to_avoid":[] #tiles to remember to avoid for artificial players @TODO move this into game-specific dict entry
+                  , "attack_history":[] #a record of where attacks have taken place, to support visualisation @TODO move this into the visual
+                  }
+    
+    def connect_gui(self, game_vis):
+        '''Associates a particular gui with a game
+        '''
+        game = game_vis.game
+        self.games[game.game_id]["game_vis"] = game_vis
     
     def continue_move(self, adventurer):
         '''placeholder for responding to the state of the game by choosing movement for an adventurer'''
@@ -95,7 +118,7 @@ class Adventurer(Token):
     '''
     def __init__(self, game, player, current_tile):
         super().__init__(game, player, current_tile)
-        player.adventurers.append(self)
+        game.adventurers[player].append(self)
         
         self.turns_moved = 0
     
@@ -134,7 +157,7 @@ class Agent(Token):
     '''
     def __init__(self, game, player, current_tile):
         super().__init__(game, player, current_tile)
-        player.agents.append(self)
+        game.agents[player].append(self)
         
     def give_rest(self, adventurer):
         '''placeholder for resting adventurers'''
@@ -389,7 +412,6 @@ class TilePile:
     
     def shuffle_tiles(self):
         '''Randomises the order of tiles in the pile'''
-        import random
         random.shuffle(self.tiles)
 
 class WaterTile(Tile):

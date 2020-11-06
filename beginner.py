@@ -500,7 +500,7 @@ class AdventurerBeginner(Adventurer):
             
             #check whether the player actually wants to place an agent, even if they have to move an existing one
             if self.player.check_place_agent(self):
-                if len(self.player.agents) >= self.game.MAX_AGENTS:
+                if len(self.game.agents[self.player]) >= self.game.MAX_AGENTS:
                     agent = self.player.check_move_agent(self)
                     if agent is None:
                         return False
@@ -740,7 +740,7 @@ class CityTileBeginner(CityTile):
         adventurer.bought_adventurer += 1
         
         #keep checking whether the player has enough wealth and wants to buy another adventurer until they refuse
-        while (len(adventurer.player.adventurers) < adventurer.game.MAX_ADVENTURERS 
+        while (len(self.game.adventurers[adventurer.player]) < adventurer.game.MAX_ADVENTURERS 
                 and adventurer.player.vault_wealth >= adventurer.game.COST_ADVENTURER):
             if adventurer.player.check_buy_adventurer(adventurer):
                 #take payment of wealth from their Vault
@@ -789,7 +789,7 @@ class CityTileBeginner(CityTile):
             else:
                 #pick up an existing Agent from its tile if there are no other agents available
                 #otherwise get a new agent
-                if len(adventurer.player.agents) >= self.game.MAX_AGENTS:
+                if len(self.game.agents[adventurer.player]) >= self.game.MAX_AGENTS:
                     agent = adventurer.player.check_move_agent(adventurer)
                     if not agent is None:
                         print(adventurer.player.colour+ " player is recalling their agent from the tile at " 

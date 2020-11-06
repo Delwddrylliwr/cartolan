@@ -20,6 +20,10 @@ class PlayerBeginnerExplorer(Player):
     check_buy_agent takes a Cartolan.Adventurer
     check_move_agent takes a Cartolan.Adventurer
     '''
+    def __init__(self, colour):
+        super().__init__(colour)
+        self.p_deviate = 0.1 #some randomness for artificial player behaviour to avoid rutts
+    
     def check_location_to_avoid(self, longitude, latitude):
         '''Compares coordinates to a list to avoid'''
         #Check each of the coordinate pairs to avoid in turn
