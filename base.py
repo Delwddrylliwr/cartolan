@@ -354,11 +354,11 @@ class Tile:
                     self.agent = token
                     token.route.append(self) 
                 elif self.agent.is_dispossessed:
-                    self.agent.player.agents.remove(self.agent)
+                    self.agent.game.agents[self.agent.player].remove(self.agent)
                     self.agent.current_tile = None
                     print("Moving agent for " +str(token.player.colour)+ " player onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                     self.agent = token
-                    self.agent.curren_tile = self
+                    self.agent.current_tile = self
                     token.route.append(self) # relevant only in Regular and Advanced mode
                 else: raise Exception("Tried to add multiple Agents to a tile: adding and agent of " +token.player.colour+ " player where there was an existing agent of " +self.agent.player.colour)
             else: raise Exception("Didn't know how to handle this kind of token")

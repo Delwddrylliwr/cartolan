@@ -10,7 +10,8 @@ from players_heuristical import PlayerRegularExplorer, PlayerRegularTrader, Play
 from visuals import PlayAreaVisualisation, GameVisualisation, PlayStatsVisualisation
 from regular import DisasterTile
 from base import WaterTile, LandTile, WindDirection, TileEdges
-
+from server import CartolanServer
+from time import sleep
 
 #First some global functions to set up the game area
 def setup_tiles(players, game_mode, movement_rules, exploration_rules, mythical_city):
@@ -362,11 +363,10 @@ class InteractiveGame:
 #                 for adventurer in player.adventurers:
 #                     adventurer.route = []
                 
-        self.game_vis.give_prompt(self.game.winning_player.colour+" player won the game (double click to close)")
+        self.game_vis.give_prompt(self.game.winning_player.colour+" player won the game (click to close)")
 #         pyplot.waitforbuttonpress() #Delay until the player has read the message
-        self.game_vis.get_input_coords(None)
-        pyplot.close()
-
+        self.game_vis.get_input_coords(self.game.adventurers[self.game.winning_player][0])
+        self.game_vis.close()
 
 
 #Now the various classes for differnt player combinations
@@ -699,7 +699,22 @@ class InteractiveSimulation(InteractiveGame):
         for player_colour in player_colours:
             #player_colour = random.choice(player_set)
             self.players.append(self.GAME_MODES[self.game_mode]["player_set"][player_colour](player_colour))
-            
+   
+class NetworkGame(InteractiveSimulation):
+    def __init__(self):
+        # Seek server port from host
+        print("STARTING SERVER ON LOCALHOST")
+        address = input("Host:Port (localhost:8000): ")
+        if not address:
+            host, port = "localhost", 8000
+        else:
+            host, port = address.split(":")
+        
+        server = CartolanServer(localaddr = (host, int(port)))
+        while True:
+            server.tick()
+            sleep(0.01)
+         
 # class AISimulations(Simulations):
 #     AI_PLAYER_COLOURS = ["green", "brown", "pink", "purple"]
     

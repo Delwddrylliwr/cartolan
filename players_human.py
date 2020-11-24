@@ -23,9 +23,14 @@ class PlayerHuman(Player):
         invalid_moves = []
         move_map = {adventurer.current_tile.tile_position.longitude:{adventurer.current_tile.tile_position.latitude:'wait'}}
         
+        #redraw all the tokens and scores
+        game_vis.draw_play_area()
+        game_vis.draw_routes()
+        game_vis.draw_tokens()
+        game_vis.draw_scores()
         #prompt the player to choose a tile to move on to
         print("Prompting the "+self.colour+" player for input")
-        game_vis.clear_prompt()
+#        game_vis.clear_prompt()
         game_vis.give_prompt("click which tile you would like "+str(self.colour)+" adventurer #" 
                                        +str(game.adventurers[self].index(adventurer)+1) 
                                        +" to move to?")
@@ -73,11 +78,13 @@ class PlayerHuman(Player):
             game_vis.give_prompt("This is not a valid move, so waiting in place. click to continue.")
             game_vis.clear_move_options()
             game_vis.get_input_coords(adventurer)
+            game_vis.clear_prompt()
             adventurer.wait()
                 
 #         game_vis.give_prompt("Click to reveal available moves")
         #if the tile that has just been reached is at the edge of the visualised area, then grow this
         current_tile_position = adventurer.current_tile.tile_position
+        game_vis.clear_prompt()
         if current_tile_position.longitude + 1 >= game_vis.dimensions[0] - game_vis.origin[0]:
             game_vis.give_prompt("Expanding visible play area, please wait.")
             game_vis.increase_max_longitude()
@@ -98,11 +105,13 @@ class PlayerHuman(Player):
             game_vis.draw_play_area()
         
         #clean up the highlights
+        game_vis.clear_prompt()
         game_vis.clear_move_options()
-        #redraw all the tokens and scores
-        game_vis.draw_routes()
-        game_vis.draw_tokens()
-        game_vis.draw_scores()
+#        #redraw all the tokens and scores
+#        game_vis.draw_play_area()
+#        game_vis.draw_routes()
+#        game_vis.draw_tokens()
+#        game_vis.draw_scores()
         return True
     
     def continue_turn(self, adventurer):
@@ -123,10 +132,11 @@ class PlayerHuman(Player):
         game_vis.draw_tokens()
         game_vis.draw_scores()
         #Have the player acknowledge that it is their turn
-        game_vis.clear_prompt()
+#        game_vis.clear_prompt()
         game_vis.give_prompt(self.colour+" player's turn for Adventurer #"+str(adventurers.index(adventurer)+1)+". click to continue.")
         game_vis.draw_move_options()
         game_vis.get_input_coords(adventurer)
+        game_vis.clear_prompt()
         
         #Move while moves are still available
         while adventurer.turns_moved < adventurer.game.turn:
@@ -158,6 +168,7 @@ class PlayerHuman(Player):
         return True
     
     #if offered by an agent, always collect wealth
+    #@TODO let the player choose how much wealth to collect using input()
     def check_collect_wealth(self, agent):
         return True
     
@@ -173,6 +184,7 @@ class PlayerHuman(Player):
                         , adventurer.current_tile.tile_position.latitude]]
 
             #make sure that tiles and token positions are up to date
+            game_vis.draw_play_area()
             game_vis.draw_tokens()
             game_vis.draw_scores()
             
@@ -182,7 +194,7 @@ class PlayerHuman(Player):
 
             #prompt the player to choose a tile to move on to
             print("Prompting the "+self.colour+" player for input")
-            game_vis.clear_prompt()
+#            game_vis.clear_prompt()
             game_vis.give_prompt("If you want "+str(self.colour)+" adventurer #" 
                                            +str(game.adventurers[self].index(adventurer)+1) 
                                            +" to rest then click their tile, otherwise click elsewhere.")
@@ -197,12 +209,14 @@ class PlayerHuman(Player):
                 rest = False
 
             #clean up the highlights
+            game_vis.clear_prompt()
             game_vis.clear_move_options()
 #             game_vis.draw_tokens()
             return rest
         
     
     #if offered by a city then always bank everything
+    #@TODO allow player to specify how much wealth to bank using input()
     def check_bank_wealth(self, adventurer, report="Player is being asked whether to bank wealth"):
         print(report)
         return adventurer.wealth
@@ -218,6 +232,7 @@ class PlayerHuman(Player):
                         , adventurer.current_tile.tile_position.latitude]]
 
             #make sure that tiles and token positions are up to date
+            game_vis.draw_play_area()
             game_vis.draw_tokens()
             game_vis.draw_scores()
             
@@ -228,7 +243,7 @@ class PlayerHuman(Player):
 
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
-            game_vis.clear_prompt()
+#            game_vis.clear_prompt()
             game_vis.give_prompt("If you want "+str(self.colour)+" Adventurer #" 
                                +str(game.adventurers[self].index(adventurer)+1) 
                                +" to recruit another Adventurer then click their tile, otherwise click elsewhere.")
@@ -243,6 +258,7 @@ class PlayerHuman(Player):
                 recruit = False
 
             #clean up the highlights
+            game_vis.clear_prompt()
             game_vis.clear_move_options()
 #             game_vis.draw_tokens()
             return recruit
@@ -273,7 +289,7 @@ class PlayerHuman(Player):
 
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
-            game_vis.clear_prompt()
+#            game_vis.clear_prompt()
             game_vis.give_prompt("If you want "+str(self.colour)+" Adventurer #" 
                                +str(game.adventurers[self].index(adventurer)+1) 
                                +" to recruit an Agent on this tile then click it, otherwise click elsewhere.")
@@ -289,6 +305,7 @@ class PlayerHuman(Player):
 
             #clean up the highlights
             game_vis.clear_move_options()
+            game_vis.clear_prompt()
 #             game_vis.draw_tokens()
             return recruit
         else:
@@ -323,6 +340,7 @@ class PlayerHuman(Player):
                                 buy_coords.append([tile.tile_position.longitude, tile.tile_position.latitude])
             
             #make sure that tiles and token positions are up to date
+            game_vis.draw_play_area()
             game_vis.draw_tokens()
             game_vis.draw_scores()
             
@@ -332,7 +350,7 @@ class PlayerHuman(Player):
 
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
-            game_vis.clear_prompt()
+#            game_vis.clear_prompt()
             game_vis.give_prompt("If you want to recruit an Agent and send them to"
                                            +"an unoccupied tile then click it, otherwise click elsewhere.")
             
@@ -347,6 +365,7 @@ class PlayerHuman(Player):
 
             #clean up the highlights
             game_vis.clear_move_options()
+            game_vis.clear_prompt()
 #             game_vis.draw_tokens()
             return agent_placement
         else:
@@ -362,6 +381,7 @@ class PlayerHuman(Player):
             agent_coords.append([agent.current_tile.tile_position.longitude, agent.current_tile.tile_position.latitude])
 
         #make sure that tiles and token positions are up to date
+        game_vis.draw_play_area()
         game_vis.draw_tokens()
         game_vis.draw_scores()
 
@@ -372,7 +392,7 @@ class PlayerHuman(Player):
 
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
-        game_vis.clear_prompt()
+#        game_vis.clear_prompt()
         game_vis.give_prompt("You will need to move an existing " +str(self.colour)+ " Agent, click to choose one"
                                        +", otherwise click elsewhere to cancel buying an Agent.")
 
@@ -386,11 +406,13 @@ class PlayerHuman(Player):
             agent_to_move = None
 
         #clean up the highlights
+        game_vis.clear_prompt()
         game_vis.clear_move_options()
         return agent_to_move
     
     #Give the player the choice to attack
     #@TODO highlight specific tokens to attack
+    #@TODO prompt the player on victory for how much wealth to take using input()
     def check_attack_adventurer(self, adventurer, other_adventurer):
         attack_coords = [[adventurer.current_tile.tile_position.longitude
                     , adventurer.current_tile.tile_position.latitude]]
@@ -398,6 +420,7 @@ class PlayerHuman(Player):
         #make sure that tiles and token positions are up to date
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
+        game_vis.draw_play_area()
         game_vis.draw_tokens()
         game_vis.draw_scores()
             
@@ -408,7 +431,7 @@ class PlayerHuman(Player):
 
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
-        game_vis.clear_prompt()
+#        game_vis.clear_prompt()
         game_vis.give_prompt("If you want "+str(self.colour)+" Adventurer #" 
                            +str(game.adventurers[self].index(adventurer)+1) 
                            +" to attack "+ other_adventurer.player.colour+" player's Adventurer, then click their tile. "
@@ -424,10 +447,12 @@ class PlayerHuman(Player):
             attack = False
 
         #clean up the highlights
+        game_vis.clear_prompt()
         game_vis.clear_move_options()
 #             game_vis.draw_tokens()
         return attack
     
+    #@TODO prompt the player on victory for how much wealth to take 
     def check_attack_agent(self, adventurer, agent):
         attack_coords = [[adventurer.current_tile.tile_position.longitude
                         , adventurer.current_tile.tile_position.latitude]]
@@ -435,6 +460,7 @@ class PlayerHuman(Player):
         game_vis = self.games[game.game_id]["game_vis"]
 
         #make sure that tiles and token positions are up to date
+        game_vis.draw_play_area()
         game_vis.draw_tokens()
         game_vis.draw_scores()
             
@@ -445,7 +471,7 @@ class PlayerHuman(Player):
 
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
-        game_vis.clear_prompt()
+#        game_vis.clear_prompt()
         game_vis.give_prompt("If you want "+str(self.colour)+" Adventurer #" 
                            +str(game.adventurers[self].index(adventurer)+1) 
                            +" to attack "+ agent.player.colour+" player's Agent, then click their tile. "
@@ -461,6 +487,7 @@ class PlayerHuman(Player):
             attack = False
 
         #clean up the highlights
+        game_vis.clear_prompt()
         game_vis.clear_move_options()
 #             game_vis.draw_tokens()
         return attack

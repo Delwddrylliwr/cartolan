@@ -1,4 +1,5 @@
 from base import Player
+import random
 
 class PlayerBeginnerExplorer(Player):    
     '''A virtual player for Cartolan that makes decisions favouring exploration
@@ -81,7 +82,6 @@ class PlayerBeginnerExplorer(Player):
                     
     def move_away_from_tile(self, adventurer, tile):
         '''A heuristic that moves the Adventurer in the direction that increases the distance from a given tile, but by the minimum'''
-        import random
         print(str(adventurer.player.colour) +": trying heuristic that prefers moves away from the tile at " +str(tile.tile_position.longitude)+ ", " +str(tile.tile_position.longitude))
         #establish directions to the tile, as preferring to increase the distance in the lesser dimension first, between latitude and longitude
         if (abs(adventurer.current_tile.tile_position.longitude - tile.tile_position.longitude) 
@@ -182,8 +182,6 @@ class PlayerBeginnerExplorer(Player):
     
     
     def continue_move(self, adventurer):
-        import random
-        
         #with some probability, move in a random direction, to break out of degenerate situations
         if random.random() < self.p_deviate:
             adventurer.move(random.choice(['n','e','s','w']))
@@ -237,6 +235,7 @@ class PlayerBeginnerExplorer(Player):
     #if offered by a city, then check whether oponents will win on their next visit to a city, and buy an Adventurer if not
     def check_buy_adventurer(self, adventurer, report="Player is being asked whether to buy an adventurer"):
         print(report)
+        
         if self.vault_wealth > adventurer.game.COST_ADVENTURER:
             #Check whether player has won compared to wealthiest opponent 
             wealthiest_opponent_wealth = 0
@@ -247,7 +246,7 @@ class PlayerBeginnerExplorer(Player):
                     if player.vault_wealth > wealthiest_opponent_wealth:
                         wealthiest_opponent_wealth = player.vault_wealth
                     player_chest_wealth = 0
-                    for other_adventurer in player.adventurers:
+                    for other_adventurer in adventurer.game.adventurers[player]:
                         player_chest_wealth += other_adventurer.wealth
                     if (player.vault_wealth + player_chest_wealth 
                         > adventurer.game.GAME_WINNING_DIFFERENCE + self.vault_wealth - adventurer.game.COST_ADVENTURER):
@@ -296,43 +295,48 @@ class PlayerBeginnerTrader(PlayerBeginnerExplorer):
         self.next_agent_num = [0] # this won't work for multiple adventurers
     
     def continue_move(self, adventurer):
-        import random
+        adventurers = adventurer.game.adventurers[self]
+        agents = adventurer.game.agents[self]
                                 
         #with some probability, move in a random direction, to break out of degenerate situations
         if random.random() < self.p_deviate:
             adventurer.move(random.choice(['n','e','s','w']))
         #locate the next unvisited agent and move towards them, or if all agents have been visited either explore or return home
-        elif not self.next_agent_num[self.adventurers.index(adventurer)] < len(self.agents):
-            if (adventurer.wealth <= adventurer.game.wealth_difference and len(self.agents) < adventurer.game.MAX_AGENTS):
+        elif not self.next_agent_num[adventurers.index(adventurer)] < len(agents):
+            if (adventurer.wealth <= adventurer.game.wealth_difference and len(agents) < adventurer.game.MAX_AGENTS):
                 self.explore_best_space(adventurer)
 #                   self.explore_above_distance(adventurer, adventurer.latest_city, adventurer.game.CITY_DOMAIN_RADIUS)
             else:
                 self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
             if adventurer.wealth <= adventurer.game.wealth_difference:
-                self.move_towards_tile(adventurer, self.agents[self.next_agent_num[self.adventurers.index(adventurer)]].current_tile)
+                self.move_towards_tile(adventurer, agents[self.next_agent_num[adventurers.index(adventurer)]].current_tile)
             else:
                 self.move_towards_tile(adventurer, adventurer.latest_city)
 
         return True
 
     def check_rest(self, adventurer, agent):
+        adventurers = adventurer.game.adventurers[self]
+        agents = adventurer.game.agents[self]
         #if there is an agent then always rest
         adventurer.rest()
         #if this was the target agent for movement then start looking for the next one
-        if self.next_agent_num[self.adventurers.index(adventurer)] < len(self.agents):
-            if agent == self.agents[self.next_agent_num[self.adventurers.index(adventurer)]]:
+        if self.next_agent_num[adventurers.index(adventurer)] < len(agents):
+            if agent == agents[self.next_agent_num[adventurers.index(adventurer)]]:
                 #start targetting the next agent
-                self.next_agent_num[self.adventurers.index(adventurer)] += 1
+                self.next_agent_num[adventurers.index(adventurer)] += 1
 
     def check_bank_wealth(self, adventurer, report="Player is being asked whether to bank"):
+        adventurers = adventurer.game.adventurers[self]
         #register that a city has been visited and that should start going back to first agent
-        self.next_agent_num[self.adventurers.index(adventurer)] = 0
+        self.next_agent_num[adventurers.index(adventurer)] = 0
         return super().check_bank_wealth(adventurer, report)
     
     # if this is a wonder then always place an agent when offered
     def check_place_agent(self, adventurer):
-        if len(self.agents) < adventurer.current_tile.game.MAX_AGENTS and adventurer.current_tile.is_wonder:
+        agents = adventurer.game.agents[self]
+        if len(agents) < adventurer.current_tile.game.MAX_AGENTS and adventurer.current_tile.is_wonder:
             return True
         else:
             return False
@@ -366,20 +370,20 @@ class PlayerBeginnerRouter(PlayerBeginnerTrader):
     check_move_agent takes a Cartolan.Adventurer
     '''    
     def continue_move(self, adventurer):
-        import random
-        
+        adventurers = adventurer.game.adventurers[self]
+        agents = adventurer.game.agents[self]
         #with some probability, move in a random direction, to break out of degenerate situations
         if random.random() < self.p_deviate:
             adventurer.move(random.choice(['n','e','s','w']))
         #locate the next unvisited agent and move towards them, or if all agents have been visited either explore or return home
-        elif self.next_agent_num[self.adventurers.index(adventurer)] >= len(self.agents):
+        elif self.next_agent_num[adventurers.index(adventurer)] >= len(agents):
             if (adventurer.wealth <= adventurer.game.wealth_difference):
                 self.explore_best_space(adventurer)
 #                 self.explore_above_distance(adventurer, adventurer.latest_city, adventurer.game.CITY_DOMAIN_RADIUS)
             else:
                 self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
-            self.move_towards_tile(adventurer, self.agents[self.next_agent_num[self.adventurers.index(adventurer)]].current_tile)
+            self.move_towards_tile(adventurer, agents[self.next_agent_num[adventurers.index(adventurer)]].current_tile)
 
         #if this is a wonder then always trade
 #             if isinstance(adventurer.current_tile, WonderTile):
@@ -389,15 +393,17 @@ class PlayerBeginnerRouter(PlayerBeginnerTrader):
     
     # if this is the last movement of a turn then always place an agent when offered
     def check_place_agent(self, adventurer):
+        agents = adventurer.game.agents[self]
         #if this would otherwise be the last move this turn, then place an agent
-        if len(self.agents) < adventurer.game.MAX_AGENTS and not adventurer.can_move(None):
+        if len(agents) < adventurer.game.MAX_AGENTS and not adventurer.can_move(None):
             return True
         else:
             return False
     
     # move agents as further exploration is done, so that the route can evolve over time
     def check_move_agent(self, adventurer):
-        return self.agents[0]
+        agents = adventurer.game.agents[self]
+        return agents.pop(0)
 
 
 class PlayerRegularExplorer(PlayerBeginnerExplorer):    
@@ -485,7 +491,6 @@ class PlayerRegularPirate(PlayerRegularExplorer):
     '''
     def continue_move(self, adventurer):    
     # seek out the other player's Adventurer or Agent or Disaster tile with the most wealth
-        import random
         
         #update awareness of disaster tiles, to avoid them, if not a pirate
         for disaster_tile in adventurer.game.disaster_tiles:
@@ -519,11 +524,11 @@ class PlayerRegularPirate(PlayerRegularExplorer):
             score_location = None
             for player in adventurer.game.players:
                 if player != self:
-                    for other_adventurer in player.adventurers:
+                    for other_adventurer in adventurer.game.adventurers[self]:
                         if max_score < other_adventurer.wealth // 2 + other_adventurer.wealth % 2:
                             max_score = other_adventurer.wealth // 2 + other_adventurer.wealth % 2
                             score_location = other_adventurer.current_tile
-                    for agent in player.agents:
+                    for agent in adventurer.game.agents[self]:
                         if max_score < agent.wealth + 1:
                             max_score = agent.wealth + 1
                             score_location = agent.current_tile

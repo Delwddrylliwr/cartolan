@@ -40,6 +40,7 @@ class PlayAreaVisualisation:
     clear_move_options
     give_prompt takes a String
     clear_prompt
+    get_input_coords
     '''
     #a vector of visual offsets for the players' tokens
     PLAYER_OFFSETS = [[0.5, 0.5],  [0.25, 0.25],  [0.25, 0.75],  [0.75, 0.75]]
@@ -683,7 +684,11 @@ class PlayAreaVisualisation:
 #                 move_coords = [int(move_click[0][0] * game_vis.dimensions[0]) - game_vis.origin[0]
 #                                , int(move_click[0][1] * game_vis.dimensions[1]) - game_vis.origin[0]]
         return move_coords
-
+    
+    def close(self):
+        '''Elegantly closes the application.
+        '''
+        pyplot.close()
 
 class GameVisualisation():
     '''A pygame-based interactive visualisation for games of Cartolan
@@ -693,6 +698,8 @@ class GameVisualisation():
     draw_tokens
     draw_play_area
     draw_wealth_scores
+    draw_routes
+    draw_prompt
     '''
     #define some constants that will not vary game by game
     MOVE_TIME_LIMIT = 10 #To force a timeout if players aren't responding
@@ -702,6 +709,7 @@ class GameVisualisation():
     DIMENSION_INCREMENT = 5 #the number of tiles by which the play area is extended when methods are called
     TILE_BORDER = 0.02 #the share of grid width/height that is used for border
     TOKEN_SCALE = 0.2 #relative to tile sizes
+    TOKEN_OUTLINE_SCALE = 0.1 #relative to token scale
     TOKEN_FONT_SCALE = 0.5 #relative to tile sizes
     SCORES_POSITION = [0.0, 0.0]
     SCORES_FONT_SCALE = 0.05 #relative to window size
@@ -716,6 +724,9 @@ class GameVisualisation():
         self.dimensions = dimensions
         self.origin = origin
         
+        self.init_GUI()
+        
+    def init_GUI(self):
         print("Initialising the pygame window and GUI")
         pygame.init()
         self.window = pygame.display.set_mode((0, 0), pygame.RESIZABLE)
@@ -725,14 +736,13 @@ class GameVisualisation():
 #        self.backing_image = pygame.transform.scale(pygame.image.load('./images/cartolan_backing.png'), [self.width, self.height])
 #        self.window.blit(self.backing_image, [0,0])
         pygame.display.set_caption("Cartolan - Trade Winds")
-        self.dimensions = dimensions
-        self.origin = origin
         print("Initialising visual scale variables, to fit window of size "+str(self.width)+"x"+str(self.height))
-        self.tile_size = self.height // dimensions[1]
+        self.tile_size = self.height // self.dimensions[1]
         #Tiles will be scaled to fit the smaller dimension
-        if self.width < self.tile_size * dimensions[0]:
-            self.tile_size = self.width // dimensions[0]
+        if self.width < self.tile_size * self.dimensions[0]:
+            self.tile_size = self.width // self.dimensions[0]
         self.token_size = int(round(self.TOKEN_SCALE * self.tile_size)) #token size will be proportional to the tiles
+        self.outline_width = int(self.TOKEN_OUTLINE_SCALE * self.token_size)
         self.token_font = pygame.font.SysFont(None, round(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
         self.scores_font = pygame.font.SysFont(None, round(self.height * self.SCORES_FONT_SCALE)) #the font size for scores will be proportionate to the window size
         self.prompt_font = pygame.font.SysFont(None, round(self.height * self.PROMPT_FONT_SCALE)) #the font size for prompt will be proportionate to the window size
@@ -843,6 +853,7 @@ class GameVisualisation():
         else:
             self.tile_size = self.width // self.dimensions[0]
         self.token_size = int(round(self.TOKEN_SCALE * self.tile_size)) #token size will be proportional to the tiles
+        self.outline_width = int(self.TOKEN_OUTLINE_SCALE * self.token_size)
         self.token_font = pygame.font.SysFont(None, int(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
         #scale down the images as the dimensions of the grid are changed, rather than when placing
         #the tiles' scale will be slightly smaller than the space in the grid, to givea discernible margin
@@ -856,19 +867,19 @@ class GameVisualisation():
             self.highlight_library[highlight_type] = pygame.transform.scale(highlight_image, [self.tile_size, self.tile_size])
     
     def increase_max_longitude(self):
-        '''Increases the maximum horiztonal extent of the play area by a standard increment'''
+        '''Deprecated to allow legacy PlayerHuman interaction'''
         pass
     
     def decrease_min_longitude(self):
-        '''Increases the maximum horiztonal extent of the play area by a standard increment, moving the origin right'''
+        '''Deprecated to allow legacy PlayerHuman interaction'''
         pass
     
     def increase_max_latitude(self):
-        '''Increases the maximum vertical extent of the play area by a standard increment'''
+        '''Deprecated to allow legacy PlayerHuman interaction'''
         pass
     
     def decrease_min_latitude(self):
-        '''Increases the maximum vertical extent of the play area by a standard increment, moving the origin up'''
+        '''Deprecated to allow legacy PlayerHuman interaction'''
         pass
     
     def is_rescale_needed(self):
@@ -888,16 +899,16 @@ class GameVisualisation():
                 elif latitude > max_latitude:
                     max_latitude = latitude
         rescale_needed = False
-        if min_longitude < -self.origin[0]:
+        if min_longitude < -self.origin[0] + 1:
             self.origin[0] = -min_longitude + self.DIMENSION_INCREMENT
             rescale_needed = True
-        if max_longitude > self.dimensions[0] - self.origin[0]:
+        if max_longitude > self.dimensions[0] - self.origin[0] - 2:
             self.dimensions[0] = max_longitude + self.origin[0] + self.DIMENSION_INCREMENT
             rescale_needed = True
-        if min_latitude < -self.origin[1]:
+        if min_latitude < -self.origin[1] + 1:
             self.origin[1] = -min_latitude + self.DIMENSION_INCREMENT
             rescale_needed = True
-        if max_latitude > self.dimensions[1] - self.origin[1]:
+        if max_latitude > self.dimensions[1] - self.origin[1] - 2:
             self.dimensions[1] = max_latitude + self.origin[1] + self.DIMENSION_INCREMENT
             rescale_needed = True
         if rescale_needed:
@@ -1045,7 +1056,7 @@ class GameVisualisation():
                     if adventurer.pirate_token:
                         # we'll outline pirates in black
                         print("Drawing a ")
-                        pygame.draw.circle(self.window, (0, 0, 0), location, self.token_size // 2, width=self.outline_width)
+                        pygame.draw.circle(self.window, (0, 0, 0), location, self.token_size, self.outline_width)
                 #For the text label we'll change the indent 
                 token_label = self.token_font.render(str(adventurers.index(adventurer)+1), 1, (0,0,0))
                 location[0] -= self.token_size // 2
@@ -1054,19 +1065,22 @@ class GameVisualisation():
             # we want to draw a square anywhere that an agent is
             for agent in game.agents[player]: 
                 tile = agent.current_tile
+                if not tile:
+                    continue
                 agent_offset = self.AGENT_OFFSET
-                location = [int(self.tile_size * (self.get_horizontal(tile.tile_position.longitude) + player_offset[0] + agent_offset[0]))
-                            , int(self.tile_size * (self.get_vertical(tile.tile_position.latitude) + player_offset[1] + agent_offset[1]))]
+                location = [int(self.tile_size * (self.get_horizontal(tile.tile_position.longitude) + agent_offset[0]))
+                            , int(self.tile_size * (self.get_vertical(tile.tile_position.latitude) + agent_offset[1]))]
                 #Agents will be differentiated by colour, but they will always have the same position because there will only be one per tile
                 agent_shape = pygame.Rect(location[0], location[1]
                   , 2*self.token_size, 2*self.token_size)
                 # we'll only outline the Agents that are dispossessed
                 if isinstance(agent, AgentRegular) and agent.is_dispossessed:
-                        pygame.draw.rect(self.window, colour, agent_shape, width=self.outline_width)
+                        pygame.draw.rect(self.window, colour, agent_shape, self.outline_width)
                 else:
                     #for a filled rectangle the fill method could be quicker: https://www.pygame.org/docs/ref/draw.html#pygame.draw.rect
                     self.window.fill(colour, rect=agent_shape)
                 token_label = self.token_font.render(str(agent.wealth), 1, (0,0,0))
+                location[0] += self.token_size // 2
                 self.window.blit(token_label, location)
         return True
     
@@ -1086,15 +1100,16 @@ class GameVisualisation():
             for adventurer in adventurers:
                 if adventurer.route:
                     adventurer_offset = self.ADVENTURER_OFFSETS[adventurers.index(adventurer)]
-                    previous_step = [int(self.tile_size * self.get_horizontal(adventurer.route[0].tile_position.longitude + player_offset[0] + adventurer_offset[0]))
-                            , int(self.tile_size * self.get_vertical(adventurer.route[0].tile_position.latitude + player_offset[1] + adventurer_offset[1]))]
+                    adventurer_offset = [adventurer_offset[i] + player_offset[i] for i in [0, 1]]
+                    previous_step = [int(self.tile_size * (self.get_horizontal(adventurer.route[0].tile_position.longitude) + adventurer_offset[0]))
+                            , int(self.tile_size * (self.get_vertical(adventurer.route[0].tile_position.latitude) + adventurer_offset[1]))]
                     # we'll introduce a gradual offset during the course of the game, to help keep track of when a route was travelled
                     move = 0
                     for tile in adventurer.route:
                         # you'll need to get the centre-point for each tile_image
                         offset = [0.5 + float(move)/float(len(adventurer.route))*(x - 0.5) for x in adventurer_offset]
-                        step = [int(self.tile_size * self.get_horizontal(tile.tile_position.longitude + offset[0]))
-                                , int(self.tile_size * self.get_vertical(tile.tile_position.latitude + offset[1]))]
+                        step = [int(self.tile_size * (self.get_horizontal(tile.tile_position.longitude) + offset[0]))
+                                , int(self.tile_size * (self.get_vertical(tile.tile_position.latitude) + offset[1]))]
                         pygame.draw.line(self.window, colour
                                          , [previous_step[0], previous_step[1]]
                                          , [step[0], step[1]]
@@ -1126,15 +1141,12 @@ class GameVisualisation():
         self.window.blit(score_title, scores_position)
         #Work out the maximum number of Adventurers in play, to only draw this many columns
         max_num_adventurers = 1
-        score_title = self.scores_font.render("Chest #1", 1, (0,0,0))
-        scores_position[0] += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width
-        self.window.blit(score_title, scores_position)
         for player in self.players:
             if len(game.adventurers[player]) > max_num_adventurers:
                 max_num_adventurers = len(game.adventurers[player])
-                score_title = self.scores_font.render("Chest #"+str(max_num_adventurers)
-                                                 , 1, (0,0,0))
-                scores_position[0] += self.SCORES_FONT_SCALE * self.SCORES_SPACING
+        for adventurer_num in range(1, max_num_adventurers + 1):
+                score_title = self.scores_font.render("Chest #"+str(adventurer_num), 1, (0,0,0))
+                scores_position[0] += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width
                 self.window.blit(score_title, scores_position)
         for player in self.players:
             colour = pygame.Color(player.colour)
@@ -1167,6 +1179,11 @@ class GameVisualisation():
         prompt_text should be a string
         '''
         self.prompt_text = prompt_text
+        #Replace all the visuals, rather than overlaying text on old text
+#        self.draw_play_area()
+#        self.draw_tokens()
+#        self.draw_routes()
+#        self.draw_move_options()
         self.draw_prompt()
         
     
@@ -1175,27 +1192,7 @@ class GameVisualisation():
         '''
         self.promp_text = ""
 
-    def update(self):
-        '''Redraws visuals and seeks player input, passing it to the server to pass to the server-side Player
-        '''
-        #If the game has ended then stop player input and refreshing
-        if self.game.game_over:
-            return True
-        #sleep to make the game 60 fps
-        self.move_timer -= 1
-        self.clock.tick(60)
-#        connection.Pump()
-#        self.Pump()
-        #clear the window and redraw everything
-        self.window.fill(0)
-        self.draw_play_area()
-        self.draw_tokens()
-        self.draw_scores()
-        self.draw_prompt()
-        #Empty the event queue now that the prompt to players has been updated
-        pygame.event.clear()
-        
-    
+    #@TODO differentiate remote players from local and seek input accordingly
     def get_input_coords(self, adventurer):
         '''Passes mouseclick input from the user and converts it into the position of a game tile.
         
@@ -1253,6 +1250,12 @@ class GameVisualisation():
         
         return False
     
+    def close(self):
+        '''Elegantly closes the application down.
+        '''
+        pygame.quit()
+        sys.exit()
+        
     def finished(self):
         self.window.blit(self.gameover if not self.local_win else self.winningscreen, (0,0))
         while True:
@@ -1263,7 +1266,7 @@ class GameVisualisation():
             pygame.display.flip()
 
 
-class ClientGameVisualisation(GameVisualisation, ConnectionListener):
+class NetworkGameVisualisation(GameVisualisation, ConnectionListener):
     '''A pygame-based interactive visualisation that is client to a remote game.
     
     Architecture:
@@ -1282,10 +1285,17 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
     draw_play_area
     draw_wealth_scores
     '''
-    def __init__(self, players, game, dimensions, origin):
-        super().__init__(players, game, dimensions, origin)
+    def __init__(self, game, dimensions, origin, player_channels):
+        #establish where the players are and particularly whether there are any local players
+        self.player_channels = player_channels
+        self.exists_local_player = False
+        for player in self.players_channels:
+            if self.player_channels[player] is None:
+               self.exists_local_player =  True
+        super().__init__(game, dimensions, origin)
+        
         #Network state data:
-        self.local_player_turn = False
+        self.local_player_turn = False # Keep track of whether to wait on local player input for updates to visuals, 
         self.local_win = False
         self.running = False
         #Establish connection to the server
@@ -1303,12 +1313,109 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             exit()
         print("Cartolan client started")
         self.running = False
-        #Keep the connection live until the game is active?
+        #Keep the connection live until the game is activated
         while not self.running:
             self.Pump()
             connection.Pump()
             sleep(0.01)
-          
+     
+    def init_GUI(self):
+        '''Differentiates whether there are any local players to actually draw visuals for
+        '''
+        if self.exists_local_player:
+            super().init_GUI()
+        else:
+            pass
+        
+    def draw_play_area(self):
+        '''Extends the parent's method to differentiate local and remote players.
+        '''
+        if self.exists_local_player:
+            super(GameVisualisation).draw_play_area()
+        #@TODO have the server pass updated data to the remote players
+        
+        
+    def set_current_player(self, adventurer):
+        '''Ensures that remote visuals have the right active player identified
+        '''
+        player = adventurer.player
+        self.current_player_colour = player_colour
+        self.current_adventurer_number = self.game.adventurers[player].index(adventurer)
+        
+    def draw_tokens(self):
+        '''Extends the parent's method to differentiate local and remote players.
+        '''
+        if self.exists_local_player:
+            super(GameVisualisation).draw_tokens()
+        #@TODO have the server pass updated data to the remote players
+            
+    def draw_routes(self):
+        '''Extends the parent's method to differentiate local and remote players.
+        '''
+        if self.exists_local_player:
+            super(GameVisualisation).draw_routes()
+        #@TODO have the server pass updated data to the remote players
+            
+    def draw_scores(self):
+        '''Extends the parent's method to differentiate local and remote players.
+        '''
+        if self.exists_local_player:
+            super(GameVisualisation).draw_scores()
+        #@TODO have the server pass updated data to the remote players
+            
+    def draw_prompt(self):
+        '''Extends the parent's method to differentiate local and remote players.
+        '''
+        if self.exists_local_player:
+            super(GameVisualisation).draw_prompt()
+        #@TODO have the server pass updated data to the remote players
+        if not self.is_remote_server:
+            self.server.remote_give_prompt(self.game, self.current_player_colour, self.prompt_text)
+            
+    def clear_prompt(self):
+        '''Extends the parent's method to differentiate local and remote players.
+        '''
+        if self.exists_local_player:
+            super(GameVisualisation).clear_prompt()
+        #@TODO have the server pass updated data to the remote players
+        if not self.is_remote_server:
+            self.server.remote_clear_prompt(self.game, self.current_player_colour)
+            
+    def get_input_coords(self, adventurer):
+        '''Before seeking GUI input through parent, checks whether to contact remote client instead
+        
+        Relevant in the case of a players local to the server's game.
+        '''
+        if self.local_player_turn:
+            input_coords = super(GameVisualisation).get_input_coords()
+            if self.is_remote_server:
+                self.send({"action":"input_coords", "input_coords":input_coords})
+            else:
+                return input_coords
+        elif not self.is_remote_server:
+            #have the server seek input from the remote player
+            self.server.remote_input_coords(self.game, adventurer)
+        
+    def update(self):
+        '''Redraws visuals and seeks player input, passing it to the server to pass to the server-side Player
+        '''
+        #If the game has ended then stop player input and refreshing
+        if self.game.game_over:
+            return True
+        #sleep to make the game 60 fps
+        self.move_timer -= 1
+        self.clock.tick(60)
+#        connection.Pump()
+#        self.Pump()
+        #clear the window and redraw everything
+        self.window.fill(0)
+        self.draw_play_area()
+        self.draw_tokens()
+        self.draw_scores()
+        self.draw_prompt()
+        #Empty the event queue now that the prompt to players has been updated
+        pygame.event.clear()
+    
     #Now for a set of methods that will use PodSixNet to respond to messages from the server to progress the game
     def Network_start_game(self, data):
         '''Initiates network game based on data following an {"action":"start_game"} message from the server
@@ -1316,7 +1423,9 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         self.running = True #keep track of active games
         self.game_id = data["game_id"] #allow game state to be synched between server and client
         self.game_type = data["game_type"] #needed to identify the class of other elements like Adventurers and Agents
-        game = self.game
+        game = self.game_type
+        #With proxy game and players set up, continue the startup of 
+        super().__init__(players, game, dimensions, origin)
         #place the initial tiles and identify the Capital for player placement
         #@TODO genericise this to allow multiple starting cities or be robust to city coordinates not being 0, 0
         initial_tiles = data["initial_tiles"]
@@ -1350,7 +1459,6 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         self.current_player_colour = data["current_player_colour"]
         self.current_adventurer_number = data["current_adventurer_number"]
         self.prompt_text = self.current_player_colour +" player is moving their Adventurer #" +str(self.current_adventurer_number)
-        
     
     def Network_place_tile(self, data):
         '''Places a tile based on data following an {"action":"place_tile"} message from the server
@@ -1399,6 +1507,17 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
 #        else:
             #@TODO returna  message to the server complaining that it wasn't a valid tile provided
         
+    def Network_prompt(self, data):
+        '''Updates the prompt based on remote input
+        '''
+        prompt_text = data["prompt_text"]
+        self.give_prompt(prompt)
+    
+    def Network_clear_prompt(self, data):
+        '''Cleares the prompt based on remote input
+        '''
+        self.clear_prompt()
+    
     def Network_end_game(self, data):
         '''Notifies player who won the game based on data following an {"action":"end_game"} message from the server
         '''

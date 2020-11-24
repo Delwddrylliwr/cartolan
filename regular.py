@@ -208,6 +208,9 @@ class AdventurerRegular(AdventurerBeginner):
         if tile.agent is None:
             return True
         elif tile.agent.is_dispossessed:
+#            #This dispossessed Agent is about to be lost to its pla
+#            tile.game.agents[tile.agent.player].remove(tile.agent)
+#            tile.move_off_tile(agent)
             return True
         else:
             return False 
@@ -299,6 +302,7 @@ class DisasterTile(Tile):
                     token.downwind_moves = 0
                     token.upwind_moves = 0
                     token.turns_moved += 1
+                    token.agents_rested = []
             elif isinstance(token, Agent): 
                 print("Tried to add Agent to a disaster tile")
                 return False

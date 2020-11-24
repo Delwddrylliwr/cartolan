@@ -1,26 +1,62 @@
 import PodSixNet.Channel
 import PodSixNet.Server
+import random
+from players_human import PlayerHuman
+from visuals import GameVisualisation, NetworkGameVisualisation
 from time import sleep
+
 class ClientChannel(PodSixNet.Channel.Channel):
     '''The receiving methods for messages from clients for a pygame-based server
     '''
     def Network(self, data):
         print(data)
+        
+    def Network_setup(self, data):
+        '''The receiving method for "setup" messages from clients, to get the number of players
+        '''
+        self.player_colours = data["player_colours"]
+        for player_colour in self.player_colours:
+            self.players.append(PlayerHuman(player_colour))
     
+    def Network_input(self, data):
+        '''Receiving method for plain 'input' messages from clients
+        '''
+        self._server. = data["input"]
+        
     def Network_move(self, data):
         '''The receiving method for "move" messages from clients
         '''
+        self.generic_move_or_action(data)
     
+    def Network_buy(self, data):
+        '''The receiving method for "buy" messages from clients
+        '''
+        self.generic_move_or_action(data)
+    
+    def Network_attack(self, data):
+        '''The receiving method for "attack" messages from clients
+        '''
+        self.generic_move_or_action(data)
+        
     #@TODO may want to differentiate client instructions more deeply in future, if multiple moves are to be offered at the same time    
     def generic_move_or_action(self, data):
         #deconsolidate all of the data from the dictionary
         longitude = data["longitude"]
         latitude = data["latitude"]
         
-        self.gameid = data["gameid"] #id of game given by server at start of game
-     
-        #tells server to place line
-#        self._server.placeLine(hv, x, y, data, self.gameid, num)
+        player_colour = data["player_colour"]
+        adventurer_num = data["adventurer_num"]
+        
+#        if not self.gameid == data["gameid"]: #id of game given by server at start of game
+            #@TODO handle a message from the wrong game for this channel
+            
+        #tells server to pass coordinates on to the waiting game
+        self._server.pass_coordinates(longitude, latitude, self.gameid, player_colour, adventurer_num)
+    
+    def Network_quit(self, data):
+        '''The receiving method for "quit" messages from clients
+        '''
+        self._server.player_quits(self.game_id, data["player_colour"])
     
     def Close(self):
         '''Closes the channel to the client
@@ -32,122 +68,194 @@ class CartolanServer(PodSixNet.Server.Server):
     
     Architecture:
     Server Side                               |    Client Side
-    Visualisation <-  Game       ->  Server  <->   Visualisation -> Player -> Adventurer
+        Game <- Visualisation   ->  Server   <->   Visualisation -> Player -> Adventurer
          /\             /\            /\                                |
           |              |             |                               \/
          \/             \/            \/                            
-        Player     <- Adventurer -> Player                         Agent
+        Adventurer  -> Player                                        Agent
     
     Client side Player, Adventurer, and Agent, used for data storage but not methods
     '''
     channelClass = ClientChannel
+    WAIT_DURATION = 1
+    TIMEOUT_DURATION = 60
     
-    def __init__(self, *args, **kwargs):
+    def __init__(self, game_modes, dimensions, origin, *args, **kwargs):
         PodSixNet.Server.Server.__init__(self, *args, **kwargs)
-        self.games = []
-        self.queue = None
-        self.currentIndex = 0
+        self.game_modes = game_modes
+        self.dimensions = dimensions
+        self.orgin = origin
+        self.games = {}
+        self.input_buffer = {}
+        #Track the latest game as it's being initiated
+        self.next_game = None
+        self.next_game_id = 0
+        self.next_game_type = None
+        self.num_players = None
+        self.next_game_players = {}
+        self.local_game = self.check_local_game()
     
-    def Connected(self, channel, addr):
-        print('new connection:', channel)
-        if self.queue == None:
-            self.currentIndex += 1
-            channel.gameid=self.currentIndex
-            self.queue=Game(channel, self.currentIndex)
+    def check_local_game(self):
+        '''Seeks input from the Host machine's owner if they aren't currently in a game
+        '''
+        #Check whether a local player is looking to host a game
+        prompt = "Please specify how many local players will play?"
+        num_local_players = None
+        while not int(num_local_players) >= 0:
+            num_local_players = int(input(prompt))
+        # Seek game specification from host player
+        if num_local_players > 0:
+            prompt = "Please specify which mode of Cartolan you would like to host: '"
+            for game_type in self.game_modes:
+                prompt += "'"+game_type+"', or "
+            while not self.next_game_type in self.game_modes:
+                self.next_game_type = input(prompt).lower()
+            #Create the players
+            for player_colour in random.choices(self.game_modes[self.game_type]["player_set"], k=num_local_players):
+                self.next_game_players.append(PlayerHuman(player_colour))
+                self.next_player_channels[player_colour] = None #keep track of local players with a None instead of a podsixnet.channel
+            self.min_players = self.game_modes[game_type]["game_type"].MIN_PLAYERS
+            self.max_players = self.game_modes[game_type]["game_type"].MAX_PLAYERS
+            prompt = "Please specify how many other players will play, between 0 and " +str(self.max_players - num_local_players)+ "?"
+            num_players = None
+            while not num_players in range(self.min_players, self.max_players):
+                num_players = num_local_players + int(input(prompt))
+            #Set up the game if there are enough players
+            if len(self.next_game_players) >= num_players:
+                next_game = self.next_game_type(self.players.keys(), self.MOVEMENT_RULES, self.EXPLORATION_RULES)
+                next_game_vis = GameVisualisation(self.next_game, self.dimensions, self.orgin)
+                self.games[next_game.game_id] = {"game_vis":next_game_vis, "player_channels":self.next_player_channels}
+                self.next_players_channels = {}
+            return True
         else:
-            channel.gameid = self.currentIndex
-            self.queue.player1 = channel
-            self.queue.player0.Send({"action": "startgame","player":0, "gameid": self.queue.gameid})
-            self.queue.player1.Send({"action": "startgame","player":1, "gameid": self.queue.gameid})
-            self.games.append(self.queue)
-            self.queue = None
+            return False       
     
-    def placeLine(self, is_h, x, y, data, gameid, num):
-        game = [a for a in self.games if a.gameid == gameid]
-        if len(game) == 1:
-            game[0].placeLine(is_h, x, y, data, num)
+    #@TODO allow players to join a game, replacing a virtual player 
+    def Connected(self, channel, addr):
+        '''Allocates players to games
+        '''
+        print('new connection:', channel)
+        if self.next_game == None:
+            # Seek game specification from newly joined client
+            prompt_text = "Please specify which mode of Cartolan you would like to host: "
+            game_type = ""
+            for game_type in self.game_modes:
+                prompt_text += "'"+game_type+"', or "
+            channel.send({"action":"prompt", "colour":"block", "prompt_text":prompt_text})
+            while not game_type in self.game_modes:
+                game_type = self.remote_input(channel)
+            self.min_players = self.game_modes[game_type]["game_type"].MIN_PLAYERS
+            self.max_players = self.game_modes[game_type]["game_type"].MAX_PLAYERS
+            prompt_text = ("Please specify how many players will play from this computer, between 1 and " +str(self.max_players)+ "?")
+            channel.send({"action":"prompt", "colour":"block", "prompt_text":prompt_text})
+            num_client_players = None
+            while not num_client_players in range(1, self.max_players + 1):
+                num_client_players = int(self.remote_input(channel))
+            prompt_text("Please specify how many other players will play, between 1 and " +str(self.max_players - num_client_players)+ "?")
+            channel.send({"action":"prompt", "colour":"block", "prompt_text":prompt_text})
+            num_players = None
+            while not num_players in range(self.min_players, self.max_players + 1):
+                num_players = num_client_players + int(self.remote_input(channel))
+            for player in channel.players:
+                self.next_game_players.append(player)
+                self.next_player_channels[player.colour] = channel
+        else:
+            channel.gameid = self.game.game_id
+            self.queue.append(channel)
+            self.next_game_players.append(channel.players)
+            if len(self.next_game_players) == self.num_players:
+                next_game = self.next_game_type(self.next_player_channels.keys(), self.MOVEMENT_RULES, self.EXPLORATION_RULES)
+                next_game_vis = NetworkGameVisualisation(self.next_game, channel)
+                for chan in self.queue:
+                    chan.Send({"action": "start_game","player":0, "gameid": self.queue.gameid})
+                    chan.game_id = next_game.game_id
+                    self.games[next_game.game_id] = {"game_vis":next_game_vis, "player_channels":self.next_game_players}
+                    self.next_player_channels = {}
     
-    def close(self, gameid):
+    def close(self, game_id):
         '''Passes on close instruction to each of the clients
         
         Parameters:    
         game_id should be an integer referencing a game instance in a List
         '''
         try:
-            game = [a for a in self.games if a.gameid == gameid][0]
-            game.player0.Send({"action":"close"})
-            game.player1.Send({"action":"close"})
+            player_channels = self.games[game_id]["player_channels"]
+            for channel in set(player_channels.values()):
+                if channel:
+                    channel.Send({"action":"close"})
+                else:
+                    # Free up the local game slot if this was the local game
+                    self.local_game = False
         except:
             pass
     
+    def pass_coordinates(self, longitude, latitude, game_id, player_colour, adventurer_num):
+        '''Checks that the game is awaiting input from a player, and makes it available.
+        
+        Arguments:
+        longitude an Int giving one of the grid coordinates
+        latitude an Int giving one of the grid coordinates
+        game_id a hexadecimal string uniquely identifying
+        player_colour a string identifying the player within the game, by their colour
+        adventurer_number an Int identifying the Adventurer token for which the player is submitting a movement/action
+        '''
+        if not self.games[game_id]["current_player_colour"] == player_colour:
+            return False
+        else:
+            self.games[game_id]["current_player_input"] = [longitude, latitude]
+            return True
+    
+    def remote_give_prompt(self, game, player_colour, prompt):
+        '''Passes a prompt for the relevant remote players 
+        '''
+        channel = self.games[game.game_id]["player_channels"][player_colour]
+        channel.send({"action":"prompt", "player_colour":player_colour, "prompt_text":prompt})
+    
+    def remote_clear_prompt(self, game, player_colour):
+        '''Clears prompts for the relevant remote player
+        '''
+        channel = self.games[game.game_id]["player_channels"][player_colour]
+        channel.send({"action":"prompt", "player_colour":player_colour})
+    
+    def remote_input(self, channel):
+        '''Allows players to submit text input
+        '''
+        #collect and return any input left in the buffer
+        input_text = self.input_buffer[channel]
+        self.input_buffer[channel] = None
+        return input_text
+    
+    def remote_input_coords(self, adventurer):
+        '''Allows Players to submit coordinates directly
+        '''
+        #identify game and player through adventurer
+        game_id = adventurer.game.game_id
+        player = adventurer.player
+        #collect and return any coordinates left for the game by that player's remote version
+        if not self.games[game_id]["current_player_colour"] == player.player_colour:
+            input_coords = self.games[game_id]["current_player_input"]
+            #Record that the coordinates have been collected
+            self.games[game_id]["current_player_input"] = None
+            return input_coords
+        else:
+            return None
+    
+    def player_quits(self, game_id, player_colour):
+        '''When a player quits an active game, replace them with a virtual player.
+        '''
+        game_vis = self.games[game_id]["game_vis"]
+        player_channels = self.games[game_id]["player_channels"]
+        player_channels[player_colour] = self.game_modes[game_vis.game.__class__]["player_sets"][player_colour](player_colour)
+    
     def tick(self):
-        # Check for any wins
-        # Loop through all of the squares
-        index = 0
-        change = 3
-        for game in self.games:
-            change = 3
-            for time in range(2):
-                for y in range(6):
-                    for x in range(6):
-                        if game.boardh[y][x] and game.boardv[y][x] and game.boardh[y+1][x] and game.boardv[y][x+1] and not game.owner[x][y]:
-                            if self.games[index].turn == 0:
-                                self.games[index].owner[x][y] = 2
-                                game.player1.Send({"action":"win",  "x":x, "y":y})
-                                game.player0.Send({"action":"lose", "x":x, "y":y})
-                                change = 1
-                            else:
-                                self.games[index].owner[x][y] = 1
-                                game.player0.Send({"action":"win", "x":x, "y":y})
-                                game.player1.Send({"action":"lose", "x":x, "y":y})
-                                change = 0
-            self.games[index].turn = change if change != 3 else self.games[index].turn
-            game.player1.Send({"action":"yourturn", "torf":True if self.games[index].turn == 1 else False})
-            game.player0.Send({"action":"yourturn", "torf":True if self.games[index].turn == 0 else False})
-            index += 1
+        '''Checks the games for players quitting and handles appropriately
+        '''
+        # Check for any player actions or quit messages
+        for game_id in self.games:
+            game = games[game_id]["game"]
+                                
         
         self.Pump()
 
-class Game:
-    def __init__(self, player0, currentIndex):
-        # whose turn (1 or 0)
-        self.turn = 0
-        #owner map
-        self.owner = [[False for x in range(6)] for y in range(6)]
-        # Seven lines in each direction to make a six by six grid.
-        self.boardh = [[False for x in range(6)] for y in range(7)]
-        self.boardv = [[False for x in range(7)] for y in range(6)]
-        #initialize the players including the one who started the game
-        self.player0 = player0
-        self.player1 = None
-        #gameid of game
-        self.gameid = currentIndex
-    
-    def placeLine(self, is_h, x, y, data, num):
-        #make sure it's their turn
-        if num == self.turn:
-            self.turn = 0 if self.turn else 1
-            self.player1.Send({"action":"yourturn", "torf":True if self.turn == 1 else False})
-            self.player0.Send({"action":"yourturn", "torf":True if self.turn == 0 else False})
-            #place line in game
-            if is_h:
-                self.boardh[y][x] = True
-            else:
-                self.boardv[y][x] = True
-            #send data and turn data to each player
-            self.player0.Send(data)
-            self.player1.Send(data)
 
-# Seek server port from host
-print("STARTING SERVER ON LOCALHOST")
-address = raw_input("Host:Port (localhost:8000): ")
-if not address:
-    host, port = "localhost", 8000
-else:
-    host, port = address.split(":")
-
-server = BoxesServer(localaddr = (host, int(port)))
-while True:
-    server.tick()
-    sleep(0.01)
     
