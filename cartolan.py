@@ -700,20 +700,12 @@ class InteractiveSimulation(InteractiveGame):
             #player_colour = random.choice(player_set)
             self.players.append(self.GAME_MODES[self.game_mode]["player_set"][player_colour](player_colour))
    
-class NetworkGame(InteractiveSimulation):
-    def __init__(self):
-        # Seek server port from host
-        print("STARTING SERVER ON LOCALHOST")
-        address = input("Host:Port (localhost:8000): ")
-        if not address:
-            host, port = "localhost", 8000
-        else:
-            host, port = address.split(":")
+#class NetworkGame(InteractiveSimulation):
+#    def __init__(self):
+#        # Seek server port from host
         
-        server = CartolanServer(localaddr = (host, int(port)))
-        while True:
-            server.tick()
-            sleep(0.01)
+        
+
          
 # class AISimulations(Simulations):
 #     AI_PLAYER_COLOURS = ["green", "brown", "pink", "purple"]

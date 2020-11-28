@@ -61,6 +61,8 @@ class PlayerHuman(Player):
         
         #Carry out the player's chosen move
         move_coords = game_vis.get_input_coords(adventurer)
+        while move_coords not in valid_moves:
+            move_coords = game_vis.get_input_coords(adventurer)
         if move_coords in valid_moves or move_coords in chance_moves:
             print(self.colour+" player chose valid coordinates to move to.")
             if move_map[move_coords[0]].get(move_coords[1]) == "wait":
@@ -177,46 +179,50 @@ class PlayerHuman(Player):
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
         
-        if agent.player == self:
-            return True
+        #make sure that tiles and token positions are up to date
+        game_vis.draw_play_area()
+        game_vis.draw_tokens()
+        game_vis.draw_scores()
+        
+        #highlight the tile where rest can be sought or bought
+        print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)+" can rest")
+        if not agent in adventurer.agents_rested:
+            if agent.player == self:
+                valid_coords = [[adventurer.current_tile.tile_position.longitude
+                            , adventurer.current_tile.tile_position.latitude]]
+                game_vis.draw_move_options(rest_coords=valid_coords)
+            elif adventurer.wealth >= adventurer.game.COST_AGENT_EXPLORING:
+                valid_coords = [[adventurer.current_tile.tile_position.longitude
+                            , adventurer.current_tile.tile_position.latitude]]
+                game_vis.draw_move_options(buy_coords=valid_coords)
         else:
-            buy_coords = [[adventurer.current_tile.tile_position.longitude
-                        , adventurer.current_tile.tile_position.latitude]]
+            return False
 
-            #make sure that tiles and token positions are up to date
-            game_vis.draw_play_area()
-            game_vis.draw_tokens()
-            game_vis.draw_scores()
-            
-            #highlight the tile where rest can be bought
-            print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)+" can rest")
-            game_vis.draw_move_options(buy_coords=buy_coords)
-
-            #prompt the player to choose a tile to move on to
-            print("Prompting the "+self.colour+" player for input")
+        #prompt the player to choose a tile to move on to
+        print("Prompting the "+self.colour+" player for input")
 #            game_vis.clear_prompt()
-            game_vis.give_prompt("If you want "+str(self.colour)+" adventurer #" 
-                                           +str(game.adventurers[self].index(adventurer)+1) 
-                                           +" to rest then click their tile, otherwise click elsewhere.")
-            
+        game_vis.give_prompt("If you want "+str(self.colour)+" adventurer #" 
+                                       +str(game.adventurers[self].index(adventurer)+1) 
+                                       +" to rest then click their tile, otherwise click elsewhere.")
+        
+        rest = False
+        move_coords = game_vis.get_input_coords(adventurer)
+        if move_coords in valid_coords:
+            print(self.colour+" player chose the coordinates of the tile where their Adventurer can rest.")
+            rest = True
+        else:
+            print(self.colour+" player chose coordinates away from the tile where their Adventurer can rest.")
             rest = False
-            move_coords = game_vis.get_input_coords(adventurer)
-            if move_coords in buy_coords:
-                print(self.colour+" player chose the coordinates of the tile where their Adventurer can rest.")
-                rest = True
-            else:
-                print(self.colour+" player chose coordinates away from the tile where their Adventurer can rest.")
-                rest = False
 
-            #clean up the highlights
-            game_vis.clear_prompt()
-            game_vis.clear_move_options()
+        #clean up the highlights
+        game_vis.clear_prompt()
+        game_vis.clear_move_options()
 #             game_vis.draw_tokens()
-            return rest
+        return rest
         
     
     #if offered by a city then always bank everything
-    #@TODO allow player to specify how much wealth to bank using input()
+    #@TODO allow player to specify how much wealth to bank using input() or a text box: https://stackoverflow.com/questions/46390231/how-to-create-a-text-input-box-with-pygame
     def check_bank_wealth(self, adventurer, report="Player is being asked whether to bank wealth"):
         print(report)
         return adventurer.wealth

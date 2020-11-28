@@ -485,7 +485,7 @@ class PlayAreaVisualisation:
                                  , color='white', family='Comic Sans MS'
                                 , horizontalalignment="center", verticalalignment="center")
         
-        print("Creating a table of the wealth held by Players and their Adventurers")
+#        print("Creating a table of the wealth held by Players and their Adventurers")
         max_num_adventurers = 1
         for player in players:
             if len(self.game.adventurers[player]) > max_num_adventurers:
@@ -671,7 +671,7 @@ class PlayAreaVisualisation:
         Arguments
         adventurer takes a Cartolan.Adventurer
         '''
-        pyplot.ginput(timeout=0) # this call to ginput should reveal the highlights, but will it also be the one that determines movement
+        pyplot.ginput(timeout=0) # this call to ginput should reveal the highlights, but it will not be the one that determines movement
         self.clear_prompt()
         self.give_prompt("Click again to confirm")
         move_click = pyplot.ginput(timeout=0)
@@ -836,6 +836,7 @@ class GameVisualisation():
         self.highlight_library["invalid"] = pygame.image.load('./images/option_invalid_move.png')
         self.highlight_library["buy"] = pygame.image.load('./images/option_buy.png')
         self.highlight_library["attack"] = pygame.image.load('./images/option_attack.png')
+        self.highlight_library["rest"] = pygame.image.load('./images/option_rest.png')
         #rescale the tiles to match the current play area dimensions now, it will only be scaled down and lose more fidelity with subsequent resizing
         for highlight_type in self.highlight_library:
             highlight_image = self.highlight_library[highlight_type]
@@ -885,7 +886,7 @@ class GameVisualisation():
     def is_rescale_needed(self):
         '''Checks the extremes of the play_area and rescales visual elements as needed
         '''
-        print("Checking whether the current play area needs a bigger visuals grid")
+#        print("Checking whether the current play area needs a bigger visuals grid")
         min_longitude, max_longitude = 0, 0
         min_latitude, max_latitude = 0, 0
         for longitude in self.game.play_area:
@@ -928,7 +929,7 @@ class GameVisualisation():
         '''Renders the tiles that have been laid in a particular game of Cartolan - Trade Winds
         '''
         play_area_update = self.game.play_area
-        print("Drawing the play area, with " +str(len(play_area_update))+" columns of tiles")
+#        print("Drawing the play area, with " +str(len(play_area_update))+" columns of tiles")
         #Check whether the visuals need to be rescaled
         self.is_rescale_needed()
         #Clear what's already been drawn
@@ -961,7 +962,7 @@ class GameVisualisation():
                 #place the tile image in the grid
                 horizontal = self.get_horizontal(longitude)
                 vertical = self.get_vertical(latitude)
-                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
+#                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
                 self.window.blit(tile_image, [horizontal*self.tile_size, vertical*self.tile_size])
         # # Keep track of what the latest play_area to have been visualised was
         # self.play_area = self.play_area_union(self.play_area, play_area_update)
@@ -969,10 +970,10 @@ class GameVisualisation():
     
     #@TODO highlight the particular token(s) that an action relates to
     def draw_move_options(self, valid_coords=None, invalid_coords=None, chance_coords=None
-                          , buy_coords=None, attack_coords=None):
+                          , buy_coords=None, attack_coords=None, rest_coords=None):
         '''Outlines tiles where moves or actions are possible, designated by colour
         '''
-        print("Updating the dict of highlight positions, based on optional arguments")
+#        print("Updating the dict of highlight positions, based on optional arguments")
         highlight_count = 0
         if valid_coords:
             self.highlights["move"] = valid_coords
@@ -994,7 +995,12 @@ class GameVisualisation():
             highlight_count += len(self.highlights["attack"])
         else:
             self.highlights["attack"] = []
-        print("Cycling through the various highlights' grid coordinates, outlining the " +str(highlight_count)+ " tiles that can and can't be subject to moves")
+        if rest_coords:
+            self.highlights["rest"] = rest_coords
+            highlight_count += len(self.highlights["rest"])
+        else:
+            self.highlights["rest"] = []
+#        print("Cycling through the various highlights' grid coordinates, outlining the " +str(highlight_count)+ " tiles that can and can't be subject to moves")
         for highlight_type in self.highlight_library:
             if self.highlights[highlight_type]:
                 highlight_image = self.highlight_library[highlight_type]
@@ -1002,15 +1008,16 @@ class GameVisualisation():
                     #place the highlight image on the grid
                     horizontal = self.get_horizontal(tile_coords[0])
                     vertical = self.get_vertical(tile_coords[1])
-                    print("Drawing a highlight at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
+#                    print("Drawing a highlight at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
                     self.window.blit(highlight_image, [horizontal*self.tile_size, vertical*self.tile_size])
     
     def check_highlighted(self, input_longitude, input_latitude):
         '''Given play area grid coordinates, checks whether this is highlighted as a valid move/action
         '''
-        print("Checking whether there is a valid move option at: " +str(input_longitude)+ ", " +str(input_latitude))
+#        print("Checking whether there is a valid move option at: " +str(input_longitude)+ ", " +str(input_latitude))
         is_option_available = False
         for highlight_type in self.highlight_library:
+#            print("There are " +str(len(self.highlights[highlight_type]))+ " options of type " +highlight_type)
             if self.highlights[highlight_type]:
                 is_option_available = True
                 for tile_coords in self.highlights[highlight_type]:
@@ -1020,21 +1027,21 @@ class GameVisualisation():
                     if longitude == input_longitude and latitude == input_latitude:
                         return highlight_type
         if is_option_available:
-            return True
-        else:
             return None
+        else:
+            return "confirmed"
     
     def clear_move_options(self):
         '''
         '''
-        print("Clearing out the list of valid moves")
+#        print("Clearing out the list of valid moves")
         for highlight_type in self.highlight_library:
             self.highlights[highlight_type] = []
     
     def draw_tokens(self):
         '''Illustrates the current location of Adventurers and Agents in a game, along with their paths over the last turn
         '''
-        print("Cycling through the players, drawing the adventurers and agents as markers")
+#        print("Cycling through the players, drawing the adventurers and agents as markers")
         game = self.game
         players = self.players
         for player in players:
@@ -1050,12 +1057,12 @@ class GameVisualisation():
                 location = [int(self.tile_size * (self.get_horizontal(tile.tile_position.longitude) + player_offset[0] + adventurer_offset[0]))
                             , int(self.tile_size * (self.get_vertical(tile.tile_position.latitude) + player_offset[1] + adventurer_offset[1]))]
                 # we want it to be coloured differently for each player
-                print("Drawing the filled circle at " +str(location[0])+ ", " +str(location[1])+ " with radius " +str(self.token_size))
+#                print("Drawing the filled circle at " +str(location[0])+ ", " +str(location[1])+ " with radius " +str(self.token_size))
                 pygame.draw.circle(self.window, colour, location, self.token_size)
                 if isinstance(adventurer, AdventurerRegular):
                     if adventurer.pirate_token:
                         # we'll outline pirates in black
-                        print("Drawing a ")
+#                        print("Drawing an outline")
                         pygame.draw.circle(self.window, (0, 0, 0), location, self.token_size, self.outline_width)
                 #For the text label we'll change the indent 
                 token_label = self.token_font.render(str(adventurers.index(adventurer)+1), 1, (0,0,0))
@@ -1091,7 +1098,7 @@ class GameVisualisation():
         Arguments:
         List of Carolan.Players the Adventurers and Agents that will be rendered
         '''
-        print("Drawing a series of lines to mark out the route travelled by players since the last move")
+#        print("Drawing a series of lines to mark out the route travelled by players since the last move")
         players = self.game.players
         for player in players:
             player_offset = self.PLAYER_OFFSETS[players.index(player)]
@@ -1133,7 +1140,7 @@ class GameVisualisation():
     def draw_scores(self):
         '''Prints a table of current wealth scores in players' Vaults and Adventurers' Chests
         '''        
-        print("Creating a table of the wealth held by Players and their Adventurers")
+#        print("Creating a table of the wealth held by Players and their Adventurers")
         #Draw the column headings
         game = self.game
         score_title = self.scores_font.render("Vault", 1, (0,0,0))
@@ -1162,7 +1169,7 @@ class GameVisualisation():
     def draw_prompt(self):
         '''Prints a prompt on what moves/actions are available to the current player
         '''        
-        print("Creating a prompt for the current player")
+#        print("Creating a prompt for the current player")
         #Establish the colour (as the current player's)
         prompt = self.prompt_font.render(self.prompt_text, 1, self.current_player_colour)
         self.window.blit(prompt, self.prompt_position)
@@ -1192,14 +1199,13 @@ class GameVisualisation():
         '''
         self.promp_text = ""
 
-    #@TODO differentiate remote players from local and seek input accordingly
     def get_input_coords(self, adventurer):
         '''Passes mouseclick input from the user and converts it into the position of a game tile.
         
         Arguments
         adventurer takes a Cartolan.Adventurer
         '''
-        print("Waiting for input from the user")
+#        print("Waiting for input from the user")
         pygame.display.flip()
         while True:
             event = pygame.event.wait()
@@ -1212,11 +1218,12 @@ class GameVisualisation():
                 longitude = int(math.ceil((event.pos[0])/self.tile_size)) - self.origin[0] - 1
                 latitude = self.dimensions[1] - int(math.ceil((event.pos[1])/self.tile_size)) - self.origin[1]
                 #check whether the click was within the highlighted space and whether it's a local turn
-                highlighted_option = self.check_highlighted(longitude, latitude)
+#                highlighted_option = self.check_highlighted(longitude, latitude)
+#                print("Click was a valid option of type: " + highlighted_option)
                 if True:
 #                if highlighted_option is not None:
                     self.highlights = {"move":[], "invalid":[], "buy":[], "attack":[]} #clear the highlights until the server offers more
-                    print("Have identified a move available at " +str(longitude)+ ", " +str(latitude)+ " of type " +str(highlighted_option))
+#                    print("Have identified a move available at " +str(longitude)+ ", " +str(latitude)+ " of type " +str(highlighted_option))
                     return [longitude, latitude]
             if self.move_timer < 0:
                 return False
@@ -1266,18 +1273,11 @@ class GameVisualisation():
             pygame.display.flip()
 
 
-class NetworkGameVisualisation(GameVisualisation, ConnectionListener):
+class ClientGameVisualisation(GameVisualisation, ConnectionListener):
     '''A pygame-based interactive visualisation that is client to a remote game.
     
     Architecture:
-    Server Side             |    Client Side
-    Game       ->  Server  <->   Visualisation -> Player -> Adventurer
-    |             /\                                |
-    \/             |                               \/
-                  \/                            
-    Adventurer -> Player                         Agent
     
-    Client side Player, Adventurer, and Agent, used for data storage but not methods
     
     Methods:
     draw_move_options
@@ -1285,15 +1285,10 @@ class NetworkGameVisualisation(GameVisualisation, ConnectionListener):
     draw_play_area
     draw_wealth_scores
     '''
-    def __init__(self, game, dimensions, origin, player_channels):
+    def __init__(self, game, dimensions, origin, local_player_colours):
         #establish where the players are and particularly whether there are any local players
-        self.player_channels = player_channels
-        self.exists_local_player = False
-        for player in self.players_channels:
-            if self.player_channels[player] is None:
-               self.exists_local_player =  True
         super().__init__(game, dimensions, origin)
-        
+        self.local_player_colours = local_player_colours
         #Network state data:
         self.local_player_turn = False # Keep track of whether to wait on local player input for updates to visuals, 
         self.local_win = False
@@ -1318,83 +1313,14 @@ class NetworkGameVisualisation(GameVisualisation, ConnectionListener):
             self.Pump()
             connection.Pump()
             sleep(0.01)
-     
-    def init_GUI(self):
-        '''Differentiates whether there are any local players to actually draw visuals for
-        '''
-        if self.exists_local_player:
-            super().init_GUI()
-        else:
-            pass
         
-    def draw_play_area(self):
-        '''Extends the parent's method to differentiate local and remote players.
-        '''
-        if self.exists_local_player:
-            super(GameVisualisation).draw_play_area()
-        #@TODO have the server pass updated data to the remote players
-        
-        
-    def set_current_player(self, adventurer):
-        '''Ensures that remote visuals have the right active player identified
-        '''
-        player = adventurer.player
-        self.current_player_colour = player_colour
-        self.current_adventurer_number = self.game.adventurers[player].index(adventurer)
-        
-    def draw_tokens(self):
-        '''Extends the parent's method to differentiate local and remote players.
-        '''
-        if self.exists_local_player:
-            super(GameVisualisation).draw_tokens()
-        #@TODO have the server pass updated data to the remote players
-            
-    def draw_routes(self):
-        '''Extends the parent's method to differentiate local and remote players.
-        '''
-        if self.exists_local_player:
-            super(GameVisualisation).draw_routes()
-        #@TODO have the server pass updated data to the remote players
-            
-    def draw_scores(self):
-        '''Extends the parent's method to differentiate local and remote players.
-        '''
-        if self.exists_local_player:
-            super(GameVisualisation).draw_scores()
-        #@TODO have the server pass updated data to the remote players
-            
-    def draw_prompt(self):
-        '''Extends the parent's method to differentiate local and remote players.
-        '''
-        if self.exists_local_player:
-            super(GameVisualisation).draw_prompt()
-        #@TODO have the server pass updated data to the remote players
-        if not self.is_remote_server:
-            self.server.remote_give_prompt(self.game, self.current_player_colour, self.prompt_text)
-            
-    def clear_prompt(self):
-        '''Extends the parent's method to differentiate local and remote players.
-        '''
-        if self.exists_local_player:
-            super(GameVisualisation).clear_prompt()
-        #@TODO have the server pass updated data to the remote players
-        if not self.is_remote_server:
-            self.server.remote_clear_prompt(self.game, self.current_player_colour)
-            
-    def get_input_coords(self, adventurer):
-        '''Before seeking GUI input through parent, checks whether to contact remote client instead
+    def Network_get_input_coords(self, adventurer):
+        '''Passes coordinates to the server
         
         Relevant in the case of a players local to the server's game.
         '''
-        if self.local_player_turn:
-            input_coords = super(GameVisualisation).get_input_coords()
-            if self.is_remote_server:
-                self.send({"action":"input_coords", "input_coords":input_coords})
-            else:
-                return input_coords
-        elif not self.is_remote_server:
-            #have the server seek input from the remote player
-            self.server.remote_input_coords(self.game, adventurer)
+        input_coords = super(GameVisualisation).get_input_coords()
+        self.send({"action":"input_coords", "input_coords":input_coords})
         
     def update(self):
         '''Redraws visuals and seeks player input, passing it to the server to pass to the server-side Player
@@ -1450,7 +1376,13 @@ class NetworkGameVisualisation(GameVisualisation, ConnectionListener):
     def Network_close(self, data):
         '''Allows remote closing of game through an {"action":"close"} message from the server
         '''
-        exit()
+        super().close()
+        
+    def close(self):
+        '''Elegantly closes the application down.
+        '''
+        self.Send({"action":"close", "data":""})
+        super().close()
     
     def Network_new_turn(self, data):
         '''Informs local player(s) which remote player is currently expected to be moving
@@ -1527,7 +1459,89 @@ class NetworkGameVisualisation(GameVisualisation, ConnectionListener):
         #@TODO prompt a mouse click to quit
         exit()    
 
+class HostGameInterface:
+    def __init__(self, server, game):
+        #Retain game data
+        self.server = server
+        self.players = game.players
+        self.game = game
+        
+    def draw_play_area(self):
+        '''Renders the tiles that have been laid in a particular game of Cartolan - Trade Winds
+        '''
+        #D@TODO etermine change in play area and share this with the server
+        play_area_update = None
+        print("Drawing the play area, with " +str(len(play_area_update))+" columns of tiles")
+        server.remote_draw_play_area(self.game)
+        return True
     
+    #@TODO highlight the particular token(s) that an action relates to
+    def draw_move_options(self, valid_coords=None, invalid_coords=None, chance_coords=None
+                          , buy_coords=None, attack_coords=None):
+        '''Outlines tiles where moves or actions are possible, designated by colour
+        '''
+        print("Updating the dict of highlight positions, based on optional arguments")
+        
+    def check_highlighted(self, input_longitude, input_latitude):
+        '''Given play area grid coordinates, checks whether this is highlighted as a valid move/action
+        '''
+        print("Checking whether there is a valid move option at: " +str(input_longitude)+ ", " +str(input_latitude))
+    
+    def clear_move_options(self):
+        '''
+        '''
+        print("Clearing out the list of valid moves")
+    
+    def draw_tokens(self):
+        '''Illustrates the current location of Adventurers and Agents in a game, along with their paths over the last turn
+        '''
+        print("Cycling through the players, drawing the adventurers and agents as markers")
+    
+    # it will be useful to see how players moved around the play area during the game, and relative to agents
+    def draw_routes(self):
+        '''Illustrates the paths that different Adventurers have taken during the course of a game, and the location of Agents
+        
+        Arguments:
+        List of Carolan.Players the Adventurers and Agents that will be rendered
+        '''
+        print("Drawing a series of lines to mark out the route travelled by players since the last move")
+        
+    def draw_scores(self):
+        '''Prints a table of current wealth scores in players' Vaults and Adventurers' Chests
+        '''        
+        print("Creating a table of the wealth held by Players and their Adventurers")
+    
+    def draw_prompt(self):
+        '''Prints a prompt on what moves/actions are available to the current player
+        '''        
+        print("Creating a prompt for the current player")
+    
+    def start_turn(self, player_colour):
+        '''Identifies the current player by their colour, affecting prompts
+        '''
+    
+    def give_prompt(self, prompt_text):
+        '''Pushes text to the prompt buffer for the visual
+        
+        Arguments:
+        prompt_text should be a string
+        '''
+    
+    def clear_prompt(self):
+        '''Empties the prompt buffer via the server
+        '''
+        
+    #@TODO differentiate remote players from local and seek input accordingly
+    def get_input_coords(self, adventurer):
+        '''Seeks input coords via the server.
+        
+        Arguments
+        adventurer takes a Cartolan.Adventurer
+        '''
+        return False
+
+
+
 class PlayStatsVisualisation:
     '''A set of methods for drawing charts that report summary statistics from many simulations of Cartolan - Trade Winds
     

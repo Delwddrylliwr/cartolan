@@ -1,9 +1,25 @@
 import PodSixNet.Channel
 import PodSixNet.Server
-import random
 from players_human import PlayerHuman
-from visuals import GameVisualisation, NetworkGameVisualisation
+from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter, PlayerRegularPirate, PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter
+from game import GameBeginner, GameRegular
+from visuals import GameVisualisation, ClientGameVisualisation
 from time import sleep
+
+DEFAULT_DIMENSIONS = [20, 10]
+DEFAULT_ORIGIN = [9, 4]
+GAME_MODES = { 'Beginner':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeginnerExplorer
+                                                                   , "red":PlayerBeginnerTrader
+                                                                   , "yellow":PlayerBeginnerRouter
+                                                                      }}
+              , 'Regular':{'game_type':GameRegular, 'player_set':{
+                                                                  "orange":PlayerRegularPirate
+                                                                    , "blue":PlayerRegularExplorer
+                                                                   , "red":PlayerRegularTrader
+                                                                   , "yellow":PlayerRegularRouter
+                                                                  }
+                          }
+                 }
 
 class ClientChannel(PodSixNet.Channel.Channel):
     '''The receiving methods for messages from clients for a pygame-based server
@@ -21,7 +37,7 @@ class ClientChannel(PodSixNet.Channel.Channel):
     def Network_input(self, data):
         '''Receiving method for plain 'input' messages from clients
         '''
-        self._server. = data["input"]
+        self._server.input_buffer = data["input"]
         
     def Network_move(self, data):
         '''The receiving method for "move" messages from clients
@@ -68,11 +84,11 @@ class CartolanServer(PodSixNet.Server.Server):
     
     Architecture:
     Server Side                               |    Client Side
-        Game <- Visualisation   ->  Server   <->   Visualisation -> Player -> Adventurer
-         /\             /\            /\                                |
-          |              |             |                               \/
-         \/             \/            \/                            
-        Adventurer  -> Player                                        Agent
+        Game      ->  Visualisation   <->   Server   <->   Visualisation -> Player -> Adventurer
+         /\             /\                                            |
+          |              |                                            \/
+         \/             \/                                        
+   Adventurer/Agent -> Player                                        Agent
     
     Client side Player, Adventurer, and Agent, used for data storage but not methods
     '''
@@ -93,42 +109,6 @@ class CartolanServer(PodSixNet.Server.Server):
         self.next_game_type = None
         self.num_players = None
         self.next_game_players = {}
-        self.local_game = self.check_local_game()
-    
-    def check_local_game(self):
-        '''Seeks input from the Host machine's owner if they aren't currently in a game
-        '''
-        #Check whether a local player is looking to host a game
-        prompt = "Please specify how many local players will play?"
-        num_local_players = None
-        while not int(num_local_players) >= 0:
-            num_local_players = int(input(prompt))
-        # Seek game specification from host player
-        if num_local_players > 0:
-            prompt = "Please specify which mode of Cartolan you would like to host: '"
-            for game_type in self.game_modes:
-                prompt += "'"+game_type+"', or "
-            while not self.next_game_type in self.game_modes:
-                self.next_game_type = input(prompt).lower()
-            #Create the players
-            for player_colour in random.choices(self.game_modes[self.game_type]["player_set"], k=num_local_players):
-                self.next_game_players.append(PlayerHuman(player_colour))
-                self.next_player_channels[player_colour] = None #keep track of local players with a None instead of a podsixnet.channel
-            self.min_players = self.game_modes[game_type]["game_type"].MIN_PLAYERS
-            self.max_players = self.game_modes[game_type]["game_type"].MAX_PLAYERS
-            prompt = "Please specify how many other players will play, between 0 and " +str(self.max_players - num_local_players)+ "?"
-            num_players = None
-            while not num_players in range(self.min_players, self.max_players):
-                num_players = num_local_players + int(input(prompt))
-            #Set up the game if there are enough players
-            if len(self.next_game_players) >= num_players:
-                next_game = self.next_game_type(self.players.keys(), self.MOVEMENT_RULES, self.EXPLORATION_RULES)
-                next_game_vis = GameVisualisation(self.next_game, self.dimensions, self.orgin)
-                self.games[next_game.game_id] = {"game_vis":next_game_vis, "player_channels":self.next_player_channels}
-                self.next_players_channels = {}
-            return True
-        else:
-            return False       
     
     #@TODO allow players to join a game, replacing a virtual player 
     def Connected(self, channel, addr):
@@ -165,7 +145,7 @@ class CartolanServer(PodSixNet.Server.Server):
             self.next_game_players.append(channel.players)
             if len(self.next_game_players) == self.num_players:
                 next_game = self.next_game_type(self.next_player_channels.keys(), self.MOVEMENT_RULES, self.EXPLORATION_RULES)
-                next_game_vis = NetworkGameVisualisation(self.next_game, channel)
+                next_game_vis = ClientGameVisualisation(self.next_game, channel)
                 for chan in self.queue:
                     chan.Send({"action": "start_game","player":0, "gameid": self.queue.gameid})
                     chan.game_id = next_game.game_id
@@ -205,13 +185,13 @@ class CartolanServer(PodSixNet.Server.Server):
             self.games[game_id]["current_player_input"] = [longitude, latitude]
             return True
     
-    def remote_give_prompt(self, game, player_colour, prompt):
+    def give_prompt(self, game, player_colour, prompt):
         '''Passes a prompt for the relevant remote players 
         '''
         channel = self.games[game.game_id]["player_channels"][player_colour]
         channel.send({"action":"prompt", "player_colour":player_colour, "prompt_text":prompt})
     
-    def remote_clear_prompt(self, game, player_colour):
+    def clear_prompt(self, game, player_colour):
         '''Clears prompts for the relevant remote player
         '''
         channel = self.games[game.game_id]["player_channels"][player_colour]
@@ -232,7 +212,7 @@ class CartolanServer(PodSixNet.Server.Server):
         game_id = adventurer.game.game_id
         player = adventurer.player
         #collect and return any coordinates left for the game by that player's remote version
-        if not self.games[game_id]["current_player_colour"] == player.player_colour:
+        if self.games[game_id]["current_player_colour"] == player.player_colour:
             input_coords = self.games[game_id]["current_player_input"]
             #Record that the coordinates have been collected
             self.games[game_id]["current_player_input"] = None
@@ -248,14 +228,20 @@ class CartolanServer(PodSixNet.Server.Server):
         player_channels[player_colour] = self.game_modes[game_vis.game.__class__]["player_sets"][player_colour](player_colour)
     
     def tick(self):
-        '''Checks the games for players quitting and handles appropriately
+        '''Checks the games for messages and handles appropriately
         '''
         # Check for any player actions or quit messages
         for game_id in self.games:
             game = games[game_id]["game"]
-                                
         
         self.Pump()
+                                
+        
+#print("STARTING SERVER ON LOCALHOST")
+#cartolan_server = CartolanServer(GAME_MODES, DEFAULT_DIMENSIONS, DEFAULT_ORIGIN)
+#while True:
+#    cartolan_server.tick()
+#    sleep(0.01)
 
 
     

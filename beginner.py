@@ -78,28 +78,44 @@ class AdventurerBeginner(Adventurer):
             moves_since_rest = self.land_moves + self.downwind_moves + self.upwind_moves
             print("Adventurer has determined that they have moved " +str(moves_since_rest)+ " times since resting")
             if not self.current_tile.compass_edge_water(compass_point): #land movement needed
-                if(moves_since_rest < self.max_land_moves):
+                if(moves_since_rest < self.max_land_moves 
+                   or (self.wealth == 0 and moves_since_rest < self.max_land_moves_unburdened)):
                     return True
+                else: return False
             elif (self.current_tile.compass_edge_water(compass_point) 
                   and self.current_tile.compass_edge_downwind(compass_point)): #downwind movement possible
                 if (moves_since_rest < self.max_downwind_moves):
                     return True
+                else: return False
             else: #if not land or downwind, then movement must be upwind
-                if(moves_since_rest < self.max_upwind_moves):
+                if(moves_since_rest < self.max_upwind_moves
+                   or (self.wealth == 0 and moves_since_rest < self.max_upwind_moves_unburdened)):
                     return True
+                elif self.downwind_moves < self.max_downwind_moves:
+#                     return None
+                        return False
                 else: return False
         elif self.game.movement_rules == "budgetted": #this version 2 of movement allows land and upwind movement any time, but a limited number before resting
             print("Adventurer has moved " +str(self.upwind_moves)+ " times upwind, " +str(self.land_moves)+ " times overland, and " +str(self.downwind_moves)+ " times downwind, since resting")
             if not self.current_tile.compass_edge_water(compass_point): #land movement needed
-                if(self.land_moves < self.max_land_moves and self.upwind_moves == 0):
+                if(self.land_moves < self.max_land_moves
+                   or (self.wealth == 0 and self.land_moves < self.max_land_moves_unburdened)
+                   and self.upwind_moves == 0):
                     return True
+                else: return False
             elif (self.current_tile.compass_edge_water(compass_point) 
                   and self.current_tile.compass_edge_downwind(compass_point)): #downwind movement possible
                 if (self.downwind_moves + self.land_moves + self.upwind_moves < self.max_downwind_moves):
                     return True
+                else: return False
             else: #if not land or downwind, then movement must be upwind
-                if(self.upwind_moves < self.max_upwind_moves and self.land_moves == 0):
+                if ((self.upwind_moves < self.max_upwind_moves 
+                   or (self.wealth == 0 and self.upwind_moves < self.max_upwind_moves_unburdened))
+                   and self.land_moves == 0):
                     return True
+                elif self.downwind_moves < self.max_downwind_moves:
+#                     return None
+                    return False
                 else: return False
         else: raise Exception("Invalid movement rules specified")
         
