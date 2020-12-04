@@ -31,8 +31,8 @@ class ClientChannel(PodSixNet.Channel.Channel):
         '''The receiving method for "setup" messages from clients, to get the number of players
         '''
         self.player_colours = data["player_colours"]
-        for player_colour in self.player_colours:
-            self.players.append(PlayerHuman(player_colour))
+#        for player_colour in self.player_colours:
+#            self.players.append(PlayerHuman(player_colour))
     
     def Network_input(self, data):
         '''Receiving method for plain 'input' messages from clients
@@ -72,7 +72,11 @@ class ClientChannel(PodSixNet.Channel.Channel):
     def Network_quit(self, data):
         '''The receiving method for "quit" messages from clients
         '''
-        self._server.player_quits(self.game_id, data["player_colour"])
+        quitting_player_colour = data["player_colour"]
+        self._server.player_quits(self.game_id, quitting_player_colour)
+        self.player_colours.remove(quitting_player_colour)
+        if len(self.player_colours):
+            self.Close()
     
     def Close(self):
         '''Closes the channel to the client
@@ -83,14 +87,14 @@ class CartolanServer(PodSixNet.Server.Server):
     '''A pygame-based server hosting a game and communicating with client visuals.
     
     Architecture:
-    Server Side                               |    Client Side
-        Game      ->  Visualisation   <->   Server   <->   Visualisation -> Player -> Adventurer
-         /\             /\                                            |
-          |              |                                            \/
-         \/             \/                                        
-   Adventurer/Agent -> Player                                        Agent
+    Server Side |    Client Side
+    Server   <->   Visualisation  <- Game
+                    /\                \/
+                    Player <- Adventurer/Agent
     
-    Client side Player, Adventurer, and Agent, used for data storage but not methods
+    Client games alternate in progressing play (so as to avoid latency in uncovering tiles)
+    Server synchronises client games, and the tile piles across them
+    Where there are consistency checks across clients, the current player serves as master
     '''
     channelClass = ClientChannel
     WAIT_DURATION = 1
@@ -237,11 +241,11 @@ class CartolanServer(PodSixNet.Server.Server):
         self.Pump()
                                 
         
-#print("STARTING SERVER ON LOCALHOST")
-#cartolan_server = CartolanServer(GAME_MODES, DEFAULT_DIMENSIONS, DEFAULT_ORIGIN)
-#while True:
-#    cartolan_server.tick()
-#    sleep(0.01)
+print("STARTING SERVER ON LOCALHOST")
+cartolan_server = CartolanServer(GAME_MODES, DEFAULT_DIMENSIONS, DEFAULT_ORIGIN)
+while True:
+    cartolan_server.tick()
+    sleep(0.01)
 
 
     

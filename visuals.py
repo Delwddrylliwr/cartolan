@@ -709,7 +709,7 @@ class GameVisualisation():
     DIMENSION_INCREMENT = 5 #the number of tiles by which the play area is extended when methods are called
     TILE_BORDER = 0.02 #the share of grid width/height that is used for border
     TOKEN_SCALE = 0.2 #relative to tile sizes
-    TOKEN_OUTLINE_SCALE = 0.1 #relative to token scale
+    TOKEN_OUTLINE_SCALE = 0.25 #relative to token scale
     TOKEN_FONT_SCALE = 0.5 #relative to tile sizes
     SCORES_POSITION = [0.0, 0.0]
     SCORES_FONT_SCALE = 0.05 #relative to window size
@@ -742,7 +742,7 @@ class GameVisualisation():
         if self.width < self.tile_size * self.dimensions[0]:
             self.tile_size = self.width // self.dimensions[0]
         self.token_size = int(round(self.TOKEN_SCALE * self.tile_size)) #token size will be proportional to the tiles
-        self.outline_width = int(self.TOKEN_OUTLINE_SCALE * self.token_size)
+        self.outline_width = math.ceil(self.TOKEN_OUTLINE_SCALE * self.token_size)
         self.token_font = pygame.font.SysFont(None, round(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
         self.scores_font = pygame.font.SysFont(None, round(self.height * self.SCORES_FONT_SCALE)) #the font size for scores will be proportionate to the window size
         self.prompt_font = pygame.font.SysFont(None, round(self.height * self.PROMPT_FONT_SCALE)) #the font size for prompt will be proportionate to the window size
@@ -854,7 +854,7 @@ class GameVisualisation():
         else:
             self.tile_size = self.width // self.dimensions[0]
         self.token_size = int(round(self.TOKEN_SCALE * self.tile_size)) #token size will be proportional to the tiles
-        self.outline_width = int(self.TOKEN_OUTLINE_SCALE * self.token_size)
+        self.outline_width = math.ceil(self.TOKEN_OUTLINE_SCALE * self.token_size)
         self.token_font = pygame.font.SysFont(None, int(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
         #scale down the images as the dimensions of the grid are changed, rather than when placing
         #the tiles' scale will be slightly smaller than the space in the grid, to givea discernible margin
@@ -1316,8 +1316,6 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         
     def Network_get_input_coords(self, adventurer):
         '''Passes coordinates to the server
-        
-        Relevant in the case of a players local to the server's game.
         '''
         input_coords = super(GameVisualisation).get_input_coords()
         self.send({"action":"input_coords", "input_coords":input_coords})
@@ -1465,37 +1463,56 @@ class HostGameInterface:
         self.server = server
         self.players = game.players
         self.game = game
+        self.shared_play_area = {}
+    
+    def play_area_difference(self, play_area_new, play_area_old):
+        '''Compares two given nested Dicts of Cartolan.Tiles to see which Tiles are present in only one
         
-    def draw_play_area(self):
-        '''Renders the tiles that have been laid in a particular game of Cartolan - Trade Winds
+        Arguments:
+        Dict of Dict of Cartolan.Tiles, both indexed with Ints, giving the Tiles at different coordinates for the play area of interest
+        Dict of Dict of Cartolan.Tiles, both indexed with Ints, giving the Tiles at different coordinates for the play area with tiles to disregard
         '''
-        #D@TODO etermine change in play area and share this with the server
-        play_area_update = None
+        difference = { longitude : play_area_new[longitude].copy() for longitude in set(play_area_new) - set(play_area_old) }
+        for longitude in play_area_old:
+            if longitude in play_area_new:
+                longitude_difference = { latitude : play_area_new[longitude][latitude] 
+                                                for latitude in set(play_area_new[longitude])
+                                                - set(play_area_old[longitude]) }
+                if longitude_difference:
+                    if difference.get(longitude):
+                        difference[longitude].update(longitude_difference)
+                    else:
+                        difference[longitude] = longitude_difference
+        return difference
+    
+    def draw_play_area(self):
+        '''Shares with the server the new tiles that have been added since last updating
+        '''
+        #Determine change in play area and share this with the server
+        play_area_update = self.play_area_difference(self.game.play_area, self.shared_play_area)
         print("Drawing the play area, with " +str(len(play_area_update))+" columns of tiles")
-        server.remote_draw_play_area(self.game)
+        self.server.remote_draw_play_area(self.game, play_area_update)
         return True
     
     #@TODO highlight the particular token(s) that an action relates to
     def draw_move_options(self, valid_coords=None, invalid_coords=None, chance_coords=None
-                          , buy_coords=None, attack_coords=None):
+                          , buy_coords=None, attack_coords=None, rest_coords=None):
         '''Outlines tiles where moves or actions are possible, designated by colour
         '''
-        print("Updating the dict of highlight positions, based on optional arguments")
+#        print("Updating the dict of highlight positions, based on optional arguments")
+        self.server.remote_draw_move_options(self.game, valid_coords=None, invalid_coords=None, chance_coords=None
+                          , buy_coords=None, attack_coords=None, rest_coords=None)
         
-    def check_highlighted(self, input_longitude, input_latitude):
-        '''Given play area grid coordinates, checks whether this is highlighted as a valid move/action
-        '''
-        print("Checking whether there is a valid move option at: " +str(input_longitude)+ ", " +str(input_latitude))
-    
     def clear_move_options(self):
         '''
         '''
-        print("Clearing out the list of valid moves")
+#        print("Clearing out the list of valid moves")
+        self.server.remote_clear_move_options(self.game)
     
     def draw_tokens(self):
-        '''Illustrates the current location of Adventurers and Agents in a game, along with their paths over the last turn
+        '''Identifies which tokens have changed position/status and passing them to the server
         '''
-        print("Cycling through the players, drawing the adventurers and agents as markers")
+#        print("Cycling through the players, drawing the adventurers and agents as markers")
     
     # it will be useful to see how players moved around the play area during the game, and relative to agents
     def draw_routes(self):
@@ -1514,11 +1531,14 @@ class HostGameInterface:
     def draw_prompt(self):
         '''Prints a prompt on what moves/actions are available to the current player
         '''        
-        print("Creating a prompt for the current player")
+#        print("Creating a prompt for the current player")
     
     def start_turn(self, player_colour):
         '''Identifies the current player by their colour, affecting prompts
         '''
+        #notify the current player that they are moving
+        
+        #set the text for other players to inform them who is moving
     
     def give_prompt(self, prompt_text):
         '''Pushes text to the prompt buffer for the visual

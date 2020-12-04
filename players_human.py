@@ -195,6 +195,8 @@ class PlayerHuman(Player):
                 valid_coords = [[adventurer.current_tile.tile_position.longitude
                             , adventurer.current_tile.tile_position.latitude]]
                 game_vis.draw_move_options(buy_coords=valid_coords)
+            else:
+                return False
         else:
             return False
 
