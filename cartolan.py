@@ -7,7 +7,7 @@ from game import GameBeginner, GameRegular, GameAdvanced
 from players_human import PlayerHuman
 from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
 from players_heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
-from base import WaterTile, LandTile, WindDirection, TileEdges
+from base import Tile, WindDirection, TileEdges
 from visuals import PlayAreaVisualisation, GameVisualisation, PlayStatsVisualisation
 from regular import DisasterTile
 from time import sleep
@@ -32,20 +32,20 @@ def setup_tiles(players, game_mode, movement_rules, exploration_rules, mythical_
     #place surrounding water tiles
 #     if len(players) == 2:
     if True:
-        WaterTile(game, WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, 1) #north
-        WaterTile(game, WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(1, 0) #east
-        WaterTile(game, WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, -1) #south
-        WaterTile(game, WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(-1, 0) #west
+        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, 1) #north
+        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(1, 0) #east
+        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, -1) #south
+        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(-1, 0) #west
     elif mythical_city and len(players) == 3:
-        WaterTile(game, WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, 1) #north
-        WaterTile(game, WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(1, 0) #east
-        WaterTile(game, WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, -1) #south
-        WaterTile(game, WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(-1, 0) #west
+        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, 1) #north
+        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(1, 0) #east
+        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, -1) #south
+        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(-1, 0) #west
     elif len(players) == 4 or (not mythical_city and len(players) == 3):
-        WaterTile(game, WindDirection(False,False), TileEdges(True,True,True,True), False).place_tile(0, 1) #north
-        WaterTile(game, WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(1, 0) #east
-        WaterTile(game, WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, -1) #south
-        WaterTile(game, WindDirection(False,False), TileEdges(True,True,True,True), False).place_tile(-1, 0) #west
+        Tile(game, "water", WindDirection(False,False), TileEdges(True,True,True,True), False).place_tile(0, 1) #north
+        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(1, 0) #east
+        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, -1) #south
+        Tile(game, "water", WindDirection(False,False), TileEdges(True,True,True,True), False).place_tile(-1, 0) #west
          
     print("Placed the Capital tile, and surrounding water tiles")
     return game
@@ -97,60 +97,61 @@ def setup_water_pile(players, game_mode, movement_rules, exploration_rules, myth
     '''
     game = setup_adventurers(players, game_mode, movement_rules, exploration_rules, mythical_city)
     
-    import random
-    
-    #read in the numbers of water tiles, from google sheets?
-    import csv
-
-    tile_distribution = []
-    wonder_distribution = []
-    disaster_distribution = []
-
-    with open("tile_distribution.csv") as csvfile:
-        readCSV = csv.reader(csvfile)
-        for row in readCSV:
-            tile_distribution.append(int(row[0]))
-            wonder_distribution.append(int(row[1]))
-            if game_mode in [GameRegular, GameAdvanced]:
-                disaster_distribution.append(row[2])
-            else:
-                disaster_distribution.append(0)
-    
-    #construct the water tile deck
-    row_count = 0
-    tiles = []
-    for uc_water in [True, False]:
-        for ua_water in [True, False]:
-            for dc_water in [True, False]:
-                for da_water in [True, False]:
-                    if uc_water or ua_water:
-                        for tile_num in range(0, int(tile_distribution[row_count])
-                                              -int(wonder_distribution[row_count])
-                                              -int(disaster_distribution[row_count])):
-                            wind_direction = WindDirection(north = True, east = True)
-                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-                            tiles.append(WaterTile(game, wind_direction, tile_edges, False))
-                        for tile_num in range(0, int(wonder_distribution[row_count])):
-                            wind_direction = WindDirection(north = True, east = True)
-                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-                            tiles.append(WaterTile(game, wind_direction, tile_edges, True))
-                        for tile_num in range(0, int(disaster_distribution[row_count])):
-                            wind_direction = WindDirection(north = True, east = True)
-                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-                            tiles.append(DisasterTile(game, "water", wind_direction))
-                        row_count += 1
-    
-    #draw a suitable number of tiles from the deck for a pile
-#     num_tiles = len(players)*game.WATER_TILES_PER_PLAYER
-    num_tiles = game.NUM_WATER_TILES
-    tile_pile = game.tile_piles["water"]
-    for tile in random.sample(tiles, num_tiles):
-        tile_pile.add_tile(tile)
-    
-    tile_pile.shuffle_tiles()
-    
-    print("Built a Water tile pile with " +str(len(game.tile_piles["water"].tiles))+ " tiles, and shuffled it")
-    
+    game.setup_tile_pile("water")
+#    import random
+#    
+#    #read in the numbers of water tiles, from google sheets?
+#    import csv
+#
+#    tile_distribution = []
+#    wonder_distribution = []
+#    disaster_distribution = []
+#
+#    with open("tile_distribution.csv") as csvfile:
+#        readCSV = csv.reader(csvfile)
+#        for row in readCSV:
+#            tile_distribution.append(int(row[0]))
+#            wonder_distribution.append(int(row[1]))
+#            if game_mode in [GameRegular, GameAdvanced]:
+#                disaster_distribution.append(row[2])
+#            else:
+#                disaster_distribution.append(0)
+#    
+#    #construct the water tile deck
+#    row_count = 0
+#    tiles = []
+#    for uc_water in [True, False]:
+#        for ua_water in [True, False]:
+#            for dc_water in [True, False]:
+#                for da_water in [True, False]:
+#                    if uc_water or ua_water:
+#                        for tile_num in range(0, int(tile_distribution[row_count])
+#                                              -int(wonder_distribution[row_count])
+#                                              -int(disaster_distribution[row_count])):
+#                            wind_direction = WindDirection(north = True, east = True)
+#                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
+#                            tiles.append(Tile(game, "water", wind_direction, tile_edges, False))
+#                        for tile_num in range(0, int(wonder_distribution[row_count])):
+#                            wind_direction = WindDirection(north = True, east = True)
+#                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
+#                            tiles.append(Tile(game, "water", wind_direction, tile_edges, True))
+#                        for tile_num in range(0, int(disaster_distribution[row_count])):
+#                            wind_direction = WindDirection(north = True, east = True)
+#                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
+#                            tiles.append(DisasterTile(game, "water", wind_direction))
+#                        row_count += 1
+#    
+#    #draw a suitable number of tiles from the deck for a pile
+##     num_tiles = len(players)*game.WATER_TILES_PER_PLAYER
+#    num_tiles = game.NUM_WATER_TILES
+#    tile_pile = game.tile_piles["water"]
+#    for tile in random.sample(tiles, num_tiles):
+#        tile_pile.add_tile(tile)
+#    
+#    tile_pile.shuffle_tiles()
+#    
+#    print("Built a Water tile pile with " +str(len(game.tile_piles["water"].tiles))+ " tiles, and shuffled it")
+#    
     return game
 
 # #test water tile instantiation
@@ -167,7 +168,7 @@ def setup_water_pile(players, game_mode, movement_rules, exploration_rules, myth
 #                         tile_position = TilePosition(longitude = None, latitude = None)
 #                         wind_direction = WindDirection(north = True, east = True)
 #                         tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-#                         tile_pile.add_tile(WaterTile(game, tile_position, wind_direction, tile_edges))
+#                         tile_pile.add_tile(Tile(game, "water", tile_position, wind_direction, tile_edges))
 #                     print(str(uc_water) +" "+ str(ua_water) +" "+ str(dc_water) +" "+ str(da_water) +" "+ str(tile_distribution[row_count]))
 #                     row_count += 1
 # print(len(game.tile_piles["water"].tiles))
@@ -186,52 +187,53 @@ def setup_land_pile(players, game_mode, movement_rules, exploration_rules, mythi
     if not game_mode in [GameRegular, GameAdvanced]:
         return game
     
+    game.setup_tile_pile("land")
     #read in the numbers of water and land tiles, from google sheets?
     
-    tile_distribution = []
-    wonder_distribution = []
-    disaster_distribution = []
-
-    with open("tile_distribution.csv") as csvfile:
-        readCSV = csv.reader(csvfile)
-        for row in readCSV:
-            tile_distribution.append(row[0])
-            wonder_distribution.append(row[1])
-            disaster_distribution.append(row[2])
-
-    #land tiles
-    row_count = 12
-    tiles = []
-    for uc_water in [True, False]:
-        for ua_water in [True, False]:
-            for dc_water in [True, False]:
-                for da_water in [True, False]:
-                    if not uc_water or not ua_water:
-                        for tile_num in range(0, int(tile_distribution[row_count])
-                                              -int(wonder_distribution[row_count])
-                                              -int(disaster_distribution[row_count])):
-                            wind_direction = WindDirection(north = True, east = True)
-                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-                            tiles.append(LandTile(game, wind_direction, tile_edges, False))
-                        for tile_num in range(0, int(wonder_distribution[row_count])):
-                            wind_direction = WindDirection(north = True, east = True)
-                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-                            tiles.append(LandTile(game, wind_direction, tile_edges, True))
-                        for tile_num in range(0, int(disaster_distribution[row_count])):
-                            wind_direction = WindDirection(north = True, east = True)
-                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-                            tiles.append(DisasterTile(game, "land", wind_direction))
-                        row_count += 1
-    
-#     num_tiles = len(players)*game.LAND_TILES_PER_PLAYER
-    num_tiles = game.NUM_LAND_TILES
-    tile_pile = game.tile_piles["land"]
-    for tile in random.sample(tiles, num_tiles):
-        tile_pile.add_tile(tile)
-    
-    tile_pile.shuffle_tiles()    
-    print("Built a Land tile pile with " +str(len(game.tile_piles["land"].tiles))+ " tiles, and shuffled it")
-    
+#    tile_distribution = []
+#    wonder_distribution = []
+#    disaster_distribution = []
+#
+#    with open("tile_distribution.csv") as csvfile:
+#        readCSV = csv.reader(csvfile)
+#        for row in readCSV:
+#            tile_distribution.append(row[0])
+#            wonder_distribution.append(row[1])
+#            disaster_distribution.append(row[2])
+#
+#    #land tiles
+#    row_count = 12
+#    tiles = []
+#    for uc_water in [True, False]:
+#        for ua_water in [True, False]:
+#            for dc_water in [True, False]:
+#                for da_water in [True, False]:
+#                    if not uc_water or not ua_water:
+#                        for tile_num in range(0, int(tile_distribution[row_count])
+#                                              -int(wonder_distribution[row_count])
+#                                              -int(disaster_distribution[row_count])):
+#                            wind_direction = WindDirection(north = True, east = True)
+#                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
+#                            tiles.append(Tile(game, "land", wind_direction, tile_edges, False))
+#                        for tile_num in range(0, int(wonder_distribution[row_count])):
+#                            wind_direction = WindDirection(north = True, east = True)
+#                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
+#                            tiles.append(Tile(game, "land", wind_direction, tile_edges, True))
+#                        for tile_num in range(0, int(disaster_distribution[row_count])):
+#                            wind_direction = WindDirection(north = True, east = True)
+#                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
+#                            tiles.append(DisasterTile(game, "land", wind_direction))
+#                        row_count += 1
+#    
+##     num_tiles = len(players)*game.LAND_TILES_PER_PLAYER
+#    num_tiles = game.NUM_LAND_TILES
+#    tile_pile = game.tile_piles["land"]
+#    for tile in random.sample(tiles, num_tiles):
+#        tile_pile.add_tile(tile)
+#    
+#    tile_pile.shuffle_tiles()    
+#    print("Built a Land tile pile with " +str(len(game.tile_piles["land"].tiles))+ " tiles, and shuffled it")
+#    
     return game
                         
 # #test land tile instantiation
@@ -248,7 +250,7 @@ def setup_land_pile(players, game_mode, movement_rules, exploration_rules, mythi
 #                         tile_position = TilePosition(longitude = None, latitude = None)
 #                         wind_direction = WindDirection(north = True, east = True)
 #                         tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-#                         tile_pile.add_tile(LandTile(game, tile_position, wind_direction, tile_edges))
+#                         tile_pile.add_tile(Tile(game, "land", tile_position, wind_direction, tile_edges))
 #                     print(str(uc_water) +" "+ str(ua_water) +" "+ str(dc_water) +" "+ str(da_water) +" "+ str(tile_distribution[row_count]))
 #                     row_count += 1
 # print(len(game.tile_piles["land"].tiles))

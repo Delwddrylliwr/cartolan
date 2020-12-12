@@ -1,6 +1,9 @@
 from base import Game, TilePile
-from beginner import AdventurerBeginner, AgentBeginner, CityTileBeginner
-from regular import AdventurerRegular, AgentRegular, CityTileRegular
+from beginner import AdventurerBeginner, AgentBeginner, CityTileBeginner, WonderTile
+from regular import AdventurerRegular, AgentRegular, CityTileRegular, DisasterTile
+from base import Tile, WindDirection, TileEdges
+import random
+import csv
 
 class GameBeginner(Game):
     '''Executes the sequence of play for the Beginner mode of the board game Cartolan - Trade Winds
@@ -16,16 +19,19 @@ class GameBeginner(Game):
     refresh_pile takes two Cartolan.TilePile objects
     play_round
     check_win_conditions
-    '''    
+    '''
+    TILE_FILE = "tile_distribution.csv"
+    FIRST_TILE_FILE_ROWS = {"water":0}
+    TILE_TYPE_COLS = {"wonder":1}
+    TILE_TYPES = {"wonder":WonderTile}
+    NUM_TILES = {"water":60}
+    
     GAME_WINNING_DIFFERENCE = 15
     
     MAX_ADVENTURERS = 3
     MAX_AGENTS = 5
     
-#     WATER_TILES_PER_PLAYER = 30
-    NUM_WATER_TILES = 60
-    
-    VALUE_DISCOVER_WONDER = {"water":1}
+    VALUE_DISCOVER_WONDER = {"water":0}
     VALUE_TRADE = 1
     VALUE_AGENT_TRADE = 0
     VALUE_FILL_MAP_GAP = [[3 * land_edges + 2 * water_edges for land_edges in range(0,5)] for water_edges in range(0,5)] # These are the rewards for filling a gap with, 0,1,2,3, and 4 adjacent water tiles respectively, for each number of adjacent land tiles
@@ -69,7 +75,58 @@ class GameBeginner(Game):
         self.exploration_attempts = 0
         self.win_type = None
         self.game_over = False
+    
+    def setup_tile_pile(self, tile_back):
+        '''Part of game setup for Cartolan, this creates a tile of shuffled water-backed tiles ready for play
         
+        Arguments:
+        tile_back a string designating the type of tile and so its distribution of edge combinations
+        '''
+        total_distribution = []
+        special_distributions = {} # for wonder/disaster
+        for tile_type in self.TILE_TYPE_COLS:
+            special_distributions[tile_type] = []
+    
+        with open(self.TILE_FILE) as csvfile:
+            readCSV = csv.reader(csvfile)
+            for row in readCSV:
+                total_distribution.append(int(row[0]))
+                for tile_type in self.TILE_TYPE_COLS:
+                    special_distributions[tile_type].append(int(row[self.TILE_TYPE_COLS[tile_type]]))
+        
+        #construct the water tile deck
+        row_count = self.FIRST_TILE_FILE_ROWS.get(tile_back)
+        if row_count is None:
+            raise Exception("Invalid tile back specified")
+        tiles = []
+        for uc_water in [True, False]:
+            for ua_water in [True, False]:
+                for dc_water in [True, False]:
+                    for da_water in [True, False]:
+                        if uc_water or ua_water:
+                            special_tile_num = 0
+                            for tile_type in special_distributions:
+                                for tile_num in range(0, int(special_distributions[tile_type][row_count])):
+                                    wind_direction = WindDirection(north = True, east = True)
+                                    tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
+                                    tiles.append(self.TILE_TYPES[tile_type](self, tile_back, wind_direction, tile_edges))
+                                    special_tile_num += 1
+                            for tile_num in range(0, int(total_distribution[row_count]) - special_tile_num):
+                                wind_direction = WindDirection(north = True, east = True)
+                                tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
+                                tiles.append(Tile(self, tile_back, wind_direction, tile_edges, False))
+                            row_count += 1
+        
+        #draw a suitable number of tiles from the deck for a pile
+    #     num_tiles = len(players)*game.WATER_TILES_PER_PLAYER
+        num_tiles = self.NUM_TILES[tile_back]
+        tile_pile = self.tile_piles[tile_back]
+        for tile in random.sample(tiles, num_tiles):
+            tile_pile.add_tile(tile)
+        
+        tile_pile.shuffle_tiles()
+        
+        print("Built a " +tile_back+ " tile pile with " +str(len(self.tile_piles[tile_back].tiles))+ " tiles, and shuffled it")
     
     def start_game(self):
         '''Begins the sequence of play, under the assumption that the play area has been set up'''
@@ -196,15 +253,17 @@ class GameRegular(GameBeginner):
     __init__ takes a List of Cartolan.Player objects and two Strings
     check_win_conditions
     '''
+    FIRST_TILE_FILE_ROWS = {"water":0, "land":12}
+    TILE_TYPE_COLS = {"wonder":1, "disaster":2}
+    TILE_TYPES = {"wonder":WonderTile, "disaster":DisasterTile}
+    NUM_TILES = {"water":60, "land":40}
+
     VALUE_DISCOVER_WONDER = {"water":1, "land":1}
     VALUE_ARREST = 5
     VALUE_DISPOSSESS_AGENT = 1
     COST_AGENT_RESTORE = 1
     
     ATTACK_SUCCESS_PROB = 1.0/3.0
-    
-#     LAND_TILES_PER_PLAYER = 15
-    NUM_LAND_TILES = 40
     
     ADVENTURER_TYPE = AdventurerRegular
     AGENT_TYPE = AgentRegular

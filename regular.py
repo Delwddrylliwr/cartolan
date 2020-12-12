@@ -294,7 +294,7 @@ class AgentRegular(AgentBeginner):
 
 class DisasterTile(Tile):
     '''Represents a Disaster Tile in the game Cartolan, which removes Adventurers' wealth and send them back to a city '''
-    def __init__(self, game, tile_back, wind_direction):
+    def __init__(self, game, tile_back, wind_direction, tile_edges):
         super().__init__(game, tile_back, wind_direction
                          , TileEdges(False, False, False, False), False)
         self.dropped_wealth = 0

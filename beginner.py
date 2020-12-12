@@ -1,4 +1,4 @@
-from base import Adventurer, Agent, CityTile, Tile
+from base import Adventurer, Agent, CityTile, Tile, WindDirection, TileEdges
 
 class AdventurerBeginner(Adventurer):
     '''Representing an Adventurer token with the movement and action possibilities from Beginner mode of Cartolan
@@ -828,21 +828,9 @@ class CityTileBeginner(CityTile):
                      +str(tile.tile_position.longitude)+","+str(tile.tile_position.latitude))
         return True
 
-# class WonderTile(Tile):
-#     def __init__(game, is_wonder):
-#         super().
-    
-#     def reward_discovery(adventurer): # This is handled in the Adventurer class atm
-#         #check what kind of tile this is and look up the reward
-        
-#         #add wealth to Adventurer's Chest
-#         pass
-    
-#     def reward_trade(adventurer): # This is handled in the Adventurer class atm
-#         #check that adventurer has not visited this tile already since their last visit to a city
-        
-#         #check whether there is an active Agent on this tile and involve them in the trade if so
-#         pass
-
-# class WaterWonderTile(WonderTile)
+class WonderTile(Tile):
+     def __init__(self, game, tile_back = "water"
+                 , wind_direction = WindDirection(True,True)
+                 , tile_edges = TileEdges(True,True,True,True)):
+         super().__init__(game, tile_back, wind_direction, tile_edges, True)
 

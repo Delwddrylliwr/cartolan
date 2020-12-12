@@ -414,23 +414,7 @@ class TilePile:
         '''Randomises the order of tiles in the pile'''
         random.shuffle(self.tiles)
 
-class WaterTile(Tile):
-    '''A specifically water backed tile'''
-    tile_back = "water"
-    
-    def __init__(self, game, wind_direction, tile_edges, is_wonder = False):
-        super().__init__(game, self.tile_back, wind_direction, tile_edges, is_wonder)
-
-
-class LandTile(Tile):
-    '''A specifically land backed tile'''
-    tile_back = "land"
-    
-    def __init__(self, game, wind_direction, tile_edges, is_wonder = False):
-        super().__init__(game, self.tile_back, wind_direction, tile_edges, is_wonder)
-
-
-class CityTile(LandTile):
+class CityTile(Tile):
     '''A template for Tiles representing cities in the game Cartolan
     
     Methods:
@@ -443,7 +427,7 @@ class CityTile(LandTile):
     wind_direction = WindDirection(True, True)
     
     def __init__(self, game, is_capital, is_discovered):
-        super().__init__(game, self.wind_direction, self.tile_edges, False)
+        super().__init__(game, "land", self.wind_direction, self.tile_edges, False)
         self.is_capital = is_capital
         self.is_discovered = is_discovered
         game.cities.append(self)
