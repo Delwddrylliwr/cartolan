@@ -1341,7 +1341,6 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
     def Network_start_game(self, data):
         '''Initiates network game based on data following an {"action":"start_game"} message from the server
         '''
-        self.running = True #keep track of whether the game is active or waiting for the server to collect enough players
         self.game_id = data["game_id"] #allow game state to be synched between server and client
         self.local_player_colours = data["local_player_colours"]
         #Set up the local version of the game
@@ -1351,10 +1350,10 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             players.append(PlayerHuman(player_colour))
         
         game = game_type(self.players)
-        #@TODO build the tile piles
-        self.build_pile_water
+        #build the tile piles
+        game.setup_tile_piles("water")
         if not game_type == GameBeginner:
-            self.build_pile_land
+            game.setup_tile_piles("land")
         #place the initial tiles and adventurers
         initial_tiles = data["initial_tiles"]
         for tile_json in initial_tiles:
@@ -1379,6 +1378,8 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         origin = data["origin"]
         super().__init__(players, game, dimensions, origin)
         
+        #keep track of whether the game is active or waiting for the server to collect enough players
+        self.running = True
     
     def Network_close(self, data):
         '''Allows remote closing of game through an {"action":"close"} message from the server
@@ -1418,7 +1419,9 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         placed_tile = Tile(None, tile_back, wind_direction, tile_edges, is_wonder)
         #Place the tile in the play area
         self.game.play_area[longitude][latitude] = placed_tile
-        #remove a matching tile from the tile pile
+        #remove a matching tile from the tile pile, once the game is running
+        if not self.running:
+            return True
         tile_removed = False
         tile_pile = self.game.tile_piles[tile_back]
         for tile in tile_pile:

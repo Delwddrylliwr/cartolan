@@ -165,6 +165,8 @@ class AdventurerBeginner(Adventurer):
         #interact with any Tokens on the tile, Adventurers or other Agents
         
     def end_turn(self):
+        '''Resets in-turn trackers, and return discarded tiles to the main piles
+        '''
         self.turns_moved += 1
         #the adventurer will rest now before the next turn and be ready
         self.downwind_moves = 0
@@ -172,6 +174,13 @@ class AdventurerBeginner(Adventurer):
         self.upwind_moves = 0
         #the list of agents rested with is reset
         self.agents_rested = []
+        #return any discarded tiles to the main piles (if they weren't already empty)
+        for discard_pile in self.game.discard_piles.values():
+            if discard_pile:
+                main_pile = self.game.tile_piles[discard_pile.tile_back]
+                main_pile.tiles.extend(discard_pile.tiles)
+                main_pile.shuffle_tiles()
+                discard_pile.tiles = []
     
     
     def move(self, compass_point):        
@@ -442,15 +451,16 @@ class AdventurerBeginner(Adventurer):
         key arguments:
         Cartolan.Tile giving the Wonder Tile that has just been discoverred.
         '''
-        #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm, and just trade instead if so
-        for city_tile in self.game.cities:
-            city_longitude = city_tile.tile_position.longitude
-            city_latitude = city_tile.tile_position.latitude
-            if (abs(tile.tile_position.longitude - city_longitude) 
-                + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
-                self.trade(tile)
-                return False
-        
+#        #@deprecated
+#        #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm, and just trade instead if so
+#        for city_tile in self.game.cities:
+#            city_longitude = city_tile.tile_position.longitude
+#            city_latitude = city_tile.tile_position.latitude
+#            if (abs(tile.tile_position.longitude - city_longitude) 
+#                + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
+#                self.trade(tile)
+#                return False
+#        
         #award wealth
         self.wealth += self.game.VALUE_DISCOVER_WONDER[tile.tile_back]
         self.wonders_visited.append(tile)
@@ -504,12 +514,12 @@ class AdventurerBeginner(Adventurer):
         tile = self.current_tile
         #@DEPRECATED city tile domains are no longer a feature
         #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm
-        for city_tile in self.game.cities:
-            city_longitude = city_tile.tile_position.longitude
-            city_latitude = city_tile.tile_position.latitude
-            if (abs(tile.tile_position.longitude - city_longitude) 
-                + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
-                return False
+#        for city_tile in self.game.cities:
+#            city_longitude = city_tile.tile_position.longitude
+#            city_latitude = city_tile.tile_position.latitude
+#            if (abs(tile.tile_position.longitude - city_longitude) 
+#                + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
+#                return False
         
         #check that the adventurer has requisite wealth in their Chest
         if self.wealth >= self.game.COST_AGENT_EXPLORING and self.check_tile_available(tile):

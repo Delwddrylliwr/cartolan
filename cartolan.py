@@ -71,23 +71,8 @@ def setup_adventurers(players, game_mode, movement_rules, exploration_rules, myt
     
     return game
 
-
-#import gspread
-#from oauth2client.service_account import ServiceAccountCredentials
-
-## use creds to create a client to interact with the Google Drive API
-#scope = ['https://spreadsheets.google.com/feeds']
-##scope = ['https://www.googleapis.com/auth/spreadsheets']
-#creds = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
-#client = gspread.authorize(creds)
-
-## Find a workbook by name and open the first sheet
-## Make sure you use the right name here.
-#sheet = client.open("test").sheet1
-#tile_distribution = sheet.col_values(1)
-
-def setup_water_pile(players, game_mode, movement_rules, exploration_rules, mythical_city):
-    '''Part of game setup for Cartolan, this creates a tile of shuffled water-backed tiles ready for play
+def setup_simulation(players, game_mode, movement_rules, exploration_rules, mythical_city = True):
+    '''The final part of game setup for Cartolan, this chooses a random play order for the players involved
     
     Arguments:
     List of Cartolan.Player for the Players involved in the game
@@ -98,174 +83,11 @@ def setup_water_pile(players, game_mode, movement_rules, exploration_rules, myth
     game = setup_adventurers(players, game_mode, movement_rules, exploration_rules, mythical_city)
     
     game.setup_tile_pile("water")
-#    import random
-#    
-#    #read in the numbers of water tiles, from google sheets?
-#    import csv
-#
-#    tile_distribution = []
-#    wonder_distribution = []
-#    disaster_distribution = []
-#
-#    with open("tile_distribution.csv") as csvfile:
-#        readCSV = csv.reader(csvfile)
-#        for row in readCSV:
-#            tile_distribution.append(int(row[0]))
-#            wonder_distribution.append(int(row[1]))
-#            if game_mode in [GameRegular, GameAdvanced]:
-#                disaster_distribution.append(row[2])
-#            else:
-#                disaster_distribution.append(0)
-#    
-#    #construct the water tile deck
-#    row_count = 0
-#    tiles = []
-#    for uc_water in [True, False]:
-#        for ua_water in [True, False]:
-#            for dc_water in [True, False]:
-#                for da_water in [True, False]:
-#                    if uc_water or ua_water:
-#                        for tile_num in range(0, int(tile_distribution[row_count])
-#                                              -int(wonder_distribution[row_count])
-#                                              -int(disaster_distribution[row_count])):
-#                            wind_direction = WindDirection(north = True, east = True)
-#                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-#                            tiles.append(Tile(game, "water", wind_direction, tile_edges, False))
-#                        for tile_num in range(0, int(wonder_distribution[row_count])):
-#                            wind_direction = WindDirection(north = True, east = True)
-#                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-#                            tiles.append(Tile(game, "water", wind_direction, tile_edges, True))
-#                        for tile_num in range(0, int(disaster_distribution[row_count])):
-#                            wind_direction = WindDirection(north = True, east = True)
-#                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-#                            tiles.append(DisasterTile(game, "water", wind_direction))
-#                        row_count += 1
-#    
-#    #draw a suitable number of tiles from the deck for a pile
-##     num_tiles = len(players)*game.WATER_TILES_PER_PLAYER
-#    num_tiles = game.NUM_WATER_TILES
-#    tile_pile = game.tile_piles["water"]
-#    for tile in random.sample(tiles, num_tiles):
-#        tile_pile.add_tile(tile)
-#    
-#    tile_pile.shuffle_tiles()
-#    
-#    print("Built a Water tile pile with " +str(len(game.tile_piles["water"].tiles))+ " tiles, and shuffled it")
-#    
-    return game
-
-# #test water tile instantiation
-# row_count = 0
-# game = GameBeginner(2, "initial", "clockwise")
-# game.tile_piles["water"] = TilePile("water",[])
-# tile_pile = game.tile_piles["water"]
-# for uc_water in [True, False]:
-#     for ua_water in [True, False]:
-#         for dc_water in [True, False]:
-#             for da_water in [True, False]:
-#                 if uc_water or ua_water:
-#                     for tile_num in range(0, int(tile_distribution[row_count])):
-#                         tile_position = TilePosition(longitude = None, latitude = None)
-#                         wind_direction = WindDirection(north = True, east = True)
-#                         tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-#                         tile_pile.add_tile(Tile(game, "water", tile_position, wind_direction, tile_edges))
-#                     print(str(uc_water) +" "+ str(ua_water) +" "+ str(dc_water) +" "+ str(da_water) +" "+ str(tile_distribution[row_count]))
-#                     row_count += 1
-# print(len(game.tile_piles["water"].tiles))
-
-def setup_land_pile(players, game_mode, movement_rules, exploration_rules, mythical_city):
-    '''Part of game set up for Cartolan, this creates a tile of shuffled land-backed tiles ready for play
-    
-    Arguments:
-    List of Cartolan.Player for the Players involved in the game
-    Cartolan.Game for the game that these tiles are being laid for
-    String giving the movement rules variant that will apply for this game
-    String giving the exploration rules variant that will apply for this game
-    '''
-    game = setup_water_pile(players, game_mode, movement_rules, exploration_rules, mythical_city)
-    
-    if not game_mode in [GameRegular, GameAdvanced]:
-        return game
-    
-    game.setup_tile_pile("land")
-    #read in the numbers of water and land tiles, from google sheets?
-    
-#    tile_distribution = []
-#    wonder_distribution = []
-#    disaster_distribution = []
-#
-#    with open("tile_distribution.csv") as csvfile:
-#        readCSV = csv.reader(csvfile)
-#        for row in readCSV:
-#            tile_distribution.append(row[0])
-#            wonder_distribution.append(row[1])
-#            disaster_distribution.append(row[2])
-#
-#    #land tiles
-#    row_count = 12
-#    tiles = []
-#    for uc_water in [True, False]:
-#        for ua_water in [True, False]:
-#            for dc_water in [True, False]:
-#                for da_water in [True, False]:
-#                    if not uc_water or not ua_water:
-#                        for tile_num in range(0, int(tile_distribution[row_count])
-#                                              -int(wonder_distribution[row_count])
-#                                              -int(disaster_distribution[row_count])):
-#                            wind_direction = WindDirection(north = True, east = True)
-#                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-#                            tiles.append(Tile(game, "land", wind_direction, tile_edges, False))
-#                        for tile_num in range(0, int(wonder_distribution[row_count])):
-#                            wind_direction = WindDirection(north = True, east = True)
-#                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-#                            tiles.append(Tile(game, "land", wind_direction, tile_edges, True))
-#                        for tile_num in range(0, int(disaster_distribution[row_count])):
-#                            wind_direction = WindDirection(north = True, east = True)
-#                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-#                            tiles.append(DisasterTile(game, "land", wind_direction))
-#                        row_count += 1
-#    
-##     num_tiles = len(players)*game.LAND_TILES_PER_PLAYER
-#    num_tiles = game.NUM_LAND_TILES
-#    tile_pile = game.tile_piles["land"]
-#    for tile in random.sample(tiles, num_tiles):
-#        tile_pile.add_tile(tile)
-#    
-#    tile_pile.shuffle_tiles()    
-#    print("Built a Land tile pile with " +str(len(game.tile_piles["land"].tiles))+ " tiles, and shuffled it")
-#    
-    return game
-                        
-# #test land tile instantiation
-# row_count = 12
-# game = GameBeginner(2, "initial", "clockwise")
-# game.tile_piles["land"] = TilePile("land",[])
-# tile_pile = game.tile_piles["land"]
-# for uc_water in [True, False]:
-#     for ua_water in [True, False]:
-#         for dc_water in [True, False]:
-#             for da_water in [True, False]:
-#                 if not uc_water or not ua_water:
-#                     for tile_num in range(0, int(tile_distribution[row_count])):
-#                         tile_position = TilePosition(longitude = None, latitude = None)
-#                         wind_direction = WindDirection(north = True, east = True)
-#                         tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-#                         tile_pile.add_tile(Tile(game, "land", tile_position, wind_direction, tile_edges))
-#                     print(str(uc_water) +" "+ str(ua_water) +" "+ str(dc_water) +" "+ str(da_water) +" "+ str(tile_distribution[row_count]))
-#                     row_count += 1
-# print(len(game.tile_piles["land"].tiles))
-
-def setup_simulation(players, game_mode, movement_rules, exploration_rules, mythical_city = True):
-    '''The final part of game setup for Cartolan, this chooses a random play order for the players involved
-    
-    Arguments:
-    List of Cartolan.Player for the Players involved in the game
-    Cartolan.Game for the game that these tiles are being laid for
-    String giving the movement rules variant that will apply for this game
-    String giving the exploration rules variant that will apply for this game
-    '''
-    game = setup_land_pile(players, game_mode, movement_rules, exploration_rules, mythical_city)
-    
+    if game_mode in [GameRegular, GameAdvanced]:
+        game.setup_tile_pile("land")
+    if mythical_city:
+        game.tile_piles["land"].tiles.append(game.CITY_TYPE(game, False, True))
+        
     #turn order has been handled by the parent setup
 #     game.players = random.shuffle(game.players)
     print("Randomly chose " +str(players[0].colour)+ " player to start")
@@ -290,7 +112,7 @@ class InteractiveGame:
         self.game_mode = "Regular"
         self.movement_rules = "initial"
         self.exploration_rules = "continuous"
-        self.mythical_city = False
+        self.mythical_city = True
         self.num_players = 2
         self.num_human_players = self.num_players
 
@@ -390,7 +212,7 @@ class Simulations():
         self.game_mode = "Regular"
         self.movement_rules = "initial" #"budgetted"
         self.exploration_rules = "clockwise" #,"continuous"
-        self.mythical_city = False
+        self.mythical_city = True
         self.num_players = 2
         
         self.num_games = 50

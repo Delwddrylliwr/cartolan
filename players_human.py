@@ -331,21 +331,21 @@ class PlayerHuman(Player):
             play_area = adventurer.game.play_area
             for longitude in play_area:
                 for latitude in play_area[longitude]:
-                    #Check that this lat and latitude are outside any city's domain
-                    outside_city_domains = True
-                    for city_tile in adventurer.game.cities:
-                        city_longitude = city_tile.tile_position.longitude
-                        city_latitude = city_tile.tile_position.latitude
-                        if abs(longitude - city_longitude)+abs(latitude - city_latitude) <= adventurer.game.CITY_DOMAIN_RADIUS:
-                            outside_city_domains = False
-                    #If outside all cities' domains then this is a valid location to place an agent
-                    if outside_city_domains:
-                        tile = play_area[longitude][latitude] 
-                        if tile.agent is None:
+#                    #Check that this lat and latitude are outside any city's domain
+#                    outside_city_domains = True
+#                    for city_tile in adventurer.game.cities:
+#                        city_longitude = city_tile.tile_position.longitude
+#                        city_latitude = city_tile.tile_position.latitude
+#                        if abs(longitude - city_longitude)+abs(latitude - city_latitude) <= adventurer.game.CITY_DOMAIN_RADIUS:
+#                            outside_city_domains = False
+#                    #If outside all cities' domains then this is a valid location to place an agent
+#                    if outside_city_domains:
+                    tile = play_area[longitude][latitude] 
+                    if tile.agent is None:
+                        buy_coords.append([tile.tile_position.longitude, tile.tile_position.latitude])
+                    elif isinstance(adventurer.game, GameRegular):
+                        if tile.agent.is_dispossessed:
                             buy_coords.append([tile.tile_position.longitude, tile.tile_position.latitude])
-                        elif isinstance(adventurer.game, GameRegular):
-                            if tile.agent.is_dispossessed:
-                                buy_coords.append([tile.tile_position.longitude, tile.tile_position.latitude])
             
             #make sure that tiles and token positions are up to date
             game_vis.draw_play_area()
