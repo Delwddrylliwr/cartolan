@@ -209,7 +209,7 @@ class GameRegular(GameBeginner):
     ADVENTURER_TYPE = AdventurerRegular
     AGENT_TYPE = AgentRegular
     CITY_TYPE = CityTileRegular #no extra functionality needed until Advanced mode
-        
+    
     def __init__(self, players, movement_rules = 'initial', exploration_rules = 'clockwise'):
         super().__init__(players, movement_rules, exploration_rules)
         # a land tile pile is now needed

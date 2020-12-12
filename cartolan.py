@@ -7,9 +7,9 @@ from game import GameBeginner, GameRegular, GameAdvanced
 from players_human import PlayerHuman
 from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
 from players_heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
+from base import WaterTile, LandTile, WindDirection, TileEdges
 from visuals import PlayAreaVisualisation, GameVisualisation, PlayStatsVisualisation
 from regular import DisasterTile
-from base import WaterTile, LandTile, WindDirection, TileEdges
 from time import sleep
 
 #First some global functions to set up the game area

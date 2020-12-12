@@ -5,6 +5,7 @@ from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, Pl
 from game import GameBeginner, GameRegular
 from visuals import GameVisualisation, ClientGameVisualisation
 from time import sleep
+import random
 
 DEFAULT_DIMENSIONS = [20, 10]
 DEFAULT_ORIGIN = [9, 4]
@@ -27,12 +28,10 @@ class ClientChannel(PodSixNet.Channel.Channel):
     def Network(self, data):
         print(data)
         
-    def Network_setup(self, data):
+    def setup(self):
         '''The receiving method for "setup" messages from clients, to get the number of players
         '''
-        self.player_colours = data["player_colours"]
-#        for player_colour in self.player_colours:
-#            self.players.append(PlayerHuman(player_colour))
+        self.player_colours = player_colours
     
     def Network_input(self, data):
         '''Receiving method for plain 'input' messages from clients
@@ -108,26 +107,25 @@ class CartolanServer(PodSixNet.Server.Server):
         self.games = {}
         self.input_buffer = {}
         #Track the latest game as it's being initiated
-        self.next_game = None
-        self.next_game_id = 0
         self.next_game_type = None
-        self.num_players = None
-        self.next_game_players = {}
+        self.next_num_players = None
+        self.next_player_channels = {}
     
     #@TODO allow players to join a game, replacing a virtual player 
     def Connected(self, channel, addr):
         '''Allocates players to games
         '''
         print('new connection:', channel)
-        if self.next_game == None:
+        channel.setup()
+        if self.next_game_type == None:
             # Seek game specification from newly joined client
             prompt_text = "Please specify which mode of Cartolan you would like to host: "
-            game_type = ""
+            self.next_game_type = ""
             for game_type in self.game_modes:
                 prompt_text += "'"+game_type+"', or "
             channel.send({"action":"prompt", "colour":"block", "prompt_text":prompt_text})
-            while not game_type in self.game_modes:
-                game_type = self.remote_input(channel)
+            while not self.next_game_type in self.game_modes:
+                self.next_game_type = self.remote_input(channel)
             self.min_players = self.game_modes[game_type]["game_type"].MIN_PLAYERS
             self.max_players = self.game_modes[game_type]["game_type"].MAX_PLAYERS
             prompt_text = ("Please specify how many players will play from this computer, between 1 and " +str(self.max_players)+ "?")
@@ -136,25 +134,46 @@ class CartolanServer(PodSixNet.Server.Server):
             while not num_client_players in range(1, self.max_players + 1):
                 num_client_players = int(self.remote_input(channel))
             prompt_text("Please specify how many other players will play, between 1 and " +str(self.max_players - num_client_players)+ "?")
-            channel.send({"action":"prompt", "colour":"block", "prompt_text":prompt_text})
+            channel.send({"action":"prompt", "colour":"black", "prompt_text":prompt_text})
             num_players = None
             while not num_players in range(self.min_players, self.max_players + 1):
                 num_players = num_client_players + int(self.remote_input(channel))
-            for player in channel.players:
-                self.next_game_players.append(player)
-                self.next_player_channels[player.colour] = channel
+            self.next_num_players = num_players
+            #randomly choose/order the player colours to fit this number, then assign a suitable number to this channel
+            self.next_player_colours = random.sample(self.game_modes[game_type]["player_set"], self.next_num_players)
+            for player_num in range(num_client_players):
+                player_colour = self.next_player_colours.pop()
+                channel.player_colours.append(player_colour)
+                self.next_player_channels[player_colour] = channel
         else:
-            channel.gameid = self.game.game_id
+            #Add this client to the game that's being set up
             self.queue.append(channel)
-            self.next_game_players.append(channel.players)
-            if len(self.next_game_players) == self.num_players:
-                next_game = self.next_game_type(self.next_player_channels.keys(), self.MOVEMENT_RULES, self.EXPLORATION_RULES)
-                next_game_vis = ClientGameVisualisation(self.next_game, channel)
+            prompt_text = ("The current game has " +str(len(self.next_player_channels)) +"/"
+                           +str(self.next_num_players)+" players. Please specify how many players will play from this computer, between 1 and " 
+                           +str(self.next_num_players - len(self.next_player_channels))+ "?")
+            channel.send({"action":"prompt", "colour":"block", "prompt_text":prompt_text})
+            num_client_players = None
+            while not num_client_players in range(1, self.max_players + 1):
+                num_client_players = int(self.remote_input(channel))
+            #Assign colours to the newly joined players
+            for player_num in range(num_client_players):
+                player_colour = self.next_player_colours.pop()
+                channel.player_colours.append(player_colour)
+                self.next_player_channels[player_colour] = channel
+            if len(self.next_player_channels) == self.next_num_players:
+                #@TODO specify initial tile placement
+                #@TODO specify initial adventurer locations
+                self.games.append({"player_channels":self.next_game_players
+                    , "play_area_sizes":None, "adventurers":None, "agents":None})
                 for chan in self.queue:
-                    chan.Send({"action": "start_game","player":0, "gameid": self.queue.gameid})
-                    chan.game_id = next_game.game_id
-                    self.games[next_game.game_id] = {"game_vis":next_game_vis, "player_channels":self.next_game_players}
-                    self.next_player_channels = {}
+                    chan.Send({"action": "start_game","player_colours":self.next_player_channels.keys()
+                        , "local_player_colours":chan.player_colours, "gameid": len(self.games) - 1
+                        , "game_type":self.next_game_type})
+                    chan.game_id = len(self.games) - 1
+                    self.next_num_players = None
+                    self.next_player_channels = None
+                    self.next_player_colours = None
+                    self.next_game_type = None
     
     def close(self, game_id):
         '''Passes on close instruction to each of the clients
