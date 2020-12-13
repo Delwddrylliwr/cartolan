@@ -28,46 +28,24 @@ class ClientChannel(PodSixNet.Channel.Channel):
     def Network(self, data):
         print(data)
         
-    def setup(self):
-        '''The receiving method for "setup" messages from clients, to get the number of players
-        '''
-        self.player_colours = player_colours
-    
     def Network_input(self, data):
-        '''Receiving method for plain 'input' messages from clients
+        '''Receiving method for plain "input" messages from clients
         '''
         self._server.input_buffer = data["input"]
         
-    def Network_move(self, data):
+    def Network_place_tiles(self, data):
+        '''Receiving method for "place_tiles" messages from clients
+        '''
+        
+    def Network_move_tokens(self, data):
+        '''Receiving method for "move_tokens" messages from clients
+        '''
+        
+    def Network_update_scores(self, data):
         '''The receiving method for "move" messages from clients
         '''
         self.generic_move_or_action(data)
-    
-    def Network_buy(self, data):
-        '''The receiving method for "buy" messages from clients
-        '''
-        self.generic_move_or_action(data)
-    
-    def Network_attack(self, data):
-        '''The receiving method for "attack" messages from clients
-        '''
-        self.generic_move_or_action(data)
         
-    #@TODO may want to differentiate client instructions more deeply in future, if multiple moves are to be offered at the same time    
-    def generic_move_or_action(self, data):
-        #deconsolidate all of the data from the dictionary
-        longitude = data["longitude"]
-        latitude = data["latitude"]
-        
-        player_colour = data["player_colour"]
-        adventurer_num = data["adventurer_num"]
-        
-#        if not self.gameid == data["gameid"]: #id of game given by server at start of game
-            #@TODO handle a message from the wrong game for this channel
-            
-        #tells server to pass coordinates on to the waiting game
-        self._server.pass_coordinates(longitude, latitude, self.gameid, player_colour, adventurer_num)
-    
     def Network_quit(self, data):
         '''The receiving method for "quit" messages from clients
         '''
@@ -161,14 +139,33 @@ class CartolanServer(PodSixNet.Server.Server):
                 channel.player_colours.append(player_colour)
                 self.next_player_channels[player_colour] = channel
             if len(self.next_player_channels) == self.next_num_players:
-                #@TODO specify initial tile placement
+                #specify initial tile placement
+                tiles_json = []
+                tiles_json.append({"longitude":0, "latitude":0
+                             , "tile_type":"city", "tile_back":"water"
+                             , "tile_edges":{"north":"True", "east":"True", "south":"True", "west":"True"}
+                             , "wind_direction":{"north":"True", "east":"True"}
+                             })
+                #place surrounding water tiles
+                for tile_position in [[0,1], [1,0], [0,-1], [-1,0]]:
+                    tiles_json.append({"longitude":tile_position[0], "latitude":tile_position[1]
+                                 , "tile_type":"city", "tile_back":"water"
+                                 , "tile_edges":{"north":"True", "east":"True", "south":"True", "west":"True"}
+                                 , "wind_direction":{"north":"True", "east":"True"}
+                                 })
                 #@TODO specify initial adventurer locations
+                adventurers_json = []
+                for player_colour in self.next_player_channels:
+                    adventurers_json.append({player_colour:[[0,0]]})
                 self.games.append({"player_channels":self.next_game_players
                     , "play_area_sizes":None, "adventurers":None, "agents":None})
                 for chan in self.queue:
                     chan.Send({"action": "start_game","player_colours":self.next_player_channels.keys()
                         , "local_player_colours":chan.player_colours, "gameid": len(self.games) - 1
-                        , "game_type":self.next_game_type})
+                        , "game_type":self.next_game_type
+                        , "initial_tiles":tiles_json
+                        , "initial_adventurers":adventurers_json
+                        })
                     chan.game_id = len(self.games) - 1
                     self.next_num_players = None
                     self.next_player_channels = None

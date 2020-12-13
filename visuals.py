@@ -1288,6 +1288,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
     draw_wealth_scores
     '''
     GAME_TYPES = {"beginner":GameBeginner, "regular":GameRegular, "advanced":GameAdvanced}
+    UPDATE_DELAY = 0.01 #the time in seconds to wait between checking for messages from the server
     
     def __init__(self):
         #Network state data:
@@ -1314,28 +1315,25 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         while not self.running:
             self.Pump()
             connection.Pump()
-            sleep(0.01)
+            sleep(self.UPDATE_DELAY)
         
     def update(self):
         '''Redraws visuals and seeks player input, passing it to the server to pass to the server-side Player
         '''
-        #distinguish between local and remote play and hand control of the game to the remote player's computer as needed, through the server
-        if self.local_player_turn:
-            current_player = self.players[self.current_player_colour]
-            self.game.adventurers[current_player][self.current_adventurer_number].continue_turn()
-            #@TODO check whether this player's turn has now ended and give away control if needed
-        else:
-            connection.Pump()
-            self.Pump()
+        #Process any messages from the server
+        connection.Pump()
+        self.Pump()
+        #clear the window and redraw everything (using super methods to avoid trying to update the server when it was the one to pass info)
+        self.window.fill(0)
+        super().draw_play_area()
+        super().draw_tokens()
+        self.draw_routes()
+        super().draw_scores()
         #If the game has ended then stop player input and refreshing
         if self.game.game_over:
-            self.Send({"action":"quit"})
-            return True
-        #clear the window and redraw everything
-        self.window.fill(0)
-        self.draw_play_area()
-        self.draw_tokens()
-        self.draw_scores()
+            self.game_vis.give_prompt(self.game.winning_player.colour+" player won the game (click to close)")
+            self.get_input_coords()
+            self.close()
     
     #Now for a set of methods that will use PodSixNet to respond to messages from the server to progress the game
     def Network_start_game(self, data):
@@ -1355,15 +1353,14 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         if not game_type == GameBeginner:
             game.setup_tile_piles("land")
         #place the initial tiles and adventurers
-        initial_tiles = data["initial_tiles"]
-        for tile_json in initial_tiles:
-            self.Network_place_tile(tile_json)
-        player_adventurers = data["player_adventurers"] #expects a dict of colours and 2-tuples giving the placement(s) of initial Adventurers for each player
+        self.Network_place_tile(data["initial_tiles"])
+        #@TODO adapt to use the Network_move_token method
+        initial_adventurers = data["initial_adventurers"] #expects a dict of colours and list of 2-tuples giving the placement(s) of initial Adventurers for each player
         adventurers = {}
-        if not len(players) == len(player_adventurers):
+        if not len(players) == len(initial_adventurers):
             raise Exception("Player attributes from Host have different lengths")
         for player in players:
-            for adventurer_location in player_adventurers[player.colour]:
+            for adventurer_location in initial_adventurers[player.colour]:
                 longitude = game.play_area.get(adventurer_location[0])
                 if longitude:
                     adventurer_tile = longitude.get(adventurer_location[0])
@@ -1380,6 +1377,27 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         
         #keep track of whether the game is active or waiting for the server to collect enough players
         self.running = True
+        
+        #Wait and watch for it to be a local player's turn, and then switch to local control and execution of the game
+        self.game.game_over = False
+        while not self.game.game_over:
+            #distinguish between local and remote play and hand control of the game to the remote player's computer as needed, through the server    
+            while not self.local_player_turn:
+                self.update()
+                sleep(self.UPDATE_DELAY)
+            
+            current_player = self.players[self.current_player_colour]
+            self.game.adventurers[current_player][self.current_adventurer_number].continue_turn()
+            #@TODO check whether this player's turn has now ended and give away control if needed
+            for adventurer in self.game.adventurers[current_player]:
+                if adventurer.turns_moved < self.turn:
+                    player.continue_turn(adventurer)
+                    print() #to help log readability
+                    
+                    #check whether this adventurer's turn has won them the game
+                    if self.check_win_conditions():
+                        self.game.game_over = True
+                        self.Send({"action":"declare_win"})
     
     def Network_close(self, data):
         '''Allows remote closing of game through an {"action":"close"} message from the server
@@ -1393,32 +1411,42 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         super().close()
     
     def Network_new_turn(self, data):
-        '''Informs local player(s) which remote player is currently expected to be moving
+        '''Informs local player(s) which player is currently expected to be moving
         '''
-        self.local_player_turn = data["is_local_player_turn"]
+        self.local_player_turn = data["local_player_turn"]
         self.current_player_colour = data["current_player_colour"]
         self.current_adventurer_number = data["current_adventurer_number"]
         if not self.local_player_turn:
             self.prompt_text = self.current_player_colour +" player is moving their Adventurer #" +str(self.current_adventurer_number)
     
-    def Network_place_tile(self, data):
-        '''Places a tile based on data following an {"action":"place_tile"} message from the server
+    def Network_place_tiles(self, data):
+        '''Places tiles based on data following an {"action":"place_tile"} message from the server
         '''
-        self.placeSound.play()
-        #read location to place at
-        longitude = data["longitude"]
-        latitude = data["latitude"]
-        #read tile characteristics to visualise
-        tile_data = data["tile"]
-        is_wonder = tile_data["is_wonder"]
-        tile_back = tile_data["tile_back"]
-        tile_edges_data = tile_data["tile_edges"]
-        tile_edges = TileEdges(tile_edges_data["north"], tile_edges_data["east"], tile_edges_data["south"], tile_edges_data["west"])
-        wind_direction_data = tile_data["wind_direction"]
-        wind_direction = WindDirection(wind_direction_data["north"], wind_direction_data["east"])
-        placed_tile = Tile(None, tile_back, wind_direction, tile_edges, is_wonder)
-        #Place the tile in the play area
-        self.game.play_area[longitude][latitude] = placed_tile
+        for tile_data in data:
+            #read location to place at
+            longitude = tile_data["longitude"]
+            latitude = tile_data["latitude"]
+            #Check whether this space is already occupied
+            if self.game.play_area.get(longitude):
+                if self.game.play_area[longitude].get(latitude):
+                    raise Exception("Server tried to place a tile on top of another")   
+            #read tile characteristics to visualise
+            tile_type = tile_data["tile_type"]
+            tile_back = tile_data["tile_back"]
+            tile_edges_data = tile_data["tile_edges"]
+            tile_edges = TileEdges(tile_edges_data["upwind_clock"]
+                    , tile_edges_data["upwind_anti"]
+                    , tile_edges_data["downwind_clock"]
+                    , tile_edges_data["downwind_anti"]
+                    )
+            wind_direction_data = tile_data["wind_direction"]
+            wind_direction = WindDirection(wind_direction_data["north"]
+                    , wind_direction_data["east"]
+                    )
+            #Place the tile in the play area
+            placed_tile = self.game.TILE_TYPES[tile_type](self.game, tile_back, wind_direction, tile_edges, False).place_tile(longitude, latitude)
+        #Remember that this is synched with the server
+        self.shared_play_area = self.game.play_area
         #remove a matching tile from the tile pile, once the game is running
         if not self.running:
             return True
@@ -1431,46 +1459,69 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         if not tile_removed:
             raise Exception("Server placed a tile that was not in the Tile Pile")
         
-    def Network_move_token(self, data):
+    def Network_move_tokens(self, data):
         '''Moves an Adventurer or Agent based on data following an {"action":"move_token"} message from the server
         '''
-        self.placeSound.play()
-        #read location to move to
-        longitude = data["longitude"]
-        latitude = data["latitude"]
-        #identify token to move
-        player_colour = data["player_colour"]
-        token_is_adventurer = data["token_is_adventurer"]
-        token_num = data["token_num"]
-        #Check that it is this player's turn
-        player = self.players[player_colour]
-#        if not self.current_player_colour == player_colour:
-            #@TODO return a message to the server complaining that the wrong player has tried to move
-        #Place the token on the tile at the coordinates
-        if token_is_adventurer:
-            
-            token = game.adventurers[player][token_num]
-        else:
-            token = game.agents[player][token_num]
-        #Check that the tile exists before moving the token there
-        if self.game.play_area.get(longitude):
-            tile = self.game.play_area.get(longitude).get(latitude)
-            if tile:
-                tile.move_onto_tile(token)
-#        else:
-            #@TODO returna  message to the server complaining that it wasn't a valid tile provided
-        
-    def Network_prompt(self, data):
-        '''Updates the prompt based on remote input
-        '''
-        prompt_text = data["prompt_text"]
-        self.give_prompt(prompt)
-    
-    def Network_clear_prompt(self, data):
-        '''Cleares the prompt based on remote input
-        '''
-        self.clear_prompt()
-    
+        for player_colour in data:
+            player = self.players[player_colour]
+            adventurers_data = data[player_colour].get("adventurers")
+            if adventurers_data:
+                for adventurer_num in range(len(adventurers_data)):
+                    #check if this is a new token and add them if so
+                    if len(self.game.adventurers[player]) < adventurer_num:
+                            adventurer = self.game.ADVENTURER_TYPE(self.game, player, self.game.play_area[0][0])
+                            self.game.adventurers[player].append(adventurer)
+                        else:
+                            adventurer = self.game.adventurers[player][token_num - 1]
+                    #read location to move to
+                    longitude = token_data.get("longitude")
+                    latitude = token_data.get("latitude")
+                    #Check that the tile exists before moving the token there
+                    if longitude and latitude:
+                        longitude = int(longitude)
+                        latitude = int(latitude)
+                        if self.game.play_area.get(longitude):
+                            tile = self.game.play_area.get(longitude).get(latitude)
+                            if not tile:
+                                raise Exception("Server has tried to place a token on a tile that doesn't exist")
+                        else:
+                            raise Exception("Server has tried to place a token on a tile that doesn't exist")
+                        #Place the token on the tile at the coordinates
+                        tile.move_onto_tile(adventurer)token_data = tokens_data[adventurer_num]
+                    #check whether wealth has also changed
+                    wealth = token_data.get("wealth")
+                    if wealth:
+                        adventurer.wealth = int(wealth)
+            agents_data = data[player_colour].get("agents")
+            if agents_data:
+                for agent_num in range(len(agents_data)):
+                    #check if this is a new token and add them if so
+                    if len(self.game.agents[player]) < agent_num:
+                            agent = self.game.AGENT_TYPE(self.game, player, None)
+                            self.game.agent[player].append(agent)
+                        else:
+                            agent = self.game.agent[player][token_num - 1]
+                    #read location to move to
+                    longitude = token_data.get("longitude")
+                    latitude = token_data.get("latitude")
+                    #Check that the tile exists before moving the token there
+                    if longitude and latitude:
+                        longitude = int(longitude)
+                        latitude = int(latitude)
+                        if self.game.play_area.get(longitude):
+                            tile = self.game.play_area.get(longitude).get(latitude)
+                            if not tile:
+                                raise Exception("Server has tried to place a token on a tile that doesn't exist")
+                        else:
+                            raise Exception("Server has tried to place a token on a tile that doesn't exist")
+                        #Place the token on the tile at the coordinates
+                        tile.move_onto_tile(agent)
+                        token_data = tokens_data[agent_num]
+                    #check whether wealth has also changed
+                    wealth = token_data.get("wealth")
+                    if wealth:
+                        agent.wealth = int(wealth)  
+         
     def Network_end_game(self, data):
         '''Notifies player who won the game based on data following an {"action":"end_game"} message from the server
         '''
@@ -1478,15 +1529,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         self.winSound.play()
         self.me+=1
         #@TODO prompt a mouse click to quit
-        exit()    
-
-class HostGameInterface:
-    def __init__(self, server, game):
-        #Retain game data
-        self.server = server
-        self.players = game.players
-        self.game = game
-        self.shared_play_area = {}
+        exit()
     
     def play_area_difference(self, play_area_new, play_area_old):
         '''Compares two given nested Dicts of Cartolan.Tiles to see which Tiles are present in only one
@@ -1513,48 +1556,93 @@ class HostGameInterface:
         '''
         #Determine change in play area and share this with the server
         play_area_update = self.play_area_difference(self.game.play_area, self.shared_play_area)
-        print("Drawing the play area, with " +str(len(play_area_update))+" columns of tiles")
-        self.server.remote_draw_play_area(self.game, play_area_update)
-        return True
-    
-    #@TODO highlight the particular token(s) that an action relates to
-    def draw_move_options(self, valid_coords=None, invalid_coords=None, chance_coords=None
-                          , buy_coords=None, attack_coords=None, rest_coords=None):
-        '''Outlines tiles where moves or actions are possible, designated by colour
-        '''
-#        print("Updating the dict of highlight positions, based on optional arguments")
-        self.server.remote_draw_move_options(self.game, valid_coords=None, invalid_coords=None, chance_coords=None
-                          , buy_coords=None, attack_coords=None, rest_coords=None)
-        
-    def clear_move_options(self):
-        '''
-        '''
-#        print("Clearing out the list of valid moves")
-        self.server.remote_clear_move_options(self.game)
+        tiles_json = []
+        for longitude in play_area_update:
+            for latitude in play_area_update[longitude]:
+                tile = play_area_update[longitude][latitude]
+                tile_type = "plain"
+                if tile.is_wonder:
+                    tile_type = "wonder"
+                elif isinstance(tile, DisasterTile):
+                    tile_type = "disaster"
+                #record all the tile information in a json form that can be shared with other players via the server
+                tile_data = {"longitude":longitude
+                             , "latitude":latitude
+                             , "tile_type":tile_type 
+                             , "tile_back":tile.tile_back
+                             }
+                #serialise and add the tile edge and wind direction information 
+                tile_edges_data = {"upwind_clock":tile.tile_edges.upwind_clock_water
+                                   , "upwind_anti":tile.tile_edges.upwind_anti_water
+                                   , "downwind_clock":tile.tile_edges.downwind_clock_water
+                                   , "downwind_anti":tile.tile_edges.downwind_anti_water
+                                   }
+                tile_data["tile_edges"] = tile_edges_data
+                wind_direction_data = {"north":tile.wind_direction.north
+                                       , "east":tile.wind_direction.east
+                                       }
+                tile_data["wind_direction"] = wind_direction_data
+                tiles_json.append(tile_data)
+        if play_area_update:    
+            self.Send({"action":"place_tiles", "game_id":self.game_id, "tiles":tiles_json})
+            self.shared_play_area = self.game.play_area
+            print("Drawing the play area, with " +str(len(self.game.play_area))+" columns of tiles")
+            super().draw_play_area()
+        else:
+            print("No changes to play area, so noth updating local or server")
     
     def draw_tokens(self):
         '''Identifies which tokens have changed position/status and passing them to the server
         '''
-#        print("Cycling through the players, drawing the adventurers and agents as markers")
+        #print(Comparing two different states of Agents and Adventurers, and returns only those that differ)
+        player_adventurers_json = {}
+        player_adventurers_changes_json = {}
+        exist_changes = False
+        for player in self.game.adventurers:
+            adventurers = self.game.adventurers[player]
+            adventurers_json = []
+            adventurers_changes_json = []
+            exist_token_changes = False
+            for adventurer in adventurers:
+                adventurer_changes_data = {}
+                #identify the old serialisation of this adventurer's data
+                old_adventurer_data = self.shared_tokens[player.colour]["adventurer"][adventurers.index(adventurer)]
+                #serialise the adventurer's data where it differs
+                new_longitude = adventurer.current_tile.longitude
+                new_latitude = adventurer.current_tile.latitude
+                old_longitude = int(old_adventurer_data["longitude"])
+                old_latitude = int(old_adventurer_data["latitude"])
+                adventurer_data = {"longitude":new_longitude
+                                       , "latitude":new_latitude
+                                       }
+                if not (new_longitude == old_longitude 
+                        and new_latitude == old_latitude):
+                    adventurer_changes_data["longitude"] = new_longitude
+                    adventurer_changes_data["latitude"] = new_latitude
+                    exist_token_changes = True
+                new_wealth = adventurer.wealth
+                old_wealth = int(old_adventurer_data["wealth"])
+                adventurer_data["wealth"] = new_wealth
+                if not (new_wealth == old_wealth):
+                    adventurer_changes_data["wealth"] = new_wealth
+                    exist_token_changes = True
+                adventurers_json.append(adventurer_data)
+                adventurers_changes_json.append(adventurer_changes_data)
+            player_adventurers_json[player.colour]["adventurers"] = adventurers_json
+            if exist_token_changes:
+                player_adventurers_changes_json[player.colour]["adventurers"] = adventurers_changes_json
+                exist_changes = True
+        self.shared_adventurers = player_adventurers_json
+        #@TODO repeat for Agents
+        if exist_changes:
+            print("Having found changes to the tokens, sharing these with other players via the server")
+            self.Send({"action":"move_tokens", "adventurer_changes":player_adventurers_changes_json})
+        super().draw_tokens()
     
-    # it will be useful to see how players moved around the play area during the game, and relative to agents
-    def draw_routes(self):
-        '''Illustrates the paths that different Adventurers have taken during the course of a game, and the location of Agents
-        
-        Arguments:
-        List of Carolan.Players the Adventurers and Agents that will be rendered
-        '''
-        print("Drawing a series of lines to mark out the route travelled by players since the last move")
-        
     def draw_scores(self):
-        '''Prints a table of current wealth scores in players' Vaults and Adventurers' Chests
+        '''Passes changed scores to the server, before drawing a table locally
         '''        
         print("Creating a table of the wealth held by Players and their Adventurers")
-    
-    def draw_prompt(self):
-        '''Prints a prompt on what moves/actions are available to the current player
-        '''        
-#        print("Creating a prompt for the current player")
     
     def start_turn(self, player_colour):
         '''Identifies the current player by their colour, affecting prompts
