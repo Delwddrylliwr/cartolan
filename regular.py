@@ -1,4 +1,4 @@
-from base import Token, Adventurer, Agent, Tile, TileEdges
+from base import Token, Adventurer, Agent, Tile, TileEdges, CityTile
 from beginner import AdventurerBeginner, AgentBeginner, CityTileBeginner
 
 
@@ -129,6 +129,14 @@ class AdventurerRegular(AdventurerBeginner):
                 else: return False
         else: raise Exception("Invalid movement rules specified")
     
+    def discover(self, tile):
+        #check whether this is a discovered city and don't offer the usual
+        if isinstance(self.current_tile, CityTile):
+            self.current_tile.visit_city
+            return True
+        else:
+            super().discover(tile)
+    
     def interact_tokens(self):
         #check whether there is an agent here and then check rest, attack if active or restore if dispossessed
         if self.current_tile.agent:
@@ -153,6 +161,14 @@ class AdventurerRegular(AdventurerBeginner):
                 if adventurer.player != self.player and (adventurer.wealth > 0 or adventurer.pirate_token):
                     if self.player.check_attack_adventurer(self, adventurer):
                         self.attack(adventurer)
+    
+    def place_agent(self):
+        '''Expands on beginner mode, allowing for cities
+        '''
+        if isinstance(self.current_tile, CityTile):
+            return False
+        else:
+            super().place_agent()
     
     def trade(self, tile):
         '''Expands on the trading of an AdventurerBeginner, by checking for pirates and refusing them trade

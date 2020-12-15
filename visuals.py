@@ -104,8 +104,6 @@ class PlayAreaVisualisation:
         # import tile images and establish a mapping
         if len(self.tile_image_library) == 0:
             self.tile_image_library = {}
-            self.tile_image_library["water"] = mpimg.imread('./images/water.png')
-            self.tile_image_library["land"] = mpimg.imread('./images/land.png')
             self.tile_image_library["water_disaster"] = mpimg.imread('./images/water_disaster.png') 
             self.tile_image_library["land_disaster"] = mpimg.imread('./images/land_disaster.png') 
             self.tile_image_library["capital"] = mpimg.imread('./images/capital.png') 
@@ -717,6 +715,19 @@ class GameVisualisation():
     PROMPT_POSITION = [0.0, 0.85]
     PROMPT_FONT_SCALE = 0.05 #relative to window size
     
+    GENERAL_TILE_PATH = './images/'
+    SPECIAL_TILE_PATHS = {"water_disaster":'./images/water_disaster.png'
+                     , "land_disaster":'./images/land_disaster.png'
+                     , "capital":'./images/capital.png'
+                     , "mythical":'./images/mythical.png'
+                     } #file paths for special tiles
+    HIGHLIGHT_PATHS = {"move":'./images/option_valid_move.png'
+                  , "invalid":'./images/option_invalid_move.png'
+                  , "buy":'./images/option_buy.png'
+                  , "attack":'./images/option_attack.png'
+                  , "rest":'./images/option_rest.png'
+                  }
+    
     def __init__(self, game, dimensions, origin):
         #Retain game data
         self.players = game.players
@@ -772,17 +783,33 @@ class GameVisualisation():
 #        while not self.game.game_over:
 #            self.update()
     
+    def save_tile_rotations(self, tile_name, tile_image):
+        '''For a particular tile image, adds all its rotations to the library
+        '''
+        #North East wind
+        self.tile_image_library[tile_name+"TrueTrue"] = tile_image
+        #South East wind
+        self.tile_image_library[tile_name+"FalseTrue"] = pygame.transform.rotate(tile_image.copy(), -90)
+        #South West wind
+        self.tile_image_library[tile_name+"FalseFalse"] = pygame.transform.rotate(tile_image.copy(), 180)
+        #North West wind
+        self.tile_image_library[tile_name+"TrueFalse"] = pygame.transform.rotate(tile_image.copy(), 90)
+    
+    def rescale_images(self, image_library, new_size):
+        '''For a particular image library, rescales all of the images
+        '''
+        for image_type in image_library:
+            image = image_library[image_type]
+            image_library[image_type] = pygame.transform.scale(image, [new_size, new_size])
+
     def init_graphics(self):
         '''Reads in the images for visualising play
         '''
         print("Importing tile and highlight images and establishing a mapping")
         self.tile_image_library = {}
-        self.tile_image_library["water"] = pygame.image.load('./images/water.png')
-        self.tile_image_library["land"] = pygame.image.load('./images/land.png')
-        self.tile_image_library["water_disaster"] = pygame.image.load('./images/water_disaster.png') 
-        self.tile_image_library["land_disaster"] = pygame.image.load('./images/land_disaster.png') 
-        self.tile_image_library["capital"] = pygame.image.load('./images/capital.png') 
-        self.tile_image_library["mythical"] = pygame.image.load('./images/mythical.png') 
+        for tile_name in self.SPECIAL_TILE_PATHS:
+            tile_image = pygame.image.load(self.SPECIAL_TILE_PATHS[tile_name])
+            self.save_tile_rotations(tile_name, tile_image)
         for uc_water in [True, False]: 
             for ua_water in [True, False]:
                 for dc_water in [True, False]:
@@ -809,38 +836,29 @@ class GameVisualisation():
                                 filename += "t"
                             else:
                                 filename += "f"
-                            tile_image = pygame.image.load('./images/' +filename+ '.png')
+                            tile_image = pygame.image.load(self.GENERAL_TILE_PATH +filename+ '.png')
+                            tile_name = str(uc_water)+str(ua_water)+str(dc_water)+str(da_water)+str(wonder)
                             #Rotate the image for different wind directions
-                            #North East wind
-                            self.tile_image_library[str(uc_water)+str(ua_water)
-                                +str(dc_water)+str(da_water)+str(wonder)+"TrueTrue"] = tile_image
-                            #South East wind
-                            self.tile_image_library[str(uc_water)+str(ua_water)
-                                +str(dc_water)+str(da_water)+str(wonder)+"FalseTrue"] = pygame.transform.rotate(tile_image.copy(), -90)
-                            #South West wind
-                            self.tile_image_library[str(uc_water)+str(ua_water)
-                                +str(dc_water)+str(da_water)+str(wonder)+"FalseFalse"] = pygame.transform.rotate(tile_image.copy(), 180)
-                            #North West wind
-                            self.tile_image_library[str(uc_water)+str(ua_water)
-                                +str(dc_water)+str(da_water)+str(wonder)+"TrueFalse"] = pygame.transform.rotate(tile_image.copy(), 90)
+                            self.save_tile_rotations(tile_name, tile_image)
         #rescale the tiles to match the current play area dimensions now, it will only be scaled down and lose more fidelity with subsequent resizing
         bordered_tile_size = round(self.tile_size * (1 - self.TILE_BORDER))
         print("Set tile sizes to be " +str(self.tile_size)+ " pixels, and with border: " +str(bordered_tile_size))
-        for tile_type in self.tile_image_library:
-            tile_image = self.tile_image_library[tile_type]
-            self.tile_image_library[tile_type] = pygame.transform.scale(tile_image, [bordered_tile_size, bordered_tile_size])
+        self.rescale_images(self.tile_image_library, bordered_tile_size)
+#        for tile_type in self.tile_image_library:
+#            tile_image = self.tile_image_library[tile_type]
+#            self.tile_image_library[tile_type] = pygame.transform.scale(tile_image, [bordered_tile_size, bordered_tile_size])
         
         # import the masks used to highlight movement options
         self.highlight_library = {}
-        self.highlight_library["move"] = pygame.image.load('./images/option_valid_move.png')
-        self.highlight_library["invalid"] = pygame.image.load('./images/option_invalid_move.png')
-        self.highlight_library["buy"] = pygame.image.load('./images/option_buy.png')
-        self.highlight_library["attack"] = pygame.image.load('./images/option_attack.png')
-        self.highlight_library["rest"] = pygame.image.load('./images/option_rest.png')
+        for highlight_name in self.HIGHLIGHT_PATHS:
+            highlight_image = self.HIGHLIGHT_PATHS[highlight_name]
+            self.highlight_library[highlight_name] = pygame.image.load(highlight_image)
+        
         #rescale the tiles to match the current play area dimensions now, it will only be scaled down and lose more fidelity with subsequent resizing
-        for highlight_type in self.highlight_library:
-            highlight_image = self.highlight_library[highlight_type]
-            self.highlight_library[highlight_type] = pygame.transform.scale(highlight_image, [self.tile_size, self.tile_size])
+        self.rescale_images(self.highlight_library, self.tile_size)
+#        for highlight_type in self.highlight_library:
+#            highlight_image = self.highlight_library[highlight_type]
+#            self.highlight_library[highlight_type] = pygame.transform.scale(highlight_image, [self.tile_size, self.tile_size])
 
     def rescale_graphics(self):
         '''Rescales images in response to updated dimensions for the play grid
@@ -944,21 +962,24 @@ class GameVisualisation():
                 e = tile.tile_edges
                 if isinstance(tile, CityTile):
                     if tile.is_capital:
-                        tile_image = self.tile_image_library["capital"]
+                        tile_name = "capital"
                     else:
-                        tile_image = self.tile_image_library["mythical"]
+                        tile_name = "mythical"
                 elif isinstance(tile, DisasterTile):
                     if tile.tile_back == "water":
-                        tile_image = self.tile_image_library["water_disaster"]
+                        tile_name = "water_disaster"
                     else:
-                        tile_image = self.tile_image_library["land_disaster"]
+                        tile_name = "land_disaster"
                 else:
-                    wonder = tile.is_wonder
-                    north = tile.wind_direction.north
-                    east = tile.wind_direction.east
-                    tile_image = self.tile_image_library[str(e.upwind_clock_water)+str(e.upwind_anti_water)
-                                                         +str(e.downwind_clock_water)+str(e.downwind_anti_water)
-                                                         +str(wonder)+str(north)+str(east)]
+                    wonder = str(tile.is_wonder)
+                    uc = str(e.upwind_clock_water)
+                    ua = str(e.upwind_anti_water)
+                    dc = str(e.downwind_clock_water)
+                    da = str(e.downwind_anti_water)
+                    tile_name = uc + ua + dc + da + wonder
+                north = str(tile.wind_direction.north)
+                east = str(tile.wind_direction.east)
+                tile_image = self.tile_image_library[tile_name + north + east]
                 #place the tile image in the grid
                 horizontal = self.get_horizontal(longitude)
                 vertical = self.get_vertical(latitude)
@@ -1467,15 +1488,16 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             adventurers_data = data[player_colour].get("adventurers")
             if adventurers_data:
                 for adventurer_num in range(len(adventurers_data)):
+                    adventurer_data = adventurers_data[adventurer_num]
                     #check if this is a new token and add them if so
                     if len(self.game.adventurers[player]) < adventurer_num:
-                            adventurer = self.game.ADVENTURER_TYPE(self.game, player, self.game.play_area[0][0])
-                            self.game.adventurers[player].append(adventurer)
-                        else:
-                            adventurer = self.game.adventurers[player][token_num - 1]
+                        adventurer = self.game.ADVENTURER_TYPE(self.game, player, self.game.play_area[0][0])
+                        self.game.adventurers[player].append(adventurer)
+                    else:
+                        adventurer = self.game.adventurers[player][adventurer_num - 1]
                     #read location to move to
-                    longitude = token_data.get("longitude")
-                    latitude = token_data.get("latitude")
+                    longitude = adventurer_data.get("longitude")
+                    latitude = adventurer_data.get("latitude")
                     #Check that the tile exists before moving the token there
                     if longitude and latitude:
                         longitude = int(longitude)
@@ -1487,41 +1509,49 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                         else:
                             raise Exception("Server has tried to place a token on a tile that doesn't exist")
                         #Place the token on the tile at the coordinates
-                        tile.move_onto_tile(adventurer)token_data = tokens_data[adventurer_num]
+                        tile.move_onto_tile(adventurer)
                     #check whether wealth has also changed
-                    wealth = token_data.get("wealth")
+                    wealth = adventurer_data.get("wealth")
                     if wealth:
                         adventurer.wealth = int(wealth)
             agents_data = data[player_colour].get("agents")
             if agents_data:
                 for agent_num in range(len(agents_data)):
+                    agent_data = agents_data[agent_num]
                     #check if this is a new token and add them if so
                     if len(self.game.agents[player]) < agent_num:
-                            agent = self.game.AGENT_TYPE(self.game, player, None)
-                            self.game.agent[player].append(agent)
-                        else:
-                            agent = self.game.agent[player][token_num - 1]
+                        agent = self.game.AGENT_TYPE(self.game, player, None)
+                        self.game.agent[player].append(agent)
+                    else:
+                        agent = self.game.agent[player][agent_num - 1]
                     #read location to move to
-                    longitude = token_data.get("longitude")
-                    latitude = token_data.get("latitude")
-                    #Check that the tile exists before moving the token there
+                    longitude = agent_data.get("longitude")
+                    latitude = agent_data.get("latitude")
+                    #Check that the tile exists before moving the agent there
                     if longitude and latitude:
                         longitude = int(longitude)
                         latitude = int(latitude)
                         if self.game.play_area.get(longitude):
                             tile = self.game.play_area.get(longitude).get(latitude)
                             if not tile:
-                                raise Exception("Server has tried to place a token on a tile that doesn't exist")
+                                raise Exception("Server has tried to place a agent on a tile that doesn't exist")
                         else:
-                            raise Exception("Server has tried to place a token on a tile that doesn't exist")
-                        #Place the token on the tile at the coordinates
+                            raise Exception("Server has tried to place a agent on a tile that doesn't exist")
+                        #Place the agent on the tile at the coordinates
                         tile.move_onto_tile(agent)
-                        token_data = tokens_data[agent_num]
+                        agent_data = agents_data[agent_num]
                     #check whether wealth has also changed
-                    wealth = token_data.get("wealth")
+                    wealth = agent_data.get("wealth")
                     if wealth:
                         agent.wealth = int(wealth)  
-         
+    
+    def Network_update_scores(self, data):
+        '''Recieves updates to the players' Vault wealth from remote players, via the server
+        '''
+        for player_colour in data:
+            player = self.players[player_colour]
+            player.vault_wealth = data[player_colour]
+     
     def Network_end_game(self, data):
         '''Notifies player who won the game based on data following an {"action":"end_game"} message from the server
         '''
@@ -1595,8 +1625,8 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         '''Identifies which tokens have changed position/status and passing them to the server
         '''
         #print(Comparing two different states of Agents and Adventurers, and returns only those that differ)
-        player_adventurers_json = {}
-        player_adventurers_changes_json = {}
+        player_tokens_json = {}
+        player_tokens_changes_json = {}
         exist_changes = False
         for player in self.game.adventurers:
             adventurers = self.game.adventurers[player]
@@ -1606,7 +1636,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             for adventurer in adventurers:
                 adventurer_changes_data = {}
                 #identify the old serialisation of this adventurer's data
-                old_adventurer_data = self.shared_tokens[player.colour]["adventurer"][adventurers.index(adventurer)]
+                old_adventurer_data = self.shared_tokens[player.colour]["adventurers"][adventurers.index(adventurer)]
                 #serialise the adventurer's data where it differs
                 new_longitude = adventurer.current_tile.longitude
                 new_latitude = adventurer.current_tile.latitude
@@ -1628,49 +1658,70 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                     exist_token_changes = True
                 adventurers_json.append(adventurer_data)
                 adventurers_changes_json.append(adventurer_changes_data)
-            player_adventurers_json[player.colour]["adventurers"] = adventurers_json
+            player_tokens_json[player.colour]["adventurers"] = adventurers_json
             if exist_token_changes:
-                player_adventurers_changes_json[player.colour]["adventurers"] = adventurers_changes_json
+                player_tokens_changes_json[player.colour]["adventurers"] = adventurers_changes_json
                 exist_changes = True
-        self.shared_adventurers = player_adventurers_json
-        #@TODO repeat for Agents
+        #repeat for Agents
+        player_tokens_json = {}
+        player_tokens_changes_json = {}
+        exist_changes = False
+        for player in self.game.agents:
+            agents = self.game.agents[player]
+            agents_json = []
+            agents_changes_json = []
+            exist_token_changes = False
+            for agent in agents:
+                agent_changes_data = {}
+                #identify the old serialisation of this adventurer's data
+                old_agent_data = self.shared_tokens[player.colour]["agents"][agents.index(agent)]
+                #serialise the adventurer's data where it differs
+                new_longitude = agent.current_tile.longitude
+                new_latitude = agent.current_tile.latitude
+                old_longitude = int(old_agent_data["longitude"])
+                old_latitude = int(old_agent_data["latitude"])
+                agent_data = {"longitude":new_longitude
+                                       , "latitude":new_latitude
+                                       }
+                if not (new_longitude == old_longitude 
+                        and new_latitude == old_latitude):
+                    agent_changes_data["longitude"] = new_longitude
+                    agent_changes_data["latitude"] = new_latitude
+                    exist_token_changes = True
+                new_wealth = agent.wealth
+                old_wealth = int(old_agent_data["wealth"])
+                agent_data["wealth"] = new_wealth
+                if not (new_wealth == old_wealth):
+                    agent_changes_data["wealth"] = new_wealth
+                    exist_token_changes = True
+                agents_json.append(agent_data)
+                agents_changes_json.append(agent_changes_data)
+            player_tokens_json[player.colour]["agents"] = agents_json
+            if exist_token_changes:
+                player_tokens_changes_json[player.colour]["agents"] = agents_changes_json
+                exist_changes = True
+        self.shared_tokens = player_tokens_json
         if exist_changes:
             print("Having found changes to the tokens, sharing these with other players via the server")
-            self.Send({"action":"move_tokens", "adventurer_changes":player_adventurers_changes_json})
+            self.Send({"action":"move_tokens", "changes":player_tokens_changes_json})
         super().draw_tokens()
     
     def draw_scores(self):
         '''Passes changed scores to the server, before drawing a table locally
         '''        
-        print("Creating a table of the wealth held by Players and their Adventurers")
-    
-    def start_turn(self, player_colour):
-        '''Identifies the current player by their colour, affecting prompts
-        '''
-        #notify the current player that they are moving
-        
-        #set the text for other players to inform them who is moving
-    
-    def give_prompt(self, prompt_text):
-        '''Pushes text to the prompt buffer for the visual
-        
-        Arguments:
-        prompt_text should be a string
-        '''
-    
-    def clear_prompt(self):
-        '''Empties the prompt buffer via the server
-        '''
-        
-    #@TODO differentiate remote players from local and seek input accordingly
-    def get_input_coords(self, adventurer):
-        '''Seeks input coords via the server.
-        
-        Arguments
-        adventurer takes a Cartolan.Adventurer
-        '''
-        return False
-
+        #print("Comparing local scores to what has previously been shared, and updating the server accordingly")
+        player_wealths_json = {}
+        player_wealth_changes_json = {}
+        exist_changes = False
+        for player in self.players:
+            #serialise the players' Vault wealths and compare to historic
+            if not player_wealths_json[player.colour] == player.vault_wealth:
+                player_wealth_changes_json[player.colour] = player.vault_wealth
+                exist_changes = True
+            player_wealths_json[player.colour] = player.vault_wealth
+        if exist_changes:
+            self.Send({"action":"update_scores", "changes":player_wealth_changes_json})
+        super().draw_tokens()
 
 
 class PlayStatsVisualisation:

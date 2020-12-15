@@ -231,17 +231,9 @@ class AdventurerBeginner(Adventurer):
                     self.current_tile.move_off_tile(self)
                     self.current_tile = self.game.play_area.get(new_longitude).get(new_latitude)
                     self.current_tile.move_onto_tile(self)
-                    
-                    # if this is a Wonder then discovery should be automatic
-#                     if isinstance(self.current_tile, WonderTile):
-                    if self.current_tile.is_wonder:
-                        self.discover(self.current_tile)             
-                
-                    #check whether an agent can be placed and then whether the player wants to
-                    self.place_agent()
-                    
-                    moved = True
-                
+                    #as a new tile there are some special considerations
+                    self.discover(self.current_tile)
+                    moved = True                
             else:
                 #place the Adventurer on the next existing Tile
                 self.current_tile.move_off_tile(self)
@@ -250,7 +242,6 @@ class AdventurerBeginner(Adventurer):
                 #carry out any actions that are possible given this tile or tokens on it
                 self.interact_tile()                
                 self.interact_tokens()
-                
                 moved = True
         
         #check whether any more moves will be possible
@@ -461,9 +452,14 @@ class AdventurerBeginner(Adventurer):
 #                self.trade(tile)
 #                return False
 #        
-        #award wealth
-        self.wealth += self.game.VALUE_DISCOVER_WONDER[tile.tile_back]
-        self.wonders_visited.append(tile)
+        # if this is a Wonder then discovery should be automatic
+#       if isinstance(self.current_tile, WonderTile):
+        if self.current_tile.is_wonder:
+            #award wealth
+            self.wealth += self.game.VALUE_DISCOVER_WONDER[tile.tile_back]
+            self.wonders_visited.append(tile)
+        #check whether an agent can be placed and then whether the player wants to
+        self.place_agent()
         return True
         
         
@@ -798,15 +794,16 @@ class CityTileBeginner(CityTile):
         #keep checking whether the player can afford another Adventurer and wants one until they refuse
         while adventurer.player.vault_wealth >= adventurer.game.COST_AGENT_FROM_CITY:
             tile = adventurer.player.check_buy_agent(adventurer, report="Do you want to place an agent, and where?") 
-            if not tile is None:
-                #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm
-                for city_tile in self.game.cities:
-                    city_longitude = city_tile.tile_position.longitude
-                    city_latitude = city_tile.tile_position.latitude
-                    if (abs(tile.tile_position.longitude - city_longitude) 
-                        + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
-                        continue
-            else:
+#            if not tile is None:
+##                @deprecated #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm
+##                for city_tile in self.game.cities:
+##                    city_longitude = city_tile.tile_position.longitude
+##                    city_latitude = city_tile.tile_position.latitude
+##                    if (abs(tile.tile_position.longitude - city_longitude) 
+##                        + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
+##                        continue
+#            else:
+            if tile is None:
                 return False
 
             #check whether the tile already has an active Agent 

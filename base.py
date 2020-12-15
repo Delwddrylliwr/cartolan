@@ -423,11 +423,8 @@ class CityTile(Tile):
     Interfaces:
     visit_city, bank_wealth, buy_adventurers, buy_agents
     '''
-    tile_edges = TileEdges(uc_water = False, ua_water = False, dc_water = False, da_water = False)
-    wind_direction = WindDirection(True, True)
-    
-    def __init__(self, game, is_capital, is_discovered):
-        super().__init__(game, "land", self.wind_direction, self.tile_edges, False)
+    def __init__(self, game, wind_direction, tile_edges, is_capital, is_discovered):
+        super().__init__(game, "land", wind_direction, tile_edges, False)
         self.is_capital = is_capital
         self.is_discovered = is_discovered
         game.cities.append(self)

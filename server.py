@@ -34,17 +34,17 @@ class ClientChannel(PodSixNet.Channel.Channel):
         self._server.input_buffer = data["input"]
         
     def Network_place_tiles(self, data):
-        '''Receiving method for "place_tiles" messages from clients
+        '''Relays "place_tiles" messages from the current host to client games
         '''
         
     def Network_move_tokens(self, data):
-        '''Receiving method for "move_tokens" messages from clients
+        '''Relays "move_tokens" messages from the current host to client games
         '''
         
     def Network_update_scores(self, data):
-        '''The receiving method for "move" messages from clients
+        '''Relays "update_scores" messages from the current host to client games
         '''
-        self.generic_move_or_action(data)
+        
         
     def Network_quit(self, data):
         '''The receiving method for "quit" messages from clients
@@ -189,56 +189,26 @@ class CartolanServer(PodSixNet.Server.Server):
         except:
             pass
     
-    def pass_coordinates(self, longitude, latitude, game_id, player_colour, adventurer_num):
-        '''Checks that the game is awaiting input from a player, and makes it available.
+    def relay_data(self, host_channel, data):
+        '''Relays updated game state from the channel that is currently hosting the game
         
         Arguments:
-        longitude an Int giving one of the grid coordinates
-        latitude an Int giving one of the grid coordinates
-        game_id a hexadecimal string uniquely identifying
-        player_colour a string identifying the player within the game, by their colour
-        adventurer_number an Int identifying the Adventurer token for which the player is submitting a movement/action
+        host_channel expects a PodSixNet/Cartolan ClientChannel
+        data expects a dict in the format of a PodSixNet message for a ConnectionListener
         '''
-        if not self.games[game_id]["current_player_colour"] == player_colour:
-            return False
-        else:
-            self.games[game_id]["current_player_input"] = [longitude, latitude]
-            return True
-    
-    def give_prompt(self, game, player_colour, prompt):
-        '''Passes a prompt for the relevant remote players 
-        '''
-        channel = self.games[game.game_id]["player_channels"][player_colour]
-        channel.send({"action":"prompt", "player_colour":player_colour, "prompt_text":prompt})
-    
-    def clear_prompt(self, game, player_colour):
-        '''Clears prompts for the relevant remote player
-        '''
-        channel = self.games[game.game_id]["player_channels"][player_colour]
-        channel.send({"action":"prompt", "player_colour":player_colour})
+        game_id = host_channel.game_id
+        player_channels = self.games[game_id]["player_channels"]
+        for channel in player_channels.values():
+            if not channel == host_channel:
+                channel.Send(data)
     
     def remote_input(self, channel):
-        '''Allows players to submit text input
+        '''Seeks input from remote players (mostly in game setup)
         '''
         #collect and return any input left in the buffer
         input_text = self.input_buffer[channel]
         self.input_buffer[channel] = None
         return input_text
-    
-    def remote_input_coords(self, adventurer):
-        '''Allows Players to submit coordinates directly
-        '''
-        #identify game and player through adventurer
-        game_id = adventurer.game.game_id
-        player = adventurer.player
-        #collect and return any coordinates left for the game by that player's remote version
-        if self.games[game_id]["current_player_colour"] == player.player_colour:
-            input_coords = self.games[game_id]["current_player_input"]
-            #Record that the coordinates have been collected
-            self.games[game_id]["current_player_input"] = None
-            return input_coords
-        else:
-            return None
     
     def player_quits(self, game_id, player_colour):
         '''When a player quits an active game, replace them with a virtual player.
