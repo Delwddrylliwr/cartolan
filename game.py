@@ -1,6 +1,6 @@
 from base import Game, TilePile
 from beginner import AdventurerBeginner, AgentBeginner, CityTileBeginner, WonderTile
-from regular import AdventurerRegular, AgentRegular, CityTileRegular, DisasterTile
+from regular import AdventurerRegular, AgentRegular, CityTileRegular, DisasterTile, CapitalTile, MythicalTile
 from base import Tile, WindDirection, TileEdges
 import random
 import csv
@@ -23,7 +23,7 @@ class GameBeginner(Game):
     TILE_FILE = "tile_distribution.csv"
     FIRST_TILE_FILE_ROWS = {"water":0}
     TILE_TYPE_COLS = {"wonder":1}
-    TILE_TYPES = {"wonder":WonderTile}
+    TILE_TYPES = {"plain":Tile, "city":CapitalTile, "wonder":WonderTile}
     NUM_TILES = {"water":60}
     
     GAME_WINNING_DIFFERENCE = 15
@@ -255,7 +255,7 @@ class GameRegular(GameBeginner):
     '''
     FIRST_TILE_FILE_ROWS = {"water":0, "land":12}
     TILE_TYPE_COLS = {"wonder":1, "disaster":2}
-    TILE_TYPES = {"wonder":WonderTile, "disaster":DisasterTile}
+    TILE_TYPES = {"plain":Tile, "capital":CapitalTile, "mythical":MythicalTile, "wonder":WonderTile, "disaster":DisasterTile}
     NUM_TILES = {"water":60, "land":40}
 
     VALUE_DISCOVER_WONDER = {"water":1, "land":1}

@@ -1,4 +1,4 @@
-from base import Token, Adventurer, Agent, Tile, TileEdges, CityTile
+from base import Token, Adventurer, Agent, Tile, WindDirection, TileEdges, CityTile
 from beginner import AdventurerBeginner, AgentBeginner, CityTileBeginner
 
 
@@ -355,3 +355,15 @@ class DisasterTile(Tile):
         else: # otherwise send the Adventurer to the capital and keep their wealth
             self.dropped_wealth += adventurer.wealth
             adventurer.end_expedition()
+
+class CapitalTile(CityTileRegular):
+    def __init__(self, game, tile_back = "water"
+                 , wind_direction = WindDirection(True,True)
+                 , tile_edges = TileEdges(True,True,True,True)):
+        super().__init__(game, wind_direction, tile_edges, True, True)
+
+class MythicalTile(CityTileBeginner):
+    def __init__(self, game, tile_back = "water"
+                 , wind_direction = WindDirection(True,True)
+                 , tile_edges = TileEdges(True,True,True,True)):
+        super().__init__(game, wind_direction, tile_edges, False, True)

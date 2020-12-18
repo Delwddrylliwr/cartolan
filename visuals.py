@@ -1308,7 +1308,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
     draw_play_area
     draw_wealth_scores
     '''
-    GAME_TYPES = {"beginner":GameBeginner, "regular":GameRegular, "advanced":GameAdvanced}
+    GAME_TYPES = {"Beginner":GameBeginner, "Regular":GameRegular, "Advanced":GameAdvanced}
     UPDATE_DELAY = 0.01 #the time in seconds to wait between checking for messages from the server
     
     def __init__(self):
@@ -1356,26 +1356,38 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             self.get_input_coords()
             self.close()
     
+    def Network_input(self, data):
+        '''Responds to requests from the server for input.
+        '''
+        print("Received request for simple input from server")
+        response = ''
+        while response not in data["valid_options"]:
+            response = input(data["input_prompt"])
+            print("Responding to the server: '"+response+"'")
+        self.Send({"action":"input", "input":response})
+        
+    
     #Now for a set of methods that will use PodSixNet to respond to messages from the server to progress the game
     def Network_start_game(self, data):
         '''Initiates network game based on data following an {"action":"start_game"} message from the server
         '''
         self.game_id = data["game_id"] #allow game state to be synched between server and client
         self.local_player_colours = data["local_player_colours"]
-        #Set up the local version of the game
-        game_type = self.GAME_TYPES(data["game_type"]) #needed to identify the class of other elements like Adventurers and Agents
+        print("Setting up the local version of the game")
+        game_type = self.GAME_TYPES[data["game_type"]] #needed to identify the class of other elements like Adventurers and Agents
         players = []
         for player_colour in data["player_colours"]:
             players.append(PlayerHuman(player_colour))
         
-        game = game_type(self.players)
-        #build the tile piles
-        game.setup_tile_piles("water")
+        game = game_type(players)
+        self.game = game
+        print("Building the tile piles")
+        game.setup_tile_pile("water")
         if not game_type == GameBeginner:
-            game.setup_tile_piles("land")
-        #place the initial tiles and adventurers
-        self.Network_place_tile(data["initial_tiles"])
-        #@TODO adapt to use the Network_move_token method
+            game.setup_tile_pile("land")
+        print("Placing the initial tiles and adventurers")
+        self.Network_place_tiles(data["initial_tiles"])
+        #@TODO adapt to use the Network_move_tokens method
         initial_adventurers = data["initial_adventurers"] #expects a dict of colours and list of 2-tuples giving the placement(s) of initial Adventurers for each player
         adventurers = {}
         if not len(players) == len(initial_adventurers):
@@ -1391,15 +1403,36 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                     else:
                         raise Exception("Server tried to place on Adventurer where there was no tile")
         
-        #With proxy game and players set up, continue the startup of a normal visual
-        dimensions = data["dimensions"]
-        origin = data["origin"]
-        super().__init__(players, game, dimensions, origin)
+        print("With proxy game and players set up, continuing the startup of a normal visual")
+        min_longitude, max_longitude = 0, 0
+        min_latitude, max_latitude = 0, 0
+        for longitude in self.game.play_area:
+            if longitude < min_longitude:
+                min_longitude = longitude
+            elif longitude > max_longitude:
+                max_longitude = longitude
+            for latitude in self.game.play_area[longitude]:
+                if latitude < min_latitude:
+                    min_latitude = latitude
+                elif latitude > max_latitude:
+                    max_latitude = latitude
+        origin = [-min_longitude + self.DIMENSION_INCREMENT
+                  , -min_latitude + self.DIMENSION_INCREMENT
+                  ]
+        dimensions = [max_longitude + origin[0] + self.DIMENSION_INCREMENT
+                      , max_latitude + origin[1] + self.DIMENSION_INCREMENT
+                      ]
+        super().__init__(game, dimensions, origin)
         
         #keep track of whether the game is active or waiting for the server to collect enough players
         self.running = True
+        self.current_player_colour = data["current_player_colour"]
+        if self.current_player_colour in self.local_player_colours:
+            self.local_player_turn = True
+        else:
+            self.local_player_turn = False
         
-        #Wait and watch for it to be a local player's turn, and then switch to local control and execution of the game
+        print("Waiting and watching for it to be a local player's turn, before switching to local control and execution of the game")
         self.game.game_over = False
         while not self.game.game_over:
             #distinguish between local and remote play and hand control of the game to the remote player's computer as needed, through the server    
@@ -1407,8 +1440,9 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                 self.update()
                 sleep(self.UPDATE_DELAY)
             
+            print("Switching to local execution of the game, now it is a local player's turn")
             current_player = self.players[self.current_player_colour]
-            self.game.adventurers[current_player][self.current_adventurer_number].continue_turn()
+#            self.game.adventurers[current_player][self.current_adventurer_number].continue_turn()
             #@TODO check whether this player's turn has now ended and give away control if needed
             for adventurer in self.game.adventurers[current_player]:
                 if adventurer.turns_moved < self.turn:
@@ -1419,6 +1453,13 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                     if self.check_win_conditions():
                         self.game.game_over = True
                         self.Send({"action":"declare_win"})
+            print("Passing play to the next player")
+            if self.players.index[current_player] < len(self.players) - 1:
+                current_player = self.players.index[current_player] + 1
+                self.current_player_colour = current_player.colour
+                if self.current_player_colour not in self.local_player_colours:
+                    self.local_player_turn = False
+                    self.Send({"action":"new_turn", "current_player_colour":self.current_player_colour})
     
     def Network_close(self, data):
         '''Allows remote closing of game through an {"action":"close"} message from the server
@@ -1434,19 +1475,22 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
     def Network_new_turn(self, data):
         '''Informs local player(s) which player is currently expected to be moving
         '''
-        self.local_player_turn = data["local_player_turn"]
+#        self.local_player_turn = data["local_player_turn"]
         self.current_player_colour = data["current_player_colour"]
-        self.current_adventurer_number = data["current_adventurer_number"]
-        if not self.local_player_turn:
+        if self.current_player_colour in self.local_player_colours:
+            self.local_player_turn = True
+        else:
+            self.local_player_turn = False
             self.prompt_text = self.current_player_colour +" player is moving their Adventurer #" +str(self.current_adventurer_number)
+
     
     def Network_place_tiles(self, data):
         '''Places tiles based on data following an {"action":"place_tile"} message from the server
         '''
         for tile_data in data:
             #read location to place at
-            longitude = tile_data["longitude"]
-            latitude = tile_data["latitude"]
+            longitude = int(tile_data["longitude"])
+            latitude = int(tile_data["latitude"])
             #Check whether this space is already occupied
             if self.game.play_area.get(longitude):
                 if self.game.play_area[longitude].get(latitude):
@@ -1455,17 +1499,17 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             tile_type = tile_data["tile_type"]
             tile_back = tile_data["tile_back"]
             tile_edges_data = tile_data["tile_edges"]
-            tile_edges = TileEdges(tile_edges_data["upwind_clock"]
-                    , tile_edges_data["upwind_anti"]
-                    , tile_edges_data["downwind_clock"]
-                    , tile_edges_data["downwind_anti"]
+            tile_edges = TileEdges(bool(tile_edges_data["upwind_clock"])
+                    , bool(tile_edges_data["upwind_anti"])
+                    , bool(tile_edges_data["downwind_clock"])
+                    , bool(tile_edges_data["downwind_anti"])
                     )
             wind_direction_data = tile_data["wind_direction"]
-            wind_direction = WindDirection(wind_direction_data["north"]
-                    , wind_direction_data["east"]
+            wind_direction = WindDirection(bool(wind_direction_data["north"])
+                    , bool(wind_direction_data["east"])
                     )
             #Place the tile in the play area
-            placed_tile = self.game.TILE_TYPES[tile_type](self.game, tile_back, wind_direction, tile_edges, False).place_tile(longitude, latitude)
+            placed_tile = self.game.TILE_TYPES[tile_type](self.game, tile_back, wind_direction, tile_edges).place_tile(longitude, latitude)
         #Remember that this is synched with the server
         self.shared_play_area = self.game.play_area
         #remove a matching tile from the tile pile, once the game is running
@@ -1594,7 +1638,13 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                 if tile.is_wonder:
                     tile_type = "wonder"
                 elif isinstance(tile, DisasterTile):
-                    tile_type = "disaster"
+                    tile_type = "disaster"                    
+                elif isinstance(tile, CityTile):
+                    if tile.is_capital:
+                        tile_type = "capital"
+                    else:
+                        tile_type = "mythical"
+
                 #record all the tile information in a json form that can be shared with other players via the server
                 tile_data = {"longitude":longitude
                              , "latitude":latitude
@@ -1617,9 +1667,9 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             self.Send({"action":"place_tiles", "game_id":self.game_id, "tiles":tiles_json})
             self.shared_play_area = self.game.play_area
             print("Drawing the play area, with " +str(len(self.game.play_area))+" columns of tiles")
-            super().draw_play_area()
         else:
-            print("No changes to play area, so noth updating local or server")
+            print("No changes to play area, so nothing updating local or server")
+        super().draw_play_area()
     
     def draw_tokens(self):
         '''Identifies which tokens have changed position/status and passing them to the server
@@ -1800,3 +1850,5 @@ class PlayStatsVisualisation:
         ax.hist(edge_list)
 #         ax.set_xticklabels(rotation=45)
         self.pyplot.xticks(rotation='vertical')
+        
+client_visual = ClientGameVisualisation()

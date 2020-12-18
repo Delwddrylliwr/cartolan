@@ -841,3 +841,8 @@ class WonderTile(Tile):
                  , tile_edges = TileEdges(True,True,True,True)):
          super().__init__(game, tile_back, wind_direction, tile_edges, True)
 
+class CapitalTile(CityTileBeginner):
+    def __init__(self, game, tile_back = "water"
+                 , wind_direction = WindDirection(True,True)
+                 , tile_edges = TileEdges(True,True,True,True)):
+        super().__init__(game, wind_direction, tile_edges, True, True)
