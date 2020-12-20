@@ -379,6 +379,22 @@ class Tile:
             return True
         else:
             return False
+    
+    def compare(self, tile):
+        '''Deeply compares data with another tile, except for position and orientation.
+        
+        key arguments:
+        Tile takes a Cartolan.Base.Tile
+        '''
+        if (tile.tile_edges.upwind_clock_water == self.tile_edges.upwind_clock_water
+            and tile.tile_edges.upwind_anti_water == self.tile_edges.upwind_anti_water
+            and tile.tile_edges.downwind_clock_water == self.tile_edges.downwind_clock_water
+            and tile.tile_edges.downwind_anti_water == self.tile_edges.downwind_anti_water
+            and tile.tile_back == self.tile_back
+            and tile.is_wonder == self.is_wonder):
+            return True
+        else:
+            return False
         
 
 class TilePile:
@@ -428,6 +444,15 @@ class CityTile(Tile):
         self.is_capital = is_capital
         self.is_discovered = is_discovered
         game.cities.append(self)
+        
+    def compare(self, tile):
+        if not isinstance(tile, CityTile):
+            return False
+        elif not tile.is_capital == self.is_capital:
+            return False
+        else:
+            super().compare(tile)
+            
     
     def visit_city(self, adventurer):
         '''placeholder for interactions between an Adventurer and city'''

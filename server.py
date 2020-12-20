@@ -50,22 +50,27 @@ class ClientChannel(PodSixNet.Channel.Channel):
     def Network_place_tiles(self, data):
         '''Relays "place_tiles" messages from the current host to client games
         '''
-        self._server.relay_data(self, {"action":"place_tiles"}.update(data))
+        self._server.relay_data(self, data)
         
     def Network_move_tokens(self, data):
         '''Relays "move_tokens" messages from the current host to client games
         '''
-        self._server.relay_data(self, {"action":"move_tokens"}.update(data))
+        self._server.relay_data(self, data)
         
     def Network_update_scores(self, data):
         '''Relays "update_scores" messages from the current host to client games
         '''
-        self._server.relay_data(self, {"action":"update_scores"}.update(data))
+        self._server.relay_data(self, data)
     
     def Network_new_turn(self, data):
         '''Relays "new_turn" messages from the current host to client games
         '''
-        self._server.relay_data(self, {"action":"new_turn"}.update(data))
+        self._server.relay_data(self, data)
+    
+    def Network_declare_win(self, data):
+        '''Relays "new_turn" messages from the current host to client games
+        '''
+        self._server.relay_data(self, data)
         
 #    def Network_quit(self, data):
 #        '''The receiving method for "quit" messages from clients
@@ -76,10 +81,10 @@ class ClientChannel(PodSixNet.Channel.Channel):
 #        if len(self.player_colours):
 #            self.Close()
     
-    def Close(self):
-        '''Closes the channel to the client
-        '''
-        self._server.close(self)
+#    def Close(self):
+#        '''Closes the channel to the client
+#        '''
+#        self._server.close()
 
 class CartolanServer(PodSixNet.Server.Server):
     '''A pygame-based server hosting a game and communicating with client visuals.
@@ -184,7 +189,7 @@ class CartolanServer(PodSixNet.Server.Server):
             if len(self.next_player_channels) == self.next_num_players:
                 #specify initial adventurer locations for the given players
                 adventurers_json = {}
-                current_player_colour = random.choice[list(self.next_player_channels.keys())]
+                current_player_colour = random.choice(list(self.next_player_channels.keys()))
                 for player_colour in self.next_player_channels:
                     adventurers_json[player_colour] = INITIAL_ADVENTURERS
                 self.games.append({"player_channels":self.next_player_channels})
@@ -192,19 +197,18 @@ class CartolanServer(PodSixNet.Server.Server):
                     chan.Send({"action": "start_game"
                         ,"player_colours":list(self.next_player_channels.keys())
                         , "local_player_colours":self.channel_players[chan]
-                        , "game_id": str(len(self.games) - 1)
                         , "game_type":self.next_game_type
                         , "initial_tiles":INITIAL_TILES
                         , "initial_adventurers":adventurers_json
                         , "current_player_colour":current_player_colour
                         })
-                    self.channel_games[chan] = {}                
+                    self.channel_games[chan] = {}
                     self.channel_games[chan]["game_id"] = len(self.games) - 1                
                 # Clean up before the next game is constructed
                 self.next_num_players = None
-                self.next_player_channels = None
                 self.next_player_colours = None
                 self.next_game_type = None
+                self.next_player_channels = {}
                 self.queue = []
     
 #    def close(self):
@@ -233,8 +237,9 @@ class CartolanServer(PodSixNet.Server.Server):
         '''
         game_id = self.channel_games[host_channel]["game_id"]
         player_channels = self.games[game_id]["player_channels"]
-        for channel in player_channels.values():
+        for channel in set(player_channels.values()):
             if not channel == host_channel:
+                print("Sending a new turn message to "+str(channel.addr[0]))
                 channel.Send(data)
     
     def remote_input(self, channel):

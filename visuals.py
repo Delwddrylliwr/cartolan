@@ -1316,6 +1316,9 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         self.local_player_turn = False # Keep track of whether to wait on local player input for updates to visuals, 
         self.local_win = False
         self.running = False
+        self.shared_play_area = {}
+        self.shared_tokens = {"adventurers":{}, "agents":{}}
+        self.shared_scores = {}
         #@TODO provide a simple window for exchanges with the server
         
         #Establish connection to the server
@@ -1355,6 +1358,12 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             self.game_vis.give_prompt(self.game.winning_player.colour+" player won the game (click to close)")
             self.get_input_coords()
             self.close()
+        #Check whether the player has decided to quit while waiting
+        event_types = [event.type for event in pygame.event.get()]
+        if pygame.QUIT in event_types:
+            self.close()
+        #Update the display
+        pygame.display.flip()
     
     def Network_input(self, data):
         '''Responds to requests from the server for input.
@@ -1371,35 +1380,41 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
     def Network_start_game(self, data):
         '''Initiates network game based on data following an {"action":"start_game"} message from the server
         '''
-        self.game_id = data["game_id"] #allow game state to be synched between server and client
         self.local_player_colours = data["local_player_colours"]
         print("Setting up the local version of the game")
         game_type = self.GAME_TYPES[data["game_type"]] #needed to identify the class of other elements like Adventurers and Agents
-        players = []
+        self.players = [] #to capture order of play
+        self.player_colours = {} #to access Player objects quickly based on colour
         for player_colour in data["player_colours"]:
-            players.append(PlayerHuman(player_colour))
+            player = PlayerHuman(player_colour)
+            self.players.append(player)
+            self.player_colours[player_colour] = player 
         
-        game = game_type(players)
+        game = game_type(self.players)
         self.game = game
+        #Informing players of this game visualisation
+        for player in self.players:
+            player.games[game.game_id]["game_vis"] = self
+            self.shared_tokens["adventurers"][player.colour] = []
+            self.shared_tokens["agents"][player.colour] = []
+            self.shared_scores[player.colour] = 0
         print("Building the tile piles")
         game.setup_tile_pile("water")
         if not game_type == GameBeginner:
             game.setup_tile_pile("land")
         print("Placing the initial tiles and adventurers")
-        self.Network_place_tiles(data["initial_tiles"])
+        self.Network_place_tiles({"tiles":data["initial_tiles"]})
         #@TODO adapt to use the Network_move_tokens method
         initial_adventurers = data["initial_adventurers"] #expects a dict of colours and list of 2-tuples giving the placement(s) of initial Adventurers for each player
-        adventurers = {}
-        if not len(players) == len(initial_adventurers):
+        if not len(self.players) == len(initial_adventurers):
             raise Exception("Player attributes from Host have different lengths")
-        for player in players:
+        for player in self.players:
             for adventurer_location in initial_adventurers[player.colour]:
-                longitude = game.play_area.get(adventurer_location[0])
+                longitude = game.play_area.get(int(adventurer_location[0]))
                 if longitude:
-                    adventurer_tile = longitude.get(adventurer_location[0])
+                    adventurer_tile = longitude.get(int(adventurer_location[1]))
                     if adventurer_tile:
-                        adventurer = self.game_type.ADVENTURER_TYPE(self, player, game.play_area[adventurer_location[0]][adventurer_location[1]])
-                        adventurers[player].append(adventurer)
+                        adventurer = game_type.ADVENTURER_TYPE(game, player, adventurer_tile)
                     else:
                         raise Exception("Server tried to place on Adventurer where there was no tile")
         
@@ -1426,6 +1441,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         
         #keep track of whether the game is active or waiting for the server to collect enough players
         self.running = True
+        self.game.turn = 1
         self.current_player_colour = data["current_player_colour"]
         if self.current_player_colour in self.local_player_colours:
             self.local_player_turn = True
@@ -1441,25 +1457,32 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                 sleep(self.UPDATE_DELAY)
             
             print("Switching to local execution of the game, now it is a local player's turn")
-            current_player = self.players[self.current_player_colour]
+            current_player = self.player_colours[self.current_player_colour]
 #            self.game.adventurers[current_player][self.current_adventurer_number].continue_turn()
-            #@TODO check whether this player's turn has now ended and give away control if needed
             for adventurer in self.game.adventurers[current_player]:
-                if adventurer.turns_moved < self.turn:
-                    player.continue_turn(adventurer)
+                print("Starting the turn for " +current_player.colour+ " Adventurer #" +str(self.game.adventurers[current_player].index(adventurer) + 1))
+                self.current_adventurer_number = self.game.adventurers[current_player].index(adventurer)
+                self.Send({"action":"prompt", "prompt_text":self.current_player_colour +" player is moving their Adventurer #" +str(self.current_adventurer_number+1)})
+                if adventurer.turns_moved < self.game.turn:
+                    current_player.continue_turn(adventurer)
                     print() #to help log readability
                     
                     #check whether this adventurer's turn has won them the game
-                    if self.check_win_conditions():
+                    if self.game.check_win_conditions():
                         self.game.game_over = True
-                        self.Send({"action":"declare_win"})
+                        self.Send({"action":"declare_win", "winning_player_colour":self.current_player_colour})
             print("Passing play to the next player")
-            if self.players.index[current_player] < len(self.players) - 1:
-                current_player = self.players.index[current_player] + 1
+            if self.players.index(current_player) < len(self.players) - 1:
+                current_player = self.players[self.players.index(current_player) + 1]
                 self.current_player_colour = current_player.colour
-                if self.current_player_colour not in self.local_player_colours:
-                    self.local_player_turn = False
-                    self.Send({"action":"new_turn", "current_player_colour":self.current_player_colour})
+            else:
+                #If this was the last player in the play order then the turn increases by 1
+                current_player = self.players[0]
+                self.game.turn += 1
+                self.current_player_colour = current_player.colour
+            if self.current_player_colour not in self.local_player_colours:
+                self.local_player_turn = False
+            self.Send({"action":"new_turn", "turn":self.game.turn, "current_player_colour":self.current_player_colour})
     
     def Network_close(self, data):
         '''Allows remote closing of game through an {"action":"close"} message from the server
@@ -1476,18 +1499,19 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         '''Informs local player(s) which player is currently expected to be moving
         '''
 #        self.local_player_turn = data["local_player_turn"]
+        self.turn = data["turn"]
         self.current_player_colour = data["current_player_colour"]
+        print("Server has relayed that it is now the "+self.current_player_colour+" player's turn "+str(self.turn))
         if self.current_player_colour in self.local_player_colours:
             self.local_player_turn = True
         else:
             self.local_player_turn = False
-            self.prompt_text = self.current_player_colour +" player is moving their Adventurer #" +str(self.current_adventurer_number)
 
     
     def Network_place_tiles(self, data):
         '''Places tiles based on data following an {"action":"place_tile"} message from the server
         '''
-        for tile_data in data:
+        for tile_data in data["tiles"]:
             #read location to place at
             longitude = int(tile_data["longitude"])
             latitude = int(tile_data["latitude"])
@@ -1509,34 +1533,36 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                     , bool(wind_direction_data["east"])
                     )
             #Place the tile in the play area
-            placed_tile = self.game.TILE_TYPES[tile_type](self.game, tile_back, wind_direction, tile_edges).place_tile(longitude, latitude)
-        #Remember that this is synched with the server
-        self.shared_play_area = self.game.play_area
-        #remove a matching tile from the tile pile, once the game is running
-        if not self.running:
-            return True
-        tile_removed = False
-        tile_pile = self.game.tile_piles[tile_back]
-        for tile in tile_pile:
-            if tile.compare(placed_tile):
-                tile_pile.remove(tile)
-                tile_removed = True
-        if not tile_removed:
-            raise Exception("Server placed a tile that was not in the Tile Pile")
+            placed_tile = self.game.TILE_TYPES[tile_type](self.game, tile_back, wind_direction, tile_edges)
+            placed_tile.place_tile(longitude, latitude)
+            #Remember that this is already synched with the server
+            if not self.shared_play_area.get(longitude):
+                self.shared_play_area[longitude] = {}
+            self.shared_play_area[longitude][latitude] = placed_tile    
+            #remove a matching tile from the tile pile, once the game is running
+            if self.running:
+                tile_removed = False
+                tile_pile = self.game.tile_piles[tile_back]
+                for tile in tile_pile.tiles:
+                    if tile.compare(placed_tile):
+                        tile_pile.tiles.remove(tile)
+                        tile_removed = True
+                        break
+                if not tile_removed:
+                    raise Exception("Server placed a tile that was not in the Tile Pile")
         
     def Network_move_tokens(self, data):
         '''Moves an Adventurer or Agent based on data following an {"action":"move_token"} message from the server
         '''
-        for player_colour in data:
-            player = self.players[player_colour]
-            adventurers_data = data[player_colour].get("adventurers")
+        for player_colour in data["changes"]:
+            player = self.player_colours[player_colour]
+            adventurers_data = data["adventurers"].get(player_colour)
             if adventurers_data:
                 for adventurer_num in range(len(adventurers_data)):
                     adventurer_data = adventurers_data[adventurer_num]
                     #check if this is a new token and add them if so
                     if len(self.game.adventurers[player]) < adventurer_num:
                         adventurer = self.game.ADVENTURER_TYPE(self.game, player, self.game.play_area[0][0])
-                        self.game.adventurers[player].append(adventurer)
                     else:
                         adventurer = self.game.adventurers[player][adventurer_num - 1]
                     #read location to move to
@@ -1558,14 +1584,13 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                     wealth = adventurer_data.get("wealth")
                     if wealth:
                         adventurer.wealth = int(wealth)
-            agents_data = data[player_colour].get("agents")
+            agents_data = data["agents"].get(player_colour)
             if agents_data:
                 for agent_num in range(len(agents_data)):
                     agent_data = agents_data[agent_num]
                     #check if this is a new token and add them if so
                     if len(self.game.agents[player]) < agent_num:
                         agent = self.game.AGENT_TYPE(self.game, player, None)
-                        self.game.agent[player].append(agent)
                     else:
                         agent = self.game.agent[player][agent_num - 1]
                     #read location to move to
@@ -1592,18 +1617,20 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
     def Network_update_scores(self, data):
         '''Recieves updates to the players' Vault wealth from remote players, via the server
         '''
-        for player_colour in data:
-            player = self.players[player_colour]
+        for player_colour in data["changes"]:
+            player = self.player_colours[player_colour]
             player.vault_wealth = data[player_colour]
+            #Remember that this has already been synched with the remote players
+            self.shared_scores[player] = player.vault_wealth
      
-    def Network_end_game(self, data):
+    def Network_declare_win(self, data):
         '''Notifies player who won the game based on data following an {"action":"end_game"} message from the server
         '''
-        #add one point to my score
-        self.winSound.play()
-        self.me+=1
-        #@TODO prompt a mouse click to quit
-        exit()
+        self.current_player_colour = data["winning_player_colour"]
+        self.give_prompt(self.current_player_colour+" won the game")
+        #Wait for click to close
+        self.get_input_coords()
+        self.close()
     
     def play_area_difference(self, play_area_new, play_area_old):
         '''Compares two given nested Dicts of Cartolan.Tiles to see which Tiles are present in only one
@@ -1663,20 +1690,27 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                                        }
                 tile_data["wind_direction"] = wind_direction_data
                 tiles_json.append(tile_data)
+                #remember that this tile has been serialised (and will be shared)
+                if not self.shared_play_area.get(longitude):
+                    self.shared_play_area[longitude] = {}
+                self.shared_play_area[longitude][latitude] = tile_data         
         if play_area_update:    
-            self.Send({"action":"place_tiles", "game_id":self.game_id, "tiles":tiles_json})
-            self.shared_play_area = self.game.play_area
+            self.Send({"action":"place_tiles", "tiles":tiles_json})
             print("Drawing the play area, with " +str(len(self.game.play_area))+" columns of tiles")
         else:
             print("No changes to play area, so nothing updating local or server")
+        #Process any messages to the server
+        connection.Pump()
+        self.Pump()
+        #Now continue with displaying locally
         super().draw_play_area()
     
     def draw_tokens(self):
         '''Identifies which tokens have changed position/status and passing them to the server
         '''
         #print(Comparing two different states of Agents and Adventurers, and returns only those that differ)
-        player_tokens_json = {}
-        player_tokens_changes_json = {}
+        player_tokens_json = {"adventurers":{}, "agents":{}}
+        player_tokens_changes_json = {"adventurers":{}, "agents":{}}
         exist_changes = False
         for player in self.game.adventurers:
             adventurers = self.game.adventurers[player]
@@ -1684,38 +1718,40 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             adventurers_changes_json = []
             exist_token_changes = False
             for adventurer in adventurers:
-                adventurer_changes_data = {}
-                #identify the old serialisation of this adventurer's data
-                old_adventurer_data = self.shared_tokens[player.colour]["adventurers"][adventurers.index(adventurer)]
-                #serialise the adventurer's data where it differs
-                new_longitude = adventurer.current_tile.longitude
-                new_latitude = adventurer.current_tile.latitude
-                old_longitude = int(old_adventurer_data["longitude"])
-                old_latitude = int(old_adventurer_data["latitude"])
-                adventurer_data = {"longitude":new_longitude
-                                       , "latitude":new_latitude
-                                       }
-                if not (new_longitude == old_longitude 
-                        and new_latitude == old_latitude):
-                    adventurer_changes_data["longitude"] = new_longitude
-                    adventurer_changes_data["latitude"] = new_latitude
-                    exist_token_changes = True
+                #serialise the current data for record and comparison
+                new_longitude = adventurer.current_tile.tile_position.longitude
+                new_latitude = adventurer.current_tile.tile_position.latitude
                 new_wealth = adventurer.wealth
-                old_wealth = int(old_adventurer_data["wealth"])
-                adventurer_data["wealth"] = new_wealth
-                if not (new_wealth == old_wealth):
-                    adventurer_changes_data["wealth"] = new_wealth
-                    exist_token_changes = True
-                adventurers_json.append(adventurer_data)
-                adventurers_changes_json.append(adventurer_changes_data)
-            player_tokens_json[player.colour]["adventurers"] = adventurers_json
+                adventurer_data = {"longitude":new_longitude
+                                   , "latitude":new_latitude
+                                   , "wealth":new_wealth
+                                   }
+                adventurers_json.append(adventurer_data)                    
+                #identify the old serialisation of this adventurer's data and compare to the adventurer's data and share where it differs
+                adventurer_index = adventurers.index(adventurer)
+                old_adventurers_data = self.shared_tokens["adventurers"][player.colour]
+                if adventurer_index < len(old_adventurers_data):
+                    adventurer_changes_data = {}
+                    old_adventurer_data = old_adventurers_data[adventurer_index]
+                    old_longitude = int(old_adventurer_data["longitude"])
+                    old_latitude = int(old_adventurer_data["latitude"])
+                    if not (new_longitude == old_longitude 
+                            and new_latitude == old_latitude):
+                        adventurer_changes_data["longitude"] = new_longitude
+                        adventurer_changes_data["latitude"] = new_latitude
+                        exist_token_changes = True
+                    old_wealth = int(old_adventurer_data["wealth"])
+                    if not (new_wealth == old_wealth):
+                        adventurer_changes_data["wealth"] = new_wealth
+                        exist_token_changes = True
+                    adventurers_changes_json.append(adventurer_changes_data)
+                else:
+                    adventurers_changes_json.append(adventurer_data)
+            player_tokens_json["adventurers"][player.colour] = adventurers_json
             if exist_token_changes:
-                player_tokens_changes_json[player.colour]["adventurers"] = adventurers_changes_json
+                player_tokens_changes_json["adventurers"][player.colour] = adventurers_changes_json
                 exist_changes = True
         #repeat for Agents
-        player_tokens_json = {}
-        player_tokens_changes_json = {}
-        exist_changes = False
         for player in self.game.agents:
             agents = self.game.agents[player]
             agents_json = []
@@ -1723,37 +1759,46 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             exist_token_changes = False
             for agent in agents:
                 agent_changes_data = {}
-                #identify the old serialisation of this adventurer's data
-                old_agent_data = self.shared_tokens[player.colour]["agents"][agents.index(agent)]
-                #serialise the adventurer's data where it differs
-                new_longitude = agent.current_tile.longitude
-                new_latitude = agent.current_tile.latitude
-                old_longitude = int(old_agent_data["longitude"])
-                old_latitude = int(old_agent_data["latitude"])
-                agent_data = {"longitude":new_longitude
-                                       , "latitude":new_latitude
-                                       }
-                if not (new_longitude == old_longitude 
-                        and new_latitude == old_latitude):
-                    agent_changes_data["longitude"] = new_longitude
-                    agent_changes_data["latitude"] = new_latitude
-                    exist_token_changes = True
+                #serialise the adventurer's data for comparison now and in future
+                new_longitude = agent.current_tile.tile_position.longitude
+                new_latitude = agent.current_tile.tile_position.latitude
                 new_wealth = agent.wealth
-                old_wealth = int(old_agent_data["wealth"])
-                agent_data["wealth"] = new_wealth
-                if not (new_wealth == old_wealth):
-                    agent_changes_data["wealth"] = new_wealth
-                    exist_token_changes = True
+                agent_data = {"longitude":new_longitude
+                                   , "latitude":new_latitude
+                                   , "wealth":new_wealth
+                                   }
                 agents_json.append(agent_data)
-                agents_changes_json.append(agent_changes_data)
-            player_tokens_json[player.colour]["agents"] = agents_json
+                #identify the old serialisation of this adventurer's data
+                agent_index = agents.index(agent)
+                old_agents_data = self.shared_tokens["agents"][player.colour]
+                if agent_index < len(old_agents_data):
+                    old_agent_data = old_agents_data[agent_index]
+                    old_longitude = int(old_agent_data["longitude"])
+                    old_latitude = int(old_agent_data["latitude"])
+                    if not (new_longitude == old_longitude 
+                            and new_latitude == old_latitude):
+                        agent_changes_data["longitude"] = new_longitude
+                        agent_changes_data["latitude"] = new_latitude
+                        exist_token_changes = True
+                    old_wealth = int(old_agent_data["wealth"])
+                    if not (new_wealth == old_wealth):
+                        agent_changes_data["wealth"] = new_wealth
+                        exist_token_changes = True
+                    agents_changes_json.append(agent_changes_data)
+                else:
+                    agents_changes_json.append(agent_data)
+            player_tokens_json["agents"][player.colour] = agents_json
             if exist_token_changes:
-                player_tokens_changes_json[player.colour]["agents"] = agents_changes_json
+                player_tokens_changes_json["agents"][player.colour] = agents_changes_json
                 exist_changes = True
-        self.shared_tokens = player_tokens_json
-        if exist_changes:
+        if exist_changes and self.running:
             print("Having found changes to the tokens, sharing these with other players via the server")
             self.Send({"action":"move_tokens", "changes":player_tokens_changes_json})
+            self.shared_tokens = player_tokens_json
+        #Process any messages to the server
+        connection.Pump()
+        self.Pump()
+        #Now continue with displaying locally
         super().draw_tokens()
     
     def draw_scores(self):
@@ -1765,12 +1810,17 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         exist_changes = False
         for player in self.players:
             #serialise the players' Vault wealths and compare to historic
-            if not player_wealths_json[player.colour] == player.vault_wealth:
+            if not self.shared_scores[player.colour] == player.vault_wealth:
                 player_wealth_changes_json[player.colour] = player.vault_wealth
                 exist_changes = True
             player_wealths_json[player.colour] = player.vault_wealth
-        if exist_changes:
+        if exist_changes and self.running:
             self.Send({"action":"update_scores", "changes":player_wealth_changes_json})
+            self.shared_scores = player_wealths_json
+        #Process any messages to the server
+        connection.Pump()
+        self.Pump()
+        #Now continue with displaying locally
         super().draw_tokens()
 
 
