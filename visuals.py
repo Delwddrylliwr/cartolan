@@ -1473,6 +1473,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                     if self.game.check_win_conditions():
                         self.game.game_over = True
                         self.Send({"action":"declare_win", "winning_player_colour":self.current_player_colour})
+                        self.Network_declare_win({"winning_player_colour":self.current_player_colour})
             #Make sure visuals are up to date and all changes have been shared to the server
             self.draw_play_area()
             self.draw_routes()
