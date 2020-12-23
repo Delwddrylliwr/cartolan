@@ -62,6 +62,11 @@ class ClientChannel(PodSixNet.Channel.Channel):
         '''
         self._server.relay_data(self, data)
     
+    def Network_prompt(self, data):
+        '''Relays "move_tokens" messages from the current host to client games
+        '''
+        self._server.relay_data(self, data)
+    
     def Network_new_turn(self, data):
         '''Relays "new_turn" messages from the current host to client games
         '''
@@ -163,14 +168,15 @@ class CartolanServer(PodSixNet.Server.Server):
             self.next_player_colours = random.sample(self.game_modes[game_type]["player_set"].keys(), self.next_num_players)
             self.channel_players[channel] = []
             for player_num in range(num_client_players):
-                player_colour = self.next_player_colours.pop()
+                player_colour = self.next_player_colours[player_num]
                 self.channel_players[channel].append(player_colour)
                 self.next_player_channels[player_colour] = channel
         else:
             #Add this client to the game that's being set up
             self.queue.append(channel)
-            valid_options = [str(i) for i in range(1, self.next_num_players - len(self.next_player_channels) + 1)]
-            prompt_text = ("The current game has " +str(len(self.next_player_channels)) +"/"
+            num_existing_players = len(self.next_player_channels)
+            valid_options = [str(i) for i in range(1, self.next_num_players - num_existing_players + 1)]
+            prompt_text = ("The current game has " +str(num_existing_players) +"/"
                            +str(self.next_num_players)+" players. Please specify how many players will play from this computer, between 1 and " 
                            +str(self.next_num_players - len(self.next_player_channels))+ "?")
             num_client_players = None
@@ -182,20 +188,21 @@ class CartolanServer(PodSixNet.Server.Server):
                     num_client_players = int(received_input)
             #Assign colours to the newly joined players
             self.channel_players[channel] = []
-            for player_num in range(num_client_players):
-                player_colour = self.next_player_colours.pop()
+            for player_num in range(num_existing_players, num_existing_players + num_client_players):
+                player_colour = self.next_player_colours[player_num]
                 self.channel_players[channel].append(player_colour)
                 self.next_player_channels[player_colour] = channel
             if len(self.next_player_channels) == self.next_num_players:
                 #specify initial adventurer locations for the given players
                 adventurers_json = {}
-                current_player_colour = random.choice(list(self.next_player_channels.keys()))
+                random.shuffle(self.next_player_colours)
+                current_player_colour = self.next_player_colours[0]
                 for player_colour in self.next_player_channels:
                     adventurers_json[player_colour] = INITIAL_ADVENTURERS
                 self.games.append({"player_channels":self.next_player_channels})
                 for chan in self.queue:
                     chan.Send({"action": "start_game"
-                        ,"player_colours":list(self.next_player_channels.keys())
+                        ,"player_colours":self.next_player_colours
                         , "local_player_colours":self.channel_players[chan]
                         , "game_type":self.next_game_type
                         , "initial_tiles":INITIAL_TILES
@@ -239,7 +246,7 @@ class CartolanServer(PodSixNet.Server.Server):
         player_channels = self.games[game_id]["player_channels"]
         for channel in set(player_channels.values()):
             if not channel == host_channel:
-                print("Sending a new turn message to "+str(channel.addr[0]))
+                print("Sending a message to "+str(channel.addr[0]))
                 channel.Send(data)
     
     def remote_input(self, channel):

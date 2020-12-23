@@ -174,7 +174,6 @@ class PlayerHuman(Player):
     def check_collect_wealth(self, agent):
         return True
     
-    #if offered always rest at own agents, give the player a choice about resting at others
     def check_rest(self, adventurer, agent):
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]

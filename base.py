@@ -14,7 +14,7 @@ class Game:
     def __init__(self, players):
         if len(players) in range(self.MIN_PLAYERS, self.MAX_PLAYERS +1):
             self.players = players
-            self.establish_turn_order()
+#            self.establish_turn_order()
         else: raise Exception("Game created with an invalid number of players: should be 2-4, but was " +str(len(players)))
         
         #register this game with each of the players
@@ -46,9 +46,9 @@ class Game:
 #         self.most_lucrative_route_player = None
 
         
-    def establish_turn_order(self):
-        '''Randomises the order in which Player objects will be activated'''
-        random.shuffle(self.players)
+#    def establish_turn_order(self):
+#        '''Randomises the order in which Player objects will be activated'''
+#        random.shuffle(self.players)
 
 #@TODO allow players to join multiple games, through maintaining a game-indexed dict of wealth/adventurers/agents/game-specific stats. This will help allow AI players to learn across multiple games in parallel
 class Player:
@@ -346,7 +346,7 @@ class Tile:
                 token.route.append(self)
                 
             elif isinstance(token, Agent):
-                if self.agent is None:
+                if self.agent is None or self.agent == token:
                     print("Moving agent for " +str(token.player.colour)+ " player onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                     if token.current_tile:
                         token.current_tile.agent = None

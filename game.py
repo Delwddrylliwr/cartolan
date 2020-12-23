@@ -55,7 +55,7 @@ class GameBeginner(Game):
     AGENT_TYPE = AgentBeginner
     CITY_TYPE = CityTileBeginner
     
-    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'clockwise'):
+    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
         
         super().__init__(players)
         
@@ -269,7 +269,7 @@ class GameRegular(GameBeginner):
     AGENT_TYPE = AgentRegular
     CITY_TYPE = CityTileRegular #no extra functionality needed until Advanced mode
     
-    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'clockwise'):
+    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
         super().__init__(players, movement_rules, exploration_rules)
         # a land tile pile is now needed
         self.tile_piles["land"] = TilePile("land",[])
@@ -297,5 +297,5 @@ class GameAdvanced(GameRegular):
     '''
     COST_BUY_EQUIPMENT = 10
     
-    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'clockwise'):
-        super().__init__(players, movement_rules = 'initial', exploration_rules = 'clockwise')
+    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
+        super().__init__(players, movement_rules, exploration_rules)
