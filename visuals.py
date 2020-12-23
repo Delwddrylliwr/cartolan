@@ -1591,12 +1591,16 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                         tile.move_onto_tile(adventurer)
                     #check whether wealth has also changed
                     wealth = adventurer_data.get("wealth")
-                    if wealth:
+                    if not wealth is None:
                         adventurer.wealth = int(wealth)
                     #check whether turns moved has also changed
                     turns_moved = adventurer_data.get("turns_moved")
-                    if turns_moved:
+                    if not turns_moved is None:
                         adventurer.turns_moved = int(turns_moved)
+                    #check whether pirate token has also changed
+                    pirate_token = adventurer_data.get("pirate_token")
+                    if not pirate_token is None and not isinstance(self.game, GameBeginner):
+                        adventurer.pirate_token = bool(pirate_token)
             agents_data = changes["agents"].get(player_colour)
             if agents_data:
                 for agent_num in range(len(agents_data)):
@@ -1625,8 +1629,12 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                         agent = self.game.agents[player][agent_num]
                     #check whether wealth has also changed
                     wealth = agent_data.get("wealth")
-                    if wealth:
-                        agent.wealth = int(wealth)  
+                    if not wealth is None:
+                        agent.wealth = int(wealth)
+                    #check whether dispossession has also changed
+                    is_dispossessed = agent_data.get("is_dispossessed")
+                    if not is_dispossessed is None and not isinstance(self.game, GameBeginner):
+                        agent.is_dispossessed = bool(is_dispossessed)
     
     def Network_prompt(self, data):
         '''Receives prompt information from the server.
@@ -1648,8 +1656,15 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         '''
         self.current_player_colour = data["winning_player_colour"]
         self.give_prompt(self.current_player_colour+" won the game")
+        self.window.fill(0)
+        super().draw_play_area()
+        super().draw_tokens()
+        self.draw_routes()
+        super().draw_scores()
+        self.draw_prompt()
+        pygame.display.flip()
         #Wait for click to close
-        self.get_input_coords()
+        self.get_input_coords(self.game.adventurers[self.player_colours[self.current_player_colour]][0])
         self.close()
     
     def play_area_difference(self, play_area_new, play_area_old):

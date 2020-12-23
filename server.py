@@ -277,7 +277,20 @@ class CartolanServer(PodSixNet.Server.Server):
                                 
         
 print("STARTING SERVER ON LOCALHOST")
-cartolan_server = CartolanServer(GAME_MODES, DEFAULT_DIMENSIONS, DEFAULT_ORIGIN, localaddr=('localhost', 8000))
+#Establish connection to the server
+address = input("Address of Server: ")
+try:
+    if not address:
+        host, port="localhost", 8000
+    else:
+        host, port = address.split(":")
+except:
+    print("Error Connecting to Server")
+    print("Usage:", "host:port")
+    print ("e.g.", "localhost:31425")
+    exit()
+cartolan_server = CartolanServer(GAME_MODES, DEFAULT_DIMENSIONS, DEFAULT_ORIGIN, localaddr=(host, int(port)))
+print("Cartolan server started")
 while True:
     cartolan_server.tick()
     sleep(0.01)
