@@ -1,4 +1,4 @@
-from base import Token, Adventurer, Agent, Tile, TileEdges
+from base import Token, Adventurer, Agent, Tile, WindDirection, TileEdges, CityTile
 from beginner import AdventurerBeginner, AgentBeginner, CityTileBeginner
 
 
@@ -52,6 +52,21 @@ class AdventurerRegular(AdventurerBeginner):
             
     # Whether movement is possible is handled much like the Beginner mode, except that carrying no wealth increases upwind and land moves, and a dice roll can allow upwind movement
     def can_move(self, compass_point): 
+        #Before checking any further, make sure that the total possible moves havne't been used
+        if self.downwind_moves + self.land_moves + self.upwind_moves >= self.max_downwind_moves:
+            return False
+        
+        #Check whether attack is possible
+        if compass_point is None:
+            if self.downwind_moves + self.land_moves + self.upwind_moves < self.max_downwind_moves:
+                if len(self.current_tile.adventurers) > 1:
+                    for adventurer in self.current_tile.adventurers:
+                        if adventurer is not self and adventurer.wealth > 0:
+                            return True
+                if self.current_tile.agent:
+                    if self.current_tile.agent not in self.agents_rested:
+                        return True
+        
         # check that instruction is valid: a direction provided or an explicit general check through a None
         if compass_point is None:
             print("Adventurer is checking whether any movement at all is possible")
@@ -114,6 +129,14 @@ class AdventurerRegular(AdventurerBeginner):
                 else: return False
         else: raise Exception("Invalid movement rules specified")
     
+    def discover(self, tile):
+        #check whether this is a discovered city and don't offer the usual
+        if isinstance(self.current_tile, CityTile):
+            self.current_tile.visit_city
+            return True
+        else:
+            super().discover(tile)
+    
     def interact_tokens(self):
         #check whether there is an agent here and then check rest, attack if active or restore if dispossessed
         if self.current_tile.agent:
@@ -125,7 +148,7 @@ class AdventurerRegular(AdventurerBeginner):
                             self.collect_wealth()
                 if self.player.check_rest(self, agent):
                     self.rest()
-                if agent.player != self.player and agent.wealth > 0:
+                if agent.player != self.player and agent.wealth + self.game.VALUE_DISPOSSESS_AGENT > 0:
                     if self.player.check_attack_agent(self, agent):
                         self.attack(agent)
             else:
@@ -138,6 +161,14 @@ class AdventurerRegular(AdventurerBeginner):
                 if adventurer.player != self.player and (adventurer.wealth > 0 or adventurer.pirate_token):
                     if self.player.check_attack_adventurer(self, adventurer):
                         self.attack(adventurer)
+    
+    def place_agent(self):
+        '''Expands on beginner mode, allowing for cities
+        '''
+        if isinstance(self.current_tile, CityTile):
+            return False
+        else:
+            super().place_agent()
     
     def trade(self, tile):
         '''Expands on the trading of an AdventurerBeginner, by checking for pirates and refusing them trade
@@ -203,11 +234,24 @@ class AdventurerRegular(AdventurerBeginner):
         self.player.attack_history.append([self.current_tile, success])
         return success
     
+    def end_expedition(self):
+        '''Prematurely returns an Adventurer to the last city they visited and empties their wealth.
+        '''
+        self.wealth = 0
+        self.current_tile.move_off_tile(self)
+        self.latest_city.move_onto_tile(self)
+        self.wonders_visited = [] #reset the list of where trade can happen
+        #End the Adventurer's turn so that movement resets
+        self.end_turn()
+    
     def check_tile_available(self, tile):
         '''Extends the AdventurerBeginner method to keep track of whether existing Agents have been dispossessed when placing on a tile'''
         if tile.agent is None:
             return True
         elif tile.agent.is_dispossessed:
+#            #This dispossessed Agent is about to be lost to its pla
+#            tile.game.agents[tile.agent.player].remove(tile.agent)
+#            tile.move_off_tile(agent)
             return True
         else:
             return False 
@@ -266,7 +310,7 @@ class AgentRegular(AgentBeginner):
 
 class DisasterTile(Tile):
     '''Represents a Disaster Tile in the game Cartolan, which removes Adventurers' wealth and send them back to a city '''
-    def __init__(self, game, tile_back, wind_direction):
+    def __init__(self, game, tile_back, wind_direction, tile_edges):
         super().__init__(game, tile_back, wind_direction
                          , TileEdges(False, False, False, False), False)
         self.dropped_wealth = 0
@@ -291,14 +335,7 @@ class DisasterTile(Tile):
                 else: # otherwise send the Adventurer to the capital and keep their wealth and end their turn 
                     print("Adventurer moved onto disaster tile. Dropping wealth and returning to last city visited.")
                     self.dropped_wealth += token.wealth
-                    token.wealth = 0
-                    token.latest_city.move_onto_tile(token)
-                    token.wonders_visited = []
-                    #End the Adventurer's turn and reset their moves
-                    token.land_moves = 0
-                    token.downwind_moves = 0
-                    token.upwind_moves = 0
-                    token.turns_moved += 1
+                    token.end_expedition()
             elif isinstance(token, Agent): 
                 print("Tried to add Agent to a disaster tile")
                 return False
@@ -317,8 +354,16 @@ class DisasterTile(Tile):
             adventurer.wealth += self.dropped_wealth//2 + self.dropped_wealth%2
         else: # otherwise send the Adventurer to the capital and keep their wealth
             self.dropped_wealth += adventurer.wealth
-            adventurer.wealth = 0
-            adventurer.current_tile.move_off_tile(adventurer)
-            adventurer.latest_city.move_onto_tile(adventurer)
-            #End the Adventurer's turn so that movement resets
-            adventurer.end_turn()
+            adventurer.end_expedition()
+
+class CapitalTile(CityTileRegular):
+    def __init__(self, game, tile_back = "water"
+                 , wind_direction = WindDirection(True,True)
+                 , tile_edges = TileEdges(True,True,True,True)):
+        super().__init__(game, wind_direction, tile_edges, True, True)
+
+class MythicalTile(CityTileBeginner):
+    def __init__(self, game, tile_back = "water"
+                 , wind_direction = WindDirection(True,True)
+                 , tile_edges = TileEdges(True,True,True,True)):
+        super().__init__(game, wind_direction, tile_edges, False, True)

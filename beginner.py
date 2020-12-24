@@ -1,4 +1,4 @@
-from base import Adventurer, Agent, CityTile, Tile
+from base import Adventurer, Agent, CityTile, Tile, WindDirection, TileEdges
 
 class AdventurerBeginner(Adventurer):
     '''Representing an Adventurer token with the movement and action possibilities from Beginner mode of Cartolan
@@ -78,28 +78,44 @@ class AdventurerBeginner(Adventurer):
             moves_since_rest = self.land_moves + self.downwind_moves + self.upwind_moves
             print("Adventurer has determined that they have moved " +str(moves_since_rest)+ " times since resting")
             if not self.current_tile.compass_edge_water(compass_point): #land movement needed
-                if(moves_since_rest < self.max_land_moves):
+                if(moves_since_rest < self.max_land_moves 
+                   or (self.wealth == 0 and moves_since_rest < self.max_land_moves_unburdened)):
                     return True
+                else: return False
             elif (self.current_tile.compass_edge_water(compass_point) 
                   and self.current_tile.compass_edge_downwind(compass_point)): #downwind movement possible
                 if (moves_since_rest < self.max_downwind_moves):
                     return True
+                else: return False
             else: #if not land or downwind, then movement must be upwind
-                if(moves_since_rest < self.max_upwind_moves):
+                if(moves_since_rest < self.max_upwind_moves
+                   or (self.wealth == 0 and moves_since_rest < self.max_upwind_moves_unburdened)):
                     return True
+                elif self.downwind_moves < self.max_downwind_moves:
+#                     return None
+                        return False
                 else: return False
         elif self.game.movement_rules == "budgetted": #this version 2 of movement allows land and upwind movement any time, but a limited number before resting
             print("Adventurer has moved " +str(self.upwind_moves)+ " times upwind, " +str(self.land_moves)+ " times overland, and " +str(self.downwind_moves)+ " times downwind, since resting")
             if not self.current_tile.compass_edge_water(compass_point): #land movement needed
-                if(self.land_moves < self.max_land_moves and self.upwind_moves == 0):
+                if(self.land_moves < self.max_land_moves
+                   or (self.wealth == 0 and self.land_moves < self.max_land_moves_unburdened)
+                   and self.upwind_moves == 0):
                     return True
+                else: return False
             elif (self.current_tile.compass_edge_water(compass_point) 
                   and self.current_tile.compass_edge_downwind(compass_point)): #downwind movement possible
                 if (self.downwind_moves + self.land_moves + self.upwind_moves < self.max_downwind_moves):
                     return True
+                else: return False
             else: #if not land or downwind, then movement must be upwind
-                if(self.upwind_moves < self.max_upwind_moves and self.land_moves == 0):
+                if ((self.upwind_moves < self.max_upwind_moves 
+                   or (self.wealth == 0 and self.upwind_moves < self.max_upwind_moves_unburdened))
+                   and self.land_moves == 0):
                     return True
+                elif self.downwind_moves < self.max_downwind_moves:
+#                     return None
+                    return False
                 else: return False
         else: raise Exception("Invalid movement rules specified")
         
@@ -149,6 +165,8 @@ class AdventurerBeginner(Adventurer):
         #interact with any Tokens on the tile, Adventurers or other Agents
         
     def end_turn(self):
+        '''Resets in-turn trackers, and return discarded tiles to the main piles
+        '''
         self.turns_moved += 1
         #the adventurer will rest now before the next turn and be ready
         self.downwind_moves = 0
@@ -156,6 +174,13 @@ class AdventurerBeginner(Adventurer):
         self.upwind_moves = 0
         #the list of agents rested with is reset
         self.agents_rested = []
+        #return any discarded tiles to the main piles (if they weren't already empty)
+        for discard_pile in self.game.discard_piles.values():
+            if discard_pile:
+                main_pile = self.game.tile_piles[discard_pile.tile_back]
+                main_pile.tiles.extend(discard_pile.tiles)
+                main_pile.shuffle_tiles()
+                discard_pile.tiles = []
     
     
     def move(self, compass_point):        
@@ -206,17 +231,9 @@ class AdventurerBeginner(Adventurer):
                     self.current_tile.move_off_tile(self)
                     self.current_tile = self.game.play_area.get(new_longitude).get(new_latitude)
                     self.current_tile.move_onto_tile(self)
-                    
-                    # if this is a Wonder then discovery should be automatic
-#                     if isinstance(self.current_tile, WonderTile):
-                    if self.current_tile.is_wonder:
-                        self.discover(self.current_tile)             
-                
-                    #check whether an agent can be placed and then whether the player wants to
-                    self.place_agent()
-                    
-                    moved = True
-                
+                    #as a new tile there are some special considerations
+                    self.discover(self.current_tile)
+                    moved = True                
             else:
                 #place the Adventurer on the next existing Tile
                 self.current_tile.move_off_tile(self)
@@ -225,7 +242,6 @@ class AdventurerBeginner(Adventurer):
                 #carry out any actions that are possible given this tile or tokens on it
                 self.interact_tile()                
                 self.interact_tokens()
-                
                 moved = True
         
         #check whether any more moves will be possible
@@ -426,18 +442,24 @@ class AdventurerBeginner(Adventurer):
         key arguments:
         Cartolan.Tile giving the Wonder Tile that has just been discoverred.
         '''
-        #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm, and just trade instead if so
-        for city_tile in self.game.cities:
-            city_longitude = city_tile.tile_position.longitude
-            city_latitude = city_tile.tile_position.latitude
-            if (abs(tile.tile_position.longitude - city_longitude) 
-                + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
-                self.trade(tile)
-                return False
-        
-        #award wealth
-        self.wealth += self.game.VALUE_DISCOVER_WONDER[tile.tile_back]
-        self.wonders_visited.append(tile)
+#        #@deprecated
+#        #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm, and just trade instead if so
+#        for city_tile in self.game.cities:
+#            city_longitude = city_tile.tile_position.longitude
+#            city_latitude = city_tile.tile_position.latitude
+#            if (abs(tile.tile_position.longitude - city_longitude) 
+#                + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
+#                self.trade(tile)
+#                return False
+#        
+        # if this is a Wonder then discovery should be automatic
+#       if isinstance(self.current_tile, WonderTile):
+        if self.current_tile.is_wonder:
+            #award wealth
+            self.wealth += self.game.VALUE_DISCOVER_WONDER[tile.tile_back]
+            self.wonders_visited.append(tile)
+        #check whether an agent can be placed and then whether the player wants to
+        self.place_agent()
         return True
         
         
@@ -488,19 +510,19 @@ class AdventurerBeginner(Adventurer):
         tile = self.current_tile
         #@DEPRECATED city tile domains are no longer a feature
         #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm
-        for city_tile in self.game.cities:
-            city_longitude = city_tile.tile_position.longitude
-            city_latitude = city_tile.tile_position.latitude
-            if (abs(tile.tile_position.longitude - city_longitude) 
-                + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
-                return False
+#        for city_tile in self.game.cities:
+#            city_longitude = city_tile.tile_position.longitude
+#            city_latitude = city_tile.tile_position.latitude
+#            if (abs(tile.tile_position.longitude - city_longitude) 
+#                + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
+#                return False
         
         #check that the adventurer has requisite wealth in their Chest
         if self.wealth >= self.game.COST_AGENT_EXPLORING and self.check_tile_available(tile):
             
             #check whether the player actually wants to place an agent, even if they have to move an existing one
             if self.player.check_place_agent(self):
-                if len(self.player.agents) >= self.game.MAX_AGENTS:
+                if len(self.game.agents[self.player]) >= self.game.MAX_AGENTS:
                     agent = self.player.check_move_agent(self)
                     if agent is None:
                         return False
@@ -740,7 +762,7 @@ class CityTileBeginner(CityTile):
         adventurer.bought_adventurer += 1
         
         #keep checking whether the player has enough wealth and wants to buy another adventurer until they refuse
-        while (len(adventurer.player.adventurers) < adventurer.game.MAX_ADVENTURERS 
+        while (len(self.game.adventurers[adventurer.player]) < adventurer.game.MAX_ADVENTURERS 
                 and adventurer.player.vault_wealth >= adventurer.game.COST_ADVENTURER):
             if adventurer.player.check_buy_adventurer(adventurer):
                 #take payment of wealth from their Vault
@@ -772,15 +794,16 @@ class CityTileBeginner(CityTile):
         #keep checking whether the player can afford another Adventurer and wants one until they refuse
         while adventurer.player.vault_wealth >= adventurer.game.COST_AGENT_FROM_CITY:
             tile = adventurer.player.check_buy_agent(adventurer, report="Do you want to place an agent, and where?") 
-            if not tile is None:
-                #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm
-                for city_tile in self.game.cities:
-                    city_longitude = city_tile.tile_position.longitude
-                    city_latitude = city_tile.tile_position.latitude
-                    if (abs(tile.tile_position.longitude - city_longitude) 
-                        + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
-                        continue
-            else:
+#            if not tile is None:
+##                @deprecated #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm
+##                for city_tile in self.game.cities:
+##                    city_longitude = city_tile.tile_position.longitude
+##                    city_latitude = city_tile.tile_position.latitude
+##                    if (abs(tile.tile_position.longitude - city_longitude) 
+##                        + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
+##                        continue
+#            else:
+            if tile is None:
                 return False
 
             #check whether the tile already has an active Agent 
@@ -789,7 +812,7 @@ class CityTileBeginner(CityTile):
             else:
                 #pick up an existing Agent from its tile if there are no other agents available
                 #otherwise get a new agent
-                if len(adventurer.player.agents) >= self.game.MAX_AGENTS:
+                if len(self.game.agents[adventurer.player]) >= self.game.MAX_AGENTS:
                     agent = adventurer.player.check_move_agent(adventurer)
                     if not agent is None:
                         print(adventurer.player.colour+ " player is recalling their agent from the tile at " 
@@ -812,21 +835,14 @@ class CityTileBeginner(CityTile):
                      +str(tile.tile_position.longitude)+","+str(tile.tile_position.latitude))
         return True
 
-# class WonderTile(Tile):
-#     def __init__(game, is_wonder):
-#         super().
-    
-#     def reward_discovery(adventurer): # This is handled in the Adventurer class atm
-#         #check what kind of tile this is and look up the reward
-        
-#         #add wealth to Adventurer's Chest
-#         pass
-    
-#     def reward_trade(adventurer): # This is handled in the Adventurer class atm
-#         #check that adventurer has not visited this tile already since their last visit to a city
-        
-#         #check whether there is an active Agent on this tile and involve them in the trade if so
-#         pass
+class WonderTile(Tile):
+     def __init__(self, game, tile_back = "water"
+                 , wind_direction = WindDirection(True,True)
+                 , tile_edges = TileEdges(True,True,True,True)):
+         super().__init__(game, tile_back, wind_direction, tile_edges, True)
 
-# class WaterWonderTile(WonderTile)
-
+class CapitalTile(CityTileBeginner):
+    def __init__(self, game, tile_back = "water"
+                 , wind_direction = WindDirection(True,True)
+                 , tile_edges = TileEdges(True,True,True,True)):
+        super().__init__(game, wind_direction, tile_edges, True, True)

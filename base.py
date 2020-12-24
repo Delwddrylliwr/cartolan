@@ -1,3 +1,6 @@
+import random
+import uuid
+
 class Game:
     '''A template for maintaining a record of the game state in different modes of Cartolan.
     
@@ -11,11 +14,22 @@ class Game:
     def __init__(self, players):
         if len(players) in range(self.MIN_PLAYERS, self.MAX_PLAYERS +1):
             self.players = players
-            self.establish_turn_order()
+#            self.establish_turn_order()
         else: raise Exception("Game created with an invalid number of players: should be 2-4, but was " +str(len(players)))
+        
+        #register this game with each of the players
+        self.game_id = uuid.uuid4()
+        for player in players:
+            player.join_game(self)
         
         self.tile_piles = {}
         self.play_area = {}
+        self.player_wealths = {}
+        self.adventurers = {}
+        self.agents = {}
+        for player in players:
+            self.adventurers[player] = []
+            self.agents[player] = []
 
         self.turn = 0
         
@@ -32,10 +46,9 @@ class Game:
 #         self.most_lucrative_route_player = None
 
         
-    def establish_turn_order(self):
-        '''Randomises the order in which Player objects will be activated'''
-        import random
-        random.shuffle(self.players)
+#    def establish_turn_order(self):
+#        '''Randomises the order in which Player objects will be activated'''
+#        random.shuffle(self.players)
 
 #@TODO allow players to join multiple games, through maintaining a game-indexed dict of wealth/adventurers/agents/game-specific stats. This will help allow AI players to learn across multiple games in parallel
 class Player:
@@ -51,11 +64,21 @@ class Player:
         self.colour = colour
         
         self.vault_wealth = 0
-        self.adventurers = []
-        self.agents = []
-        
-        self.locations_to_avoid = [] #tiles to remember to avoid for artificial players
-        self.p_deviate = 0.1 #some randomness for artificial player behaviour
+        self.games = {}
+    
+    def join_game(self, game):
+        '''Establishes dict to retain strategic info for each game
+        '''
+        self.games[game.game_id] = {"game":game
+                  , "locations_to_avoid":[] #tiles to remember to avoid for artificial players @TODO move this into game-specific dict entry
+                  , "attack_history":[] #a record of where attacks have taken place, to support visualisation @TODO move this into the visual
+                  }
+    
+    def connect_gui(self, game_vis):
+        '''Associates a particular gui with a game
+        '''
+        game = game_vis.game
+        self.games[game.game_id]["game_vis"] = game_vis
     
     def continue_move(self, adventurer):
         '''placeholder for responding to the state of the game by choosing movement for an adventurer'''
@@ -95,7 +118,7 @@ class Adventurer(Token):
     '''
     def __init__(self, game, player, current_tile):
         super().__init__(game, player, current_tile)
-        player.adventurers.append(self)
+        game.adventurers[player].append(self)
         
         self.turns_moved = 0
     
@@ -134,7 +157,7 @@ class Agent(Token):
     '''
     def __init__(self, game, player, current_tile):
         super().__init__(game, player, current_tile)
-        player.agents.append(self)
+        game.agents[player].append(self)
         
     def give_rest(self, adventurer):
         '''placeholder for resting adventurers'''
@@ -323,7 +346,7 @@ class Tile:
                 token.route.append(self)
                 
             elif isinstance(token, Agent):
-                if self.agent is None:
+                if self.agent is None or self.agent == token:
                     print("Moving agent for " +str(token.player.colour)+ " player onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                     if token.current_tile:
                         token.current_tile.agent = None
@@ -331,11 +354,11 @@ class Tile:
                     self.agent = token
                     token.route.append(self) 
                 elif self.agent.is_dispossessed:
-                    self.agent.player.agents.remove(self.agent)
+                    self.agent.game.agents[self.agent.player].remove(self.agent)
                     self.agent.current_tile = None
                     print("Moving agent for " +str(token.player.colour)+ " player onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                     self.agent = token
-                    self.agent.curren_tile = self
+                    self.agent.current_tile = self
                     token.route.append(self) # relevant only in Regular and Advanced mode
                 else: raise Exception("Tried to add multiple Agents to a tile: adding and agent of " +token.player.colour+ " player where there was an existing agent of " +self.agent.player.colour)
             else: raise Exception("Didn't know how to handle this kind of token")
@@ -353,6 +376,22 @@ class Tile:
             return True
         elif token in self.adventurers:
             self.adventurers.remove(token)
+            return True
+        else:
+            return False
+    
+    def compare(self, tile):
+        '''Deeply compares data with another tile, except for position and orientation.
+        
+        key arguments:
+        Tile takes a Cartolan.Base.Tile
+        '''
+        if (tile.tile_edges.upwind_clock_water == self.tile_edges.upwind_clock_water
+            and tile.tile_edges.upwind_anti_water == self.tile_edges.upwind_anti_water
+            and tile.tile_edges.downwind_clock_water == self.tile_edges.downwind_clock_water
+            and tile.tile_edges.downwind_anti_water == self.tile_edges.downwind_anti_water
+            and tile.tile_back == self.tile_back
+            and tile.is_wonder == self.is_wonder):
             return True
         else:
             return False
@@ -389,26 +428,9 @@ class TilePile:
     
     def shuffle_tiles(self):
         '''Randomises the order of tiles in the pile'''
-        import random
         random.shuffle(self.tiles)
 
-class WaterTile(Tile):
-    '''A specifically water backed tile'''
-    tile_back = "water"
-    
-    def __init__(self, game, wind_direction, tile_edges, is_wonder = False):
-        super().__init__(game, self.tile_back, wind_direction, tile_edges, is_wonder)
-
-
-class LandTile(Tile):
-    '''A specifically land backed tile'''
-    tile_back = "land"
-    
-    def __init__(self, game, wind_direction, tile_edges, is_wonder = False):
-        super().__init__(game, self.tile_back, wind_direction, tile_edges, is_wonder)
-
-
-class CityTile(LandTile):
+class CityTile(Tile):
     '''A template for Tiles representing cities in the game Cartolan
     
     Methods:
@@ -417,14 +439,20 @@ class CityTile(LandTile):
     Interfaces:
     visit_city, bank_wealth, buy_adventurers, buy_agents
     '''
-    tile_edges = TileEdges(uc_water = False, ua_water = False, dc_water = False, da_water = False)
-    wind_direction = WindDirection(True, True)
-    
-    def __init__(self, game, is_capital, is_discovered):
-        super().__init__(game, self.wind_direction, self.tile_edges, False)
+    def __init__(self, game, wind_direction, tile_edges, is_capital, is_discovered):
+        super().__init__(game, "land", wind_direction, tile_edges, False)
         self.is_capital = is_capital
         self.is_discovered = is_discovered
         game.cities.append(self)
+        
+    def compare(self, tile):
+        if not isinstance(tile, CityTile):
+            return False
+        elif not tile.is_capital == self.is_capital:
+            return False
+        else:
+            super().compare(tile)
+            
     
     def visit_city(self, adventurer):
         '''placeholder for interactions between an Adventurer and city'''
