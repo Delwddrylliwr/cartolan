@@ -2,15 +2,32 @@ import sys
 from matplotlib import pyplot
 import pandas
 import random
-import csv
 from game import GameBeginner, GameRegular, GameAdvanced
-from players_human import PlayerHuman
 from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
 from players_heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
 from base import Tile, WindDirection, TileEdges
-from visuals import PlayAreaVisualisation, GameVisualisation, PlayStatsVisualisation
-from regular import DisasterTile
-from time import sleep
+from static_visuals import PlayAreaVisualisation, PlayStatsVisualisation
+
+#Default parameters
+GAME_MODE = "Regular"
+MOVEMENT_RULE = "initial" #"budgetted"
+EXPLORATION_RULE = "clockwise" #,"continuous"
+MYTHICAL_CITY = True
+NUM_PLAYERS = 2
+NUM_GAMES = 10
+# Option sets and corresponding information
+GAME_MODES = { 'Beginner':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeginnerExplorer
+                                                                        , "red":PlayerBeginnerTrader
+                                                                        , "yellow":PlayerBeginnerRouter
+                                                                  , "orange":PlayerBeginnerTrader}}
+                  , 'Regular':{'game_type':GameRegular, 'player_set':{"blue":PlayerRegularExplorer
+                                                                        , "red":PlayerRegularTrader
+                                                                        , "yellow":PlayerRegularRouter
+                                                                      , "orange":PlayerRegularPirate}}
+                  }    
+MOVEMENT_RULES = ['initial', 'budgetted']
+EXPLORATION_RULES = ['clockwise', 'continuous']
+NUM_PLAYERS_OPTIONS = [2, 3, 4]
 
 #First some global functions to set up the game area
 def setup_tiles(players, game_mode, movement_rules, exploration_rules, mythical_city):
@@ -94,128 +111,18 @@ def setup_simulation(players, game_mode, movement_rules, exploration_rules, myth
     return game
 
 
-class InteractiveGame:
-    '''A wrapper for Game class objects to refresh visuals as play progresses'''
-    # Now for the constants
-    HUMAN_PLAYER_COLOURS = ["purple", "pink", "brown", "white"]
-    GAME_MODES = { 'Beginner':{'game_type':GameBeginner}
-              , 'Regular':{'game_type':GameRegular}
-              }
-    MOVEMENT_RULES = ['initial', 'budgetted']
-    EXPLORATION_RULES = ['clockwise', 'continuous']
-    NUM_PLAYERS_OPTIONS = [2, 3, 4]
-    STARTING_DIMENSIONS = [20, 10]
-    STARTING_ORIGIN = [9, 4]
-    
-    def __init__(self):
-        # These parameters will likely be changed each game
-        self.game_mode = "Regular"
-        self.movement_rules = "initial"
-        self.exploration_rules = "continuous"
-        self.mythical_city = True
-        self.num_players = 2
-        self.num_human_players = self.num_players
-
-        
-    def click_play_game(self, event):
-        self.play_game()
-        
-    def select_mode(self, label):
-        self.game_mode = label
-        
-    def select_movement(self, label):
-        self.movement_rules = label
-    
-    def select_exploration(self, label):
-        self.exploration_rules = label
-    
-    def set_num_human_players(self, label):
-        self.num_human_players = int(label)
-    
-    def setup_players(self):
-        '''Sets up a list of Cartolan.PlayerHuman to play the game'''
-        # add human players
-        for human_player_num in range(0, self.num_human_players):
-            self.players.append(PlayerHuman(self.HUMAN_PLAYER_COLOURS[human_player_num]))
-
-    
-    def play_game(self):
-        '''Sets up the play_area and then substitutes for the game's own start_game method'''
-        
-        #start the visuals, to be updated by the human players before and during turns
-        # sys.stdout = stdout_backup
-        self.dimensions = self.STARTING_DIMENSIONS
-        self.origin = self.STARTING_ORIGIN 
-               
-        #Set up a list of players
-        self.players = []
-        self.setup_players()
-        
-        #setup the game
-        print("setting up the play area")
-        self.game = setup_simulation(self.players
-                                     , self.GAME_MODES[self.game_mode]["game_type"]
-                                     , self.movement_rules
-                                     , self.exploration_rules
-                                     , self.mythical_city)
-        
-        #visualise this initial setup
-#        self.game_vis = PlayAreaVisualisation(self.game, self.dimensions, self.origin)
-        self.game_vis = GameVisualisation(self.game, self.dimensions, self.origin)
-        print("starting visuals")
-        self.game_vis.draw_play_area()
-        self.game_vis.draw_tokens()
-        
-        #Let the players reference game and especially visuals, for the GUI
-        for player in self.players:
-            player.connect_gui(self.game_vis)
-        
-        #run the game
-        self.game.game_over = False
-        while not self.game.game_over:
-#             pyplot.show(self.game_vis)
-            self.game.turn += 1
-            self.game.game_over = self.game.play_round()
-        
-            #Draw the changes to the play area
-#             self.game_vis.draw_play_area(self.game.play_area)
-            
-#             #Draw the computer players' paths but clear their history so that only the last turn is ever drawn
-#             self.game_vis.draw_routes(self.players)
-#             for player in self.players:
-#                 for adventurer in player.adventurers:
-#                     adventurer.route = []
-                
-        self.game_vis.give_prompt(self.game.winning_player.colour+" player won the game (click to close)")
-#         pyplot.waitforbuttonpress() #Delay until the player has read the message
-        self.game_vis.get_input_coords(self.game.adventurers[self.game.winning_player][0])
-        self.game_vis.close()
-
-
 #Now the various classes for differnt player combinations
 class Simulations():
     """Run simulations of the game Cartolan."""
-    GAME_MODES = { 'Beginner':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeginnerExplorer
-                                                                            , "red":PlayerBeginnerTrader
-                                                                            , "yellow":PlayerBeginnerRouter
-                                                                      , "orange":PlayerBeginnerTrader}}
-                      , 'Regular':{'game_type':GameRegular, 'player_set':{"blue":PlayerRegularExplorer
-                                                                            , "red":PlayerRegularTrader
-                                                                            , "yellow":PlayerRegularRouter
-                                                                          , "orange":PlayerRegularPirate}}
-                      }    
-    MOVEMENT_RULES = ['initial', 'budgetted']
-    EXPLORATION_RULES = ['clockwise', 'continuous']
-    NUM_PLAYERS_OPTIONS = [2, 3, 4]
     
     def __init__(self):
-        self.game_mode = "Regular"
-        self.movement_rules = "initial" #"budgetted"
-        self.exploration_rules = "clockwise" #,"continuous"
-        self.mythical_city = True
-        self.num_players = 2
-        
-        self.num_games = 50
+        self.game_mode = GAME_MODE
+        self.movement_rule = MOVEMENT_RULE
+        self.exploration_rule = EXPLORATION_RULE
+        self.mythical_city = MYTHICAL_CITY
+        self.num_players = NUM_PLAYERS
+        self.num_games = NUM_GAMES
+        self.game_modes = GAME_MODES
 
     def click_run_sims(self, event):
         self.run_sims()
@@ -224,10 +131,10 @@ class Simulations():
         self.game_mode = label
         
     def select_movement(self, label):
-        self.movement_rules = label
+        self.movement_rule = label
     
     def select_exploration(self, label):
-        self.exploration_rules = label
+        self.exploration_rule = label
     
     def set_num_players(self, label):
         self.num_players = int(label)
@@ -236,13 +143,12 @@ class Simulations():
         self.num_games = int(value)
     
     def setup_players(self):
-        import random
         players = []
 #             num_players = random.choice(num_players_options)
-        player_colours = random.sample(list(self.GAME_MODES[self.game_mode]["player_set"]),self.num_players)
+        player_colours = random.sample(list(self.game_modes[self.game_mode]["player_set"]),self.num_players)
         for player_colour in player_colours:
             #player_colour = random.choice(player_set)
-            players.append(self.GAME_MODES[self.game_mode]["player_set"][player_colour](player_colour))
+            players.append(self.game_modes[self.game_mode]["player_set"][player_colour](player_colour))
         return players
 
         
@@ -276,11 +182,11 @@ class Simulations():
         remaining_tile_edges = []
 
         #Function to collect average route lengths across a player's adventurers
-        def avg_route_length(player):
+        def avg_route_length(player, game):
             avg_route_length = 0
-            for adventurer in player.adventurers:
+            for adventurer in game.adventurers[player]:
                 avg_route_length += len(adventurer.route)
-            return avg_route_length/len(player.adventurers)
+            return avg_route_length/len(game.adventurers[player])
 
         # We have arrived! Time for the actual outcomes
         #@TODO multithread this: https://realpython.com/intro-to-python-threading/#starting-a-thread
@@ -291,13 +197,13 @@ class Simulations():
 
             #Instantiate a game
             if self.mythical_city:
-                print("Setting up a "+self.game_mode+"-mode game, with "+self.movement_rules+" movement rules, and "
-                  +self.exploration_rules+" exploration rules, and a mythical city")
+                print("Setting up a "+self.game_mode+"-mode game, with "+self.movement_rule+" movement rules, and "
+                  +self.exploration_rule+" exploration rules, and a mythical city")
             else:
-                print("Setting up a "+self.game_mode+"-mode game, with "+self.movement_rules+" movement rules, and "
-                  +self.exploration_rules+" exploration rules, and no mythical city")
-            game = setup_simulation(players, self.GAME_MODES[self.game_mode]["game_type"]
-                                    , self.movement_rules, self.exploration_rules, self.mythical_city)
+                print("Setting up a "+self.game_mode+"-mode game, with "+self.movement_rule+" movement rules, and "
+                  +self.exploration_rule+" exploration rules, and no mythical city")
+            game = setup_simulation(players, self.game_modes[self.game_mode]["game_type"]
+                                    , self.movement_rule, self.exploration_rule, self.mythical_city)
 
             #run the game
             print("Starting simulation #"+str(sim_id)+" of "+self.game_mode+"-mode Cartolan, with " +str(self.num_players)+ " players")
@@ -324,19 +230,19 @@ class Simulations():
                                     , "wealth_difference_final":game.wealth_difference
                                     , "winning_player_type":player_strip(type(game.winning_player))
                                     , "winning_player_order":game.players.index(game.winning_player)+1
-                                    , "winning_player_route":avg_route_length(game.winning_player)
-                                    , "winning_player_agents":len(game.winning_player.agents)
-                                    , "winning_player_adventurers":len(game.winning_player.adventurers)
+                                    , "winning_player_route":avg_route_length(game.winning_player, game)
+                                    , "winning_player_agents":len(game.agents[game.winning_player])
+                                    , "winning_player_adventurers":len(game.adventurers[game.winning_player])
                                     , "exploration_attempts":game.exploration_attempts
                                     , "failed_explorations":game.num_failed_explorations 
                                     , "wealth_p1":game.players[0].vault_wealth
                                     , "wealth_p2":game.players[1].vault_wealth
-                                    , "num_adventurers_p1":len(game.players[0].adventurers)
-                                    , "num_adventurers_p2":len(game.players[1].adventurers)
-                                    , "num_agents_p1":len(game.players[0].agents)
-                                    , "num_agents_p2":len(game.players[1].agents)
-                                    , "avg_route_p1":avg_route_length(players[0])
-                                    , "avg_route_p2":avg_route_length(players[1])
+                                    , "num_adventurers_p1":len(game.adventurers[players[0]])
+                                    , "num_adventurers_p2":len(game.adventurers[players[1]])
+                                    , "num_agents_p1":len(game.agents[players[0]])
+                                    , "num_agents_p2":len(game.agents[players[1]])
+                                    , "avg_route_p1":avg_route_length(players[0], game)
+                                    , "avg_route_p2":avg_route_length(players[1], game)
                                               }, ignore_index=True)
             elif game.wealth_difference > 0 and self.num_players ==3:
                 self.sim_stats = self.sim_stats.append( {"simulation_id":sim_id, "num_players":self.num_players
@@ -348,22 +254,23 @@ class Simulations():
                                     , "wealth_difference_final":game.wealth_difference
                                     , "winning_player_type":player_strip(type(game.winning_player))
                                     , "winning_player_order":game.players.index(game.winning_player)+1
-                                    , "winning_player_route":avg_route_length(game.winning_player)
-                                    , "winning_player_agents":len(game.winning_player.agents)
-                                    , "winning_player_adventurers":len(game.winning_player.adventurers)
+                                    , "winning_player_route":avg_route_length(game.winning_player, game)
+                                    , "winning_player_agents":len(game.agents[game.winning_player])
+                                    , "winning_player_adventurers":len(game.adventurers[game.winning_player])
                                     , "exploration_attempts":game.exploration_attempts
                                     , "failed_explorations":game.num_failed_explorations 
-                                    , "wealth_p1":game.players[0].vault_wealth, "wealth_p2":game.players[1].vault_wealth
+                                    , "wealth_p1":game.players[0].vault_wealth
+                                    , "wealth_p2":game.players[1].vault_wealth
                                     , "wealth_p3":game.players[2].vault_wealth
-                                    , "num_adventurers_p1":len(game.players[0].adventurers)
-                                    , "num_adventurers_p2":len(game.players[1].adventurers)
-                                    , "num_adventurers_p3":len(game.players[2].adventurers)
-                                    , "num_agents_p1":len(game.players[0].agents)
-                                    , "num_agents_p2":len(game.players[1].agents)
-                                    , "num_agents_p3":len(game.players[2].agents)
-                                    , "avg_route_p1":avg_route_length(players[0])
-                                    , "avg_route_p2":avg_route_length(players[1])
-                                    , "avg_route_p3":avg_route_length(players[2])
+                                    , "num_adventurers_p1":len(game.adventurers[game.players[0]])
+                                    , "num_adventurers_p2":len(game.adventurers[game.players[1]])
+                                    , "num_adventurers_p3":len(game.adventurers[game.players[2]])
+                                    , "num_agents_p1":len(game.agents[game.players[0]])
+                                    , "num_agents_p2":len(game.agents[game.players[1]])
+                                    , "num_agents_p3":len(game.agents[game.players[2]])
+                                    , "avg_route_p1":avg_route_length(players[0], game)
+                                    , "avg_route_p2":avg_route_length(players[1], game)
+                                    , "avg_route_p3":avg_route_length(players[2], game)
                                               }, ignore_index=True)
             elif game.wealth_difference > 0 and self.num_players ==4:
                 self.sim_stats = self.sim_stats.append( {"simulation_id":sim_id, "num_players":self.num_players
@@ -375,25 +282,25 @@ class Simulations():
                                     , "wealth_difference_final":game.wealth_difference
                                     , "winning_player_type":player_strip(type(game.winning_player))
                                     , "winning_player_order":game.players.index(game.winning_player)+1
-                                    , "winning_player_route":avg_route_length(game.winning_player)
-                                    , "winning_player_agents":len(game.winning_player.agents)
-                                    , "winning_player_adventurers":len(game.winning_player.adventurers)
+                                    , "winning_player_route":avg_route_length(game.winning_player, game)
+                                    , "winning_player_agents":len(game.agents[game.winning_player])
+                                    , "winning_player_adventurers":len(game.adventurers[game.winning_player])
                                     , "exploration_attempts":game.exploration_attempts
                                     , "failed_explorations":game.num_failed_explorations 
                                     , "wealth_p1":game.players[0].vault_wealth, "wealth_p2":game.players[1].vault_wealth
                                     , "wealth_p3":game.players[2].vault_wealth, "wealth_p4":game.players[3].vault_wealth
-                                    , "num_adventurers_p1":len(game.players[0].adventurers)
-                                    , "num_adventurers_p2":len(game.players[1].adventurers)
-                                    , "num_adventurers_p3":len(game.players[2].adventurers)
-                                    , "num_adventurers_p4":len(game.players[3].adventurers)
-                                    , "num_agents_p1":len(game.players[0].agents)
-                                    , "num_agents_p2":len(game.players[1].agents)
-                                    , "num_agents_p3":len(game.players[2].agents)
-                                    , "num_agents_p4":len(game.players[3].agents)
-                                    , "avg_route_p1":avg_route_length(players[0])
-                                    , "avg_route_p2":avg_route_length(players[1])
-                                    , "avg_route_p3":avg_route_length(players[2])
-                                    , "avg_route_p4":avg_route_length(players[3])
+                                    , "num_adventurers_p1":len(game.adventurers[game.players[0]])
+                                    , "num_adventurers_p2":len(game.adventurers[game.players[1]])
+                                    , "num_adventurers_p3":len(game.adventurers[game.players[2]])
+                                    , "num_adventurers_p4":len(game.adventurers[game.players[3]])
+                                    , "num_agents_p1":len(game.agents[game.players[0]])
+                                    , "num_agents_p2":len(game.agents[game.players[1]])
+                                    , "num_agents_p3":len(game.agents[game.players[2]])
+                                    , "num_agents_p4":len(game.agents[game.players[3]])
+                                    , "avg_route_p1":avg_route_length(players[0], game)
+                                    , "avg_route_p2":avg_route_length(players[1], game)
+                                    , "avg_route_p3":avg_route_length(players[2], game)
+                                    , "avg_route_p4":avg_route_length(players[3], game)
                                               }, ignore_index=True)
             play_areas[sim_id] = game.play_area
             player_sets[sim_id] = game.players
@@ -483,51 +390,6 @@ class Simulations():
         prep_visuals(sim_id_min_wealth_difference, "How the minimum wealth difference game progressed")
         
         pyplot.show()
-        
-
-class InteractiveSimulation(InteractiveGame):
-    '''Extends the InteractiveGame class to include virtual, computer-controlled, players'''
-    # Now for the constants
-    HUMAN_PLAYER_COLOURS = ["purple", "pink", "brown", "white"]
-    GAME_MODES = { 'Beginner':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeginnerExplorer
-                                                                   , "red":PlayerBeginnerTrader
-                                                                   , "yellow":PlayerBeginnerRouter
-#                                                                    , "green":PlayerBeginnerGenetic
-                                                                      }}
-              , 'Regular':{'game_type':GameRegular, 'player_set':{
-                                                                  "orange":PlayerRegularPirate
-#                                                                    , "blue":PlayerRegularExplorer
-                                                                   , "red":PlayerRegularTrader
-                                                                   , "yellow":PlayerRegularRouter
-#                                                                    , "green":PlayerRegularGenetic
-                                                                  }
-                          }
-                 }
-    
-    def __init__(self):
-        # These parameters will likely be changed each game
-        super().__init__()
-        self.num_players = 4
-        self.num_human_players = 1
-        
-        
-    def set_num_human_players(self, label):
-        self.num_human_players = int(label)
-    
-    def setup_players(self):
-        super().setup_players()
-        
-        #add virtual computer players
-        player_colours = random.sample(list(self.GAME_MODES[self.game_mode]["player_set"]), self.num_players - len(self.players))
-        for player_colour in player_colours:
-            #player_colour = random.choice(player_set)
-            self.players.append(self.GAME_MODES[self.game_mode]["player_set"][player_colour](player_colour))
-   
-#class NetworkGame(InteractiveSimulation):
-#    def __init__(self):
-#        # Seek server port from host
-        
-        
 
          
 # class AISimulations(Simulations):
@@ -545,7 +407,7 @@ class InteractiveSimulation(InteractiveGame):
 #         self.feed_fwd_players = []
 #         for AI_index in range(self.num_feed_fwd):
 #             AI_player = PlayerFeedFwd(self.AI_PLAYER_COLOURS[AI_index], train=self.train)
-#             AI_player.build_network(self.GAME_MODES[self.game_mode]["game_type"])
+#             AI_player.build_network(self.game_modes[self.game_mode]["game_type"])
 #             self.feed_fwd_players.append(AI_player)
     
 #     def setup_players(self):
@@ -561,13 +423,13 @@ class InteractiveSimulation(InteractiveGame):
 #             player.agents = []
 #             player.locations_to_avoid = []
 #             player.attack_history = []
-#             player.player_to_mimic = random.choice(list(self.GAME_MODES[self.game_mode]["player_set"].values()))  #each game a different class of heuristical player will be mimicked
+#             player.player_to_mimic = random.choice(list(self.game_modes[self.game_mode]["player_set"].values()))  #each game a different class of heuristical player will be mimicked
         
 #         #Fill the rest with random heuristical players
-#         player_colours = random.sample(list(self.GAME_MODES[self.game_mode]["player_set"]),self.num_players - len(players))
+#         player_colours = random.sample(list(self.game_modes[self.game_mode]["player_set"]),self.num_players - len(players))
 #         for player_colour in player_colours:
 #             #player_colour = random.choice(player_set)
-#             players.append(self.GAME_MODES[self.game_mode]["player_set"][player_colour](player_colour))
+#             players.append(self.game_modes[self.game_mode]["player_set"][player_colour](player_colour))
 #         return players
         
         
@@ -588,7 +450,7 @@ class InteractiveSimulation(InteractiveGame):
 #         self.feed_fwd_players = []
 #         for AI_index in range(self.num_feed_fwd):
 #             AI_player = PlayerFeedFwd(self.AI_PLAYER_COLOURS[AI_index], train=self.train)
-#             AI_player.build_network(self.GAME_MODES[self.game_mode]["game_type"])
+#             AI_player.build_network(self.game_modes[self.game_mode]["game_type"])
 #             self.feed_fwd_players.append(AI_player)
         
 #     def setup_players(self):
