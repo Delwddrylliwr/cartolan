@@ -1,4 +1,4 @@
-# Project Title
+# Cartolan - Trade Winds
 
 This project aims to provide various support to the development of the board game [Cartolan - Trade Winds](https://docs.google.com/document/d/1LuAe_V7xUiPdksBD5XowbvPdK9tO_SFwECsiqNrPXLY/edit)
 
