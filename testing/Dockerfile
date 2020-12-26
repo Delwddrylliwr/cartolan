@@ -23,3 +23,4 @@ RUN pip install --upgrade pip && \
     invoke install-dependencies
 
 # Launch the network multiplayer version of Cartolan
+CMD [ "python", "./cartolan_game.py" ]

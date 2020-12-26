@@ -226,5 +226,24 @@ class InteractiveSimulation(InteractiveGame):
 game_options = {"local":InteractiveSimulation, "network":ClientGameVisualisation}
 game_choice = ""
 while not game_choice in game_options:
-    game_choice = input("Please specify whether you want to play only with players on this computer, or with players on other computers too? Type 'local' or 'network' respectively")
+    game_choice = input("Please specify whether you want to play only with players on this computer, or with players on other computers too? Type 'local' or 'network' respectively\n")
 client_visual = game_options[game_choice]()
+if game_choice == "local":
+    prompt_text = "What version of Cartolan would you like to play? Type in either "
+    for game_mode in client_visual.GAME_MODES:
+        prompt_text += "'" +game_mode+ " or "
+    game_mode = ""
+    while not game_mode in client_visual.GAME_MODES:
+        game_mode = input(prompt_text + "\n")
+    client_visual.game_mode = game_mode
+    min_players = client_visual.GAME_MODES[game_mode]["game_type"].MIN_PLAYERS
+    max_players = client_visual.GAME_MODES[game_mode]["game_type"].MAX_PLAYERS
+    num_human_players = 0
+    while not num_human_players in range(1, max_players+1):
+        num_human_players = int(input("How many human players will take part in this game? Enter a number between 1 and "+str(max_players) +"\n"))
+    num_players = num_human_players
+    if num_players < max_players:
+        while not num_players in range(min_players, max_players+1):
+            num_players = num_human_players + int(input("How many computer players will take part in this game? Enter a number between "+str(min_players - num_human_players)+" and "+str(max_players - num_human_players)+"\n"))
+    client_visual.num_players = num_players
+    client_visual.play_game()
