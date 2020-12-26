@@ -793,6 +793,8 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                     if self.game.check_win_conditions():
                         self.game.game_over = True
                         self.Send({"action":"declare_win", "winning_player_colour":self.current_player_colour})
+                        connection.Pump()
+                        self.Pump()
                         self.Network_declare_win({"winning_player_colour":self.current_player_colour})
             #Make sure visuals are up to date and all changes have been shared to the server
             self.draw_play_area()
@@ -809,6 +811,9 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                 self.game.turn += 1
                 self.current_player_colour = current_player.colour
             if self.current_player_colour not in self.local_player_colours:
+                #Reset the route to be visualised for this non-local player
+                for adventurer in self.game.adventurers[current_player]:
+                    adventurer.route = [adventurer.current_tile]
                 self.local_player_turn = False
             self.Send({"action":"new_turn", "turn":self.game.turn, "current_player_colour":self.current_player_colour})
     
@@ -833,6 +838,10 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         if self.current_player_colour in self.local_player_colours:
             self.local_player_turn = True
         else:
+            #Reset the route to be visualised for this non-local player
+            current_player = self.player_colours[self.current_player_colour]
+            for adventurer in self.game.adventurers[current_player]:
+                adventurer.route = [adventurer.current_tile]
             self.local_player_turn = False
 
     
@@ -1074,6 +1083,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             adventurers_changes_json = []
             exist_token_changes = False
             for adventurer in adventurers:
+                #@TODO make sure that the turns moved are shared for new adventurers
                 #serialise the current data for record and comparison
                 new_longitude = adventurer.current_tile.tile_position.longitude
                 new_latitude = adventurer.current_tile.tile_position.latitude
@@ -1118,7 +1128,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                     adventurers_changes_json.append(adventurer_changes_data)
                 else:
                     adventurers_changes_json.append(adventurer_data)
-                    exist_changes = True
+                    exist_token_changes = True
             player_tokens_json["adventurers"][player.colour] = adventurers_json
             if exist_token_changes:
                 player_tokens_changes_json["adventurers"][player.colour] = adventurers_changes_json
