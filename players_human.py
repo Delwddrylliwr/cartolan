@@ -1,4 +1,4 @@
-from base import Player
+from base import Player, CityTile
 from game import GameRegular
 
 class PlayerHuman(Player):
@@ -341,7 +341,8 @@ class PlayerHuman(Player):
 #                    if outside_city_domains:
                     tile = play_area[longitude][latitude] 
                     if tile.agent is None:
-                        buy_coords.append([tile.tile_position.longitude, tile.tile_position.latitude])
+                        if not isinstance(tile, CityTile):
+                            buy_coords.append([tile.tile_position.longitude, tile.tile_position.latitude])
                     elif isinstance(adventurer.game, GameRegular):
                         if tile.agent.is_dispossessed:
                             buy_coords.append([tile.tile_position.longitude, tile.tile_position.latitude])

@@ -929,7 +929,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                         adventurer.turns_moved = int(turns_moved)
                     #check whether pirate token has also changed
                     pirate_token = adventurer_data.get("pirate_token")
-                    if not pirate_token is None and not isinstance(self.game, GameBeginner):
+                    if pirate_token is not None and isinstance(self.game, GameRegular):
                         adventurer.pirate_token = bool(pirate_token)
             agents_data = changes["agents"].get(player_colour)
             if agents_data:
@@ -963,7 +963,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                         agent.wealth = int(wealth)
                     #check whether dispossession has also changed
                     is_dispossessed = agent_data.get("is_dispossessed")
-                    if not is_dispossessed is None and not isinstance(self.game, GameBeginner):
+                    if is_dispossessed is not None and isinstance(self.game, GameRegular):
                         agent.is_dispossessed = bool(is_dispossessed)
     
     def Network_prompt(self, data):
@@ -1089,7 +1089,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                 new_latitude = adventurer.current_tile.tile_position.latitude
                 new_wealth = adventurer.wealth
                 new_turns_moved = adventurer.turns_moved
-                if not isinstance(self.game, GameBeginner):
+                if isinstance(self.game, GameRegular):
                     new_pirate_token = False
                 else:
                     new_pirate_token = adventurer.pirate_token
@@ -1145,7 +1145,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                 new_longitude = agent.current_tile.tile_position.longitude
                 new_latitude = agent.current_tile.tile_position.latitude
                 new_wealth = agent.wealth
-                if not isinstance(self.game, GameBeginner):
+                if not type(self.game) == GameBeginner:
                     new_is_dispossessed = False
                 else:
                     new_is_dispossessed = agent.is_dispossessed
