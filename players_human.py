@@ -57,7 +57,8 @@ class PlayerHuman(Player):
         
         #highlight the tiles
         print("Highlighting the available moves for the "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1))
-        game_vis.draw_move_options(valid_moves, invalid_moves, chance_coords=chance_moves)
+        moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
+        game_vis.draw_move_options(moves_since_rest, valid_moves, invalid_moves, chance_coords=chance_moves)
         
         #Carry out the player's chosen move
         move_coords = game_vis.get_input_coords(adventurer)
@@ -189,11 +190,13 @@ class PlayerHuman(Player):
             if agent.player == self:
                 valid_coords = [[adventurer.current_tile.tile_position.longitude
                             , adventurer.current_tile.tile_position.latitude]]
-                game_vis.draw_move_options(rest_coords=valid_coords)
+                moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
+                game_vis.draw_move_options(moves_since_rest, rest_coords=valid_coords)
             elif adventurer.wealth >= adventurer.game.COST_AGENT_EXPLORING:
                 valid_coords = [[adventurer.current_tile.tile_position.longitude
                             , adventurer.current_tile.tile_position.latitude]]
-                game_vis.draw_move_options(buy_coords=valid_coords)
+                moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
+                game_vis.draw_move_options(moves_since_rest, buy_coords=valid_coords)
             else:
                 return False
         else:
@@ -246,7 +249,8 @@ class PlayerHuman(Player):
             #highlight the city tile where an adventurer can be bought
             print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
                   +" can recruit another adventurer")
-            game_vis.draw_move_options(buy_coords=buy_coords)
+            moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
+            game_vis.draw_move_options(moves_since_rest, buy_coords=buy_coords)
 
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
@@ -292,7 +296,8 @@ class PlayerHuman(Player):
             #highlight the tile where the agent can be placed
             print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
                   +" can recruit an Agent")
-            game_vis.draw_move_options(buy_coords=buy_coords)
+            moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
+            game_vis.draw_move_options(moves_since_rest, buy_coords=buy_coords)
 
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
@@ -354,7 +359,8 @@ class PlayerHuman(Player):
             
             #highlight the tiles where an Agent could be placed 
             print("Highlighting the tile where "+self.colour+" player can send an Agent")
-            game_vis.draw_move_options(buy_coords=buy_coords)
+            moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
+            game_vis.draw_move_options(moves_since_rest=moves_since_rest, buy_coords=buy_coords)
 
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
@@ -396,7 +402,8 @@ class PlayerHuman(Player):
         #highlight the tile where the agent might be moved from
         print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
               +" can recruit an Agent")
-        game_vis.draw_move_options(valid_coords=agent_coords)
+        moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
+        game_vis.draw_move_options(moves_since_rest=moves_since_rest, valid_coords=agent_coords)
 
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
@@ -435,7 +442,8 @@ class PlayerHuman(Player):
         #highlight the tile where the opposing Adventurer can be attacked
         print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
               +" can attack "+ other_adventurer.player.colour+" player's Adventurer")
-        game_vis.draw_move_options(attack_coords=attack_coords)
+        moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
+        game_vis.draw_move_options(moves_since_rest, attack_coords=attack_coords)
 
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
@@ -475,7 +483,8 @@ class PlayerHuman(Player):
         #highlight the tile where the opposing Agent can be attacked
         print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
               +" can attack "+ agent.player.colour+" player's Adventurer")
-        game_vis.draw_move_options(attack_coords=attack_coords)
+        moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
+        game_vis.draw_move_options(moves_since_rest, attack_coords=attack_coords)
 
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
