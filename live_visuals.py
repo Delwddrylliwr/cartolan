@@ -32,6 +32,7 @@ class GameVisualisation():
     SCORES_POSITION = [0.0, 0.0]
     SCORES_FONT_SCALE = 0.05 #relative to window size
     SCORES_SPACING = 1.5 #the multiple of the score pixel scale to leave for each number
+    MOVE_COUNT_POSITION = [0.80, 0.0]
     PROMPT_POSITION = [0.0, 0.85]
     PROMPT_FONT_SCALE = 0.05 #relative to window size
     
@@ -310,7 +311,8 @@ class GameVisualisation():
         return True
     
     #@TODO highlight the particular token(s) that an action relates to
-    def draw_move_options(self, valid_coords=None, invalid_coords=None, chance_coords=None
+    #@TODO display the number of moves since resting
+    def draw_move_options(self, moves_since_rest=None, valid_coords=None, invalid_coords=None, chance_coords=None
                           , buy_coords=None, attack_coords=None, rest_coords=None):
         '''Outlines tiles where moves or actions are possible, designated by colour
         '''
@@ -351,6 +353,12 @@ class GameVisualisation():
                     vertical = self.get_vertical(tile_coords[1])
 #                    print("Drawing a highlight at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
                     self.window.blit(highlight_image, [horizontal*self.tile_size, vertical*self.tile_size])
+        #Report the number of moves that have been used so far:
+        if moves_since_rest:
+            move_count = self.scores_font.render(str(moves_since_rest)+" moves since rest", 1, (0,0,0))
+            move_count_position = [self.MOVE_COUNT_POSITION[0] * self.width, self.MOVE_COUNT_POSITION[1] * self.height]
+            self.window.blit(move_count, move_count_position)
+        
     
     def check_highlighted(self, input_longitude, input_latitude):
         '''Given play area grid coordinates, checks whether this is highlighted as a valid move/action
