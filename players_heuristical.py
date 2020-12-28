@@ -39,6 +39,7 @@ class PlayerBeginnerExplorer(Player):
     def explore_best_space(self, adventurer):
         '''A heuristic for Adventurer movement that selects the adjacent gap in the map with the highest prospective score from adjoining edges, preferring downwind and right when this is tied'''
         #check downwind clockwise first, then downwind anti, then upwind clock, then upwind anti
+        print(str(adventurer.player.colour) +": trying heuristic that prefers the adjacent gap in the map with the highest prospective score from adjoining edges, preferring downwind and right when this is tied")
         if adventurer.current_tile.wind_direction.east:
             if adventurer.current_tile.wind_direction.north:
                 potential_moves = ['e', 'n', 'w', 's']
@@ -77,7 +78,7 @@ class PlayerBeginnerExplorer(Player):
                     return True
                 self.locations_to_avoid.append([new_longitude, new_latitude])
                 return False
-        #If no valid exploration moves were found, then simply move away slowly from the Adventurer's city of choice
+        print("With no valid exploration moves were found, then simply move away slowly from the Adventurer's city of choice")
         return self.move_away_from_tile(adventurer, adventurer.latest_city)
                     
     def move_away_from_tile(self, adventurer, tile):
@@ -126,7 +127,7 @@ class PlayerBeginnerExplorer(Player):
                     if adventurer.turns_moved >= adventurer.game.turn:
                         return True
         
-        #With no suitable moves available, make a random one, to avoid getting stuck in place
+        print("With no suitable moves available, make a random one, to avoid getting stuck in place")
         return adventurer.move(random.choice(['n','e','s','w']))
             
     def move_towards_tile(self, adventurer, tile):
@@ -184,6 +185,7 @@ class PlayerBeginnerExplorer(Player):
     def continue_move(self, adventurer):
         #with some probability, move in a random direction, to break out of degenerate situations
         if random.random() < self.p_deviate:
+            print(str(adventurer.player.colour)+ " is making a random movement, rather than following a heuristic")
             adventurer.move(random.choice(['n','e','s','w']))
         #move towards a city while banking will put the player ahead, and explore otherwise
         elif(adventurer.wealth > adventurer.game.wealth_difference):
@@ -191,9 +193,6 @@ class PlayerBeginnerExplorer(Player):
         else:
 #             self.explore_away_from_tile(adventurer, adventurer.latest_city)
             self.explore_best_space(adventurer)
-
-        if adventurer.current_tile.is_wonder:
-            adventurer.trade(adventurer.current_tile) 
         return True
     
     def continue_turn(self, adventurer):

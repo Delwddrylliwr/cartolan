@@ -192,23 +192,28 @@ class PlayerHuman(Player):
                             , adventurer.current_tile.tile_position.latitude]]
                 moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
                 game_vis.draw_move_options(moves_since_rest, rest_coords=valid_coords)
+                #prompt the player to choose a tile to move on to
+                print("Prompting the "+self.colour+" player for input")
+                game_vis.give_prompt("If you want "+str(self.colour)+" adventurer #" 
+                                               +str(game.adventurers[self].index(adventurer)+1) 
+                                               +" to rest then click their tile, otherwise click elsewhere.")          
             elif adventurer.wealth >= adventurer.game.COST_AGENT_EXPLORING:
                 valid_coords = [[adventurer.current_tile.tile_position.longitude
                             , adventurer.current_tile.tile_position.latitude]]
                 moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
                 game_vis.draw_move_options(moves_since_rest, buy_coords=valid_coords)
+                #prompt the player to choose a tile to move on to
+                print("Prompting the "+self.colour+" player for input")
+                game_vis.give_prompt("If you want "+str(self.colour)+" adventurer #" 
+                                               +str(game.adventurers[self].index(adventurer)+1) 
+                                               +" to rest for "
+                                               +str(game.COST_AGENT_REST)+
+                                               " wealth then click their tile, otherwise click elsewhere.")                
             else:
                 return False
         else:
             return False
 
-        #prompt the player to choose a tile to move on to
-        print("Prompting the "+self.colour+" player for input")
-#            game_vis.clear_prompt()
-        game_vis.give_prompt("If you want "+str(self.colour)+" adventurer #" 
-                                       +str(game.adventurers[self].index(adventurer)+1) 
-                                       +" to rest then click their tile, otherwise click elsewhere.")
-        
         rest = False
         move_coords = game_vis.get_input_coords(adventurer)
         if move_coords in valid_coords:
@@ -255,9 +260,9 @@ class PlayerHuman(Player):
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
 #            game_vis.clear_prompt()
-            game_vis.give_prompt("If you want "+str(self.colour)+" Adventurer #" 
-                               +str(game.adventurers[self].index(adventurer)+1) 
-                               +" to recruit another Adventurer then click their tile, otherwise click elsewhere.")
+            game_vis.give_prompt("If you want to recruit another Adventurer for " 
+                                 +str(adventurer.game.COST_ADVENTURER)
+                                 +" then click the City, otherwise click elsewhere.")
             
             recruit = False
             move_coords = game_vis.get_input_coords(adventurer)
@@ -302,9 +307,8 @@ class PlayerHuman(Player):
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
 #            game_vis.clear_prompt()
-            game_vis.give_prompt("If you want "+str(self.colour)+" Adventurer #" 
-                               +str(game.adventurers[self].index(adventurer)+1) 
-                               +" to recruit an Agent on this tile then click it, otherwise click elsewhere.")
+            game_vis.give_prompt("If you want your Adventurer to recruit an Agent on this tile for "+str(adventurer.game.COST_AGENT_EXPLORING)
+                            +" then click it, otherwise click elsewhere.")
             
             recruit = False
             move_coords = game_vis.get_input_coords(adventurer)
@@ -365,8 +369,9 @@ class PlayerHuman(Player):
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
 #            game_vis.clear_prompt()
-            game_vis.give_prompt("If you want to recruit an Agent and send them to"
-                                           +"an unoccupied tile then click it, otherwise click elsewhere.")
+            game_vis.give_prompt("Click any unoccupied tile to hire an Agent and send them there for " 
+                                 +str(adventurer.game.COST_AGENT_FROM_CITY) 
+                                 +" wealth, otherwise click elsewhere.")
             
             agent_placement = None
             move_coords = game_vis.get_input_coords(adventurer)
