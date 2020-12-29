@@ -4,7 +4,7 @@ This project aims to provide various support to the development of the board gam
 
 It simulates large numbers of games beyond what could be expected from human playtesters, albeit with virtual players using simple heuristics (and in future deep Q-learning). 
 
-It also allows playtesting through virtual play over a network (and in future the internet).
+It also allows playtesting through virtual play over a network and the internet.
 
 ## Getting Started
 
