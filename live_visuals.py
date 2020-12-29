@@ -7,6 +7,8 @@ from base import CityTile, TileEdges, WindDirection
 from regular import DisasterTile, AdventurerRegular, AgentRegular
 from game import GameBeginner, GameRegular, GameAdvanced
 from players_human import PlayerHuman
+from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
+from players_heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
 
 class GameVisualisation():
     '''A pygame-based interactive visualisation for games of Cartolan
@@ -636,7 +638,20 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
     draw_play_area
     draw_wealth_scores
     '''
-    GAME_TYPES = {"Beginner":GameBeginner, "Regular":GameRegular, "Advanced":GameAdvanced}
+#    GAME_TYPES = {"Beginner":GameBeginner, "Regular":GameRegular, "Advanced":GameAdvanced}
+    GAME_MODES = { 'Beginner':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeginnerExplorer
+                                                                   , "red":PlayerBeginnerTrader
+                                                                   , "yellow":PlayerBeginnerRouter
+#                                                                    , "green":PlayerBeginnerGenetic
+                                                                      }}
+              , 'Regular':{'game_type':GameRegular, 'player_set':{
+                                                                  "orange":PlayerRegularPirate
+                                                                    , "blue":PlayerRegularExplorer
+                                                                   , "red":PlayerRegularTrader
+                                                                   , "yellow":PlayerRegularRouter
+#                                                                    , "green":PlayerRegularGenetic
+                                                                  }}
+        }
     UPDATE_DELAY = 0.01 #the time in seconds to wait between checking for messages from the server
     
     def __init__(self):
@@ -718,11 +733,14 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         self.local_player_colours = data["local_player_colours"]
         print("Setting up the local version of the game:")
         print(data)
-        game_type = self.GAME_TYPES[data["game_type"]] #needed to identify the class of other elements like Adventurers and Agents
+        game_type = self.GAME_MODES[data["game_type"]]["game_type"] #needed to identify the class of other elements like Adventurers and Agents
         self.players = [] #to capture order of play
         self.player_colours = {} #to access Player objects quickly based on colour
         for player_colour in data["player_colours"]:
-            player = PlayerHuman(player_colour)
+            if player_colour in data["virtual_players"]:
+                player = self.GAME_MODES[data["game_type"]]["player_set"][player_colour](player_colour)
+            else:
+                player = PlayerHuman(player_colour)
             self.players.append(player)
             self.player_colours[player_colour] = player 
         
