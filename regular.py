@@ -162,16 +162,8 @@ class AdventurerRegular(AdventurerBeginner):
                     if self.player.check_attack_adventurer(self, adventurer):
                         self.attack(adventurer)
     
-    def place_agent(self):
-        '''Expands on beginner mode, allowing for cities
-        '''
-        if isinstance(self.current_tile, CityTile):
-            return False
-        else:
-            super().place_agent()
-    
     def trade(self, tile):
-        '''Expands on the trading of an AdventurerBeginner, by checking for pirates and refusing them trade
+        '''Expands on the AdventurerBeginner, by preventing pirates from trading
         
         Arguments
         tile should be a Cartolan.Tile
@@ -183,7 +175,7 @@ class AdventurerRegular(AdventurerBeginner):
         return super().trade(tile)
     
     def rest(self):
-        '''Expands on the resting of an AdventurerBeginner, by checking for pirates and refusing them rest
+        '''Expands on AdventurerBeginner by preventing pirates resting with others' Agents
         '''
         #check whether this is a pirate and refuse them rest, unless they belong to the same player
         if self.pirate_token and not self.player == self.current_tile.agent.player:
@@ -246,7 +238,11 @@ class AdventurerRegular(AdventurerBeginner):
     
     def check_tile_available(self, tile):
         '''Extends the AdventurerBeginner method to keep track of whether existing Agents have been dispossessed when placing on a tile'''
-        if tile.agent is None:
+        if self.pirate_token:
+            return False
+        elif isinstance(tile, CityTile):
+            return False
+        elif tile.agent is None:
             return True
         elif tile.agent.is_dispossessed:
 #            #This dispossessed Agent is about to be lost to its pla

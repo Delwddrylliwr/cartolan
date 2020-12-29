@@ -161,25 +161,13 @@ class GameVisualisation():
                             tile_name = str(uc_water)+str(ua_water)+str(dc_water)+str(da_water)+str(wonder)
                             #Rotate the image for different wind directions
                             self.save_tile_rotations(tile_name, tile_image)
-        #rescale the tiles to match the current play area dimensions now, it will only be scaled down and lose more fidelity with subsequent resizing
-        bordered_tile_size = round(self.tile_size * (1 - self.TILE_BORDER))
-        print("Set tile sizes to be " +str(self.tile_size)+ " pixels, and with border: " +str(bordered_tile_size))
-        self.rescale_images(self.tile_image_library, bordered_tile_size)
-#        for tile_type in self.tile_image_library:
-#            tile_image = self.tile_image_library[tile_type]
-#            self.tile_image_library[tile_type] = pygame.transform.scale(tile_image, [bordered_tile_size, bordered_tile_size])
-        
         # import the masks used to highlight movement options
         self.highlight_library = {}
         for highlight_name in self.HIGHLIGHT_PATHS:
             highlight_image = self.HIGHLIGHT_PATHS[highlight_name]
             self.highlight_library[highlight_name] = pygame.image.load(highlight_image)
-        
-        #rescale the tiles to match the current play area dimensions now, it will only be scaled down and lose more fidelity with subsequent resizing
-        self.rescale_images(self.highlight_library, self.tile_size)
-#        for highlight_type in self.highlight_library:
-#            highlight_image = self.highlight_library[highlight_type]
-#            self.highlight_library[highlight_type] = pygame.transform.scale(highlight_image, [self.tile_size, self.tile_size])
+        #adjust the size of the imported images to fit the display size
+        self.rescale_graphics()
 
     def rescale_graphics(self):
         '''Rescales images in response to updated dimensions for the play grid
@@ -199,12 +187,8 @@ class GameVisualisation():
         #the tiles' scale will be slightly smaller than the space in the grid, to givea discernible margin
         bordered_tile_size = round(self.tile_size * (1 - self.TILE_BORDER))
         print("Updated tile size to be " +str(self.tile_size)+ " pixels, and with border: " +str(bordered_tile_size))
-        for tile_type in self.tile_image_library:
-            tile_image = self.tile_image_library[tile_type]
-            self.tile_image_library[tile_type] = pygame.transform.scale(tile_image, [bordered_tile_size, bordered_tile_size])
-        for highlight_type in self.highlight_library:
-            highlight_image = self.highlight_library[highlight_type]
-            self.highlight_library[highlight_type] = pygame.transform.scale(highlight_image, [self.tile_size, self.tile_size])
+        self.rescale_images(self.tile_image_library, bordered_tile_size)
+        self.rescale_images(self.highlight_library, self.tile_size)
     
     def increase_max_longitude(self):
         '''Deprecated to allow legacy PlayerHuman interaction'''
@@ -253,7 +237,21 @@ class GameVisualisation():
             rescale_needed = True
         if rescale_needed:
             self.rescale_graphics()   
-
+    
+    def window_resize(self, resize_event):
+        '''Deals with resizing of the window
+        '''
+        new_width, new_height = resize_event.w, resize_event.h 
+        reload_needed = False
+        if new_width > self.width or new_height > self.height:
+            reload_needed = True
+        self.width, self.height = new_width, new_height
+        pygame.display.set_mode((new_width, new_height), pygame.RESIZABLE)
+        if reload_needed:
+            self.init_graphics()
+        else:
+            self.rescale_graphics()
+            
     def get_horizontal(self, longitude):
         '''Translates a play area horiztonal position into visual grid position
         '''
@@ -562,6 +560,8 @@ class GameVisualisation():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            if event.type == pygame.VIDEORESIZE:
+                self.window_resize(event)
             if event.type == pygame.MOUSEBUTTONDOWN:
                 self.move_timer = self.MOVE_TIME_LIMIT #reset the timelimit on moving
                 longitude = int(math.ceil((event.pos[0])/self.tile_size)) - self.origin[0] - 1
@@ -688,9 +688,15 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             self.get_input_coords()
             self.close()
         #Check whether the player has decided to quit while waiting
-        event_types = [event.type for event in pygame.event.get()]
+        events = pygame.event.get()
+        event_types = [event.type for event in events]
         if pygame.QUIT in event_types:
             self.close()
+        if pygame.VIDEORESIZE in event_types:
+            for event in reversed(events):
+                if event.type == pygame.VIDEORESIZE:
+                    self.window_resize(event)
+
         #Update the display
         pygame.display.flip()
     
@@ -1097,7 +1103,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                 new_latitude = adventurer.current_tile.tile_position.latitude
                 new_wealth = adventurer.wealth
                 new_turns_moved = adventurer.turns_moved
-                if isinstance(self.game, GameRegular):
+                if not isinstance(self.game, GameRegular):
                     new_pirate_token = False
                 else:
                     new_pirate_token = adventurer.pirate_token
@@ -1153,7 +1159,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                 new_longitude = agent.current_tile.tile_position.longitude
                 new_latitude = agent.current_tile.tile_position.latitude
                 new_wealth = agent.wealth
-                if not type(self.game) == GameBeginner:
+                if not isinstance(self.game, GameRegular):
                     new_is_dispossessed = False
                 else:
                     new_is_dispossessed = agent.is_dispossessed
