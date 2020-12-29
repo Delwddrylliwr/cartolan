@@ -491,7 +491,7 @@ class AdventurerBeginner(Adventurer):
     
     def check_tile_available(self, tile):
         '''Checks the conditions for being able to place an Agent on a tile.'''
-        if tile.agent is None:
+        if tile.agent is None and not isinstance(tile, CityTile):
             return True
         else:
             return False

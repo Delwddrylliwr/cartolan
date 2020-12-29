@@ -127,8 +127,11 @@ class PlayerBeginnerExplorer(Player):
                     if adventurer.turns_moved >= adventurer.game.turn:
                         return True
         
-        print("With no suitable moves available, make a random one, to avoid getting stuck in place")
-        return adventurer.move(random.choice(['n','e','s','w']))
+        print("With no suitable moves available, try a random one, to avoid getting stuck in place")
+        if adventurer.move(random.choice(['n','e','s','w'])):
+            return True
+        print("With even the random move failing, just wait in place")
+        return adventurer.wait()
             
     def move_towards_tile(self, adventurer, tile):
         '''A heuristic that moves the Adventurer in the direction that decreases the distance from a given tile, by the maximum, but if unable moves away by the minimum'''
