@@ -1,3 +1,7 @@
+'''
+Creative Commons CC-BY-NC 2020 Tom Wilkinson, delwddrylliwr@gmail.com
+'''
+
 import math
 import pygame
 import sys
@@ -7,6 +11,8 @@ from base import CityTile, TileEdges, WindDirection
 from regular import DisasterTile, AdventurerRegular, AgentRegular
 from game import GameBeginner, GameRegular, GameAdvanced
 from players_human import PlayerHuman
+from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
+from players_heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
 
 class GameVisualisation():
     '''A pygame-based interactive visualisation for games of Cartolan
@@ -636,7 +642,20 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
     draw_play_area
     draw_wealth_scores
     '''
-    GAME_TYPES = {"Beginner":GameBeginner, "Regular":GameRegular, "Advanced":GameAdvanced}
+#    GAME_TYPES = {"Beginner":GameBeginner, "Regular":GameRegular, "Advanced":GameAdvanced}
+    GAME_MODES = { 'Beginner':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeginnerExplorer
+                                                                   , "red":PlayerBeginnerTrader
+                                                                   , "yellow":PlayerBeginnerRouter
+#                                                                    , "green":PlayerBeginnerGenetic
+                                                                      }}
+              , 'Regular':{'game_type':GameRegular, 'player_set':{
+                                                                  "orange":PlayerRegularPirate
+                                                                    , "blue":PlayerRegularExplorer
+                                                                   , "red":PlayerRegularTrader
+                                                                   , "yellow":PlayerRegularRouter
+#                                                                    , "green":PlayerRegularGenetic
+                                                                  }}
+        }
     UPDATE_DELAY = 0.01 #the time in seconds to wait between checking for messages from the server
     
     def __init__(self):
@@ -718,11 +737,15 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         self.local_player_colours = data["local_player_colours"]
         print("Setting up the local version of the game:")
         print(data)
-        game_type = self.GAME_TYPES[data["game_type"]] #needed to identify the class of other elements like Adventurers and Agents
+        game_type = self.GAME_MODES[data["game_type"]]["game_type"] #needed to identify the class of other elements like Adventurers and Agents
         self.players = [] #to capture order of play
         self.player_colours = {} #to access Player objects quickly based on colour
+        self.virtual_players = data["virtual_players"]
         for player_colour in data["player_colours"]:
-            player = PlayerHuman(player_colour)
+            if player_colour in self.virtual_players:
+                player = self.GAME_MODES[data["game_type"]]["player_set"][player_colour](player_colour)
+            else:
+                player = PlayerHuman(player_colour)
             self.players.append(player)
             self.player_colours[player_colour] = player 
         
@@ -794,11 +817,10 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             
             print("Switching to local execution of the game, now it is a local player's turn")
             current_player = self.player_colours[self.current_player_colour]
-#            self.game.adventurers[current_player][self.current_adventurer_number].continue_turn()
-            for adventurer in self.game.adventurers[current_player]:
-                print("Starting the turn for " +current_player.colour+ " Adventurer #" +str(self.game.adventurers[current_player].index(adventurer) + 1))
-                self.current_adventurer_number = self.game.adventurers[current_player].index(adventurer)
-                self.Send({"action":"prompt", "prompt_text":self.current_player_colour +" player is moving their Adventurer #" +str(self.current_adventurer_number+1)})
+            adventurers = self.game.adventurers[current_player]
+            for adventurer in adventurers:
+                print("Starting the turn for " +current_player.colour+ " Adventurer #" +str(adventurers.index(adventurer) + 1))
+                self.Send({"action":"prompt", "prompt_text":self.current_player_colour +" player is moving their Adventurer #" +str(adventurers.index(adventurer)+1)})
                 if adventurer.turns_moved < self.game.turn:
                     current_player.continue_turn(adventurer)
                     print() #to help log readability
@@ -806,15 +828,24 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                     #check whether this adventurer's turn has won them the game
                     if self.game.check_win_conditions():
                         self.game.game_over = True
-                        self.Send({"action":"declare_win", "winning_player_colour":self.current_player_colour})
-                        connection.Pump()
-                        self.Pump()
-                        self.Network_declare_win({"winning_player_colour":self.current_player_colour})
+                        break
             #Make sure visuals are up to date and all changes have been shared to the server
             self.draw_play_area()
+            #for virtual players, share their route
+            if current_player.colour in self.virtual_players:
+                for adventurer in adventurers:
+                    for tile in adventurer.route:
+                        adventurers_routes = [{} for i in range(len(adventurers))] #this adventurer#s moves are shared by their position in a list
+                        adventurers_routes[adventurers.index(adventurer)] = {"longitude":tile.tile_position.longitude, "latitude":tile.tile_position.latitude}
+                        self.Send({"action":"move_tokens", "changes":{"adventurers":{current_player.colour:adventurers_routes}, "agents":{}}})
             self.draw_routes()
             self.draw_tokens()
             self.draw_scores()
+            if self.game.game_over:
+                self.Send({"action":"declare_win", "winning_player_colour":self.current_player_colour})
+                connection.Pump()
+                self.Pump()
+                self.Network_declare_win({"winning_player_colour":self.current_player_colour})
             print("Passing play to the next player")
             if self.players.index(current_player) < len(self.players) - 1:
                 current_player = self.players[self.players.index(current_player) + 1]
@@ -829,6 +860,11 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                 for adventurer in self.game.adventurers[current_player]:
                     adventurer.route = [adventurer.current_tile]
                 self.local_player_turn = False
+            if self.current_player_colour in self.virtual_players:
+                #Reset the route to be visualised for this virtual player
+                current_player = self.player_colours[self.current_player_colour]
+                for adventurer in self.game.adventurers[current_player]:
+                    adventurer.route = [adventurer.current_tile]
             self.Send({"action":"new_turn", "turn":self.game.turn, "current_player_colour":self.current_player_colour})
     
     def Network_close(self, data):

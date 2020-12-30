@@ -1,3 +1,7 @@
+'''
+Creative Commons CC-BY-NC 2020 Tom Wilkinson, delwddrylliwr@gmail.com
+'''
+
 from base import Game, TilePile
 from beginner import AdventurerBeginner, AgentBeginner, CityTileBeginner, WonderTile
 from regular import AdventurerRegular, AgentRegular, CityTileRegular, DisasterTile, CapitalTile, MythicalTile

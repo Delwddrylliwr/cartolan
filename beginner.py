@@ -1,3 +1,7 @@
+'''
+Creative Commons CC-BY-NC 2020 Tom Wilkinson, delwddrylliwr@gmail.com
+'''
+
 from base import Adventurer, Agent, CityTile, Tile, WindDirection, TileEdges
 
 class AdventurerBeginner(Adventurer):

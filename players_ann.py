@@ -1,3 +1,7 @@
+'''
+Creative Commons CC-BY-NC 2020 Tom Wilkinson, delwddrylliwr@gmail.com
+'''
+
 from keras.optimizers import Adam
 import keras
 import random

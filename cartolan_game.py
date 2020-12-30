@@ -1,3 +1,7 @@
+'''
+Creative Commons CC-BY-NC 2020 Tom Wilkinson, delwddrylliwr@gmail.com
+'''
+
 import random
 from game import GameBeginner, GameRegular, GameAdvanced
 from players_human import PlayerHuman
