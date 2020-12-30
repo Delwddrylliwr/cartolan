@@ -1,3 +1,7 @@
+'''
+Creative Commons CC-BY-NC 2020 Tom Wilkinson, delwddrylliwr@gmail.com
+'''
+
 from base import Token, Adventurer, Agent, Tile, WindDirection, TileEdges, CityTile
 from beginner import AdventurerBeginner, AgentBeginner, CityTileBeginner
 

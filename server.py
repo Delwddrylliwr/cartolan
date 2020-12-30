@@ -1,3 +1,7 @@
+'''
+Creative Commons CC-BY-NC 2020 Tom Wilkinson, delwddrylliwr@gmail.com
+'''
+
 import PodSixNet.Channel
 import PodSixNet.Server
 from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter, PlayerRegularPirate, PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter
@@ -148,21 +152,21 @@ class CartolanServer(PodSixNet.Server.Server):
             self.max_players = self.game_modes[game_type]["game_type"].MAX_PLAYERS
             #Get remote user input about how many players they have at their end
             valid_options = [str(i) for i in range(1, self.max_players)]
-            prompt_text = ("Please specify how many players will play from this computer, between 1 and " +str(self.max_players - 1)+ "?")
+            prompt_text = ("Please specify how many players will play from this computer, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
             num_client_players = None
             print("Prompting channel at " +channel.addr[0]+ " with: " +prompt_text)
             channel.Send({"action":"input", "input_prompt":prompt_text, "valid_options":valid_options})
-            while not num_client_players in range(1, self.max_players):
+            while not str(num_client_players) in valid_options:
                 received_input = self.remote_input(channel)
                 if received_input:
                     num_client_players = int(received_input)
-            #Get remote user input about how many computer players they to host
+            #Get remote user input about how many computer players they are to host
             valid_options = [str(i) for i in range(0, self.max_players - num_client_players)]
-            prompt_text = ("Please specify how many computer players will play, between 0 and " +str(self.max_players - num_client_players - 1)+ "?")
+            prompt_text = ("Please specify how many computer players will play, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
             num_virtual_players = None
             print("Prompting channel at " +channel.addr[0]+ " with: " +prompt_text)
             channel.Send({"action":"input", "input_prompt":prompt_text, "valid_options":valid_options})
-            while not num_virtual_players in valid_options:
+            while not str(num_virtual_players) in valid_options:
                 received_input = self.remote_input(channel)
                 if received_input:
                     num_virtual_players = int(received_input)
