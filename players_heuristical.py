@@ -242,6 +242,10 @@ class PlayerBeginnerExplorer(Player):
     def check_buy_adventurer(self, adventurer, report="Player is being asked whether to buy an adventurer"):
         print(report)
         
+        #randomly choose not to hire, regardless of other conditions
+        if random.random() < 0.5:
+            return False
+        
         if self.vault_wealth > adventurer.game.COST_ADVENTURER:
             #Check whether player has won compared to wealthiest opponent 
             wealthiest_opponent_wealth = 0

@@ -248,15 +248,27 @@ class GameVisualisation():
         '''Deals with resizing of the window
         '''
         new_width, new_height = resize_event.w, resize_event.h 
-        reload_needed = False
+        reload_needed = False #keep track of whether graphics are being scaled up, which would need the original PNGs to be reloaded
         if new_width > self.width or new_height > self.height:
             reload_needed = True
         self.width, self.height = new_width, new_height
         pygame.display.set_mode((new_width, new_height), pygame.RESIZABLE)
         if reload_needed:
-            self.init_graphics()
+            self.init_graphics() #reload the PNG images
         else:
             self.rescale_graphics()
+        #Now update text sizes too
+        self.scores_font = pygame.font.SysFont(None, round(self.height * self.SCORES_FONT_SCALE)) #the font size for scores will be proportionate to the window size
+        self.prompt_font = pygame.font.SysFont(None, round(self.height * self.PROMPT_FONT_SCALE)) #the font size for prompt will be proportionate to the window size
+        self.prompt_position = [self.PROMPT_POSITION[0]*self.width, self.PROMPT_POSITION[1]*self.height]
+        pygame.font.init()
+        self.draw_play_area()
+        self.draw_move_options()
+        self.draw_routes()
+        self.draw_tokens()
+        self.draw_scores()
+        pygame.display.flip()
+       
             
     def get_horizontal(self, longitude):
         '''Translates a play area horiztonal position into visual grid position
