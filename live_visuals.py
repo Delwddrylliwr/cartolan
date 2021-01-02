@@ -995,6 +995,11 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                         adventurer.pirate_token = bool(pirate_token)
             agents_data = changes["agents"].get(player_colour)
             if agents_data:
+                #This is hacky, but if an Agent has been lost, after being displaced and replaced by opponents, then the indexing will have changed and the whole Agents vector will be replaced
+                if len(agents_data) < len(self.game.agents[player]):
+                    for agent in self.game.agents[player]:
+                        agent.current_tile.move_off_tile(agent)
+                        self.game.agents[player].remove(agent)
                 for agent_num in range(len(agents_data)):
                     agent_data = agents_data[agent_num]
                     #read location to move to
