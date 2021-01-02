@@ -717,14 +717,17 @@ class CityTileBeginner(CityTile):
         
         self.bank_wealth(adventurer)
         
-        self.buy_adventurers(adventurer)
+        self.game.game_over = self.game.check_win_conditions()
         
-        self.buy_agents(adventurer)
+        if not self.game.game_over:
+            self.buy_adventurers(adventurer)
+            
+            self.buy_agents(adventurer)
         
         #End the Adventurer's turn and reset their moves
         adventurer.end_turn()
         
-        self.game.game_over = self.game.check_win_conditions()
+        
         
         return True
     

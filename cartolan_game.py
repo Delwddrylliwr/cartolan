@@ -157,6 +157,25 @@ class InteractiveGame:
                                      , self.exploration_rules
                                      , self.mythical_city)
         
+        min_longitude, max_longitude = 0, 0
+        min_latitude, max_latitude = 0, 0
+        for longitude in self.game.play_area:
+            if longitude < min_longitude:
+                min_longitude = longitude
+            elif longitude > max_longitude:
+                max_longitude = longitude
+            for latitude in self.game.play_area[longitude]:
+                if latitude < min_latitude:
+                    min_latitude = latitude
+                elif latitude > max_latitude:
+                    max_latitude = latitude
+        self.origin = [-min_longitude + GameVisualisation.DIMENSION_INCREMENT
+                  , -min_latitude + GameVisualisation.DIMENSION_INCREMENT
+                  ]
+        self.dimensions = [max_longitude + self.origin[0] + GameVisualisation.DIMENSION_INCREMENT
+                      , max_latitude + self.origin[1] + GameVisualisation.DIMENSION_INCREMENT
+                      ]
+        
         #visualise this initial setup
 #        self.game_vis = PlayAreaVisualisation(self.game, self.dimensions, self.origin)
         self.game_vis = GameVisualisation(self.game, self.dimensions, self.origin)
@@ -245,9 +264,10 @@ if game_choice == "local":
     num_human_players = 0
     while not num_human_players in range(1, max_players+1):
         num_human_players = int(input("How many human players will take part in this game? Enter a number between 1 and "+str(max_players) +"\n"))
-    num_players = num_human_players
+    num_players = 0
     if num_players < max_players:
         while not num_players in range(min_players, max_players+1):
             num_players = num_human_players + int(input("How many computer players will take part in this game? Enter a number between "+str(min_players - num_human_players)+" and "+str(max_players - num_human_players)+"\n"))
+    client_visual.num_human_players = num_human_players
     client_visual.num_players = num_players
     client_visual.play_game()
