@@ -854,10 +854,10 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             self.draw_tokens()
             self.draw_scores()
             if self.game.game_over:
-                self.Send({"action":"declare_win", "winning_player_colour":self.current_player_colour})
+                self.Send({"action":"declare_win", "winning_player_colour":self.game.winning_player.colour})
                 connection.Pump()
                 self.Pump()
-                self.Network_declare_win({"winning_player_colour":self.current_player_colour})
+                self.Network_declare_win({"winning_player_colour":self.game.winning_player.colour})
             print("Passing play to the next player")
             if self.players.index(current_player) < len(self.players) - 1:
                 current_player = self.players[self.players.index(current_player) + 1]
