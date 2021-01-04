@@ -4,6 +4,7 @@ Creative Commons CC-BY-NC 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 
 import math
 import pygame
+import pygame_menu
 import sys
 from PodSixNet.Connection import ConnectionListener, connection
 from time import sleep
@@ -669,6 +670,8 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                                                                   }}
         }
     UPDATE_DELAY = 0.01 #the time in seconds to wait between checking for messages from the server
+    SERVER_PROMPT = "Hit enter to join the Fry Super Adventurers' Club Server, or type the address of another: "
+    DEFAULT_SERVER = "51.38.83.99", 8000
     
     def __init__(self):
         #Network state data:
@@ -681,10 +684,10 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         #@TODO provide a simple window for exchanges with the server
         
         #Establish connection to the server
-        address = input("Address of Server: ")
+        address = input(self.SERVER_PROMPT)
         try:
             if not address:
-                host, port="localhost", 8000
+                host, port = self.DEFAULT_SERVER
             else:
                 host, port = address.split(":")
             self.Connect((host, int(port)))
@@ -1282,3 +1285,24 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         self.Pump()
         #Now continue with displaying locally
         super().draw_scores()
+
+
+class GameMenu():
+    '''Generates a standalone menu window for parametrising games.
+    '''
+    MENU_SHAPE = 0.5
+    
+    def __init__(self):
+        pygame.init()
+        self.window = pygame.display.set_mode((0, 0), pygame.RESIZABLE)
+        self.width, self.height = pygame.display.get_surface().get_size()
+#        splash_image = pygame.image.load(self.GENERAL_TILE_PATH +'splash_screen.png')
+#        if splash_image.width < self.width:
+#            new_width = self.width
+#            new_height = self.width * splash_image.height / splash_image.width
+#            splash_image = pygame.transform.scale(splash_image, [new_width, new_height])
+        pygame.display.set_caption("Setting up Cartolan - Trade Winds")
+        
+        self.menu = pygame_menu.Menu(self.MENU_SHAPE * self.width
+                                     , self.MENU_SHAPE * self.height, 'Configure game'
+                                     , theme=pygame_menu.themes.THEME_BLUE)
