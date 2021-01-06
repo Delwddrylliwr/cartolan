@@ -9,7 +9,7 @@ import sys
 from PodSixNet.Connection import ConnectionListener, connection
 from time import sleep
 from base import CityTile, TileEdges, WindDirection
-from regular import DisasterTile, AdventurerRegular, AgentRegular
+from regular import DisasterTile, AdventurerRegular, AgentRegular, MythicalTileRegular
 from game import GameBeginner, GameRegular, GameAdvanced
 from players_human import PlayerHuman
 from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
@@ -774,8 +774,9 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             self.shared_scores[player.colour] = 0
         print("Building the tile piles")
         game.setup_tile_pile("water")
-        if not game_type == GameBeginner:
+        if isinstance(game, GameRegular):
             game.setup_tile_pile("land")
+            game.tile_piles["land"].tiles.append(MythicalTileRegular(game))
         print("Placing the initial tiles and adventurers")
         self.Network_place_tiles({"tiles":data["initial_tiles"]})
         #@TODO adapt to use the Network_move_tokens method
@@ -877,7 +878,6 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                 self.local_player_turn = False
             if self.current_player_colour in self.virtual_players:
                 #Reset the route to be visualised for this virtual player
-                current_player = self.player_colours[self.current_player_colour]
                 for adventurer in self.game.adventurers[current_player]:
                     adventurer.route = [adventurer.current_tile]
             self.Send({"action":"new_turn", "turn":self.game.turn, "current_player_colour":self.current_player_colour})
@@ -1058,8 +1058,8 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         self.give_prompt(self.current_player_colour+" won the game")
         self.window.fill(0)
         super().draw_play_area()
-        super().draw_tokens()
         self.draw_routes()
+        super().draw_tokens()
         super().draw_scores()
         self.draw_prompt()
         pygame.display.flip()

@@ -84,7 +84,7 @@ def setup_simulation(players, game_mode, movement_rules, exploration_rules, myth
     if game_mode in [GameRegular, GameAdvanced]:
         game.setup_tile_pile("land")
         if mythical_city:
-            game.tile_piles["land"].tiles.append(game.CITY_TYPE(game, WindDirection(True,True), TileEdges(True,True,True,True), False, True))
+            game.tile_piles["land"].tiles.append(game.CITY_TYPE(game, WindDirection(True,True), TileEdges(False,False,False,False), False, True))
         
     #turn order has been handled by the parent setup
 #     game.players = random.shuffle(game.players)

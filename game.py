@@ -3,8 +3,8 @@ Creative Commons CC-BY-NC 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
 from base import Game, TilePile
-from beginner import AdventurerBeginner, AgentBeginner, CityTileBeginner, WonderTile
-from regular import AdventurerRegular, AgentRegular, CityTileRegular, DisasterTile, CapitalTile, MythicalTile
+from beginner import AdventurerBeginner, AgentBeginner, CityTileBeginner, WonderTile, CapitalTileBeginner
+from regular import AdventurerRegular, AgentRegular, CityTileRegular, DisasterTile, CapitalTileRegular, MythicalTileRegular
 from base import Tile, WindDirection, TileEdges
 import random
 import csv
@@ -24,10 +24,10 @@ class GameBeginner(Game):
     play_round
     check_win_conditions
     '''
-    TILE_FILE = "tile_distribution.csv"
-    FIRST_TILE_FILE_ROWS = {"water":0}
+    TILE_PREFIX = "tile_distribution_"
+    TILE_EXT = ".csv"
     TILE_TYPE_COLS = {"wonder":1}
-    TILE_TYPES = {"plain":Tile, "city":CapitalTile, "wonder":WonderTile}
+    TILE_TYPES = {"plain":Tile, "capital":CapitalTileBeginner, "wonder":WonderTile}
     NUM_TILES = {"water":60}
     
     GAME_WINNING_DIFFERENCE = 15
@@ -48,12 +48,7 @@ class GameBeginner(Game):
     EXPLORATION_ATTEMPTS = 1
     MAX_DOWNWIND_MOVES = 4
     MAX_LAND_MOVES = 2
-    MAX_UPWIND_MOVES = 2  
-    
-#     CITY_DOMAIN_RADIUS = MAX_DOWNWIND_MOVES
-    CITY_DOMAIN_RADIUS = 0
-    MYTHICAL_LATITUDE = 10
-    MYTHICAL_LONGITUDE = 0
+    MAX_UPWIND_MOVES = 2
     
     ADVENTURER_TYPE = AdventurerBeginner
     AGENT_TYPE = AgentBeginner
@@ -90,36 +85,35 @@ class GameBeginner(Game):
         special_distributions = {} # for wonder/disaster
         for tile_type in self.TILE_TYPE_COLS:
             special_distributions[tile_type] = []
-    
-        with open(self.TILE_FILE) as csvfile:
+        
+        tile_filename = self.TILE_PREFIX + tile_back + self.TILE_EXT
+        with open(tile_filename) as csvfile:
             readCSV = csv.reader(csvfile)
             for row in readCSV:
                 total_distribution.append(int(row[0]))
                 for tile_type in self.TILE_TYPE_COLS:
                     special_distributions[tile_type].append(int(row[self.TILE_TYPE_COLS[tile_type]]))
         
-        #construct the water tile deck
-        row_count = self.FIRST_TILE_FILE_ROWS.get(tile_back)
-        if row_count is None:
-            raise Exception("Invalid tile back specified")
+        #construct the tile deck
+        row_count = 0
         tiles = []
         for uc_water in [True, False]:
             for ua_water in [True, False]:
                 for dc_water in [True, False]:
                     for da_water in [True, False]:
-                        if uc_water or ua_water:
-                            special_tile_num = 0
-                            for tile_type in special_distributions:
-                                for tile_num in range(0, int(special_distributions[tile_type][row_count])):
-                                    wind_direction = WindDirection(north = True, east = True)
-                                    tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-                                    tiles.append(self.TILE_TYPES[tile_type](self, tile_back, wind_direction, tile_edges))
-                                    special_tile_num += 1
-                            for tile_num in range(0, int(total_distribution[row_count]) - special_tile_num):
+                        #for this combination of tile edges create tiles of each special type and plain ones
+                        special_tile_num = 0
+                        for tile_type in special_distributions:
+                            for tile_num in range(0, int(special_distributions[tile_type][row_count])):
                                 wind_direction = WindDirection(north = True, east = True)
                                 tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
-                                tiles.append(Tile(self, tile_back, wind_direction, tile_edges, False))
-                            row_count += 1
+                                tiles.append(self.TILE_TYPES[tile_type](self, tile_back, wind_direction, tile_edges))
+                                special_tile_num += 1
+                        for tile_num in range(0, int(total_distribution[row_count]) - special_tile_num):
+                            wind_direction = WindDirection(north = True, east = True)
+                            tile_edges = TileEdges(uc_water, ua_water, dc_water, da_water)
+                            tiles.append(Tile(self, tile_back, wind_direction, tile_edges, False))
+                        row_count += 1
         
         #draw a suitable number of tiles from the deck for a pile
     #     num_tiles = len(players)*game.WATER_TILES_PER_PLAYER
@@ -257,9 +251,8 @@ class GameRegular(GameBeginner):
     __init__ takes a List of Cartolan.Player objects and two Strings
     check_win_conditions
     '''
-    FIRST_TILE_FILE_ROWS = {"water":0, "land":12}
     TILE_TYPE_COLS = {"wonder":1, "disaster":2}
-    TILE_TYPES = {"plain":Tile, "capital":CapitalTile, "mythical":MythicalTile, "wonder":WonderTile, "disaster":DisasterTile}
+    TILE_TYPES = {"plain":Tile, "capital":CapitalTileRegular, "mythical":MythicalTileRegular, "wonder":WonderTile, "disaster":DisasterTile}
     NUM_TILES = {"water":60, "land":40}
 
     VALUE_DISCOVER_WONDER = {"water":1, "land":1}

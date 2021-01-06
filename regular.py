@@ -355,14 +355,14 @@ class DisasterTile(Tile):
             self.dropped_wealth += adventurer.wealth
             adventurer.end_expedition()
 
-class CapitalTile(CityTileRegular):
+class CapitalTileRegular(CityTileRegular):
     def __init__(self, game, tile_back = "water"
                  , wind_direction = WindDirection(True,True)
                  , tile_edges = TileEdges(True,True,True,True)):
         super().__init__(game, wind_direction, tile_edges, True, True)
 
-class MythicalTile(CityTileBeginner):
-    def __init__(self, game, tile_back = "water"
+class MythicalTileRegular(CityTileRegular):
+    def __init__(self, game, tile_back = "land"
                  , wind_direction = WindDirection(True,True)
-                 , tile_edges = TileEdges(True,True,True,True)):
+                 , tile_edges = TileEdges(False,False,False,False)):
         super().__init__(game, wind_direction, tile_edges, False, True)

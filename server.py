@@ -148,8 +148,8 @@ class CartolanServer(PodSixNet.Server.Server):
             channel.Send({"action":"input", "input_prompt":prompt_text, "valid_options":valid_options})
             while not self.next_game_type in valid_options:
                 self.next_game_type = self.remote_input(channel)
-            self.min_players = self.game_modes[game_type]["game_type"].MIN_PLAYERS
-            self.max_players = self.game_modes[game_type]["game_type"].MAX_PLAYERS
+            self.min_players = self.game_modes[self.next_game_type]["game_type"].MIN_PLAYERS
+            self.max_players = self.game_modes[self.next_game_type]["game_type"].MAX_PLAYERS
             #Get remote user input about how many players they have at their end
             valid_options = [str(i) for i in range(1, self.max_players)]
             prompt_text = ("Please specify how many players will play from this computer, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
@@ -182,7 +182,7 @@ class CartolanServer(PodSixNet.Server.Server):
                     num_players = num_client_players + num_virtual_players + int(received_input)
             self.next_num_players = num_players
             #randomly choose/order the player colours to fit this number, then assign a suitable number to this channel
-            self.next_player_colours = random.sample(self.game_modes[game_type]["player_set"].keys(), self.next_num_players)
+            self.next_player_colours = random.sample(self.game_modes[self.next_game_type]["player_set"].keys(), self.next_num_players)
             self.channel_players[channel] = []
             for player_num in range(num_client_players):
                 player_colour = self.next_player_colours[player_num]
