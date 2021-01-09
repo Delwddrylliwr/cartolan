@@ -33,7 +33,7 @@ class GameBeginner(Game):
     GAME_WINNING_DIFFERENCE = 15
     
     MAX_ADVENTURERS = 3
-    MAX_AGENTS = 5
+    MAX_AGENTS = 4
     
     VALUE_DISCOVER_WONDER = {"water":0}
     VALUE_TRADE = 1
