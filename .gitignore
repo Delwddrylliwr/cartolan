@@ -1,5 +1,11 @@
+# Security files
 client_secret.json
+
+# Byte-compiled / optimized / DLL files
+__pycache__/*
 *.pyc
+
+# Deployment
 logs/*.txt
 dist/*
 build/*

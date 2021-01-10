@@ -8,6 +8,7 @@ from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, Pl
 from game import GameBeginner, GameRegular
 from time import sleep
 import random
+import sys
 
 DEFAULT_DIMENSIONS = [20, 10]
 DEFAULT_ORIGIN = [9, 4]
@@ -300,11 +301,15 @@ class CartolanServer(PodSixNet.Server.Server):
         self.Pump()
                                 
         
-print("STARTING SERVER ON LOCALHOST")
-#Establish connection to the server
-address = input("Address of Server: ")
+#Establish connection to the server, first seeking it from command line arguments, then user input, then defaulting to localhost
+if len(sys.argv) > 1:
+    print("Server address taken to be "+sys.argv[1])
+    address = sys.argv[1]
+else:
+    address = input("Address of Server: ")
 try:
     if not address:
+        print("STARTING SERVER ON LOCALHOST")
         host, port="localhost", 8000
     else:
         host, port = address.split(":")
