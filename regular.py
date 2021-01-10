@@ -136,7 +136,8 @@ class AdventurerRegular(AdventurerBeginner):
     def discover(self, tile):
         #check whether this is a discovered city and don't offer the usual
         if isinstance(self.current_tile, CityTile):
-            self.current_tile.visit_city
+            self.current_tile.is_discovered = True
+            self.current_tile.visit_city(self)
             return True
         else:
             super().discover(tile)
@@ -365,4 +366,4 @@ class MythicalTileRegular(CityTileRegular):
     def __init__(self, game, tile_back = "land"
                  , wind_direction = WindDirection(True,True)
                  , tile_edges = TileEdges(False,False,False,False)):
-        super().__init__(game, wind_direction, tile_edges, False, True)
+        super().__init__(game, wind_direction, tile_edges, False, False)

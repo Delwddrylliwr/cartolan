@@ -727,8 +727,6 @@ class CityTileBeginner(CityTile):
         #End the Adventurer's turn and reset their moves
         adventurer.end_turn()
         
-        
-        
         return True
     
     
