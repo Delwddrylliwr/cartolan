@@ -96,6 +96,7 @@ class ClientChannel(PodSixNet.Channel.Channel):
 #        '''
 #        self._server.close()
 
+#@TODO send logs to file
 class CartolanServer(PodSixNet.Server.Server):
     '''A pygame-based server hosting a game and communicating with client visuals.
     
