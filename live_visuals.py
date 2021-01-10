@@ -4,7 +4,7 @@ Creative Commons CC-BY-NC 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 
 import math
 import pygame
-#import pygame_menu
+import pygame_menu
 import sys
 from PodSixNet.Connection import ConnectionListener, connection
 from time import sleep
@@ -1287,22 +1287,22 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         super().draw_scores()
 
 
-#class GameMenu():
-#    '''Generates a standalone menu window for parametrising games.
-#    '''
-#    MENU_SHAPE = 0.5
-#    
-#    def __init__(self):
-#        pygame.init()
-#        self.window = pygame.display.set_mode((0, 0), pygame.RESIZABLE)
-#        self.width, self.height = pygame.display.get_surface().get_size()
-##        splash_image = pygame.image.load(self.GENERAL_TILE_PATH +'splash_screen.png')
-##        if splash_image.width < self.width:
-##            new_width = self.width
-##            new_height = self.width * splash_image.height / splash_image.width
-##            splash_image = pygame.transform.scale(splash_image, [new_width, new_height])
-#        pygame.display.set_caption("Setting up Cartolan - Trade Winds")
-#        
-#        self.menu = pygame_menu.Menu(self.MENU_SHAPE * self.width
-#                                     , self.MENU_SHAPE * self.height, 'Configure game'
-#                                     , theme=pygame_menu.themes.THEME_BLUE)
+class GameMenu():
+    '''Generates a standalone menu window for parametrising games.
+    '''
+    MENU_SHAPE = 0.5
+    
+    def __init__(self):
+        pygame.init()
+        self.window = pygame.display.set_mode((0, 0), pygame.RESIZABLE)
+        self.width, self.height = pygame.display.get_surface().get_size()
+#        splash_image = pygame.image.load(self.GENERAL_TILE_PATH +'splash_screen.png')
+#        if splash_image.width < self.width:
+#            new_width = self.width
+#            new_height = self.width * splash_image.height / splash_image.width
+#            splash_image = pygame.transform.scale(splash_image, [new_width, new_height])
+        pygame.display.set_caption("Setting up Cartolan - Trade Winds")
+        
+        self.menu = pygame_menu.Menu(self.MENU_SHAPE * self.width
+                                     , self.MENU_SHAPE * self.height, 'Configure game'
+                                     , theme=pygame_menu.themes.THEME_BLUE)
