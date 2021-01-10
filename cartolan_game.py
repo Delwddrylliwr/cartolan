@@ -264,10 +264,12 @@ if game_choice == "local":
     num_human_players = 0
     while not num_human_players in range(1, max_players+1):
         num_human_players = int(input("How many human players will take part in this game? Enter a number between 1 and "+str(max_players) +"\n"))
-    num_players = num_human_players
-    if num_players < max_players:
+    if num_human_players < max_players:
+        num_players = 0
         while not num_players in range(min_players, max_players+1):
             num_players = num_human_players + int(input("How many computer players will take part in this game? Enter a number between 0 and "+str(max_players - num_human_players)+"\n"))
+    else:
+        num_players = num_human_players
     client_visual.num_human_players = num_human_players
     client_visual.num_players = num_players
     client_visual.play_game()
