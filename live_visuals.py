@@ -32,6 +32,8 @@ class GameVisualisation():
     AGENT_OFFSET = [0.5, 0.5] #the placement of agents on the tile, the same for all players and agents, because there will only be one per tile
     ADVENTURER_OFFSETS = [[0.0, 0.0], [0.1, -0.1], [-0.1, 0.1], [-0.1, -0.1], [0.1, 0.1]] #the offset to differentiate multiple adventurers on the same tile
     DIMENSION_INCREMENT = 2 #the number of tiles by which the play area is extended when methods are called
+    BACKGROUND_COLOUR = (38,50,66)
+    PLAIN_TEXT_COLOUR = (255,255,255)
     TILE_BORDER = 0.02 #the share of grid width/height that is used for border
     TOKEN_SCALE = 0.2 #relative to tile sizes
     TOKEN_OUTLINE_SCALE = 0.25 #relative to token scale
@@ -70,7 +72,7 @@ class GameVisualisation():
         pygame.init()
         self.window = pygame.display.set_mode((0, 0), pygame.RESIZABLE)
         self.width, self.height = pygame.display.get_surface().get_size()
-        self.window.fill((255,255,255)) #fill the screen with white
+        self.window.fill(self.BACKGROUND_COLOUR) #fill the screen with white
 #        self.window.fill(0) #fill the screen with black
 #        self.backing_image = pygame.transform.scale(pygame.image.load('./images/cartolan_backing.png'), [self.width, self.height])
 #        self.window.blit(self.backing_image, [0,0])
@@ -289,7 +291,7 @@ class GameVisualisation():
         #Check whether the visuals need to be rescaled
         self.is_rescale_needed()
         #Clear what's already been drawn
-        self.window.fill((255,255,255))
+        self.window.fill(self.BACKGROUND_COLOUR)
 #        self.window.fill(0)
 #        self.window.blit(self.backing_image, [0,0])
         #For each location in the play area draw the tile
@@ -372,7 +374,7 @@ class GameVisualisation():
                     self.window.blit(highlight_image, [horizontal*self.tile_size, vertical*self.tile_size])
         #Report the number of moves that have been used so far:
         if moves_since_rest:
-            move_count = self.scores_font.render(str(moves_since_rest)+" moves since rest", 1, (0,0,0))
+            move_count = self.scores_font.render(str(moves_since_rest)+" moves since rest", 1, self.PLAIN_TEXT_COLOUR)
             move_count_position = [self.MOVE_COUNT_POSITION[0] * self.width, self.MOVE_COUNT_POSITION[1] * self.height]
             self.window.blit(move_count, move_count_position)
         
@@ -431,7 +433,7 @@ class GameVisualisation():
 #                        print("Drawing an outline")
                         pygame.draw.circle(self.window, (0, 0, 0), location, self.token_size, self.outline_width)
                 #For the text label we'll change the indent 
-                token_label = self.token_font.render(str(adventurers.index(adventurer)+1), 1, (0,0,0))
+                token_label = self.token_font.render(str(adventurers.index(adventurer)+1), 1, self.PLAIN_TEXT_COLOUR)
                 location[0] -= self.token_size // 2
                 location[1] -= self.token_size
                 self.window.blit(token_label, location)
@@ -452,7 +454,7 @@ class GameVisualisation():
                 else:
                     #for a filled rectangle the fill method could be quicker: https://www.pygame.org/docs/ref/draw.html#pygame.draw.rect
                     self.window.fill(colour, rect=agent_shape)
-                token_label = self.token_font.render(str(agent.wealth), 1, (0,0,0))
+                token_label = self.token_font.render(str(agent.wealth), 1, self.PLAIN_TEXT_COLOUR)
                 location[0] += self.token_size // 2
                 self.window.blit(token_label, location)
         return True
@@ -509,7 +511,7 @@ class GameVisualisation():
 #        print("Creating a table of the wealth held by Players and their Adventurers")
         #Draw the column headings
         game = self.game
-        score_title = self.scores_font.render("Vault", 1, (0,0,0))
+        score_title = self.scores_font.render("Vault", 1, self.PLAIN_TEXT_COLOUR)
         scores_position = [self.SCORES_POSITION[0] * self.width, self.SCORES_POSITION[1] * self.height]
         self.window.blit(score_title, scores_position)
         #Work out the maximum number of Adventurers in play, to only draw this many columns
@@ -518,7 +520,7 @@ class GameVisualisation():
             if len(game.adventurers[player]) > max_num_adventurers:
                 max_num_adventurers = len(game.adventurers[player])
         for adventurer_num in range(1, max_num_adventurers + 1):
-                score_title = self.scores_font.render("Chest #"+str(adventurer_num), 1, (0,0,0))
+                score_title = self.scores_font.render("Chest #"+str(adventurer_num), 1, self.PLAIN_TEXT_COLOUR)
                 scores_position[0] += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width
                 self.window.blit(score_title, scores_position)
         for player in self.players:
@@ -710,7 +712,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         connection.Pump()
         self.Pump()
         #clear the window and redraw everything (using super methods to avoid trying to update the server when it was the one to pass info)
-        self.window.fill(0)
+        self.window.fill(self.BACKGROUND_COLOUR)
         super().draw_play_area()
         super().draw_tokens()
         self.draw_routes()
@@ -1056,7 +1058,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         '''
         self.current_player_colour = data["winning_player_colour"]
         self.give_prompt(self.current_player_colour+" won the game")
-        self.window.fill(0)
+        self.window.fill(self.BACKGROUND_COLOUR)
         super().draw_play_area()
         self.draw_routes()
         super().draw_tokens()
