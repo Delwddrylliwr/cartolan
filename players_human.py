@@ -524,3 +524,46 @@ class PlayerHuman(Player):
             return True
         else:
             return False
+        
+    # if half Disaster tile dropped wealth exceeds own wealth then try to collect it
+    def check_court_disaster(self, adventurer, disaster_tile):
+        game = adventurer.game
+        game_vis = self.games[game.game_id]["game_vis"]
+        
+        attack_coords = [[adventurer.current_tile.tile_position.longitude
+                    , adventurer.current_tile.tile_position.latitude]]
+
+        #make sure that tiles and token positions are up to date
+        # current_tile_position = adventurer.current_tile.tile_position
+        # new_play_area = {current_tile_position.longitude:{current_tile_position.latitude:adventurer.current_tile}}
+#             game_vis.draw_play_area(adventurer.game.play_area, new_play_area)
+        game_vis.draw_play_area()
+        game_vis.draw_tokens()
+        game_vis.draw_scores()
+        
+        #highlight the tile where the agent can be placed
+        print("Highlighting the Disaster tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
+              +" can choose to court disaster")
+        moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
+        game_vis.draw_move_options(moves_since_rest, attack_coords=attack_coords)
+
+        #prompt the player to input
+        print("Prompting the "+self.colour+" player for input")
+#            game_vis.clear_prompt()
+        game_vis.give_prompt("If you want your pirate Adventurer to try and recover "+str(disaster_tile.dropped_wealth // 2)
+                        +" from the tile then click it, otherwise click elsewhere.")
+        
+        recruit = False
+        move_coords = game_vis.get_input_coords(adventurer)
+        if move_coords in attack_coords:
+            print(self.colour+" player chose the coordinates of the tile where their Adventurer can recruit.")
+            recruit = True
+        else:
+            print(self.colour+" player chose coordinates away from the tile where their Adventurer can recruit.")
+            recruit = False
+
+        #clean up the highlights
+        game_vis.clear_move_options()
+        game_vis.clear_prompt()
+#             game_vis.draw_tokens()
+        return recruit
