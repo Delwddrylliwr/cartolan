@@ -270,6 +270,7 @@ class GameVisualisation():
         self.draw_routes()
         self.draw_tokens()
         self.draw_scores()
+        self.draw_prompt()
         pygame.display.flip()
        
             
