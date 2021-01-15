@@ -242,7 +242,7 @@ class AdventurerRegular(AdventurerBeginner):
         self.latest_city.move_onto_tile(self)
         self.wonders_visited = [] #reset the list of where trade can happen
         #End the Adventurer's turn so that movement resets
-        self.end_turn()
+#        self.end_turn()
     
     def check_tile_available(self, tile):
         '''Extends the AdventurerBeginner method to keep track of whether existing Agents have been dispossessed when placing on a tile'''
