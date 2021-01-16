@@ -4,7 +4,7 @@ Creative Commons CC-BY-NC 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 
 import math
 import pygame
-import pygame_menu
+#import pygame_menu
 import sys
 from PodSixNet.Connection import ConnectionListener, connection
 from time import sleep
@@ -331,7 +331,7 @@ class GameVisualisation():
         return True
     
     #@TODO highlight the particular token(s) that an action relates to
-    #@TODO display the number of moves since resting
+    #display the number of moves since resting
     def draw_move_options(self, moves_since_rest=None, valid_coords=None, invalid_coords=None, chance_coords=None
                           , buy_coords=None, attack_coords=None, rest_coords=None):
         '''Outlines tiles where moves or actions are possible, designated by colour
@@ -604,22 +604,7 @@ class GameVisualisation():
 #       #Otherwise wait for suitable input
         
         #update the window
-        #@TODO at the point of seeking player input for an Adventurer for the first time this turn, clear its route history
-        
-        #Get mouse input and translate this into tile coordinates
-         #@TODO On hover highlight potential placements and place tiles, in response to mouse position and clicks
-#        try: 
-#            if not board[ypos][xpos]: self.window.blit(self.hoverlineh if is_horizontal else self.hoverlinev, [xpos*64+5 if is_horizontal else xpos*64, ypos*64 if is_horizontal else ypos*64+5])
-#        except:
-#            isoutofbounds=True
-#            pass
-#        if not isoutofbounds:
-#            alreadyplaced=board[ypos][xpos]
-#        else:
-#            alreadyplaced=False
-        
-#            else:
-                #@TODO play a sound prompt that this has been an invalid click
+        #at the point of seeking player input for an Adventurer for the first time this turn, clear its route history
         
         #@TODO alternatively, take keyboard input from the cursor keys and Enter key
         
@@ -905,6 +890,11 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         print("Server has relayed that it is now the "+self.current_player_colour+" player's turn "+str(self.game.turn))
         if self.current_player_colour in self.local_player_colours:
             self.local_player_turn = True
+            if self.current_player_colour in self.virtual_players:
+                #Reset the route to be visualised for this virtual player
+                current_player = self.player_colours[self.current_player_colour]
+                for adventurer in self.game.adventurers[current_player]:
+                    adventurer.route = [adventurer.current_tile]
         else:
             #Reset the route to be visualised for this non-local player
             current_player = self.player_colours[self.current_player_colour]
@@ -1156,7 +1146,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             adventurers_changes_json = []
             exist_token_changes = False
             for adventurer in adventurers:
-                #@TODO make sure that the turns moved are shared for new adventurers
+                #make sure that the turns moved are shared for new adventurers
                 #serialise the current data for record and comparison
                 new_longitude = adventurer.current_tile.tile_position.longitude
                 new_latitude = adventurer.current_tile.tile_position.latitude
@@ -1290,22 +1280,22 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         super().draw_scores()
 
 
-class GameMenu():
-    '''Generates a standalone menu window for parametrising games.
-    '''
-    MENU_SHAPE = 0.5
-    
-    def __init__(self):
-        pygame.init()
-        self.window = pygame.display.set_mode((0, 0), pygame.RESIZABLE)
-        pygame.display.set_caption("Setting up Cartolan - Trade Winds")
-        self.width, self.height = pygame.display.get_surface().get_size()
-#        splash_image = pygame.image.load(self.GENERAL_TILE_PATH +'splash_screen.png')
-#        if splash_image.width < self.width:
-#            new_width = self.width
-#            new_height = self.width * splash_image.height / splash_image.width
-#            splash_image = pygame.transform.scale(splash_image, [new_width, new_height])
-                
-        self.menu = pygame_menu.Menu(self.MENU_SHAPE * self.width
-                                     , self.MENU_SHAPE * self.height, 'Configure game'
-                                     , theme=pygame_menu.themes.THEME_BLUE)
+#class GameMenu():
+#    '''Generates a standalone menu window for parametrising games.
+#    '''
+#    MENU_SHAPE = 0.5
+#    
+#    def __init__(self):
+#        pygame.init()
+#        self.window = pygame.display.set_mode((0, 0), pygame.RESIZABLE)
+#        pygame.display.set_caption("Setting up Cartolan - Trade Winds")
+#        self.width, self.height = pygame.display.get_surface().get_size()
+##        splash_image = pygame.image.load(self.GENERAL_TILE_PATH +'splash_screen.png')
+##        if splash_image.width < self.width:
+##            new_width = self.width
+##            new_height = self.width * splash_image.height / splash_image.width
+##            splash_image = pygame.transform.scale(splash_image, [new_width, new_height])
+#                
+#        self.menu = pygame_menu.Menu(self.MENU_SHAPE * self.width
+#                                     , self.MENU_SHAPE * self.height, 'Configure game'
+#                                     , theme=pygame_menu.themes.THEME_BLUE)

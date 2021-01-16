@@ -185,6 +185,7 @@ class PlayerHuman(Player):
         
         #make sure that tiles and token positions are up to date
         game_vis.draw_play_area()
+        game_vis.draw_routes()
         game_vis.draw_tokens()
         game_vis.draw_scores()
         
@@ -252,6 +253,7 @@ class PlayerHuman(Player):
 
             #make sure that tiles and token positions are up to date
             game_vis.draw_play_area()
+            game_vis.draw_routes()
             game_vis.draw_tokens()
             game_vis.draw_scores()
             
@@ -299,6 +301,7 @@ class PlayerHuman(Player):
             # new_play_area = {current_tile_position.longitude:{current_tile_position.latitude:adventurer.current_tile}}
 #             game_vis.draw_play_area(adventurer.game.play_area, new_play_area)
             game_vis.draw_play_area()
+            game_vis.draw_routes()
             game_vis.draw_tokens()
             game_vis.draw_scores()
             
@@ -362,6 +365,7 @@ class PlayerHuman(Player):
             
             #make sure that tiles and token positions are up to date
             game_vis.draw_play_area()
+            game_vis.draw_routes()
             game_vis.draw_tokens()
             game_vis.draw_scores()
             
@@ -405,6 +409,7 @@ class PlayerHuman(Player):
 
         #make sure that tiles and token positions are up to date
         game_vis.draw_play_area()
+        game_vis.draw_routes()
         game_vis.draw_tokens()
         game_vis.draw_scores()
 
@@ -445,6 +450,7 @@ class PlayerHuman(Player):
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
         game_vis.draw_play_area()
+        game_vis.draw_routes()
         game_vis.draw_tokens()
         game_vis.draw_scores()
             
@@ -486,6 +492,7 @@ class PlayerHuman(Player):
 
         #make sure that tiles and token positions are up to date
         game_vis.draw_play_area()
+        game_vis.draw_routes()
         game_vis.draw_tokens()
         game_vis.draw_scores()
             
@@ -538,6 +545,7 @@ class PlayerHuman(Player):
         # new_play_area = {current_tile_position.longitude:{current_tile_position.latitude:adventurer.current_tile}}
 #             game_vis.draw_play_area(adventurer.game.play_area, new_play_area)
         game_vis.draw_play_area()
+        game_vis.draw_routes()
         game_vis.draw_tokens()
         game_vis.draw_scores()
         
