@@ -97,8 +97,9 @@ class GameVisualisation():
         self.clock = pygame.time.Clock()
         self.move_timer = self.MOVE_TIME_LIMIT
         self.current_player_colour = "black"
-        self.current_adventurer_number = 1
+        self.current_adventurer_number = 0
         self.highlights = {"move":[], "invalid":[], "buy":[], "attack":[]}
+        self.current_move_count = None
         
     #    def init_sound(self):
 #        '''Imports sounds to accompany play
@@ -669,6 +670,8 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         self.shared_play_area = {}
         self.shared_tokens = {"adventurers":{}, "agents":{}}
         self.shared_scores = {}
+        self.shared_move_count = None
+        self.moves_since_rest = None
         #@TODO provide a simple window for exchanges with the server
         
         #Establish connection to the server
@@ -704,6 +707,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         self.draw_routes()
         super().draw_scores()
         self.draw_prompt()
+        self.draw_move_options(moves_since_rest=self.moves_since_rest)
         #If the game has ended then stop player input and refreshing
         if self.game.game_over:
             self.game_vis.give_prompt(self.game.winning_player.colour+" player won the game (click to close)")
@@ -1034,6 +1038,11 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         '''
         self.prompt_text = data["prompt_text"]
     
+    def Network_update_move_count(self, data):
+        '''Receives updates to the move count of the active remote player
+        '''
+        self.moves_since_rest = data["move_count"]
+    
     def Network_update_scores(self, data):
         '''Recieves updates to the players' Vault wealth from remote players, via the server
         '''
@@ -1256,6 +1265,22 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         self.Pump()
         #Now continue with displaying locally
         super().draw_tokens()
+    
+    def draw_move_options(self, moves_since_rest=None, valid_coords=None, invalid_coords=None, chance_coords=None
+                          , buy_coords=None, attack_coords=None, rest_coords=None):
+        '''Passes changes in the number of remaining moves to the server
+        '''
+        #print("Comparing the last reported move count with the current move count")
+        if not moves_since_rest == self.shared_move_count:
+            self.Send({"action":"update_move_count", "move_count":moves_since_rest})
+            self.shared_move_count = moves_since_rest
+        #Process any messages to the server
+        connection.Pump()
+        self.Pump()
+        #Now continue with displaying locally
+        super().draw_move_options(moves_since_rest, valid_coords, invalid_coords, chance_coords
+                          , buy_coords, attack_coords, rest_coords)
+        
     
     def draw_scores(self):
         '''Passes changed scores to the server, before drawing a table locally

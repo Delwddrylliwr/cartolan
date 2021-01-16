@@ -66,6 +66,11 @@ class ClientChannel(PodSixNet.Channel.Channel):
         '''Relays "update_scores" messages from the current host to client games
         '''
         self._server.relay_data(self, data)
+        
+    def Network_update_move_count(self, data):
+        '''Relays "update_scores" messages from the current host to client games
+        '''
+        self._server.relay_data(self, data)
     
     def Network_prompt(self, data):
         '''Relays "move_tokens" messages from the current host to client games
