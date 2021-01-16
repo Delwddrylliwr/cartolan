@@ -670,6 +670,8 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         self.shared_play_area = {}
         self.shared_tokens = {"adventurers":{}, "agents":{}}
         self.shared_scores = {}
+        self.shared_move_count = None
+        self.moves_since_rest = None
         #@TODO provide a simple window for exchanges with the server
         
         #Establish connection to the server
@@ -705,7 +707,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         self.draw_routes()
         super().draw_scores()
         self.draw_prompt()
-        self.draw_move_options(moves_since_rest=)
+        self.draw_move_options(moves_since_rest=self.moves_since_rest)
         #If the game has ended then stop player input and refreshing
         if self.game.game_over:
             self.game_vis.give_prompt(self.game.winning_player.colour+" player won the game (click to close)")
@@ -987,16 +989,6 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                     turns_moved = adventurer_data.get("turns_moved")
                     if not turns_moved is None:
                         adventurer.turns_moved = int(turns_moved)
-                    #check whether any moves have also changed
-                    downwind_moves = adventurer_data.get("downwind_moves")
-                    if not downwind_moves is None:
-                        adventurer.downwind_moves = int(downwind_moves)
-                    upwind_moves = adventurer_data.get("upwind_moves")
-                    if not upwind_moves is None:
-                        adventurer.upwind_moves = int(upwind_moves)
-                    land_moves = adventurer_data.get("land_moves")
-                    if not land_moves is None:
-                        adventurer.land_moves = int(land_moves)
                     #check whether pirate token has also changed
                     pirate_token = adventurer_data.get("pirate_token")
                     if pirate_token is not None and isinstance(self.game, GameRegular):
@@ -1045,6 +1037,11 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         '''Receives prompt information from the server.
         '''
         self.prompt_text = data["prompt_text"]
+    
+    def Network_update_move_count(self, data):
+        '''Receives updates to the move count of the active remote player
+        '''
+        self.moves_since_rest = data["move_count"]
     
     def Network_update_scores(self, data):
         '''Recieves updates to the players' Vault wealth from remote players, via the server
@@ -1164,9 +1161,6 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                 new_latitude = adventurer.current_tile.tile_position.latitude
                 new_wealth = adventurer.wealth
                 new_turns_moved = adventurer.turns_moved
-                new_downwind_moves = adventurer.downwind_moves
-                new_upwind_moves = adventurer.upwind_moves
-                new_land_moves = adventurer.land_moves
                 if not isinstance(self.game, GameRegular):
                     new_pirate_token = False
                 else:
@@ -1175,9 +1169,6 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                                    , "latitude":new_latitude
                                    , "wealth":new_wealth
                                    , "turns_moved":new_turns_moved
-                                   , "downwind_moves":new_downwind_moves
-                                   , "upwind_moves":new_upwind_moves
-                                   , "land_moves":new_land_moves
                                    , "pirate_token":new_pirate_token
                                    }
                 adventurers_json.append(adventurer_data)                    
@@ -1201,18 +1192,6 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                     old_turns_moved = int(old_adventurer_data["turns_moved"])
                     if not (new_turns_moved == old_turns_moved):
                         adventurer_changes_data["turns_moved"] = new_turns_moved
-                        exist_token_changes = True
-                    old_downwind_moves = int(old_adventurer_data["downwind_moves"])
-                    if not (new_downwind_moves == old_downwind_moves):
-                        adventurer_changes_data["downwind_moves"] = new_downwind_moves
-                        exist_token_changes = True
-                    old_upwind_moves = int(old_adventurer_data["upwind_moves"])
-                    if not (new_upwind_moves == old_upwind_moves):
-                        adventurer_changes_data["upwind_moves"] = new_upwind_moves
-                        exist_token_changes = True
-                    old_land_moves = int(old_adventurer_data["land_moves"])
-                    if not (new_land_moves == old_land_moves):
-                        adventurer_changes_data["land_moves"] = new_land_moves
                         exist_token_changes = True
                     old_pirate_token = int(old_adventurer_data["pirate_token"])
                     if not (new_pirate_token == old_pirate_token):
@@ -1286,6 +1265,22 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         self.Pump()
         #Now continue with displaying locally
         super().draw_tokens()
+    
+    def draw_move_options(self, moves_since_rest=None, valid_coords=None, invalid_coords=None, chance_coords=None
+                          , buy_coords=None, attack_coords=None, rest_coords=None):
+        '''Passes changes in the number of remaining moves to the server
+        '''
+        #print("Comparing the last reported move count with the current move count")
+        if not moves_since_rest == self.shared_move_count:
+            self.Send({"action":"update_move_count", "move_count":moves_since_rest})
+            self.shared_move_count = moves_since_rest
+        #Process any messages to the server
+        connection.Pump()
+        self.Pump()
+        #Now continue with displaying locally
+        super().draw_move_options(moves_since_rest, valid_coords, invalid_coords, chance_coords
+                          , buy_coords, attack_coords, rest_coords)
+        
     
     def draw_scores(self):
         '''Passes changed scores to the server, before drawing a table locally
