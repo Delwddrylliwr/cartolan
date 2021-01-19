@@ -943,10 +943,13 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                 tile_removed = False
                 tile_pile = self.game.tile_piles[tile_back]
                 for tile in tile_pile.tiles:
-                    if tile.compare(placed_tile):
-                        tile_pile.tiles.remove(tile)
-                        tile_removed = True
-                        break
+                    if isinstance(placed_tile, MythicalTileRegular) and isinstance(tile, MythicalTileRegular):
+                        print("arrived")
+                    if placed_tile.compare(tile): 
+                        if tile.compare(placed_tile):
+                            tile_pile.tiles.remove(tile)
+                            tile_removed = True
+                            break
                 if not tile_removed:
                     raise Exception("Server placed a tile that was not in the Tile Pile")
     

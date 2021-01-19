@@ -457,7 +457,7 @@ class CityTile(Tile):
         elif not tile.is_capital == self.is_capital:
             return False
         else:
-            super().compare(tile)
+            return super().compare(tile)
             
     
     def visit_city(self, adventurer):
