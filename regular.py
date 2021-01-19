@@ -358,6 +358,12 @@ class DisasterTile(Tile):
         else: # otherwise send the Adventurer to the capital and keep their wealth
             self.dropped_wealth += adventurer.wealth
             adventurer.end_expedition()
+            
+    def compare(self, tile):
+        if not isinstance(tile, DisasterTile):
+            return False
+        else:
+            return super().compare(tile)
 
 class CapitalTileRegular(CityTileRegular):
     def __init__(self, game, tile_back = "water"
