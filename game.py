@@ -38,7 +38,7 @@ class GameBeginner(Game):
     VALUE_DISCOVER_WONDER = {"water":0}
     VALUE_TRADE = 1
     VALUE_AGENT_TRADE = 0
-    VALUE_FILL_MAP_GAP = [[3 * land_edges + 2 * water_edges for land_edges in range(0,5)] for water_edges in range(0,5)] # These are the rewards for filling a gap with, 0,1,2,3, and 4 adjacent water tiles respectively, for each number of adjacent land tiles
+    VALUE_FILL_MAP_GAP = [[2 * land_edges + 2 * water_edges for land_edges in range(0,5)] for water_edges in range(0,5)] # These are the rewards for filling a gap with, 0,1,2,3, and 4 adjacent water tiles respectively, for each number of adjacent land tiles
     
     COST_ADVENTURER = 10
     COST_AGENT_EXPLORING = 1
