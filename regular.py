@@ -329,6 +329,9 @@ class DisasterTile(Tile):
                 token.route.append(self)
                 if not self in self.game.disaster_tiles:
                     self.game.disaster_tiles.append(self)
+                else:
+                    #if this has not just been discovered then the Adventurer isn't surprised and can become a pirate to survive
+                    token.pirate_token = True
                 # check if the Adventurer has a Pirate token
                 if token.pirate_token:
                     print("Pirate moves onto disaster tile")

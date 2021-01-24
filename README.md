@@ -42,6 +42,10 @@ pyinstaller --onefile cartolan_game.py
 
 End with an example of getting some data out of the system or using it for a little demo
 
+## Configuring the game
+
+Various aspects of the rules can be configured based on constants at the head of the associated class.
+
 ## Running the tests
 
 Automated tests have not been implemented yet. Testing can be done through comparing virtual play to the rules explained in the game manual.
