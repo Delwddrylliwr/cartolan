@@ -472,6 +472,10 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
         if agent.player == adventurer.player and adventurer.wealth >= adventurer.game.COST_AGENT_RESTORE:
             return True
         return False
+    
+    # if half Disaster tile dropped wealth exceeds own wealth then try to collect it
+    def check_court_disaster(self, adventurer, disaster_tile):
+        return False
 
         
 class PlayerRegularTrader(PlayerBeginnerTrader, PlayerRegularExplorer):    
