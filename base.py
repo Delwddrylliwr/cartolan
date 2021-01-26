@@ -12,9 +12,8 @@ class Game:
     __init__ taking a list full of Player objects
     establish_turn_order taking no arguments
     '''
-#    MAX_PLAYERS = 4
-#    MIN_PLAYERS = 2
-    from game_config.base import MAX_PLAYERS, MIN_PLAYERS #bring in the Constants from the config file
+    MAX_PLAYERS = 4
+    MIN_PLAYERS = 2
     
     def __init__(self, players):
         if len(players) in range(self.MIN_PLAYERS, self.MAX_PLAYERS +1):

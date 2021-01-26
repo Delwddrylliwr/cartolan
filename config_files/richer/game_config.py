@@ -15,19 +15,19 @@ The variant described here is:
 class BeginnerConfig:
     NUM_TILES = {"water":60}
     
-    GAME_WINNING_DIFFERENCE = 15
+    GAME_WINNING_DIFFERENCE = 30
     
     MAX_ADVENTURERS = 3
     MAX_AGENTS = 4
     
-    VALUE_DISCOVER_WONDER = {"water":0}
-    VALUE_TRADE = 1
+    VALUE_DISCOVER_WONDER = {"water":2}
+    VALUE_TRADE = 2
     VALUE_AGENT_TRADE = 0
-    VALUE_FILL_MAP_GAP = [[2 * land_edges + 2 * water_edges for land_edges in range(0,5)] for water_edges in range(0,5)] # These are the rewards for filling a gap with, 0,1,2,3, and 4 adjacent water tiles respectively, for each number of adjacent land tiles
+    VALUE_FILL_MAP_GAP = [[6 * land_edges + 4 * water_edges for land_edges in range(0,5)] for water_edges in range(0,5)] # These are the rewards for filling a gap with, 0,1,2,3, and 4 adjacent water tiles respectively, for each number of adjacent land tiles
     
-    COST_ADVENTURER = 10
-    COST_AGENT_EXPLORING = 1
-    COST_AGENT_FROM_CITY = 3
+    COST_ADVENTURER = 20
+    COST_AGENT_EXPLORING = 2
+    COST_AGENT_FROM_CITY = 6
     COST_AGENT_REST = 1
     
     EXPLORATION_ATTEMPTS = 1
@@ -38,13 +38,13 @@ class BeginnerConfig:
 class RegularConfig:
     NUM_TILES = {"water":60, "land":40}
 
-    VALUE_DISCOVER_WONDER = {"water":1, "land":1}
-    VALUE_ARREST = 5
-    VALUE_DISPOSSESS_AGENT = 1
-    COST_AGENT_RESTORE = 1
+    VALUE_DISCOVER_WONDER = {"water":2, "land":2}
+    VALUE_ARREST = 10
+    VALUE_DISPOSSESS_AGENT = 2
+    COST_AGENT_RESTORE = 2
     
     ATTACK_SUCCESS_PROB = 1.0/3.0
     
 class AdvancedConfig:
-    COST_BUY_EQUIPMENT = 10
+    COST_BUY_EQUIPMENT = 20
 
