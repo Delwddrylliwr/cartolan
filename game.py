@@ -1,5 +1,5 @@
 '''
-Creative Commons CC-BY-NC 2020 Tom Wilkinson, delwddrylliwr@gmail.com
+Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
 from base import Game, TilePile
@@ -24,35 +24,37 @@ class GameBeginner(Game):
     play_round
     check_win_conditions
     '''
-    TILE_PREFIX = "tile_distribution_"
-    TILE_EXT = ".csv"
-    TILE_TYPE_COLS = {"wonder":1}
-    TILE_TYPES = {"plain":Tile, "capital":CapitalTileBeginner, "wonder":WonderTile}
-    NUM_TILES = {"water":60}
-    
-    GAME_WINNING_DIFFERENCE = 15
-    
-    MAX_ADVENTURERS = 3
-    MAX_AGENTS = 4
-    
-    VALUE_DISCOVER_WONDER = {"water":0}
-    VALUE_TRADE = 1
-    VALUE_AGENT_TRADE = 0
-    VALUE_FILL_MAP_GAP = [[2 * land_edges + 2 * water_edges for land_edges in range(0,5)] for water_edges in range(0,5)] # These are the rewards for filling a gap with, 0,1,2,3, and 4 adjacent water tiles respectively, for each number of adjacent land tiles
-    
-    COST_ADVENTURER = 10
-    COST_AGENT_EXPLORING = 1
-    COST_AGENT_FROM_CITY = 3
-    COST_AGENT_REST = 1
-    
-    EXPLORATION_ATTEMPTS = 1
-    MAX_DOWNWIND_MOVES = 4
-    MAX_LAND_MOVES = 2
-    MAX_UPWIND_MOVES = 2
-    
-    ADVENTURER_TYPE = AdventurerBeginner
-    AGENT_TYPE = AgentBeginner
-    CITY_TYPE = CityTileBeginner
+#    TILE_PREFIX = "tile_distribution_"
+#    TILE_EXT = ".csv"
+#    TILE_TYPE_COLS = {"wonder":1}
+#    TILE_TYPES = {"plain":Tile, "capital":CapitalTileBeginner, "wonder":WonderTile}
+#    NUM_TILES = {"water":60}
+#    
+#    GAME_WINNING_DIFFERENCE = 15
+#    
+#    MAX_ADVENTURERS = 3
+#    MAX_AGENTS = 4
+#    
+#    VALUE_DISCOVER_WONDER = {"water":0}
+#    VALUE_TRADE = 1
+#    VALUE_AGENT_TRADE = 0
+#    VALUE_FILL_MAP_GAP = [[2 * land_edges + 2 * water_edges for land_edges in range(0,5)] for water_edges in range(0,5)] # These are the rewards for filling a gap with, 0,1,2,3, and 4 adjacent water tiles respectively, for each number of adjacent land tiles
+#    
+#    COST_ADVENTURER = 10
+#    COST_AGENT_EXPLORING = 1
+#    COST_AGENT_FROM_CITY = 3
+#    COST_AGENT_REST = 1
+#    
+#    EXPLORATION_ATTEMPTS = 1
+#    MAX_DOWNWIND_MOVES = 4
+#    MAX_LAND_MOVES = 2
+#    MAX_UPWIND_MOVES = 2
+#    
+#    ADVENTURER_TYPE = AdventurerBeginner
+#    AGENT_TYPE = AgentBeginner
+#    CITY_TYPE = CityTileBeginner
+    #Bring in constants from central config file
+    from game_config.BeginnerConfig import  TILE_PREFIX, TILE_EXT, TILE_TYPE_COLS, TILE_TYPES, NUM_TILES, GAME_WINNING_DIFFERENCE, MAX_ADVENTURERS, MAX_AGENTS, VALUE_DISCOVER_WONDER, VALUE_TRADE, VALUE_AGENT_TRADE, VALUE_FILL_MAP_GAP, COST_ADVENTURER, COST_AGENT_EXPLORING, COST_AGENT_FROM_CITY, COST_AGENT_REST, EXPLORATION_ATTEMPTS, MAX_DOWNWIND_MOVES, MAX_LAND_MOVES, MAX_UPWIND_MOVES, ADVENTURER_TYPE, AGENT_TYPE, CITY_TYPE #bring in all the constants from the config file
     
     def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
         
@@ -251,20 +253,22 @@ class GameRegular(GameBeginner):
     __init__ takes a List of Cartolan.Player objects and two Strings
     check_win_conditions
     '''
-    TILE_TYPE_COLS = {"wonder":1, "disaster":2}
-    TILE_TYPES = {"plain":Tile, "capital":CapitalTileRegular, "mythical":MythicalTileRegular, "wonder":WonderTile, "disaster":DisasterTile}
-    NUM_TILES = {"water":60, "land":40}
-
-    VALUE_DISCOVER_WONDER = {"water":1, "land":1}
-    VALUE_ARREST = 5
-    VALUE_DISPOSSESS_AGENT = 1
-    COST_AGENT_RESTORE = 1
-    
-    ATTACK_SUCCESS_PROB = 1.0/3.0
-    
-    ADVENTURER_TYPE = AdventurerRegular
-    AGENT_TYPE = AgentRegular
-    CITY_TYPE = CityTileRegular #no extra functionality needed until Advanced mode
+#    TILE_TYPE_COLS = {"wonder":1, "disaster":2}
+#    TILE_TYPES = {"plain":Tile, "capital":CapitalTileRegular, "mythical":MythicalTileRegular, "wonder":WonderTile, "disaster":DisasterTile}
+#    NUM_TILES = {"water":60, "land":40}
+#
+#    VALUE_DISCOVER_WONDER = {"water":1, "land":1}
+#    VALUE_ARREST = 5
+#    VALUE_DISPOSSESS_AGENT = 1
+#    COST_AGENT_RESTORE = 1
+#    
+#    ATTACK_SUCCESS_PROB = 1.0/3.0
+#    
+#    ADVENTURER_TYPE = AdventurerRegular
+#    AGENT_TYPE = AgentRegular
+#    CITY_TYPE = CityTileRegular #no extra functionality needed until Advanced mode
+    #Bring in constants from central config file
+    from game_config.RegularConfig import TILE_TYPE_COLS, TILE_TYPES, NUM_TILES, VALUE_DISCOVER_WONDER, VALUE_ARREST, VALUE_DISPOSSESS_AGENT, COST_AGENT_RESTORE, ATTACK_SUCCESS_PROB, ADVENTURER_TYPE, AGENT_TYPE, CITY_TYPE
     
     def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
         super().__init__(players, movement_rules, exploration_rules)

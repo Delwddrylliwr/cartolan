@@ -1,5 +1,5 @@
 '''
-Creative Commons CC-BY-NC 2020 Tom Wilkinson, delwddrylliwr@gmail.com
+Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
 import random
@@ -12,8 +12,9 @@ class Game:
     __init__ taking a list full of Player objects
     establish_turn_order taking no arguments
     '''
-    MAX_PLAYERS = 4
-    MIN_PLAYERS = 2
+#    MAX_PLAYERS = 4
+#    MIN_PLAYERS = 2
+    from game_config.base import MAX_PLAYERS, MIN_PLAYERS #bring in the Constants from the config file
     
     def __init__(self, players):
         if len(players) in range(self.MIN_PLAYERS, self.MAX_PLAYERS +1):

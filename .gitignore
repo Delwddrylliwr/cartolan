@@ -5,6 +5,9 @@ client_secret.json
 __pycache__/*
 *.pyc
 
+#IDE project files
+cartolan_web/nbproject
+
 # Deployment
 logs/*.txt
 dist/*
