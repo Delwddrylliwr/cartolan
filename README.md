@@ -44,7 +44,7 @@ End with an example of getting some data out of the system or using it for a lit
 
 ## Configuring the game
 
-Various aspects of the rules can be configured based on constants at the head of the associated class.
+Various aspects of the rules can be configured based on constants in game_config.py .
 
 ## Running the tests
 

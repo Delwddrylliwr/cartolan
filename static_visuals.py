@@ -1,5 +1,5 @@
 '''
-Creative Commons CC-BY-NC 2020 Tom Wilkinson, delwddrylliwr@gmail.com
+Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
 import matplotlib.image as mpimg # for importing tile images

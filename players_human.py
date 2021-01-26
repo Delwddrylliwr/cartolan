@@ -1,5 +1,5 @@
 '''
-Creative Commons CC-BY-NC 2020 Tom Wilkinson, delwddrylliwr@gmail.com
+Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
 from base import Player, CityTile
