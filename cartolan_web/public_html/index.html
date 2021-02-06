@@ -1,0 +1,197 @@
+<!doctype html>
+<html class="no-js" lang="">
+
+    <head>
+        <meta charset="utf-8">
+        <title></title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <meta property="og:title" content="">
+        <meta property="og:type" content="">
+        <meta property="og:url" content="">
+        <meta property="og:image" content="">
+
+        <link rel="manifest" href="site.webmanifest">
+        <link rel="apple-touch-icon" href="icon.png">
+        <!-- Place favicon.ico in the root directory -->
+
+        <link rel="stylesheet" href="css/normalize.css">
+        <link rel="stylesheet" href="css/main.css">
+
+        <meta name="theme-color" content="#fafafa">
+        <style>
+            body {
+                margin: 0;
+            }
+            canvas {
+                border:1px solid #d3d3d3;
+                background-color: #f1f1f1;
+            }
+        </style>
+    </head>
+
+    <body onload="startGame()">
+
+        <!-- Add your site or application content here -->
+        <!--  <p>Hello world! This is HTML5 Boilerplate.</p>
+          <script src="js/vendor/modernizr-3.11.2.min.js"></script>
+          <script src="js/plugins.js"></script>-->
+        <!--<script src="js/main.js"></script>-->
+
+        <script>
+            var canvas = document.getElementById('stage');
+            var context = canvas.getContext("2d");
+
+            function openWS(){
+                var websocket = new WebSocket("ws:localhost:8000");
+                websocket.binaryType = "arraybuffer";
+                websocket.onmessage = function(evt) { onMessage(evt); };
+                websocket.onerror = function(evt) { onError(evt); };
+                websocket.onopen = function(evt) { onOpen(evt); };
+                
+                function onOpen(evt){
+                    var luser = document.getElementById("lusername").value;
+                    var ruser = document.getElementById("rusername").value;
+                    var pwd = document.getElementById("password").value;
+                    console.log("Connecting.. ");
+                    websocket.send("SUB[00100]" + luser);
+                    websocket.send("MESSAGE[00100]" + ruser + "[11111]" + pwd);
+                    console.log("Connected.");
+                    //@TODO share the dimensions of the client play area with the server so that rescaling of the image can happen serverside before transmission
+                }
+
+                function onMessage(evt) {
+                    var img = new Image();
+                    img.src = "data:image/png;base64,"+evt.data;
+                    img.onload = function () {
+                        context.drawImage(img,0,0);
+                    };
+                }
+
+                function onError(evt) {
+                    console.log(evt.data);
+                }
+
+
+                function drawImageBinary(blob) {
+                    var bytes = new Uint8Array(blob);
+                    // console.log('drawImageBinary (bytes.length): ' + bytes.length);
+                    var imageData = context.createImageData(canvas.width, canvas.height);
+                    for (var i=8; i<imageData.data.length; i++) {
+                        imageData.data[i] = bytes[i];
+                    }
+                    context.putImageData(imageData, 0, 0);
+                    var img = document.createElement('img');
+                    //img.height = canvas.height;
+                    //img.width = canvas.width;
+                    img.src = canvas.toDataURL();
+                }
+            }
+
+            function startGame() {
+//                myGamePiece = new component(30, 30, "red", 10, 120);
+                //@TODO initiate a play area of a suitable size within the browser window
+                myGameArea.start();
+                //@TODO set up the websocket connection to the game server
+                //@TOOD pass the play area dimensions to the server
+                openWS();
+            }
+
+
+            var myGameArea = {
+                canvas: document.createElement("canvas"),
+                start: function () {
+                    this.canvas.width = 480; //get this from the browser window size
+                    this.canvas.height = 270; //get this from the browser window size
+                    this.context = this.canvas.getContext("2d");
+                    document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+                    this.interval = setInterval(updateGameArea, 20);
+                    window.addEventListener('mousedown', function (e) {
+                        myGameArea.x = e.pageX;
+                        myGameArea.y = e.pageY;
+                    });
+                    window.addEventListener('mouseup', function (e) {
+                        myGameArea.x = false;
+                        myGameArea.y = false;
+                    });
+                    window.addEventListener('touchstart', function (e) {
+                        myGameArea.x = e.pageX;
+                        myGameArea.y = e.pageY;
+                    });
+                    window.addEventListener('touchend', function (e) {
+                        myGameArea.x = false;
+                        myGameArea.y = false;
+                    });
+                },
+                clear: function () {
+                    this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                }
+            };
+
+//            function component(width, height, color, x, y) {
+//                this.width = width;
+//                this.height = height;
+//                this.speedX = 0;
+//                this.speedY = 0;
+//                this.x = x;
+//                this.y = y;
+//                this.update = function () {
+//                    ctx = myGameArea.context;
+//                    ctx.fillStyle = color;
+//                    ctx.fillRect(this.x, this.y, this.width, this.height);
+//                };
+//                this.clicked = function () {
+//                    var myleft = this.x;
+//                    var myright = this.x + (this.width);
+//                    var mytop = this.y;
+//                    var mybottom = this.y + (this.height);
+//                    var clicked = true;
+//                    if ((mybottom < myGameArea.y) || (mytop > myGameArea.y) || (myright < myGameArea.x) || (myleft > myGameArea.x)) {
+//                        clicked = false;
+//                    }
+//                    return clicked;
+//                };
+//            }
+
+            function updateGameArea() {
+                myGameArea.clear();
+//                if (myGameArea.x && myGameArea.y) {
+//                    if (myUpBtn.clicked()) {
+//                        myGamePiece.y -= 1;
+//                    }
+//                    if (myDownBtn.clicked()) {
+//                        myGamePiece.y += 1;
+//                    }
+//                    if (myLeftBtn.clicked()) {
+//                        myGamePiece.x += -1;
+//                    }
+//                    if (myRightBtn.clicked()) {
+//                        myGamePiece.x += 1;
+//                    }
+//                }
+//                myUpBtn.update();
+//                myDownBtn.update();
+//                myLeftBtn.update();
+//                myRightBtn.update();
+//                myGamePiece.update();
+            }
+
+        </script>
+
+        <p>Click on the blue "buttons" to make the red square move.</p>
+
+        <!-- Google Analytics: change UA-XXXXX-Y to be your site's ID. -->
+        <script>
+            window.ga = function () {
+                ga.q.push(arguments); }; ga.q = [];
+            ga.l = +new Date;
+            ga('create', 'UA-XXXXX-Y', 'auto');
+            ga('set', 'anonymizeIp', true);
+            ga('set', 'transport', 'beacon');
+            ga('send', 'pageview');
+        </script>
+        <script src="https://www.google-analytics.com/analytics.js" async></script>
+    </body>
+
+</html>
