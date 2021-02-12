@@ -51,12 +51,15 @@
                 websocket.onopen = function(evt) { onOpen(evt); };
                 
                 function onOpen(evt){
+                    //Establish user credentials
                     var luser = document.getElementById("lusername").value;
                     var ruser = document.getElementById("rusername").value;
                     var pwd = document.getElementById("password").value;
                     console.log("Connecting.. ");
+                    //Share credentials with server
                     websocket.send("SUB[00100]" + luser);
                     websocket.send("MESSAGE[00100]" + ruser + "[11111]" + pwd);
+                    //@TODO wait for server response to confirm connection
                     console.log("Connected.");
                     //@TODO share the dimensions of the client play area with the server so that rescaling of the image can happen serverside before transmission
                 }
@@ -74,19 +77,19 @@
                 }
 
 
-                function drawImageBinary(blob) {
-                    var bytes = new Uint8Array(blob);
-                    // console.log('drawImageBinary (bytes.length): ' + bytes.length);
-                    var imageData = context.createImageData(canvas.width, canvas.height);
-                    for (var i=8; i<imageData.data.length; i++) {
-                        imageData.data[i] = bytes[i];
-                    }
-                    context.putImageData(imageData, 0, 0);
-                    var img = document.createElement('img');
-                    //img.height = canvas.height;
-                    //img.width = canvas.width;
-                    img.src = canvas.toDataURL();
-                }
+//                function drawImageBinary(blob) {
+//                    var bytes = new Uint8Array(blob);
+//                    // console.log('drawImageBinary (bytes.length): ' + bytes.length);
+//                    var imageData = context.createImageData(canvas.width, canvas.height);
+//                    for (var i=8; i<imageData.data.length; i++) {
+//                        imageData.data[i] = bytes[i];
+//                    }
+//                    context.putImageData(imageData, 0, 0);
+//                    var img = document.createElement('img');
+//                    //img.height = canvas.height;
+//                    //img.width = canvas.width;
+//                    img.src = canvas.toDataURL();
+//                }
             }
 
             function startGame() {
@@ -96,14 +99,15 @@
                 //@TODO set up the websocket connection to the game server
                 //@TOOD pass the play area dimensions to the server
                 openWS();
+                websocket.send("SUB[00100]" + luser);
             }
 
 
             var myGameArea = {
                 canvas: document.createElement("canvas"),
                 start: function () {
-                    this.canvas.width = 480; //get this from the browser window size
-                    this.canvas.height = 270; //get this from the browser window size
+                    this.canvas.width = window.innerWidth; //get this from the browser window size
+                    this.canvas.height = window.innerHeight; //get this from the browser window size
                     this.context = this.canvas.getContext("2d");
                     document.body.insertBefore(this.canvas, document.body.childNodes[0]);
                     this.interval = setInterval(updateGameArea, 20);
@@ -155,8 +159,11 @@
 //            }
 
             function updateGameArea() {
-                myGameArea.clear();
-//                if (myGameArea.x && myGameArea.y) {
+//                myGameArea.clear();
+                if (myGameArea.x && myGameArea.y) {
+                    websocket.send("SUB[00100]" + myGameArea.x 
+                            + "[666666]" + myGameArea.y);
+                }
 //                    if (myUpBtn.clicked()) {
 //                        myGamePiece.y -= 1;
 //                    }
