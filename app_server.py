@@ -6,6 +6,24 @@ import PodSixNet.Channel
 import PodSixNet.Server
 from time import sleep
 import random
+
+#@TODO move initial tiles and adventurers to config file
+#All games will start with the following configurations of tiles and (per player) adventurers
+INITIAL_TILES = [{"longitude":str(0), "latitude":str(0)
+             , "tile_type":"capital", "tile_back":"water"
+             , "tile_edges":{"upwind_clock":"True", "upwind_anti":"True"
+                             , "downwind_clock":"True", "downwind_anti":"True"}
+             , "wind_direction":{"north":"True", "east":"True"}
+             }]
+#include surrounding water tiles
+for tile_position in [[0,1], [1,0], [0,-1], [-1,0]]:
+    INITIAL_TILES.append({"longitude":str(tile_position[0]), "latitude":str(tile_position[1])
+                 , "tile_type":"plain", "tile_back":"water"
+                 , "tile_edges":{"upwind_clock":"True", "upwind_anti":"True"
+                             , "downwind_clock":"True", "downwind_anti":"True"}
+                 , "wind_direction":{"north":"True", "east":"True"}
+                 })
+INITIAL_ADVENTURERS = [[str(0),str(0)]] #a list of tuples for each adventurer's long/lat
     
 class ClientChannel(PodSixNet.Channel.Channel):
     '''The receiving methods for messages from clients for a pygame-based server
@@ -85,7 +103,7 @@ class CartolanServer(PodSixNet.Server.Server):
     WAIT_DURATION = 1
     TIMEOUT_DURATION = 60
     
-    def __init__(self, game_modes, dimensions, origin, initial_tiles, initial_adventurers, *args, **kwargs):
+    def __init__(self, game_modes, dimensions, origin, *args, **kwargs):
         PodSixNet.Server.Server.__init__(self, *args, **kwargs)
         self.game_modes = game_modes
         self.dimensions = dimensions
