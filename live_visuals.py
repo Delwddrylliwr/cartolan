@@ -1321,6 +1321,7 @@ class WebServerVisualisation(GameVisualisation):
     
     def __init__(self, game, dimensions, origin, socket):
         self.socket = socket
+        self.client_players = 
         super().__init__(game, dimensions, origin)
     
     def init_GUI(self):
@@ -1345,24 +1346,28 @@ class WebServerVisualisation(GameVisualisation):
         #Import images
         self.init_graphics()
     
-    def get_input_coords(self, adventurer):
-        '''Sends an image of the latest play area, accepts input only from this visual's players.
-        
-        Arguments
-        adventurer takes a Cartolan.Adventurer
-        '''
-#        print("Waiting for input from the user")
+    def update_web_display(self):
         pygame.display.flip()
         pygame.image.save(image, randname+".png")
         out = open(randname+".png","rb").read()
         self.socket.sendMessage(base64.b64encode(out))
         print("data sent")
         os.remove(randname+".png")
+        
+    
+    def get_input_coords(self, adventurer):
+        '''Sends an image of the latest play area, accepts input only from this visual's players.
+        
+        Arguments
+        adventurer takes a Cartolan.Adventurer
+        '''
+        #print("Updating the display for all the other human players, whose visuals won't have been consulted.")
+        for player in self.game.players:
+            if isinstance(player, PlayerHuman):
+                player.game_vis.update_web_display()
 
-        #@TODO receive coords from the socket, but only pass on to the game if 
-        #it is the turn of a player on the client.
+#        print("Waiting for input from the user")
         while True:
-            #@TODO check whether the game has moved on because another socket contributed
             try:
                 data = self.socket.recv()
                 code, value = data.split('[55555]')

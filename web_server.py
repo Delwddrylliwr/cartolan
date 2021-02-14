@@ -61,37 +61,145 @@ class ClientSocket(WebSocket):
         self.width = "0"
         self.height = "0"
         
-    def connect_visual(self):
+    def start_game(self):
         '''Create a visualisation (and a game if needed), share images of the pygame canvas and receive input coordinates.
         '''
-        while True:
-            try:
-                data = self.socket.recv()
-                code, self.width = data.split('[55555]')
-                data = self.socket.recv()
-                code, self.height = data.split('[55555]')
-                self.width = int(self.width)
-                self.height = int(self.height)
-                self.width = float(self.width /1.5)
-                self.height = float(self.height /1.5)
-                print (self.width, self.height)
-                data = self.socket.recv()   
-                image = pygame.image.frombuffer(data
-                                                , (int(self.width), int(self.height))
-                                                ,"RGB")
-                randname = id_generator()
-                pygame.image.save(image, randname+".png")
-                out = open(randname+".png","rb").read()
-                self.sendMessage(base64.b64encode(out))
-                print("data sent")
-                os.remove(randname+".png")
-            except Exception as e:
-                print (e)
+        self.local_player_colours = data["local_player_colours"]
+        print("Setting up the local version of the game:")
+        print(data)
+        game_type = self.GAME_MODES[data["game_type"]]["game_type"] #needed to identify the class of other elements like Adventurers and Agents
+        self.players = [] #to capture order of play
+        self.player_colours = {} #to access Player objects quickly based on colour
+        self.virtual_players = data["virtual_players"]
+        for player_colour in data["player_colours"]:
+            if player_colour in self.virtual_players:
+                player = self.GAME_MODES[data["game_type"]]["player_set"][player_colour](player_colour)
+            else:
+                player = PlayerHuman(player_colour)
+            self.players.append(player)
+            self.player_colours[player_colour] = player 
+        
+        game = game_type(self.players)
+        self.game = game
+        #Informing players of this game visualisation
+        for player in self.players:
+            player.games[game.game_id]["game_vis"] = self
+            self.shared_tokens["adventurers"][player.colour] = []
+            self.shared_tokens["agents"][player.colour] = []
+            self.shared_scores[player.colour] = 0
+        print("Building the tile piles")
+        game.setup_tile_pile("water")
+        if isinstance(game, GameRegular):
+            game.setup_tile_pile("land")
+            game.tile_piles["land"].tiles.append(MythicalTileRegular(game))
+        print("Placing the initial tiles and adventurers")
+        self.Network_place_tiles({"tiles":data["initial_tiles"]})
+        #@TODO adapt to use the Network_move_tokens method
+        initial_adventurers = data["initial_adventurers"] #expects a dict of colours and list of 2-tuples giving the placement(s) of initial Adventurers for each player
+        if not len(self.players) == len(initial_adventurers):
+            raise Exception("Player attributes from Host have different lengths")
+        for player in self.players:
+            for adventurer_location in initial_adventurers[player.colour]:
+                longitude = game.play_area.get(int(adventurer_location[0]))
+                if longitude:
+                    adventurer_tile = longitude.get(int(adventurer_location[1]))
+                    if adventurer_tile:
+                        adventurer = game_type.ADVENTURER_TYPE(game, player, adventurer_tile)
+                    else:
+                        raise Exception("Server tried to place on Adventurer where there was no tile")
+        
+        print("With proxy game and players set up, continuing the startup of a normal visual")
+        min_longitude, max_longitude = 0, 0
+        min_latitude, max_latitude = 0, 0
+        for longitude in self.game.play_area:
+            if longitude < min_longitude:
+                min_longitude = longitude
+            elif longitude > max_longitude:
+                max_longitude = longitude
+            for latitude in self.game.play_area[longitude]:
+                if latitude < min_latitude:
+                    min_latitude = latitude
+                elif latitude > max_latitude:
+                    max_latitude = latitude
+        origin = [-min_longitude + self.DIMENSION_INCREMENT
+                  , -min_latitude + self.DIMENSION_INCREMENT
+                  ]
+        dimensions = [max_longitude + origin[0] + self.DIMENSION_INCREMENT
+                      , max_latitude + origin[1] + self.DIMENSION_INCREMENT
+                      ]
+        super().__init__(game, dimensions, origin)
+        
+        #keep track of whether the game is active or waiting for the server to collect enough players
+        self.running = True
+        self.game.turn = 1
+        self.current_player_colour = data["current_player_colour"]
+        if self.current_player_colour in self.local_player_colours:
+            self.local_player_turn = True
+        else:
+            self.local_player_turn = False
+        
+        print("Waiting and watching for it to be a local player's turn, before switching to local control and execution of the game")
+        self.game.game_over = False
+        while not self.game.game_over:
+            #distinguish between local and remote play and hand control of the game to the remote player's computer as needed, through the server    
+            while not self.local_player_turn:
+                self.update()
+                sleep(self.UPDATE_DELAY)
+            
+            print("Switching to local execution of the game, now it is a local player's turn")
+            current_player = self.player_colours[self.current_player_colour]
+            adventurers = self.game.adventurers[current_player]
+            for adventurer in adventurers:
+                print("Starting the turn for " +current_player.colour+ " Adventurer #" +str(adventurers.index(adventurer) + 1))
+                self.Send({"action":"prompt", "prompt_text":self.current_player_colour +" player is moving their Adventurer #" +str(adventurers.index(adventurer)+1)})
+                if adventurer.turns_moved < self.game.turn:
+                    current_player.continue_turn(adventurer)
+                    print() #to help log readability
+                    
+                    #check whether this adventurer's turn has won them the game
+                    if self.game.check_win_conditions():
+                        self.game.game_over = True
+                        break
+            #Make sure visuals are up to date and all changes have been shared to the server
+            self.draw_play_area()
+            #for virtual players, share their route
+            if current_player.colour in self.virtual_players:
+                for adventurer in adventurers:
+                    for tile in adventurer.route:
+                        adventurers_routes = [{} for i in range(len(adventurers))] #this adventurer#s moves are shared by their position in a list
+                        adventurers_routes[adventurers.index(adventurer)] = {"longitude":tile.tile_position.longitude, "latitude":tile.tile_position.latitude}
+                        self.Send({"action":"move_tokens", "changes":{"adventurers":{current_player.colour:adventurers_routes}, "agents":{}}})
+            self.draw_routes()
+            self.draw_tokens()
+            self.draw_scores()
+            if self.game.game_over:
+                self.Send({"action":"declare_win", "winning_player_colour":self.game.winning_player.colour})
+                connection.Pump()
+                self.Pump()
+                self.Network_declare_win({"winning_player_colour":self.game.winning_player.colour})
+            print("Passing play to the next player")
+            if self.players.index(current_player) < len(self.players) - 1:
+                current_player = self.players[self.players.index(current_player) + 1]
+                self.current_player_colour = current_player.colour
+            else:
+                #If this was the last player in the play order then the turn increases by 1
+                current_player = self.players[0]
+                self.game.turn += 1
+                self.current_player_colour = current_player.colour
+            if self.current_player_colour not in self.local_player_colours:
+                #Reset the route to be visualised for this non-local player
+                for adventurer in self.game.adventurers[current_player]:
+                    adventurer.route = [adventurer.current_tile]
+                self.local_player_turn = False
+            if self.current_player_colour in self.virtual_players:
+                #Reset the route to be visualised for this virtual player
+                for adventurer in self.game.adventurers[current_player]:
+                    adventurer.route = [adventurer.current_tile]
+            self.Send({"action":"new_turn", "turn":self.game.turn, "current_player_colour":self.current_player_colour})
     
     def handleMessage(self):
         '''Distinguish whether this message is an initiation or continuation of a game.
-        '''
-           
+        ''' 
         #@TODO match the player to a game, set up a separate game visualisation for that client socket
         try:
            message = str(self.data) 
@@ -99,7 +207,9 @@ class ClientSocket(WebSocket):
            if protocode == ("SUB"):
                print("SUB")
                self.socket.setsockopt(zmq.IDENTITY, str(msg))
-               self.socket.connect("tcp://127.0.0.1:9001")
+               self.socket.connect("tcp://LOCALHOST:80")
+               #Check whether there are enough players in the queue for a game,
+               #start one in a Thread if so
                Thread(target=self.ondata).start()
            elif protocode == ("MESSAGE"):
                print("MESSAGE")
