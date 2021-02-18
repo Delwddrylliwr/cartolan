@@ -6,6 +6,10 @@ import math
 import pygame
 #import pygame_menu
 import sys
+import os
+import base64
+import random
+import string
 from PodSixNet.Connection import ConnectionListener, connection
 from time import sleep
 from base import CityTile, TileEdges, WindDirection
@@ -1318,17 +1322,18 @@ class WebServerVisualisation(GameVisualisation):
     Because the clients all need to see every move, each visual will send for every player.
     But, only the moving player's visual will receive input. 
     '''
+    TEMP_FILENAME_LEN = 6
     
-    def __init__(self, game, dimensions, origin, socket):
+    def __init__(self, game, dimensions, origin, socket, width, height):
         self.socket = socket
-        self.client_players = 
+        self.width, self.height = width, height
+        self.client_players = []
         super().__init__(game, dimensions, origin)
     
     def init_GUI(self):
         print("Initialising the pygame window and GUI")
         pygame.init()
-        self.window = 
-        self.width, self.height = 
+        self.window = pygame.Surface((self.width, self.height))
         self.window.fill(self.BACKGROUND_COLOUR) #fill the screen with white
         print("Initialising visual scale variables, to fit window of size "+str(self.width)+"x"+str(self.height))
         self.tile_size = self.height // self.dimensions[1]
@@ -1347,8 +1352,10 @@ class WebServerVisualisation(GameVisualisation):
         self.init_graphics()
     
     def update_web_display(self):
-        pygame.display.flip()
-        pygame.image.save(image, randname+".png")
+#        pygame.display.flip()
+        #generate a random filename, to avoid thread conflicts
+        randname = ( ''.join(random.choice(string.ascii_lowercase) for i in range(self.TEMP_FILENAME_LEN)) )
+        pygame.image.save(self.window, randname+".png")
         out = open(randname+".png","rb").read()
         self.socket.sendMessage(base64.b64encode(out))
         print("data sent")
