@@ -6,6 +6,10 @@ import math
 import pygame
 #import pygame_menu
 import sys
+import os
+import base64
+import random
+import string
 from PodSixNet.Connection import ConnectionListener, connection
 from time import sleep
 from base import CityTile, TileEdges, WindDirection
@@ -65,6 +69,14 @@ class GameVisualisation():
         self.dimensions = dimensions
         self.origin = origin
         
+        print("Initialising state variables")
+#        self.clock = pygame.time.Clock()
+        self.move_timer = self.MOVE_TIME_LIMIT
+        self.current_player_colour = "black"
+        self.current_adventurer_number = 0
+        self.highlights = {"move":[], "invalid":[], "buy":[], "attack":[]}
+        self.current_move_count = None
+        
         self.init_GUI()
         
     def init_GUI(self):
@@ -72,11 +84,11 @@ class GameVisualisation():
         pygame.init()
         self.window = pygame.display.set_mode((0, 0), pygame.RESIZABLE)
         self.width, self.height = pygame.display.get_surface().get_size()
+        pygame.display.set_caption("Cartolan - Trade Winds")
         self.window.fill(self.BACKGROUND_COLOUR) #fill the screen with white
 #        self.window.fill(0) #fill the screen with black
 #        self.backing_image = pygame.transform.scale(pygame.image.load('./images/cartolan_backing.png'), [self.width, self.height])
 #        self.window.blit(self.backing_image, [0,0])
-        pygame.display.set_caption("Cartolan - Trade Winds")
         print("Initialising visual scale variables, to fit window of size "+str(self.width)+"x"+str(self.height))
         self.tile_size = self.height // self.dimensions[1]
         #Tiles will be scaled to fit the smaller dimension
@@ -90,16 +102,11 @@ class GameVisualisation():
         self.prompt_position = [self.PROMPT_POSITION[0]*self.width, self.PROMPT_POSITION[1]*self.height]
         pygame.font.init()
         self.prompt_text = ""
+        #Import images
         self.init_graphics()
+        #Update the display
         pygame.display.flip()
 #        self.init_sound()
-        print("Initialising state variables")
-        self.clock = pygame.time.Clock()
-        self.move_timer = self.MOVE_TIME_LIMIT
-        self.current_player_colour = "black"
-        self.current_adventurer_number = 0
-        self.highlights = {"move":[], "invalid":[], "buy":[], "attack":[]}
-        self.current_move_count = None
         
     #    def init_sound(self):
 #        '''Imports sounds to accompany play
@@ -1306,6 +1313,91 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         self.Pump()
         #Now continue with displaying locally
         super().draw_scores()
+
+
+class WebServerVisualisation(GameVisualisation):
+    '''For a server-side game played in browser, shares image of play area and receives coords
+    
+    There will be a separate visual for each client.
+    Because the clients all need to see every move, each visual will send for every player.
+    But, only the moving player's visual will receive input. 
+    '''
+    TEMP_FILENAME_LEN = 6
+    
+    def __init__(self, game, dimensions, origin, socket, width, height):
+        self.socket = socket
+        self.width, self.height = width, height
+        self.client_players = []
+        super().__init__(game, dimensions, origin)
+    
+    def init_GUI(self):
+        print("Initialising the pygame window and GUI")
+        pygame.init()
+        self.window = pygame.Surface((self.width, self.height))
+        self.window.fill(self.BACKGROUND_COLOUR) #fill the screen with white
+        print("Initialising visual scale variables, to fit window of size "+str(self.width)+"x"+str(self.height))
+        self.tile_size = self.height // self.dimensions[1]
+        #Tiles will be scaled to fit the smaller dimension
+        if self.width < self.tile_size * self.dimensions[0]:
+            self.tile_size = self.width // self.dimensions[0]
+        self.token_size = int(round(self.TOKEN_SCALE * self.tile_size)) #token size will be proportional to the tiles
+        self.outline_width = math.ceil(self.TOKEN_OUTLINE_SCALE * self.token_size)
+        self.token_font = pygame.font.SysFont(None, round(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
+        self.scores_font = pygame.font.SysFont(None, round(self.height * self.SCORES_FONT_SCALE)) #the font size for scores will be proportionate to the window size
+        self.prompt_font = pygame.font.SysFont(None, round(self.height * self.PROMPT_FONT_SCALE)) #the font size for prompt will be proportionate to the window size
+        self.prompt_position = [self.PROMPT_POSITION[0]*self.width, self.PROMPT_POSITION[1]*self.height]
+        pygame.font.init()
+        self.prompt_text = ""
+        #Import images
+        self.init_graphics()
+    
+    def update_web_display(self):
+#        pygame.display.flip()
+        #generate a random filename, to avoid thread conflicts
+        randname = ( ''.join(random.choice(string.ascii_lowercase) for i in range(self.TEMP_FILENAME_LEN)) )
+        pygame.image.save(self.window, randname+".png")
+        out = open(randname+".png","rb").read()
+        self.socket.sendMessage(base64.b64encode(out))
+        print("data sent")
+        os.remove(randname+".png")
+        
+    
+    def get_input_coords(self, adventurer):
+        '''Sends an image of the latest play area, accepts input only from this visual's players.
+        
+        Arguments
+        adventurer takes a Cartolan.Adventurer
+        '''
+        #print("Updating the display for all the other human players, whose visuals won't have been consulted.")
+        for player in self.game.players:
+            if isinstance(player, PlayerHuman):
+                player.game_vis.update_web_display()
+
+#        print("Waiting for input from the user")
+        while True:
+            try:
+                data = self.socket.recv()
+                code, value = data.split('[55555]')
+                
+                if code == "coords":
+                    horizontal, vertical = value.split('[66666]')
+                    self.move_timer = self.MOVE_TIME_LIMIT #reset the timelimit on moving
+                    longitude = int(math.ceil((horizontal)/self.tile_size)) - self.origin[0] - 1
+                    latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
+                    #check whether the click was within the highlighted space and whether it's a local turn
+    #                highlighted_option = self.check_highlighted(longitude, latitude)
+    #                print("Click was a valid option of type: " + highlighted_option)
+                    if True:
+    #                if highlighted_option is not None:
+                        self.highlights = {"move":[], "invalid":[], "buy":[], "attack":[]} #clear the highlights until the server offers more
+    #                    print("Have identified a move available at " +str(longitude)+ ", " +str(latitude)+ " of type " +str(highlighted_option))
+                        return [longitude, latitude]
+            except Exception as e:
+                print (e)
+
+            #@TODO introduce move timer and compare to time limit
+        
+        return False
 
 
 #class GameMenu():
