@@ -40,6 +40,7 @@ class GameVisualisation():
     PLAIN_TEXT_COLOUR = (255,255,255)
     TILE_BORDER = 0.02 #the share of grid width/height that is used for border
     TOKEN_SCALE = 0.2 #relative to tile sizes
+    AGENT_SCALE = 1.75 #relative to Adventurer radius
     TOKEN_OUTLINE_SCALE = 0.25 #relative to token scale
     TOKEN_FONT_SCALE = 0.5 #relative to tile sizes
     SCORES_POSITION = [0.0, 0.0]
@@ -458,7 +459,7 @@ class GameVisualisation():
                             , int(self.tile_size * (self.get_vertical(tile.tile_position.latitude) + agent_offset[1]))]
                 #Agents will be differentiated by colour, but they will always have the same position because there will only be one per tile
                 agent_shape = pygame.Rect(location[0], location[1]
-                  , 2*self.token_size, 2*self.token_size)
+                  , self.AGENT_SCALE*self.token_size, self.AGENT_SCALE*self.token_size)
                 # we'll only outline the Agents that are dispossessed
                 if isinstance(agent, AgentRegular) and agent.is_dispossessed:
                         pygame.draw.rect(self.window, colour, agent_shape, self.outline_width)
