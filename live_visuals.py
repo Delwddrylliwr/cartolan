@@ -45,7 +45,7 @@ class GameVisualisation():
     SCORES_POSITION = [0.0, 0.0]
     SCORES_FONT_SCALE = 0.05 #relative to window size
     SCORES_SPACING = 1.5 #the multiple of the score pixel scale to leave for each number
-    MOVE_COUNT_POSITION = [0.80, 0.0]
+    MOVE_COUNT_POSITION = [0.75, 0.0]
     PROMPT_POSITION = [0.0, 0.85]
     PROMPT_FONT_SCALE = 0.05 #relative to window size
     
@@ -382,9 +382,11 @@ class GameVisualisation():
 #                    print("Drawing a highlight at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
                     self.window.blit(highlight_image, [horizontal*self.tile_size, vertical*self.tile_size])
         #Report the number of moves that have been used so far:
+        #@TODO report the number of tiles in each bag in the same part of the display
         if moves_since_rest:
             move_count = self.scores_font.render(str(moves_since_rest)+" moves since rest", 1, self.PLAIN_TEXT_COLOUR)
-            move_count_position = [self.MOVE_COUNT_POSITION[0] * self.width, self.MOVE_COUNT_POSITION[1] * self.height]
+            displacement = len(self.game.tile_piles) * self.SCORES_FONT_SCALE * self.height
+            move_count_position = [self.MOVE_COUNT_POSITION[0] * self.width, self.MOVE_COUNT_POSITION[1] * self.height + displacement]
             self.window.blit(move_count, move_count_position)
         
     
@@ -542,6 +544,14 @@ class GameVisualisation():
                     scores_position[0] += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width #Shift to a new column
                     score_value = self.scores_font.render(str(adventurer.wealth), 1, colour)
                     self.window.blit(score_value, scores_position)
+        #Draw the numbers of tiles in each pile
+        displacement = 0
+        for tile_back in self.game.tile_piles:
+            tiles = self.game.tile_piles[tile_back].tiles
+            tile_count = self.scores_font.render(str(len(tiles))+" tiles left in "+tile_back+" pile", 1, self.PLAIN_TEXT_COLOUR)
+            tile_count_position = [self.MOVE_COUNT_POSITION[0] * self.width, self.MOVE_COUNT_POSITION[1] * self.height + displacement]
+            self.window.blit(tile_count, tile_count_position)
+            displacement += self.SCORES_FONT_SCALE * self.height
     
     def draw_prompt(self):
         '''Prints a prompt on what moves/actions are available to the current player

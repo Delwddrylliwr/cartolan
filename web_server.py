@@ -64,115 +64,129 @@ class ClientSocket(WebSocket):
     def join_game(self):
         '''Adds players to a queue, with the first specifying setup, and starts a game when enough join.
         '''
-        try:
-            if next_game_type == None:
-                current_game_queue.append(channel)
-                print("Seeking game specification from newly joined client")
-                prompt_text = "Please specify which mode of Cartolan you would like to host: "
-                valid_options = []
-                self.next_game_type = ""
-                for game_type in self.game_modes:
-                    prompt_text += "'"+game_type+"', or "
-                    valid_options.append(game_type)
-                print("Prompting channel at " +channel.addr[0]+ " with: " +prompt_text)
+        
+        if next_game_type == None:
+            current_game_queue.append(channel)
+            print("Seeking game specification from newly joined client")
+            prompt_text = "Please specify which mode of Cartolan you would like to host: "
+            valid_options = []
+            self.next_game_type = ""
+            for game_type in self.game_modes:
+                prompt_text += "'"+game_type+"', or "
+                valid_options.append(game_type)
+            print("Prompting channel at " +channel.addr[0]+ " with: " +prompt_text)
+            try:
                 self.socket.send({"action":"input", "input_prompt":prompt_text, "valid_options":valid_options})
                 while not next_game_type in valid_options:
                     next_game_type = self.socket.recv()
-                min_players = self.game_modes[next_game_type]["game_type"].MIN_PLAYERS
-                max_players = self.game_modes[next_game_type]["game_type"].MAX_PLAYERS
-                #Get remote user input about how many players they have at their end
-                valid_options = [str(i) for i in range(1, max_players)]
-                prompt_text = ("Please specify how many players will play from this computer, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
-                num_client_players = None
-                print("Prompting channel at " +channel.addr[0]+ " with: " +prompt_text)
+            except Exception as e:
+                print (e)    
+            min_players = self.game_modes[next_game_type]["game_type"].MIN_PLAYERS
+            max_players = self.game_modes[next_game_type]["game_type"].MAX_PLAYERS
+            #Get remote user input about how many players they have at their end
+            valid_options = [str(i) for i in range(1, max_players)]
+            prompt_text = ("Please specify how many players will play from this computer, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
+            num_client_players = None
+            print("Prompting channel at " +channel.addr[0]+ " with: " +prompt_text)
+            try:
                 self.socket.send({"action":"input", "input_prompt":prompt_text, "valid_options":valid_options})
                 while not str(num_client_players) in valid_options:
                     received_input = self.socket.recv()
                     if received_input:
                         num_client_players = int(received_input)
-                #Get remote user input about how many computer players they are to host
-                valid_options = [str(i) for i in range(0, max_players - num_client_players)]
-                prompt_text = ("Please specify how many computer players will play, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
-                num_virtual_players = None
-                print("Prompting channel at " +channel.addr[0]+ " with: " +prompt_text)
+            except Exception as e:
+                print (e)
+            #Get remote user input about how many computer players they are to host
+            valid_options = [str(i) for i in range(0, max_players - num_client_players)]
+            prompt_text = ("Please specify how many computer players will play, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
+            num_virtual_players = None
+            print("Prompting channel at " +channel.addr[0]+ " with: " +prompt_text)
+            try:
                 self.socket.send({"action":"input", "input_prompt":prompt_text, "valid_options":valid_options})
                 while not str(num_virtual_players) in valid_options:
                     received_input = self.remote_input(channel)
                     if received_input:
                         num_virtual_players = int(received_input)
-                #Get remote user input about how many other players they want in their game
-                valid_options = [str(i) for i in range(1, max_players - num_client_players - num_virtual_players + 1)]
-                prompt_text = ("Please specify how many other players will play, between 1 and " +str(max_players - num_client_players - num_virtual_players)+ "?")
-                num_players = None
-                print("Prompting channel at " +self.address+ " with: " +prompt_text)
+            except Exception as e:
+                print (e)
+            #Get remote user input about how many other players they want in their game
+            valid_options = [str(i) for i in range(1, max_players - num_client_players - num_virtual_players + 1)]
+            prompt_text = ("Please specify how many other players will play, between 1 and " +str(max_players - num_client_players - num_virtual_players)+ "?")
+            num_players = None
+            print("Prompting channel at " +self.address+ " with: " +prompt_text)
+            try:
                 self.socket.send({"action":"input", "input_prompt":prompt_text, "valid_options":valid_options})
                 while not num_players in range(min_players, max_players + 1):
                     received_input = self.socket.recv()
                     if received_input:
                         num_players = num_client_players + num_virtual_players + int(received_input)
-                next_num_players = num_players
-                #randomly choose/order the player colours to fit this number, then assign a suitable number to this channel
-                next_player_colours = random.sample(game_modes[next_game_type]["player_set"].keys(), next_num_players)
-                client_players[self] = []
-                for player_num in range(num_client_players):
-                    player_colour = next_player_colours[player_num]
-                    client_players[self].append(player_colour)
-                    next_player_channels[player_colour] = self
-                next_virtual_players = []
-                for player_num in range(num_virtual_players):
-                    player_colour = next_player_colours[num_client_players + player_num]
-                    client_players[self].append(player_colour)
-                    next_player_channels[player_colour] = self
-                    virtual_players.append(player_colour)
-            else:
-                #Add this client to the game that's being set up
-                next_game_queue.append(self)
-                num_existing_players = len(next_player_channels)
-                valid_options = [str(i) for i in range(1, next_num_players - num_existing_players + 1)]
-                prompt_text = ("The current game has " +str(num_existing_players) +"/"
-                               +str(next_num_players)+" players. Please specify how many players will play from this computer, between 1 and " 
-                               +str(next_num_players - len(next_player_channels))+ "?")
-                num_client_players = None
-                print("Prompting channel at " +channel.addr[0]+ " with: " +prompt_text)
+            except Exception as e:
+                print (e)
+            next_num_players = num_players
+            #randomly choose/order the player colours to fit this number, then assign a suitable number to this channel
+            next_player_colours = random.sample(game_modes[next_game_type]["player_set"].keys(), next_num_players)
+            client_players[self] = []
+            for player_num in range(num_client_players):
+                player_colour = next_player_colours[player_num]
+                client_players[self].append(player_colour)
+                next_player_channels[player_colour] = self
+            next_virtual_players = []
+            for player_num in range(num_virtual_players):
+                player_colour = next_player_colours[num_client_players + player_num]
+                client_players[self].append(player_colour)
+                next_player_channels[player_colour] = self
+                virtual_players.append(player_colour)
+        else:
+            #Add this client to the game that's being set up
+            next_game_queue.append(self)
+            num_existing_players = len(next_player_channels)
+            valid_options = [str(i) for i in range(1, next_num_players - num_existing_players + 1)]
+            prompt_text = ("The current game has " +str(num_existing_players) +"/"
+                           +str(next_num_players)+" players. Please specify how many players will play from this computer, between 1 and " 
+                           +str(next_num_players - len(next_player_channels))+ "?")
+            num_client_players = None
+            print("Prompting channel at " +channel.addr[0]+ " with: " +prompt_text)
+            try:
                 channel.Send({"action":"input", "input_prompt":prompt_text, "valid_options":valid_options})
                 while not num_client_players in range(1, max_players + 1):
                     received_input = self.socket.recv()
                     if received_input:
                         num_client_players = int(received_input)
-                #Assign colours to the newly joined players
-                client_players[self] = []
-                for player_num in range(num_existing_players, num_existing_players + num_client_players):
-                    player_colour = next_player_colours[player_num]
-                    client_players[self].append(player_colour)
-                    next_player_channels[player_colour] = self
-                if len(next_player_channels) == next_num_players:
-                    #specify initial adventurer locations for the given players
-                    adventurers_json = {}
-                    random.shuffle(next_player_colours)
-                    current_player_colour = next_player_colours[0]
-                    for player_colour in next_player_channels:
-                        adventurers_json[player_colour] = INITIAL_ADVENTURERS
-                    games.append({"player_channels":next_player_channels})
-                    for client in next_game_queue:
-                        client.socket.send({"action": "start_game"
-                            ,"player_colours":next_player_colours
-                            , "local_player_colours":client_players[socket]
-                            , "virtual_players":next_virtual_players
-                            , "game_type":next_game_type
-                            , "initial_tiles":INITIAL_TILES
-                            , "initial_adventurers":adventurers_json
-                            , "current_player_colour":current_player_colour
-                            })
-                        client_games[client] = {}
-                        client_games[client]["game_id"] = len(games) - 1                
-                    # Clean up before the next game is constructed
-                    next_num_players = None
-                    next_player_colours = None
-                    next_game_type = None
-                    next_player_channels = {}
-                    queue = []
-        except Exception as e:
-           print (e)
+            except Exception as e:
+                print (e)
+            #Assign colours to the newly joined players
+            client_players[self] = []
+            for player_num in range(num_existing_players, num_existing_players + num_client_players):
+                player_colour = next_player_colours[player_num]
+                client_players[self].append(player_colour)
+                next_player_channels[player_colour] = self
+            if len(next_player_channels) == next_num_players:
+                #specify initial adventurer locations for the given players
+                adventurers_json = {}
+                random.shuffle(next_player_colours)
+                current_player_colour = next_player_colours[0]
+                for player_colour in next_player_channels:
+                    adventurers_json[player_colour] = INITIAL_ADVENTURERS
+                games.append({"player_channels":next_player_channels})
+                for client in next_game_queue:
+                    #@TODO create game locally
+                    client.socket.send({"action": "start_game"
+                        ,"player_colours":next_player_colours
+                        , "local_player_colours":client_players[socket]
+                        , "virtual_players":next_virtual_players
+                        , "game_type":next_game_type
+                        , "initial_tiles":INITIAL_TILES
+                        , "initial_adventurers":adventurers_json
+                        , "current_player_colour":current_player_colour
+                        })
+                    client_games[client] = {}
+                    client_games[client]["game_id"] = len(games) - 1
+                # Clean up before the next game is constructed
+                next_num_players = None
+                next_player_colours = None
+                next_game_type = None
+                next_player_channels = {}
+                queue = []
 
 
     def start_game(self):
