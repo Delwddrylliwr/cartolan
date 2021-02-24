@@ -711,7 +711,13 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             self.Pump()
             connection.Pump()
             sleep(self.UPDATE_DELAY)
-        
+    
+    def Network_handshake(self, data):
+        '''Confirms to the server that this is a Cartolan client, not a random ping.
+        '''
+        #@TODO add version information into handshake, to allow compatibility check
+        self.Send({"action":"handshake", "handshake":"handshake"})
+    
     def update(self):
         '''Redraws visuals and seeks player input, passing it to the server to pass to the server-side Player
         '''
@@ -890,6 +896,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                 #Reset the route to be visualised for this virtual player
                 for adventurer in self.game.adventurers[current_player]:
                     adventurer.route = [adventurer.current_tile]
+            self.clear_prompt()
             self.Send({"action":"new_turn", "turn":self.game.turn, "current_player_colour":self.current_player_colour})
     
     def Network_close(self, data):
