@@ -40,6 +40,7 @@ class GameVisualisation():
     PLAIN_TEXT_COLOUR = (255,255,255)
     TILE_BORDER = 0.02 #the share of grid width/height that is used for border
     TOKEN_SCALE = 0.2 #relative to tile sizes
+    AGENT_SCALE = 1.75 #relative to Adventurer radius
     TOKEN_OUTLINE_SCALE = 0.25 #relative to token scale
     TOKEN_FONT_SCALE = 0.5 #relative to tile sizes
     SCORES_POSITION = [0.0, 0.0]
@@ -458,7 +459,7 @@ class GameVisualisation():
                             , int(self.tile_size * (self.get_vertical(tile.tile_position.latitude) + agent_offset[1]))]
                 #Agents will be differentiated by colour, but they will always have the same position because there will only be one per tile
                 agent_shape = pygame.Rect(location[0], location[1]
-                  , 2*self.token_size, 2*self.token_size)
+                  , self.AGENT_SCALE*self.token_size, self.AGENT_SCALE*self.token_size)
                 # we'll only outline the Agents that are dispossessed
                 if isinstance(agent, AgentRegular) and agent.is_dispossessed:
                         pygame.draw.rect(self.window, colour, agent_shape, self.outline_width)
@@ -710,7 +711,13 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
             self.Pump()
             connection.Pump()
             sleep(self.UPDATE_DELAY)
-        
+    
+    def Network_handshake(self, data):
+        '''Confirms to the server that this is a Cartolan client, not a random ping.
+        '''
+        #@TODO add version information into handshake, to allow compatibility check
+        self.Send({"action":"handshake", "handshake":"handshake"})
+    
     def update(self):
         '''Redraws visuals and seeks player input, passing it to the server to pass to the server-side Player
         '''
@@ -889,6 +896,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                 #Reset the route to be visualised for this virtual player
                 for adventurer in self.game.adventurers[current_player]:
                     adventurer.route = [adventurer.current_tile]
+            self.clear_prompt()
             self.Send({"action":"new_turn", "turn":self.game.turn, "current_player_colour":self.current_player_colour})
     
     def Network_close(self, data):

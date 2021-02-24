@@ -31,6 +31,11 @@ class ClientChannel(PodSixNet.Channel.Channel):
     def Network(self, data):
         print(data)
         
+    def Network_handshake(self, data):
+        '''Receives a handshake confirming that a client is a Cartolan game
+        '''
+        self._server.continue_connection(self)
+        
     def Network_input(self, data):
         '''Receiving method for plain "input" messages from clients
         '''
@@ -119,12 +124,18 @@ class CartolanServer(PodSixNet.Server.Server):
         self.queue = []
         self.next_player_channels = {}
     
-    #@TODO allow players to join a game, replacing a virtual player 
     def Connected(self, channel, addr):
-        '''Allocates players to games
+        '''Conducts a handshake with newly connected players.
         '''
         print('new connection: ', channel.addr)
+        channel.Send({"action":"handshake", "handshake":"handshake"})
 #        channel.setup()
+    
+    #@TODO allow players to join a game, replacing a virtual player 
+    #@TODO remove blocking loops, perhaps through threading        
+    def continue_connection(self, channel):
+        '''Allocates players to games.
+        '''
         self.input_buffer[channel] = None
         if self.next_game_type == None:
             self.queue.append(channel)

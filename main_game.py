@@ -254,7 +254,7 @@ client_visual = game_options[game_choice]()
 if game_choice == "local":
     prompt_text = "What version of Cartolan would you like to play? Type in either "
     for game_mode in client_visual.GAME_MODES:
-        prompt_text += "'" +game_mode+ " or "
+        prompt_text += "'" +game_mode+ "' or "
     game_mode = ""
     while not game_mode in client_visual.GAME_MODES:
         game_mode = input(prompt_text + "\n")
