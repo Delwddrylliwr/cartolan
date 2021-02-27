@@ -46,5 +46,5 @@ class RegularConfig:
     ATTACK_SUCCESS_PROB = 1.0/3.0
     
 class AdvancedConfig:
-    COST_BUY_EQUIPMENT = 10
+    COST_BUY_EQUIPMENT = 5
 
