@@ -1395,9 +1395,9 @@ class WebServerVisualisation(GameVisualisation):
         while True:
             try:
                 data = self.socket.recv()
-                code, value = data.split('[55555]')
+                code, value = data.split('[00100]')
                 
-                if code == "coords":
+                if code == "COORDS":
                     horizontal, vertical = value.split('[66666]')
                     self.move_timer = self.MOVE_TIME_LIMIT #reset the timelimit on moving
                     longitude = int(math.ceil((horizontal)/self.tile_size)) - self.origin[0] - 1

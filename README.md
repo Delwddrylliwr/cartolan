@@ -10,9 +10,9 @@ It also allows playtesting through virtual play over a network and the internet.
 
 All the scripts are in the root folder, while assets like visuals are in subfolders. 
 
-The key file through which to run simulations is cartolan_sim.py.
+The key file through which to run simulations is main_sim.py.
 
-The key file through which to play the game is cartolan_game.py.
+The key file through which to play the game is main_game.py.
 
 See deployment for notes on how to deploy the project on a live system.
 
@@ -24,12 +24,12 @@ For virtual play of the game, you will need the pygame and podsixnet python pack
 
 If your python 3.x instance is called with the command ```python3``` then you'll need to install these with:
 ```
-python3 -m pip install pygame
+python3 -m pip install pygame podsixnet
 ```
 
 ### Installing
 
-To achieve a convenient installation, the pyinstaller package can be used to convert the python source files into an executable for whichever operating system it is run on:
+OPTIONALLY, to achieve a convenient installation, the pyinstaller package can be used to convert the python source files into an executable for whichever operating system it is run on:
 
 The package can be installed through:
 ```
@@ -37,7 +37,7 @@ python3 -m pip install pyinstaller
 ```
 It can then be used to create a simple executable (in the "dist" subfolder of the project) through running this command in the project root folder:
 ```
-pyinstaller --onefile cartolan_game.py
+pyinstaller --onefile main.py
 ```
 
 End with an example of getting some data out of the system or using it for a little demo

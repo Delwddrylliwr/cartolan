@@ -33,18 +33,12 @@
 
     <body onload="startGame()">
 
-        <!-- Add your site or application content here -->
-        <!--  <p>Hello world! This is HTML5 Boilerplate.</p>
-          <script src="js/vendor/modernizr-3.11.2.min.js"></script>
-          <script src="js/plugins.js"></script>-->
-        <!--<script src="js/main.js"></script>-->
-
         <script>
             var canvas = document.getElementById('stage');
             var context = canvas.getContext("2d");
 
             function openWS(){
-                var websocket = new WebSocket("ws:localhost:8000");
+                var websocket = new WebSocket("ws:localhost:10000");
                 websocket.binaryType = "arraybuffer";
                 websocket.onmessage = function(evt) { onMessage(evt); };
                 websocket.onerror = function(evt) { onError(evt); };
@@ -65,35 +59,26 @@
                 }
 
                 function onMessage(evt) {
-                    var img = new Image();
-                    img.src = "data:image/png;base64,"+evt.data;
-                    img.onload = function () {
-                        context.drawImage(img,0,0);
+                    //@TODO differentiate between visual updates and prompts
+                    if (evt.data.type === 'utf8') { // accept only text
+                        var input = prompt(evt.data.utf8Data);
+                        console.log("input: " + input);
+                        websocket.send("MESSAGE[00100]" + input)
+                    } else { //assume this is a base64 image to render
+                        var img = new Image();
+                        img.src = "data:image/png;base64,"+evt.data;
+                        img.onload = function () {
+                            context.drawImage(img,0,0);
+                        }
                     };
                 }
 
                 function onError(evt) {
                     console.log(evt.data);
                 }
-
-
-//                function drawImageBinary(blob) {
-//                    var bytes = new Uint8Array(blob);
-//                    // console.log('drawImageBinary (bytes.length): ' + bytes.length);
-//                    var imageData = context.createImageData(canvas.width, canvas.height);
-//                    for (var i=8; i<imageData.data.length; i++) {
-//                        imageData.data[i] = bytes[i];
-//                    }
-//                    context.putImageData(imageData, 0, 0);
-//                    var img = document.createElement('img');
-//                    //img.height = canvas.height;
-//                    //img.width = canvas.width;
-//                    img.src = canvas.toDataURL();
-//                }
             }
 
             function startGame() {
-//                myGamePiece = new component(30, 30, "red", 10, 120);
                 //@TODO initiate a play area of a suitable size within the browser window
                 myGameArea.start();
                 //@TODO set up the websocket connection to the game server
@@ -133,62 +118,17 @@
                 }
             };
 
-//            function component(width, height, color, x, y) {
-//                this.width = width;
-//                this.height = height;
-//                this.speedX = 0;
-//                this.speedY = 0;
-//                this.x = x;
-//                this.y = y;
-//                this.update = function () {
-//                    ctx = myGameArea.context;
-//                    ctx.fillStyle = color;
-//                    ctx.fillRect(this.x, this.y, this.width, this.height);
-//                };
-//                this.clicked = function () {
-//                    var myleft = this.x;
-//                    var myright = this.x + (this.width);
-//                    var mytop = this.y;
-//                    var mybottom = this.y + (this.height);
-//                    var clicked = true;
-//                    if ((mybottom < myGameArea.y) || (mytop > myGameArea.y) || (myright < myGameArea.x) || (myleft > myGameArea.x)) {
-//                        clicked = false;
-//                    }
-//                    return clicked;
-//                };
-//            }
-
             function updateGameArea() {
 //                myGameArea.clear();
                 if (myGameArea.x && myGameArea.y) {
                     websocket.send("SUB[00100]" + myGameArea.x 
                             + "[666666]" + myGameArea.y);
                 }
-//                    if (myUpBtn.clicked()) {
-//                        myGamePiece.y -= 1;
-//                    }
-//                    if (myDownBtn.clicked()) {
-//                        myGamePiece.y += 1;
-//                    }
-//                    if (myLeftBtn.clicked()) {
-//                        myGamePiece.x += -1;
-//                    }
-//                    if (myRightBtn.clicked()) {
-//                        myGamePiece.x += 1;
-//                    }
-//                }
-//                myUpBtn.update();
-//                myDownBtn.update();
-//                myLeftBtn.update();
-//                myRightBtn.update();
-//                myGamePiece.update();
             }
 
         </script>
 
-        <p>Click on the blue "buttons" to make the red square move.</p>
-
-        <!-- Google Analytics: change UA-XXXXX-Y to be your site's ID. -->
+<!--         Google Analytics: change UA-XXXXX-Y to be your site's ID. 
         <script>
             window.ga = function () {
                 ga.q.push(arguments); }; ga.q = [];
@@ -198,7 +138,7 @@
             ga('set', 'transport', 'beacon');
             ga('send', 'pageview');
         </script>
-        <script src="https://www.google-analytics.com/analytics.js" async></script>
+        <script src="https://www.google-analytics.com/analytics.js" async></script>-->
     </body>
 
 </html>

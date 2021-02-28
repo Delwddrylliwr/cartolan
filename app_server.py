@@ -132,7 +132,7 @@ class CartolanServer(PodSixNet.Server.Server):
 #        channel.setup()
     
     #@TODO allow players to join a game, replacing a virtual player 
-    #@TODO remove blocking loops, perhaps through threading        
+    #@TODO remove blocking loops, perhaps through threading, but will need to make threadsafe       
     def continue_connection(self, channel):
         '''Allocates players to games.
         '''
