@@ -37,6 +37,8 @@
     <body onload="startGame()">
 
         <script>
+//            var serverAddress = "51.38.83.99:10000";
+            var serverAddress = "localhost:10000";
             var canvas;
             var context;
             var websocket;
@@ -44,7 +46,7 @@
 //            var context = canvas.getContext("2d");
 
             function openWS(){
-                websocket = new WebSocket("ws:localhost:10000");
+                websocket = new WebSocket("ws:"+serverAddress);
                 websocket.binaryType = "arraybuffer";
                 websocket.onmessage = function(evt) { onMessage(evt); };
                 websocket.onerror = function(evt) { onError(evt); };
@@ -164,7 +166,9 @@
                 if (myGameArea.x && myGameArea.y) {
                     send("COORDS[00100]" + myGameArea.x 
                             + "[66666]" + myGameArea.y);
-                    console.log("Shared coordinates.")
+                    myGameArea.x = false;
+                    myGameArea.y = false;
+                    console.log("Shared coordinates.");
                 }
             }
 
