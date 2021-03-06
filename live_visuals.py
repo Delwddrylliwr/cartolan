@@ -7,6 +7,7 @@ import pygame
 #import pygame_menu
 import sys
 import os
+import time
 import base64
 import random
 import string
@@ -1341,9 +1342,10 @@ class WebServerVisualisation(GameVisualisation):
     But, only the moving player's visual will receive input. 
     '''
     TEMP_FILENAME_LEN = 6
+    INPUT_DELAY = 0.1 #delay time between checking for input, in seconds
     
-    def __init__(self, game, dimensions, origin, socket, width, height):
-        self.socket = socket
+    def __init__(self, game, dimensions, origin, client, width, height):
+        self.client = client
         self.width, self.height = width, height
         self.client_players = []
         super().__init__(game, dimensions, origin)
@@ -1373,9 +1375,10 @@ class WebServerVisualisation(GameVisualisation):
 #        pygame.display.flip()
         #generate a random filename, to avoid thread conflicts
         randname = ( ''.join(random.choice(string.ascii_lowercase) for i in range(self.TEMP_FILENAME_LEN)) )
+        #@TODO could reduce file size and latency by compressing into a lossy jpg
         pygame.image.save(self.window, randname+".png")
         out = open(randname+".png","rb").read()
-        self.socket.sendMessage(base64.b64encode(out))
+        self.client.sendMessage("IMAGE[00100]"+str(base64.b64encode(out)))
         print("data sent")
         os.remove(randname+".png")
         
@@ -1389,31 +1392,39 @@ class WebServerVisualisation(GameVisualisation):
         #print("Updating the display for all the other human players, whose visuals won't have been consulted.")
         for player in self.game.players:
             if isinstance(player, PlayerHuman):
-                player.game_vis.update_web_display()
-
+                player.games[self.game.game_id]["game_vis"].update_web_display()
+        
+        coords = None
+        while coords is None:
+            coords = self.client.get_coords()
+            if coords is not None:
+                horizontal, vertical = coords
+                longitude = int(math.ceil((horizontal)/self.tile_size)) - self.origin[0] - 1
+                latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
+                if True:
+                    self.highlights = {"move":[], "invalid":[], "buy":[], "attack":[]} #clear the highlights until the server offers more
+                    return [longitude, latitude]
+            time.sleep(self.INPUT_DELAY)
 #        print("Waiting for input from the user")
-        while True:
-            try:
-                data = self.socket.recv()
-                code, value = data.split('[00100]')
-                
-                if code == "COORDS":
-                    horizontal, vertical = value.split('[66666]')
-                    self.move_timer = self.MOVE_TIME_LIMIT #reset the timelimit on moving
-                    longitude = int(math.ceil((horizontal)/self.tile_size)) - self.origin[0] - 1
-                    latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
-                    #check whether the click was within the highlighted space and whether it's a local turn
-    #                highlighted_option = self.check_highlighted(longitude, latitude)
-    #                print("Click was a valid option of type: " + highlighted_option)
-                    if True:
-    #                if highlighted_option is not None:
-                        self.highlights = {"move":[], "invalid":[], "buy":[], "attack":[]} #clear the highlights until the server offers more
-    #                    print("Have identified a move available at " +str(longitude)+ ", " +str(latitude)+ " of type " +str(highlighted_option))
-                        return [longitude, latitude]
-            except Exception as e:
-                print (e)
+#        while True:
+#            data = self.socket.recv()
+#            code, value = data.split('[00100]')
+#            
+#            if code == "COORDS":
+#                horizontal, vertical = value.split('[66666]')
+#                self.move_timer = self.MOVE_TIME_LIMIT #reset the timelimit on moving
+#                longitude = int(math.ceil((horizontal)/self.tile_size)) - self.origin[0] - 1
+#                latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
+#                #check whether the click was within the highlighted space and whether it's a local turn
+##                highlighted_option = self.check_highlighted(longitude, latitude)
+##                print("Click was a valid option of type: " + highlighted_option)
+#                if True:
+##                if highlighted_option is not None:
+#                    self.highlights = {"move":[], "invalid":[], "buy":[], "attack":[]} #clear the highlights until the server offers more
+##                    print("Have identified a move available at " +str(longitude)+ ", " +str(latitude)+ " of type " +str(highlighted_option))
+#                    return [longitude, latitude]
 
-            #@TODO introduce move timer and compare to time limit
+        #@TODO introduce move timer and compare to time limit
         
         return False
 

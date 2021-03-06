@@ -20,6 +20,9 @@
         <link rel="stylesheet" href="css/main.css">
 
         <meta name="theme-color" content="#fafafa">
+        
+        <!--<script src="download.js" type="text/javascript"></script>-->
+        
         <style>
             body {
                 margin: 0;
@@ -34,42 +37,65 @@
     <body onload="startGame()">
 
         <script>
-            var canvas = document.getElementById('stage');
-            var context = canvas.getContext("2d");
+            var canvas;
+            var context;
+            var websocket;
+//            var canvas = document.getElementById('stage');
+//            var context = canvas.getContext("2d");
 
             function openWS(){
-                var websocket = new WebSocket("ws:localhost:10000");
+                websocket = new WebSocket("ws:localhost:10000");
                 websocket.binaryType = "arraybuffer";
                 websocket.onmessage = function(evt) { onMessage(evt); };
                 websocket.onerror = function(evt) { onError(evt); };
                 websocket.onopen = function(evt) { onOpen(evt); };
                 
                 function onOpen(evt){
-                    //Establish user credentials
-                    var luser = document.getElementById("lusername").value;
-                    var ruser = document.getElementById("rusername").value;
-                    var pwd = document.getElementById("password").value;
+//                    //Establish user credentials
+//                    var luser = document.getElementById("lusername").value;
+//                    var ruser = document.getElementById("rusername").value;
+//                    var pwd = document.getElementById("password").value;
                     console.log("Connecting.. ");
-                    //Share credentials with server
-                    websocket.send("SUB[00100]" + luser);
-                    websocket.send("MESSAGE[00100]" + ruser + "[11111]" + pwd);
+//                    //Share credentials with server
+//                    websocket.send("SUB[00100]" + luser);
+//                    websocket.send("MESSAGE[00100]" + ruser + "[11111]" + pwd);
+//                    
+                    console.log("Requesting to join a game from the server.");
+                    //pass the play area dimensions to the server
+                    send("START[00100]" + myGameArea.canvas.width + "[55555]" + myGameArea.canvas.height);
                     //@TODO wait for server response to confirm connection
                     console.log("Connected.");
                     //@TODO share the dimensions of the client play area with the server so that rescaling of the image can happen serverside before transmission
                 }
 
                 function onMessage(evt) {
-                    //@TODO differentiate between visual updates and prompts
-                    if (evt.data.type === 'utf8') { // accept only text
-                        var input = prompt(evt.data.utf8Data);
+                    decomposed = evt.data.split("[00100]")
+                    console.log("Data received of type: "+evt.data.type)
+                    if (decomposed[0] === 'PING') { // this is a heartbeat message
+                        this.send("PONG[00100]");
+                    }
+                    else if (decomposed[0] === 'TEXT') { // accept only text
+                        console.log("Text prompt received: "+decomposed[1])
+                        var input = prompt(decomposed[1]);
                         console.log("input: " + input);
-                        websocket.send("MESSAGE[00100]" + input)
-                    } else { //assume this is a base64 image to render
+                        this.send("TEXT[00100]" + input);
+                    } else if (decomposed[0] === 'IMAGE') { //this is a base64 image to render
                         var img = new Image();
-                        img.src = "data:image/png;base64,"+evt.data;
+                        console.log("Image received.");
+//                        download(decomposed[1], "test.png");
+//                        img.src = "data:image/png;base64, "+btoa(decomposed[1]);
                         img.onload = function () {
+                            context.fillStyle = "red";
+                            context.fillRect(0, 0, 100, 100);
                             context.drawImage(img,0,0);
-                        }
+                            console.log("Image drawn to canvas. ");
+                        };
+//                        img.src = "data:image/png;base64, "+btoa(decomposed[1]);
+                        imageString = decomposed[1].toString().substring(1).replace(/'/g, "");
+                        console.log(imageString);
+                        img.src = "data:image/png;base64, "+imageString;
+                    } else {
+                        console.log("Received message couldn't be processed.");
                     };
                 }
 
@@ -77,23 +103,37 @@
                     console.log(evt.data);
                 }
             }
+            
+               
+            function send(message) {
+                console.log("Trying to send message: "+message)
+                waitForConnection(function () {
+                    websocket.send(message);
+                }, 1000);
+            };
 
+            function waitForConnection(callback, interval) {
+                if (websocket.readyState === 1) {
+                    console.log("Web socket found open.")
+                    callback();
+                }
+            };
+            
             function startGame() {
-                //@TODO initiate a play area of a suitable size within the browser window
+                //initiate a play area of a suitable size within the browser window
                 myGameArea.start();
-                //@TODO set up the websocket connection to the game server
-                //@TOOD pass the play area dimensions to the server
+                //set up the websocket connection to the game server
                 openWS();
-                websocket.send("SUB[00100]" + luser);
             }
-
 
             var myGameArea = {
                 canvas: document.createElement("canvas"),
                 start: function () {
+                    canvas = this.canvas;
                     this.canvas.width = window.innerWidth; //get this from the browser window size
                     this.canvas.height = window.innerHeight; //get this from the browser window size
                     this.context = this.canvas.getContext("2d");
+                    context = this.context;
                     document.body.insertBefore(this.canvas, document.body.childNodes[0]);
                     this.interval = setInterval(updateGameArea, 20);
                     window.addEventListener('mousedown', function (e) {
@@ -115,14 +155,16 @@
                 },
                 clear: function () {
                     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                    console.log("Cleared inputs.");
                 }
             };
 
             function updateGameArea() {
 //                myGameArea.clear();
                 if (myGameArea.x && myGameArea.y) {
-                    websocket.send("SUB[00100]" + myGameArea.x 
-                            + "[666666]" + myGameArea.y);
+                    send("COORDS[00100]" + myGameArea.x 
+                            + "[66666]" + myGameArea.y);
+                    console.log("Shared coordinates.")
                 }
             }
 
