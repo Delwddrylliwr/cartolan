@@ -18,7 +18,7 @@ import random
 import string
 from threading import Thread
 
-DEFAULT_POER = 10000
+DEFAULT_PORT = 10000
 
 DEFAULT_WIDTH = int(0.8*1366)
 DEFAULT_HEIGHT = int(0.8*768)
@@ -245,8 +245,7 @@ class ClientSocket(WebSocket):
             #If this client's game is now full then start it off
             num_players = len(new_game_colours[game_id])
             num_existing_players = len(new_game_players[game_id])
-            num_spaces = num_players - num_existing_players
-            if num_client_players == num_spaces:
+            if num_existing_players == num_players:
                 random.shuffle(new_game_players[game_id])
                 self.game = setup_simulation(new_game_players[game_id]
                                      , GAME_MODES[new_game_type]["game_type"]
