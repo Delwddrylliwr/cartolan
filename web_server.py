@@ -103,6 +103,8 @@ class ClientSocket(WebSocket):
         global next_game_id, clients, client_visuals, client_players, games
         global client_games
         global new_game_queues, new_game_types, new_game_colours, new_game_players
+        game_id = None
+        num_client_players = None
         in_queue = False
         #@TODO return to creating a new game if there are none available after the user returns input
         while not in_queue:
@@ -161,8 +163,8 @@ class ClientSocket(WebSocket):
                     else:
                         time.sleep(self.INPUT_DELAY)
                 #Get remote user input about how many other players they want in their game
-                valid_options = [str(i) for i in range(1, max_players - num_client_players - num_virtual_players + 1)]
-                prompt_text = ("Please specify how many other players will play, between 1 and " +str(max_players - num_client_players - num_virtual_players)+ "?")
+                valid_options = [str(i) for i in range(max(min_players - num_client_players - num_virtual_players, 0), max_players - num_client_players - num_virtual_players + 1)]
+                prompt_text = ("Please specify how many other players will play, between "+str(valid_options[0])+" and " +str(valid_options[-1])+ "?")
                 num_players = None
                 print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
                 self.sendMessage("TEXT[00100]"+prompt_text)
@@ -237,68 +239,71 @@ class ClientSocket(WebSocket):
                     client_players[self].append(player)
                     new_game_players[game_id].append(player)
                 in_queue = True
-                #If the game is now full then start it off
-                if num_client_players == num_spaces:
-                    random.shuffle(new_game_players[game_id])
-                    self.game = setup_simulation(new_game_players[game_id]
-                                         , GAME_MODES[new_game_type]["game_type"]
-                                         , MOVEMENT_RULES
-                                         , EXPLORATION_RULES
-                                         , MYTHICAL_CITY)
-                    
-                    #Move the game's lookups into the active list and clean up
-                    games[game_id] = {"player_colours":new_game_colours.pop(game_id)
-                                        , "players":new_game_players.pop(game_id)
-                                        , "game_type":new_game_types.pop(game_id)
-                                        , "clients":new_game_queues.pop(game_id)
-                                        }                    
-                    
-                    #Establish dimensions for the play area, based on the setup
-                    #@TODO this code is repeated several times in different places, functionalise it
-                    min_longitude, max_longitude = 0, 0
-                    min_latitude, max_latitude = 0, 0
-                    for longitude in self.game.play_area:
-                        if longitude < min_longitude:
-                            min_longitude = longitude
-                        elif longitude > max_longitude:
-                            max_longitude = longitude
-                        for latitude in self.game.play_area[longitude]:
-                            if latitude < min_latitude:
-                                min_latitude = latitude
-                            elif latitude > max_latitude:
-                                max_latitude = latitude
-                    origin = [-min_longitude + DIMENSION_INCREMENT
-                              , -min_latitude + DIMENSION_INCREMENT
+            
+            #If this client's game is now full then start it off
+            num_players = len(new_game_colours[game_id])
+            num_existing_players = len(new_game_players[game_id])
+            num_spaces = num_players - num_existing_players
+            if num_client_players == num_spaces:
+                random.shuffle(new_game_players[game_id])
+                self.game = setup_simulation(new_game_players[game_id]
+                                     , GAME_MODES[new_game_type]["game_type"]
+                                     , MOVEMENT_RULES
+                                     , EXPLORATION_RULES
+                                     , MYTHICAL_CITY)
+                
+                #Move the game's lookups into the active list and clean up
+                games[game_id] = {"player_colours":new_game_colours.pop(game_id)
+                                    , "players":new_game_players.pop(game_id)
+                                    , "game_type":new_game_types.pop(game_id)
+                                    , "clients":new_game_queues.pop(game_id)
+                                    }                    
+                
+                #Establish dimensions for the play area, based on the setup
+                #@TODO this code is repeated several times in different places, functionalise it
+                min_longitude, max_longitude = 0, 0
+                min_latitude, max_latitude = 0, 0
+                for longitude in self.game.play_area:
+                    if longitude < min_longitude:
+                        min_longitude = longitude
+                    elif longitude > max_longitude:
+                        max_longitude = longitude
+                    for latitude in self.game.play_area[longitude]:
+                        if latitude < min_latitude:
+                            min_latitude = latitude
+                        elif latitude > max_latitude:
+                            max_latitude = latitude
+                origin = [-min_longitude + DIMENSION_INCREMENT
+                          , -min_latitude + DIMENSION_INCREMENT
+                          ]
+                dimensions = [max_longitude + origin[0] + DIMENSION_INCREMENT
+                              , max_latitude + origin[1] + DIMENSION_INCREMENT
                               ]
-                    dimensions = [max_longitude + origin[0] + DIMENSION_INCREMENT
-                                  , max_latitude + origin[1] + DIMENSION_INCREMENT
-                                  ]
-                    
-                    for client in games[game_id]["clients"]:
-                        #@TODO create game visualisation corresponding to each client's window resolution
-                        game_vis = WebServerVisualisation(self.game, dimensions, origin, client, client.width, client.height)
-                        client_visuals[client] = game_vis
-                        for player in client_players[client]:
-                            player.connect_gui(game_vis)
-                    
-                    #start game in this thread including all the client visuals (so that the players created here are available to just one thread)
-                    self.game.turn = 1
-                    self.game.game_over = False
-                    while not self.game.game_over:
-                        self.game.turn += 1
-                        self.game.game_over = self.game.play_round()
-                    
-                    #Inform all clients that the game has ended
-                    for client in games[game_id]["clients"]:
-                        game_vis = client_visuals[client]
-                        game_vis.give_prompt(self.game.winning_player.colour+" player won the game (click to close)")
-                        game_vis.close()
-                    
-                    #Tidy up and indicate that a game was joined and completed, and allow the thread to terminate
+                
+                for client in games[game_id]["clients"]:
+                    #@TODO create game visualisation corresponding to each client's window resolution
+                    game_vis = WebServerVisualisation(self.game, dimensions, origin, client, client.width, client.height)
+                    client_visuals[client] = game_vis
+                    for player in client_players[client]:
+                        player.connect_gui(game_vis)
+                
+                #start game in this thread including all the client visuals (so that the players created here are available to just one thread)
+                self.game.turn = 0
+                self.game.game_over = False
+                while not self.game.game_over:
+                    self.game.turn += 1
+                    self.game.game_over = self.game.play_round()
+                
+                #Inform all clients that the game has ended
+                for client in games[game_id]["clients"]:
+                    game_vis = client_visuals[client]
+                    game_vis.give_prompt(self.game.winning_player.colour+" player won the game (click to close)")
+                    game_vis.close()
+                
+                #Tidy up and indicate that a game was joined and completed, and allow the thread to terminate
 #                    for player in games[game_id]["players"]:
 #                        player_clients.pop(player)
-                    games.pop(game_id)
-                    return False
+                games.pop(game_id)
                 #@TODO keep connection alive until a game is joined
                 connection_alive = True
                 self.connection_confirmed = False
@@ -372,5 +377,6 @@ class ClientSocket(WebSocket):
         for client in clients:
             client.sendMessage(self.address[0] + u' - disconnected')
 
-server = SimpleWebSocketServer('', 10000, ClientSocket)
-server.serveforever()
+if __name__ == "__main__":
+    server = SimpleWebSocketServer('', 10000, ClientSocket)
+    server.serveforever()
