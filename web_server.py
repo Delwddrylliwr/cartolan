@@ -11,12 +11,14 @@ from players_human import PlayerHuman
 #import zmq
 #import zmq.auth
 #from zmq.auth.thread import ThreadAuthenticator
-#import sys
+import sys
 #import os
 import time
 import random
 import string
 from threading import Thread
+
+DEFAULT_POER = 10000
 
 DEFAULT_WIDTH = int(0.8*1366)
 DEFAULT_HEIGHT = int(0.8*768)
@@ -378,5 +380,10 @@ class ClientSocket(WebSocket):
             client.sendMessage(self.address[0] + u' - disconnected')
 
 if __name__ == "__main__":
-    server = SimpleWebSocketServer('', 10000, ClientSocket)
+    if len(sys.argv) > 1:
+        print("Server port taken to be "+sys.argv[1])
+        port = sys.argv[1]
+    else:
+        port = DEFAULT_PORT
+    server = SimpleWebSocketServer('', port, ClientSocket)
     server.serveforever()
