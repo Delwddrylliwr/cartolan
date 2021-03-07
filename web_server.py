@@ -153,7 +153,7 @@ class ClientSocket(WebSocket):
                 num_virtual_players = 0
                 if num_client_players < max_players:
                     valid_options = [str(i) for i in range(0, max_players - num_client_players + 1)]
-                    prompt_text = ("Please specify how many computer players will play, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
+                    prompt_text = ("Please specify how many computer-controlled players will play, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
                     print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
                     self.sendMessage("TEXT[00100]"+prompt_text)
                     num_virtual_players = None
@@ -171,7 +171,7 @@ class ClientSocket(WebSocket):
                 #If there are still spaces available then allow for remote players
                 if num_players < max_players:
                     valid_options = [str(i) for i in range(max(min_players - num_players, 0), max_players - num_players + 1)]
-                    prompt_text = ("Please specify how many other players will play, between "+str(valid_options[0])+" and " +str(valid_options[-1])+ "?")
+                    prompt_text = ("Please specify how many players from other computers will play, between "+str(valid_options[0])+" and " +str(valid_options[-1])+ "?")
                     print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
                     self.sendMessage("TEXT[00100]"+prompt_text)
                     num_players = None
