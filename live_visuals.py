@@ -1342,6 +1342,7 @@ class WebServerVisualisation(GameVisualisation):
     But, only the moving player's visual will receive input. 
     '''
     TEMP_FILENAME_LEN = 6
+    TEMP_FILE_EXTENSION = ".jpg"
     INPUT_DELAY = 0.1 #delay time between checking for input, in seconds
     
     def __init__(self, game, dimensions, origin, client, width, height):
@@ -1377,11 +1378,11 @@ class WebServerVisualisation(GameVisualisation):
         #generate a random filename, to avoid thread conflicts
         randname = ( ''.join(random.choice(string.ascii_lowercase) for i in range(self.TEMP_FILENAME_LEN)) )
         #@TODO could reduce file size and latency by compressing into a lossy jpg
-        pygame.image.save(self.window, randname+".png")
-        out = open(randname+".png","rb").read()
+        pygame.image.save(self.window, randname + self.TEMP_FILE_EXTENSION)
+        out = open(randname + self.TEMP_FILE_EXTENSION,"rb").read()
         self.client.sendMessage("IMAGE[00100]"+str(base64.b64encode(out)))
         print("data sent to client at "+str(self.client.address))
-        os.remove(randname+".png")
+        os.remove(randname + self.TEMP_FILE_EXTENSION)
         
     
     def get_input_coords(self, adventurer):
@@ -1400,6 +1401,8 @@ class WebServerVisualisation(GameVisualisation):
                     game_vis.draw_tokens()
                     game_vis.draw_routes()
                     game_vis.draw_scores()
+                    moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
+                    game_vis.draw_move_options(moves_since_rest)
                 game_vis.update_web_display()
         
         coords = None
