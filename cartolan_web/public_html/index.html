@@ -28,8 +28,21 @@
                 margin: 0;
             }
             canvas {
-                border:1px solid #d3d3d3;
-                background-color: #f1f1f1;
+                border:1px solid rgb(38,50,66);
+                background-color: rgb(38,50,66);
+            }
+        </style>
+        <style type="text/css">
+            @media screen and (min-width: 320px) and (max-width: 767px) and (orientation: portrait){
+            html {
+                transform: rotate(-90deg);
+                transform-origin: left top;
+                width: 100vh;
+                height: 100vw;
+                overflow-x: hidden;
+                position: absolute;
+                top: 100%;
+                left: 0;
             }
         </style>
     </head>
