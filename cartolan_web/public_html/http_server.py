@@ -26,4 +26,5 @@ if __name__ == "__main__":
     my_server = socketserver.TCPServer(("", port), handler_object)
     
     # Start the server
+    print("Starting the HTTP server at port: "+str(port))
     my_server.serve_forever()
