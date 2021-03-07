@@ -32,6 +32,15 @@
                 background-color: rgb(38,50,66);
             }
         </style>
+        
+        <style>
+            a:visited {
+                color: white;
+            }
+            a:link {
+                color: white;
+            }
+        </style>
         <style type="text/css">
             @media screen and (min-width: 320px) and (max-width: 767px) and (orientation: portrait){
             html {
@@ -50,9 +59,9 @@
     <body onload="startGame()" style="background-color:rgb(38,50,66)">
 
         <script>
-            var serverAddress = "51.38.83.99:10000";
-//            var serverAddress = "localhost:10000";
-//            var heightShare = 0.95; //@TODO implement a marging below the canvas for a link to the game manual and spotify soundtrack
+//            var serverAddress = "51.38.83.99:10000";
+            var serverAddress = "localhost:10000";
+            var heightShare = 0.9; //implement a marging below the canvas for a link to the game manual and spotify soundtrack
             
             var canvas;
             var context;
@@ -148,27 +157,11 @@
                 start: function () {
                     canvas = this.canvas;
                     this.canvas.width = window.innerWidth; //get this from the browser window size
-                    this.canvas.height = window.innerHeight; //get this from the browser window size
+                    this.canvas.height = Math.round(heightShare * window.innerHeight); //get this from the browser window size
                     this.context = this.canvas.getContext("2d");
                     context = this.context;
                     document.body.insertBefore(this.canvas, document.body.childNodes[0]);
                     this.interval = setInterval(updateGameArea, 20);
-//                    window.addEventListener('mousedown', function (e) {
-//                        myGameArea.x = e.pageX;
-//                        myGameArea.y = e.pageY;
-//                    });
-//                    window.addEventListener('mouseup', function (e) {
-//                        myGameArea.x = false;
-//                        myGameArea.y = false;
-//                    });
-//                    window.addEventListener('touchstart', function (e) {
-//                        myGameArea.x = e.pageX;
-//                        myGameArea.y = e.pageY;
-//                    });
-//                    window.addEventListener('touchend', function (e) {
-//                        myGameArea.x = false;
-//                        myGameArea.y = false;
-//                    });
                     window.addEventListener('pointerdown', function (e) {
                         myGameArea.x = Math.round(e.pageX);
                         myGameArea.y = Math.round(e.pageY);
@@ -205,7 +198,11 @@
         </script>
         <script src="https://www.google-analytics.com/analytics.js" async></script>-->
 
-
+        <p style="text-align: center" style="font-size: larger">
+            <a href="https://docs.google.com/document/d/1LuAe_V7xUiPdksBD5XowbvPdK9tO_SFwECsiqNrPXLY/edit?usp=sharing" target="_blank">Game rules</a>
+            &nbsp;&nbsp;&nbsp;&nbsp;
+            <a href="https://open.spotify.com/playlist/4HAbxzg1trnO2bn2aaSdMj" target="_blank">Music (spotify)</a>
+        </p>
     </body>
 
 </html>

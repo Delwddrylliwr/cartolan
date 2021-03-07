@@ -48,7 +48,7 @@ class GameVisualisation():
     SCORES_FONT_SCALE = 0.05 #relative to window size
     SCORES_SPACING = 1.5 #the multiple of the score pixel scale to leave for each number
     MOVE_COUNT_POSITION = [0.75, 0.0]
-    PROMPT_POSITION = [0.0, 0.85]
+    PROMPT_POSITION = [0.0, 0.95]
     PROMPT_FONT_SCALE = 0.05 #relative to window size
     
     GENERAL_TILE_PATH = './images/'
@@ -1342,7 +1342,7 @@ class WebServerVisualisation(GameVisualisation):
     But, only the moving player's visual will receive input. 
     '''
     TEMP_FILENAME_LEN = 6
-    TEMP_FILE_EXTENSION = ".jpg"
+    TEMP_FILE_EXTENSION = ".png"
     INPUT_DELAY = 0.1 #delay time between checking for input, in seconds
     
     def __init__(self, game, dimensions, origin, client, width, height):
