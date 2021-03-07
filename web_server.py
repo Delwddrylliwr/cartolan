@@ -298,7 +298,8 @@ class ClientSocket(WebSocket):
                 #Inform all clients that the game has ended
                 for client in games[game_id]["clients"]:
                     game_vis = client_visuals[client]
-                    game_vis.give_prompt(self.game.winning_player.colour+" player won the game (click to close)")
+                    game_vis.give_prompt(self.game.winning_player.colour+" player won the game (refresh to play again)")
+                    game_vis.update_web_display()
                     game_vis.close()
                 
                 #Tidy up and indicate that a game was joined and completed, and allow the thread to terminate
