@@ -157,8 +157,8 @@
 //                        myGameArea.y = false;
 //                    });
                     window.addEventListener('pointerdown', function (e) {
-                        myGameArea.x = e.pageX;
-                        myGameArea.y = e.pageY;
+                        myGameArea.x = Math.round(e.pageX);
+                        myGameArea.y = Math.round(e.pageY);
                     });
                 },
                 clear: function () {
