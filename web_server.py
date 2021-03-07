@@ -180,7 +180,7 @@ class ClientSocket(WebSocket):
                     else:
                         time.sleep(self.INPUT_DELAY)
                 #randomly choose/order the player colours to fit this number, then assign a suitable number to this channel
-                new_game_colours[game_id] = random.sample(GAME_MODES[game_type]["player_set"].keys(), num_players)
+                new_game_colours[game_id] = random.sample(GAME_MODES[new_game_type]["player_set"].keys(), num_players)
                 client_players[self] = []
                 new_game_players[game_id] = []
                 for player_num in range(num_client_players):
@@ -190,7 +190,7 @@ class ClientSocket(WebSocket):
                     new_game_players[game_id].append(player)
                 for player_num in range(num_virtual_players):
                     player_colour = new_game_colours[game_id][num_client_players + player_num]
-                    player = GAME_MODES[game_type]["player_set"][player_colour](player_colour)
+                    player = GAME_MODES[new_game_type]["player_set"][player_colour](player_colour)
                     client_players[self].append(player)
                     new_game_players[game_id].append(player)
                 in_queue = True
