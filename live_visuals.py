@@ -550,7 +550,7 @@ class GameVisualisation():
         displacement = 0
         for tile_back in self.game.tile_piles:
             tiles = self.game.tile_piles[tile_back].tiles
-            tile_count = self.scores_font.render(str(len(tiles))+" tiles left in "+tile_back+" pile", 1, self.PLAIN_TEXT_COLOUR)
+            tile_count = self.scores_font.render(str(len(tiles))+" tiles left in "+tile_back+" bag", 1, self.PLAIN_TEXT_COLOUR)
             tile_count_position = [self.MOVE_COUNT_POSITION[0] * self.width, self.MOVE_COUNT_POSITION[1] * self.height + displacement]
             self.window.blit(tile_count, tile_count_position)
             displacement += self.SCORES_FONT_SCALE * self.height
@@ -1396,7 +1396,7 @@ class WebServerVisualisation(GameVisualisation):
             if isinstance(player, PlayerHuman):
                 print("Updating visuals for player "+str(self.game.players.index(player)+1)+" with visual "+str(player.games[self.game.game_id]["game_vis"]))
                 game_vis = player.games[self.game.game_id]["game_vis"]
-                if not player == adventurer.player:
+                if not self.client == game_vis.client:
                     game_vis.draw_play_area()
                     game_vis.draw_tokens()
                     game_vis.draw_routes()

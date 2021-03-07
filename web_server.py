@@ -135,7 +135,7 @@ class ClientSocket(WebSocket):
                 min_players = GAME_MODES[new_game_type]["game_type"].MIN_PLAYERS
                 max_players = GAME_MODES[new_game_type]["game_type"].MAX_PLAYERS
                 #Get remote user input about how many players they have at their end
-                valid_options = [str(i) for i in range(1, max_players)]
+                valid_options = [str(i) for i in range(1, max_players + 1)]
                 prompt_text = ("Please specify how many players will play from this computer, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
                 num_client_players = None
                 print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
@@ -150,35 +150,40 @@ class ClientSocket(WebSocket):
                     else:
                         time.sleep(self.INPUT_DELAY)
                 #Get remote user input about how many computer players the game will have
-                valid_options = [str(i) for i in range(0, max_players - num_client_players)]
-                prompt_text = ("Please specify how many computer players will play, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
-                num_virtual_players = None
-                print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                self.sendMessage("TEXT[00100]"+prompt_text)
-                while not str(num_virtual_players) in valid_options:
-                    received_input = self.get_text()
-                    if received_input:
-                        num_virtual_players = int(received_input)
-                        if not str(num_virtual_players) in valid_options:
-                            num_virtual_players = None
-                            self.sendMessage("TEXT[00100]"+prompt_text)
-                    else:
-                        time.sleep(self.INPUT_DELAY)
+                num_virtual_players = 0
+                if num_client_players < max_players:
+                    valid_options = [str(i) for i in range(0, max_players - num_client_players + 1)]
+                    prompt_text = ("Please specify how many computer players will play, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
+                    print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+                    self.sendMessage("TEXT[00100]"+prompt_text)
+                    num_virtual_players = None
+                    while not str(num_virtual_players) in valid_options:
+                        received_input = self.get_text()
+                        if received_input:
+                            num_virtual_players = int(received_input)
+                            if not str(num_virtual_players) in valid_options:
+                                num_virtual_players = None
+                                self.sendMessage("TEXT[00100]"+prompt_text)
+                        else:
+                            time.sleep(self.INPUT_DELAY)
                 #Get remote user input about how many other players they want in their game
-                valid_options = [str(i) for i in range(max(min_players - num_client_players - num_virtual_players, 0), max_players - num_client_players - num_virtual_players + 1)]
-                prompt_text = ("Please specify how many other players will play, between "+str(valid_options[0])+" and " +str(valid_options[-1])+ "?")
-                num_players = None
-                print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                self.sendMessage("TEXT[00100]"+prompt_text)
-                while not num_players in range(min_players, max_players + 1):
-                    received_input = self.get_text()
-                    if received_input:
-                        num_players = num_client_players + num_virtual_players + int(received_input)
-                        if not num_players in range(min_players, max_players + 1):
-                            num_players = None
-                            self.sendMessage("TEXT[00100]"+prompt_text)
-                    else:
-                        time.sleep(self.INPUT_DELAY)
+                num_players = num_client_players + num_virtual_players
+                #If there are still spaces available then allow for remote players
+                if num_players < max_players:
+                    valid_options = [str(i) for i in range(max(min_players - num_players, 0), max_players - num_players + 1)]
+                    prompt_text = ("Please specify how many other players will play, between "+str(valid_options[0])+" and " +str(valid_options[-1])+ "?")
+                    print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+                    self.sendMessage("TEXT[00100]"+prompt_text)
+                    num_players = None
+                    while not num_players in range(min_players, max_players + 1):
+                        received_input = self.get_text()
+                        if received_input:
+                            num_players = num_client_players + num_virtual_players + int(received_input)
+                            if not num_players in range(min_players, max_players + 1):
+                                num_players = None
+                                self.sendMessage("TEXT[00100]"+prompt_text)
+                        else:
+                            time.sleep(self.INPUT_DELAY)
                 #randomly choose/order the player colours to fit this number, then assign a suitable number to this channel
                 new_game_colours[game_id] = random.sample(GAME_MODES[new_game_type]["player_set"].keys(), num_players)
                 client_players[self] = []
@@ -386,4 +391,5 @@ if __name__ == "__main__":
     else:
         port = DEFAULT_PORT
     server = SimpleWebSocketServer('', port, ClientSocket)
+    print("Starting server on port: ", port)
     server.serveforever()
