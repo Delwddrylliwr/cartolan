@@ -1371,6 +1371,7 @@ class WebServerVisualisation(GameVisualisation):
         #Import images
         self.init_graphics()
     
+    #@TODO other clients are likely not updating because they are getting none of the visual updates prompted by their opponents' moves
     def update_web_display(self):
 #        pygame.display.flip()
         #generate a random filename, to avoid thread conflicts
@@ -1379,7 +1380,7 @@ class WebServerVisualisation(GameVisualisation):
         pygame.image.save(self.window, randname+".png")
         out = open(randname+".png","rb").read()
         self.client.sendMessage("IMAGE[00100]"+str(base64.b64encode(out)))
-        print("data sent")
+        print("data sent to client at "+str(self.client.address))
         os.remove(randname+".png")
         
     
@@ -1392,7 +1393,14 @@ class WebServerVisualisation(GameVisualisation):
         #print("Updating the display for all the other human players, whose visuals won't have been consulted.")
         for player in self.game.players:
             if isinstance(player, PlayerHuman):
-                player.games[self.game.game_id]["game_vis"].update_web_display()
+                print("Updating visuals for player "+str(self.game.players.index(player)+1)+" with visual "+str(player.games[self.game.game_id]["game_vis"]))
+                game_vis = player.games[self.game.game_id]["game_vis"]
+                if not player == adventurer.player:
+                    game_vis.draw_play_area()
+                    game_vis.draw_tokens()
+                    game_vis.draw_routes()
+                    game_vis.draw_scores()
+                game_vis.update_web_display()
         
         coords = None
         while coords is None:

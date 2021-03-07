@@ -11,12 +11,14 @@ from players_human import PlayerHuman
 #import zmq
 #import zmq.auth
 #from zmq.auth.thread import ThreadAuthenticator
-#import sys
+import sys
 #import os
 import time
 import random
 import string
 from threading import Thread
+
+DEFAULT_PORT = 10000
 
 DEFAULT_WIDTH = int(0.8*1366)
 DEFAULT_HEIGHT = int(0.8*768)
@@ -243,8 +245,7 @@ class ClientSocket(WebSocket):
             #If this client's game is now full then start it off
             num_players = len(new_game_colours[game_id])
             num_existing_players = len(new_game_players[game_id])
-            num_spaces = num_players - num_existing_players
-            if num_client_players == num_spaces:
+            if num_existing_players == num_players:
                 random.shuffle(new_game_players[game_id])
                 self.game = setup_simulation(new_game_players[game_id]
                                      , GAME_MODES[new_game_type]["game_type"]
@@ -281,7 +282,7 @@ class ClientSocket(WebSocket):
                               ]
                 
                 for client in games[game_id]["clients"]:
-                    #@TODO create game visualisation corresponding to each client's window resolution
+                    #create game visualisation corresponding to each client's window resolution
                     game_vis = WebServerVisualisation(self.game, dimensions, origin, client, client.width, client.height)
                     client_visuals[client] = game_vis
                     for player in client_players[client]:
@@ -297,7 +298,8 @@ class ClientSocket(WebSocket):
                 #Inform all clients that the game has ended
                 for client in games[game_id]["clients"]:
                     game_vis = client_visuals[client]
-                    game_vis.give_prompt(self.game.winning_player.colour+" player won the game (click to close)")
+                    game_vis.give_prompt(self.game.winning_player.colour+" player won the game (refresh to play again)")
+                    game_vis.update_web_display()
                     game_vis.close()
                 
                 #Tidy up and indicate that a game was joined and completed, and allow the thread to terminate
@@ -378,5 +380,10 @@ class ClientSocket(WebSocket):
             client.sendMessage(self.address[0] + u' - disconnected')
 
 if __name__ == "__main__":
-    server = SimpleWebSocketServer('', 10000, ClientSocket)
+    if len(sys.argv) > 1:
+        print("Server port taken to be "+sys.argv[1])
+        port = sys.argv[1]
+    else:
+        port = DEFAULT_PORT
+    server = SimpleWebSocketServer('', port, ClientSocket)
     server.serveforever()
