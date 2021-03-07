@@ -282,7 +282,7 @@ class ClientSocket(WebSocket):
                               ]
                 
                 for client in games[game_id]["clients"]:
-                    #@TODO create game visualisation corresponding to each client's window resolution
+                    #create game visualisation corresponding to each client's window resolution
                     game_vis = WebServerVisualisation(self.game, dimensions, origin, client, client.width, client.height)
                     client_visuals[client] = game_vis
                     for player in client_players[client]:

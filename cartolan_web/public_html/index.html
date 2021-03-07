@@ -34,11 +34,13 @@
         </style>
     </head>
 
-    <body onload="startGame()">
+    <body onload="startGame()" style="background-color:rgb(38,50,66)">
 
         <script>
-            var serverAddress = "51.38.83.99:10000";
-//            var serverAddress = "localhost:10000";
+//            var serverAddress = "51.38.83.99:10000";
+            var serverAddress = "localhost:10000";
+//            var heightShare = 0.95; //@TODO implement a marging below the canvas for a link to the game manual and spotify soundtrack
+            
             var canvas;
             var context;
             var websocket;
@@ -138,21 +140,25 @@
                     context = this.context;
                     document.body.insertBefore(this.canvas, document.body.childNodes[0]);
                     this.interval = setInterval(updateGameArea, 20);
-                    window.addEventListener('mousedown', function (e) {
+//                    window.addEventListener('mousedown', function (e) {
+//                        myGameArea.x = e.pageX;
+//                        myGameArea.y = e.pageY;
+//                    });
+//                    window.addEventListener('mouseup', function (e) {
+//                        myGameArea.x = false;
+//                        myGameArea.y = false;
+//                    });
+//                    window.addEventListener('touchstart', function (e) {
+//                        myGameArea.x = e.pageX;
+//                        myGameArea.y = e.pageY;
+//                    });
+//                    window.addEventListener('touchend', function (e) {
+//                        myGameArea.x = false;
+//                        myGameArea.y = false;
+//                    });
+                    window.addEventListener('pointerdown', function (e) {
                         myGameArea.x = e.pageX;
                         myGameArea.y = e.pageY;
-                    });
-                    window.addEventListener('mouseup', function (e) {
-                        myGameArea.x = false;
-                        myGameArea.y = false;
-                    });
-                    window.addEventListener('touchstart', function (e) {
-                        myGameArea.x = e.pageX;
-                        myGameArea.y = e.pageY;
-                    });
-                    window.addEventListener('touchend', function (e) {
-                        myGameArea.x = false;
-                        myGameArea.y = false;
                     });
                 },
                 clear: function () {
