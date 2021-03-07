@@ -1395,11 +1395,11 @@ class WebServerVisualisation(GameVisualisation):
             if isinstance(player, PlayerHuman):
                 print("Updating visuals for player "+str(self.game.players.index(player)+1)+" with visual "+str(player.games[self.game.game_id]["game_vis"]))
                 game_vis = player.games[self.game.game_id]["game_vis"]
-                game_vis.draw_play_area
-                game_vis.draw_move_options
-                game_vis.draw_tokens
-                game_vis.draw_routes
-                game_vis.draw_scores
+                if not player == adventurer.player:
+                    game_vis.draw_play_area()
+                    game_vis.draw_tokens()
+                    game_vis.draw_routes()
+                    game_vis.draw_scores()
                 game_vis.update_web_display()
         
         coords = None

@@ -90,6 +90,7 @@ class PlayerHuman(Player):
                 
 #         game_vis.give_prompt("Click to reveal available moves")
         #if the tile that has just been reached is at the edge of the visualised area, then grow this
+        #@TODO move this into the live_visualisation script, in response to the play area exceeding dimensions
         current_tile_position = adventurer.current_tile.tile_position
         game_vis.clear_prompt()
         if current_tile_position.longitude + 1 >= game_vis.dimensions[0] - game_vis.origin[0]:
