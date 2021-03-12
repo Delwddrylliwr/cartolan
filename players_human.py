@@ -91,27 +91,27 @@ class PlayerHuman(Player):
 #         game_vis.give_prompt("Click to reveal available moves")
         #if the tile that has just been reached is at the edge of the visualised area, then grow this
         #@TODO move this into the live_visualisation script, in response to the play area exceeding dimensions
-        current_tile_position = adventurer.current_tile.tile_position
-        game_vis.clear_prompt()
-        if current_tile_position.longitude + 1 >= game_vis.dimensions[0] - game_vis.origin[0]:
-            game_vis.give_prompt("Expanding visible play area, please wait.")
-            game_vis.increase_max_longitude()
-            game_vis.draw_play_area()
-        elif current_tile_position.longitude <= - game_vis.origin[0]:
-            game_vis.give_prompt("Expanding visible play area, please wait.")
-            game_vis.decrease_min_longitude()
-            game_vis.draw_play_area()
-        elif current_tile_position.latitude + 1 >= game_vis.dimensions[1] - game_vis.origin[1]:
-            game_vis.give_prompt("Expanding visible play area, please wait.")
-            game_vis.increase_max_latitude()
-            game_vis.draw_play_area()
-        elif current_tile_position.latitude <= - game_vis.origin[1]:
-            game_vis.give_prompt("Expanding visible play area, please wait.")
-            game_vis.decrease_min_latitude() 
-            game_vis.draw_play_area()
-        else: #add in the tiles that have not been visualised so far, which should only ever be the current tile of the adventurer    
-            game_vis.draw_play_area()
-        
+#        current_tile_position = adventurer.current_tile.tile_position
+#        game_vis.clear_prompt()
+#        if current_tile_position.longitude + 1 >= game_vis.dimensions[0] - game_vis.origin[0]:
+#            game_vis.give_prompt("Expanding visible play area, please wait.")
+#            game_vis.increase_max_longitude()
+#            game_vis.draw_play_area()
+#        elif current_tile_position.longitude <= - game_vis.origin[0]:
+#            game_vis.give_prompt("Expanding visible play area, please wait.")
+#            game_vis.decrease_min_longitude()
+#            game_vis.draw_play_area()
+#        elif current_tile_position.latitude + 1 >= game_vis.dimensions[1] - game_vis.origin[1]:
+#            game_vis.give_prompt("Expanding visible play area, please wait.")
+#            game_vis.increase_max_latitude()
+#            game_vis.draw_play_area()
+#        elif current_tile_position.latitude <= - game_vis.origin[1]:
+#            game_vis.give_prompt("Expanding visible play area, please wait.")
+#            game_vis.decrease_min_latitude() 
+#            game_vis.draw_play_area()
+#        else: #add in the tiles that have not been visualised so far, which should only ever be the current tile of the adventurer    
+#            game_vis.draw_play_area()
+        game_vis.draw_play_area()
         #clean up the highlights
         game_vis.clear_prompt()
         game_vis.clear_move_options()

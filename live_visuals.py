@@ -68,8 +68,8 @@ class GameVisualisation():
         #Retain game data
         self.players = game.players
         self.game = game
-        self.dimensions = dimensions
-        self.origin = origin
+        self.dimensions = dimensions.copy()
+        self.origin = origin.copy()
         
         print("Initialising state variables")
 #        self.clock = pygame.time.Clock()
@@ -225,7 +225,7 @@ class GameVisualisation():
         '''Deprecated to allow legacy PlayerHuman interaction'''
         pass
     
-    def is_rescale_needed(self):
+    def rescale_as_needed(self):
         '''Checks the extremes of the play_area and rescales visual elements as needed
         '''
 #        print("Checking whether the current play area needs a bigger visuals grid")
@@ -253,6 +253,10 @@ class GameVisualisation():
             rescale_needed = True
         if max_latitude > self.dimensions[1] - self.origin[1] - 2:
             self.dimensions[1] = max_latitude + self.origin[1] + self.DIMENSION_INCREMENT
+            rescale_needed = True
+        #And a final safety check that the current dimensions aren't too great for the display size
+        if (self.dimensions[0]*self.tile_size > self.width
+                and self.dimensions[1]*self.tile_size > self.height):
             rescale_needed = True
         if rescale_needed:
             self.rescale_graphics()   
@@ -300,7 +304,7 @@ class GameVisualisation():
         play_area_update = self.game.play_area
 #        print("Drawing the play area, with " +str(len(play_area_update))+" columns of tiles")
         #Check whether the visuals need to be rescaled
-        self.is_rescale_needed()
+        self.rescale_as_needed()
         #Clear what's already been drawn
         self.window.fill(self.BACKGROUND_COLOUR)
 #        self.window.fill(0)
@@ -668,6 +672,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                                                                    , "red":PlayerBeginnerTrader
                                                                    , "yellow":PlayerBeginnerRouter
 #                                                                    , "green":PlayerBeginnerGenetic
+                                                                   , "orange":PlayerBeginnerExplorer
                                                                       }}
               , 'Regular':{'game_type':GameRegular, 'player_set':{
                                                                   "orange":PlayerRegularPirate
@@ -1374,6 +1379,8 @@ class WebServerVisualisation(GameVisualisation):
     
     #@TODO other clients are likely not updating because they are getting none of the visual updates prompted by their opponents' moves
     def update_web_display(self):
+        '''For this client visualisation in particular, send out an image of the play area.
+        '''
 #        pygame.display.flip()
         #generate a random filename, to avoid thread conflicts
         randname = ( ''.join(random.choice(string.ascii_lowercase) for i in range(self.TEMP_FILENAME_LEN)) )
@@ -1397,6 +1404,7 @@ class WebServerVisualisation(GameVisualisation):
                 print("Updating visuals for player "+str(self.game.players.index(player)+1)+" with visual "+str(player.games[self.game.game_id]["game_vis"]))
                 game_vis = player.games[self.game.game_id]["game_vis"]
                 if not self.client == game_vis.client:
+                    print("Recognised that this player is using a different client: "+str(game_vis.client.address))
                     game_vis.draw_play_area()
                     game_vis.draw_tokens()
                     game_vis.draw_routes()

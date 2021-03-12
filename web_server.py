@@ -289,6 +289,7 @@ class ClientSocket(WebSocket):
                 for client in games[game_id]["clients"]:
                     #create game visualisation corresponding to each client's window resolution
                     game_vis = WebServerVisualisation(self.game, dimensions, origin, client, client.width, client.height)
+                    print("Visual created for client at "+ str(client.address)+ " with dimensions: "+str(client.width)+"x"+str(client.height))
                     client_visuals[client] = game_vis
                     for player in client_players[client]:
                         player.connect_gui(game_vis)
@@ -302,26 +303,29 @@ class ClientSocket(WebSocket):
                 
                 #Inform all clients that the game has ended
                 for client in games[game_id]["clients"]:
+                    print("Closing game for client: "+str(client.address))
                     game_vis = client_visuals[client]
+                    game_vis.current_player_colour = self.game.winning_player.colour
                     game_vis.give_prompt(self.game.winning_player.colour+" player won the game (refresh to play again)")
                     game_vis.update_web_display()
-                    game_vis.close()
+                game_vis.close()
                 
                 #Tidy up and indicate that a game was joined and completed, and allow the thread to terminate
 #                    for player in games[game_id]["players"]:
 #                        player_clients.pop(player)
                 games.pop(game_id)
-                #@TODO keep connection alive until a game is joined
-                connection_alive = True
+                return True
+            #keep connection alive until a game is joined
+            connection_alive = True
+            self.connection_confirmed = False
+            self.sendMessage("PING[00100]")
+            while connection_alive:
+                connection_alive = self.connection_confirmed
                 self.connection_confirmed = False
                 self.sendMessage("PING[00100]")
-                while connection_alive:
-                    connection_alive = self.connection_confirmed
-                    self.connection_confirmed = False
-                    self.sendMessage("PING[00100]")
-                    time.sleep(self.TIMEOUT_DELAY)
-                print(self.address, " timed out")
-                return False
+                time.sleep(self.TIMEOUT_DELAY)
+            print(self.address, " timed out")
+            
     
     #@TODO decide whether to collect input from this socket via recv or the below
     def handleMessage(self):
