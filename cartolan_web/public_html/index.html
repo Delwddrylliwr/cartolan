@@ -59,8 +59,8 @@
     <body onload="startGame()" style="background-color:rgb(38,50,66)">
 
         <script>
-            var serverAddress = "51.38.83.99:10000";
-//            var serverAddress = "localhost:10000";
+//            var serverAddress = "51.38.83.99:10000";
+            var serverAddress = "localhost:10000";
             var heightShare = 0.9; //implement a marging below the canvas for a link to the game manual and spotify soundtrack
             
             var canvas;
@@ -161,6 +161,10 @@
                     this.context = this.canvas.getContext("2d");
                     context = this.context;
                     document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+                    context.font = "30px Arial";
+                    context.fillStyle = "white";
+                    context.textAlign = "center";
+                    context.fillText("Configuring game and waiting for everyone to join...", canvas.width/2, canvas.height/2);
                     this.interval = setInterval(updateGameArea, 20);
                     window.addEventListener('pointerdown', function (e) {
                         myGameArea.x = Math.round(e.pageX);

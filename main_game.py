@@ -211,7 +211,7 @@ class InteractiveGame:
 class InteractiveSimulation(InteractiveGame):
     '''Extends the InteractiveGame class to include virtual, computer-controlled, players'''
     # Now for the constants
-    HUMAN_PLAYER_COLOURS = ["purple", "pink", "brown", "white"]
+    HUMAN_PLAYER_COLOURS = ["purple", "pink", "brown", "black"]
     GAME_MODES = { 'Beginner':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeginnerExplorer
                                                                    , "red":PlayerBeginnerTrader
                                                                    , "yellow":PlayerBeginnerRouter

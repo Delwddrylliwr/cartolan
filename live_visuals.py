@@ -225,7 +225,7 @@ class GameVisualisation():
         '''Deprecated to allow legacy PlayerHuman interaction'''
         pass
     
-    def is_rescale_needed(self):
+    def rescale_as_needed(self):
         '''Checks the extremes of the play_area and rescales visual elements as needed
         '''
 #        print("Checking whether the current play area needs a bigger visuals grid")
@@ -300,7 +300,7 @@ class GameVisualisation():
         play_area_update = self.game.play_area
 #        print("Drawing the play area, with " +str(len(play_area_update))+" columns of tiles")
         #Check whether the visuals need to be rescaled
-        self.is_rescale_needed()
+        self.rescale_as_needed()
         #Clear what's already been drawn
         self.window.fill(self.BACKGROUND_COLOUR)
 #        self.window.fill(0)
@@ -668,6 +668,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                                                                    , "red":PlayerBeginnerTrader
                                                                    , "yellow":PlayerBeginnerRouter
 #                                                                    , "green":PlayerBeginnerGenetic
+                                                                   , "orange":PlayerBeginnerExplorer
                                                                       }}
               , 'Regular':{'game_type':GameRegular, 'player_set':{
                                                                   "orange":PlayerRegularPirate
