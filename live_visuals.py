@@ -36,7 +36,7 @@ class GameVisualisation():
     PLAYER_OFFSETS = [[0.25, 0.25],  [0.25, 0.75],  [0.75, 0.25], [0.75, 0.75]]
     AGENT_OFFSET = [0.5, 0.5] #the placement of agents on the tile, the same for all players and agents, because there will only be one per tile
     ADVENTURER_OFFSETS = [[0.0, 0.0], [0.1, -0.1], [-0.1, 0.1], [-0.1, -0.1], [0.1, 0.1]] #the offset to differentiate multiple adventurers on the same tile
-    DIMENSION_INCREMENT = 2 #the number of tiles by which the play area is extended when methods are called
+    DIMENSION_BUFFER = 1 #the number of tiles by which the play area is extended when methods are called
     BACKGROUND_COLOUR = (38,50,66)
     PLAIN_TEXT_COLOUR = (255,255,255)
     TILE_BORDER = 0.02 #the share of grid width/height that is used for border
@@ -194,11 +194,13 @@ class GameVisualisation():
         print("Updating the dimensions that will be used for drawing the play area")
 #        self.dimensions = dimensions        
         #Tiles, tokens and text will need adjusting to the new dimensions
-        if self.height < self.width:
-            #Tiles will be scaled to fit the smaller dimension
-            self.tile_size = self.height // self.dimensions[1]
+        #Tiles will be scaled to fit the smaller dimension
+        max_tile_height = self.height // self.dimensions[1]
+        max_tile_width = self.width // self.dimensions[0]
+        if max_tile_height < max_tile_width:
+            self.tile_size = max_tile_height
         else:
-            self.tile_size = self.width // self.dimensions[0]
+            self.tile_size = max_tile_width
         self.token_size = int(round(self.TOKEN_SCALE * self.tile_size)) #token size will be proportional to the tiles
         self.outline_width = math.ceil(self.TOKEN_OUTLINE_SCALE * self.token_size)
         self.token_font = pygame.font.SysFont(None, int(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
@@ -241,25 +243,41 @@ class GameVisualisation():
                     min_latitude = latitude
                 elif latitude > max_latitude:
                     max_latitude = latitude
-        rescale_needed = False
-        if min_longitude < -self.origin[0] + 1:
-            self.origin[0] = -min_longitude + self.DIMENSION_INCREMENT
-            rescale_needed = True
-        if max_longitude > self.dimensions[0] - self.origin[0] - 2:
-            self.dimensions[0] = max_longitude + self.origin[0] + self.DIMENSION_INCREMENT
-            rescale_needed = True
-        if min_latitude < -self.origin[1] + 1:
-            self.origin[1] = -min_latitude + self.DIMENSION_INCREMENT
-            rescale_needed = True
-        if max_latitude > self.dimensions[1] - self.origin[1] - 2:
-            self.dimensions[1] = max_latitude + self.origin[1] + self.DIMENSION_INCREMENT
-            rescale_needed = True
-        #And a final safety check that the current dimensions aren't too great for the display size
+        #@TODO introduce a check for changes needed, rather than always recalculating dimensions
+#        if (self.dimensions[0] >= max_longitude - min_longitude + 1 + 2*self.DIMENSION_BUFFER
+#            and self.origin[0] 
+#            and self.dimensions[1] >= max_latitude - min_latitude + 1 + 2*self.DIMENSION_BUFFER
+#            and ):
+#            #No reason to change anything 
+#            #@TODO may still need to update the origin
+#            return False
+        self.dimensions[0] = max_longitude - min_longitude + 1 + 2*self.DIMENSION_BUFFER
+        self.dimensions[1] = max_latitude - min_latitude + 1 + 2*self.DIMENSION_BUFFER
+        #Check whether the current dimensions are too great for the display size
         if (self.dimensions[0]*self.tile_size > self.width
-                and self.dimensions[1]*self.tile_size > self.height):
-            rescale_needed = True
-        if rescale_needed:
-            self.rescale_graphics()   
+                or self.dimensions[1]*self.tile_size > self.height):
+#            print("Reducing the size of tile graphics to fit within the new dimensions")
+            self.rescale_graphics()
+        #Check whether one of the dimensions has slack space and displace the origin to centre the play
+        #Set the origin so that the play will be as central as possible
+        self.origin[0] = -min_longitude + self.DIMENSION_BUFFER
+        width_needed = self.dimensions[0]*self.tile_size
+        if width_needed + 2*self.tile_size < self.width:
+#            print("Extending grid width because the screen width is more generous than needed")
+            extra_cols = math.floor((self.width - width_needed)/self.tile_size) #the excess in tiles
+            self.dimensions[0] += extra_cols
+            self.origin[0] += extra_cols // 2
+        self.origin[1] = -min_latitude + self.DIMENSION_BUFFER
+        height_needed = self.dimensions[1]*self.tile_size
+        if height_needed + 2*self.tile_size < self.height:
+#            print("Extending grid height because the screen height is more generous than needed")
+            extra_rows = math.floor((self.height - height_needed)/self.tile_size) #the excess in tiles
+            self.dimensions[1] += extra_rows
+            self.origin[1] += extra_rows // 2
+#        print("Dimensions are now: "+str(self.dimensions[0])+", "+str(self.dimensions[1]))
+#        print("Origin is now: "+str(self.origin[0])+", "+str(self.origin[1]))
+        return True
+        
     
     def window_resize(self, resize_event):
         '''Deals with resizing of the window
@@ -828,11 +846,11 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                     min_latitude = latitude
                 elif latitude > max_latitude:
                     max_latitude = latitude
-        origin = [-min_longitude + self.DIMENSION_INCREMENT
-                  , -min_latitude + self.DIMENSION_INCREMENT
+        origin = [-min_longitude + self.DIMENSION_BUFFER
+                  , -min_latitude + self.DIMENSION_BUFFER
                   ]
-        dimensions = [max_longitude + origin[0] + self.DIMENSION_INCREMENT
-                      , max_latitude + origin[1] + self.DIMENSION_INCREMENT
+        dimensions = [max_longitude + origin[0] + self.DIMENSION_BUFFER
+                      , max_latitude + origin[1] + self.DIMENSION_BUFFER
                       ]
         super().__init__(game, dimensions, origin)
         

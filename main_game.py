@@ -157,24 +157,26 @@ class InteractiveGame:
                                      , self.exploration_rules
                                      , self.mythical_city)
         
-        min_longitude, max_longitude = 0, 0
-        min_latitude, max_latitude = 0, 0
-        for longitude in self.game.play_area:
-            if longitude < min_longitude:
-                min_longitude = longitude
-            elif longitude > max_longitude:
-                max_longitude = longitude
-            for latitude in self.game.play_area[longitude]:
-                if latitude < min_latitude:
-                    min_latitude = latitude
-                elif latitude > max_latitude:
-                    max_latitude = latitude
-        self.origin = [-min_longitude + GameVisualisation.DIMENSION_INCREMENT
-                  , -min_latitude + GameVisualisation.DIMENSION_INCREMENT
-                  ]
-        self.dimensions = [max_longitude + self.origin[0] + GameVisualisation.DIMENSION_INCREMENT
-                      , max_latitude + self.origin[1] + GameVisualisation.DIMENSION_INCREMENT
-                      ]
+#        min_longitude, max_longitude = 0, 0
+#        min_latitude, max_latitude = 0, 0
+#        for longitude in self.game.play_area:
+#            if longitude < min_longitude:
+#                min_longitude = longitude
+#            elif longitude > max_longitude:
+#                max_longitude = longitude
+#            for latitude in self.game.play_area[longitude]:
+#                if latitude < min_latitude:
+#                    min_latitude = latitude
+#                elif latitude > max_latitude:
+#                    max_latitude = latitude
+#        self.origin = [-min_longitude + GameVisualisation.DIMENSION_BUFFER
+#                  , -min_latitude + GameVisualisation.DIMENSION_BUFFER
+#                  ]
+#        self.dimensions = [max_longitude - min_longitude + 2*GameVisualisation.DIMENSION_BUFFER
+#                      , max_latitude - min_latitude + 2*GameVisualisation.DIMENSION_BUFFER
+#                      ]
+        self.origin = [1, 1]
+        self.dimensions = [2, 2]
         
         #visualise this initial setup
 #        self.game_vis = PlayAreaVisualisation(self.game, self.dimensions, self.origin)

@@ -267,24 +267,26 @@ class ClientSocket(WebSocket):
                 
                 #Establish dimensions for the play area, based on the setup
                 #@TODO this code is repeated several times in different places, functionalise it
-                min_longitude, max_longitude = 0, 0
-                min_latitude, max_latitude = 0, 0
-                for longitude in self.game.play_area:
-                    if longitude < min_longitude:
-                        min_longitude = longitude
-                    elif longitude > max_longitude:
-                        max_longitude = longitude
-                    for latitude in self.game.play_area[longitude]:
-                        if latitude < min_latitude:
-                            min_latitude = latitude
-                        elif latitude > max_latitude:
-                            max_latitude = latitude
-                origin = [-min_longitude + DIMENSION_INCREMENT
-                          , -min_latitude + DIMENSION_INCREMENT
-                          ]
-                dimensions = [max_longitude + origin[0] + DIMENSION_INCREMENT
-                              , max_latitude + origin[1] + DIMENSION_INCREMENT
-                              ]
+#                min_longitude, max_longitude = 0, 0
+#                min_latitude, max_latitude = 0, 0
+#                for longitude in self.game.play_area:
+#                    if longitude < min_longitude:
+#                        min_longitude = longitude
+#                    elif longitude > max_longitude:
+#                        max_longitude = longitude
+#                    for latitude in self.game.play_area[longitude]:
+#                        if latitude < min_latitude:
+#                            min_latitude = latitude
+#                        elif latitude > max_latitude:
+#                            max_latitude = latitude
+#                origin = [-min_longitude + DIMENSION_INCREMENT
+#                          , -min_latitude + DIMENSION_INCREMENT
+#                          ]
+#                dimensions = [max_longitude + origin[0] + DIMENSION_INCREMENT
+#                              , max_latitude + origin[1] + DIMENSION_INCREMENT
+#                              ]
+                origin = [1,1]
+                dimensions = [3,3]
                 
                 for client in games[game_id]["clients"]:
                     #create game visualisation corresponding to each client's window resolution
