@@ -1427,6 +1427,8 @@ class WebServerVisualisation(GameVisualisation):
                     game_vis.draw_tokens()
                     game_vis.draw_routes()
                     game_vis.draw_scores()
+                    game_vis.current_player_colour = adventurer.player.colour
+                    game_vis.give_prompt(adventurer.player.colour+" player's is moving their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
                     moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
                     game_vis.draw_move_options(moves_since_rest)
                 game_vis.update_web_display()
