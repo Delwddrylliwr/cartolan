@@ -193,10 +193,9 @@ class AdventurerRegular(AdventurerBeginner):
     def attack(self, token):
         import random
         
-        #Record the decision to attack thsi move
+        #Record the decision to attack this move
         self.attacked += 1
         
-        self.pirate_token = True # will take away later if this was a pirate
         success = False
         # have opponent roll for defence, roll for attack, compare rolls
         if random.random() < self.game.ATTACK_SUCCESS_PROB:
@@ -208,9 +207,9 @@ class AdventurerRegular(AdventurerBeginner):
             adventurer = token
             # check whether the defender adventurer is a pirate, and remove the pirate token
             if adventurer.pirate_token:
-                self.pirate_token = False # lose own pirate status for conducting arrest
                 # arrest them
                 if success:
+                    self.pirate_token = False # lose own pirate status for conducting arrest
                     adventurer.wealth = 0
 #                     self.player.vault_wealth += self.game.VALUE_ARREST # get a reward straight to the Vault
                     self.wealth += self.game.VALUE_ARREST # get a reward
@@ -219,11 +218,13 @@ class AdventurerRegular(AdventurerBeginner):
                     adventurer.pirate_token = False # remove their pirate token
                     adventurer.wonders_visited = [] #reset the list of wonders that they've already stocked goods from
             else: # rob them
+                self.pirate_token = True #just trying will make them a pirate
                 if success:
                     self.wealth += adventurer.wealth//2 + adventurer.wealth%2
                     adventurer.wealth //= 2    
         elif isinstance(token, Agent):
             if not token.is_dispossessed:
+                self.pirate_token = True #just trying will make them a pirate
                 if success:
                     agent = token
                     self.wealth += agent.wealth + self.game.VALUE_DISPOSSESS_AGENT
