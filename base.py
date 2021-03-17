@@ -458,7 +458,11 @@ class CityTile(Tile):
             return False
         else:
             return super().compare(tile)
-            
+   
+    def move_off_tile(self, token):
+        '''Resets the route as an Adventurer leaves the city'''
+        super().move_off_tile(token)
+        token.route = [self]
     
     def visit_city(self, adventurer):
         '''placeholder for interactions between an Adventurer and city'''

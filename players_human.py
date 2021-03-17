@@ -131,8 +131,8 @@ class PlayerHuman(Player):
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
         adventurers = game.adventurers[self]
-        #Clear the previously drawn route for this adventurer, before drawing a new one
-        adventurer.route = [adventurer.current_tile]
+#        #Clear the previously drawn route for this adventurer, before drawing a new one
+#        adventurer.route = [adventurer.current_tile]
         #Update the play area after other player's movements, such as virtual players
         game_vis.start_turn(self.colour)
         game_vis.draw_play_area()
@@ -155,19 +155,19 @@ class PlayerHuman(Player):
         if adventurers.index(adventurer) < len(adventurers) - 1:
             return True
         
-        #we'll need to clear routes up to either the next human player after this one in the play order...
-        players = game.players
-        for player_index in range(players.index(self)+1, len(players)):
-            if isinstance(players[player_index], PlayerHuman):
-                return True
-            for adventurer in game.adventurers[players[player_index]]:
-                adventurer.route = [adventurer.current_tile]
-        #...or if this was the last human player then we clear up to the first human in the play order
-        for player in players:
-            if isinstance(player, PlayerHuman):
-                return True
-            for adventurer in game.adventurers[player]:
-                adventurer.route = [adventurer.current_tile]
+#        #we'll need to clear routes up to either the next human player after this one in the play order...
+#        players = game.players
+#        for player_index in range(players.index(self)+1, len(players)):
+#            if isinstance(players[player_index], PlayerHuman):
+#                return True
+#            for adventurer in game.adventurers[players[player_index]]:
+#                adventurer.route = [adventurer.current_tile]
+#        #...or if this was the last human player then we clear up to the first human in the play order
+#        for player in players:
+#            if isinstance(player, PlayerHuman):
+#                return True
+#            for adventurer in game.adventurers[player]:
+#                adventurer.route = [adventurer.current_tile]
         
         return True
     
