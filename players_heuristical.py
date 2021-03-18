@@ -468,6 +468,9 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
         # Explorer will never attack agents
         return False
     
+    def check_travel_money(self, adventurer, maximum, default):
+        return default
+    
     def check_steal_amount(self, adventurer, maximum, default):
         return default
     
