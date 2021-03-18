@@ -702,7 +702,7 @@ class CityTileBeginner(CityTile):
     buy_adventurer takes a Cartolan.Adventurer
     buy_agent takes a Cartolan.Adventurer
     '''
-    
+        
     def visit_city(self, adventurer):
         '''Initiates all the possible actions when a city is visited
         

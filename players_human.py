@@ -483,7 +483,18 @@ class PlayerHuman(Player):
 #             game_vis.draw_tokens()
         return attack
     
-    #@TODO prompt the player on victory for how much wealth to take using input()
+    def check_travel_money(self, adventurer, maximum, default):
+        game = adventurer.game
+        game_vis = self.games[game.game_id]["game_vis"]
+        
+        #Ask the visual for an amount, so that it can either prompt the player or default
+        travel_money = game_vis.get_input_value("How much wealth will your Adventurer take with them, up to "+str(maximum)+"?", maximum)
+        if travel_money in range(0, maximum+1):
+            return travel_money
+        else:
+            return default
+    
+    #prompt the player on victory for how much wealth to take using input()
     def check_steal_amount(self, adventurer, maximum, default):
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
