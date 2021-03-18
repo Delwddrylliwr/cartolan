@@ -1437,6 +1437,8 @@ class WebServerVisualisation(GameVisualisation):
                             return int(input_value)
                 self.client.sendMessage("TEXT[00100]"+prompt_text)
                 input_value = None
+            else:
+                return None
             time.sleep(self.INPUT_DELAY)
         return None
         
