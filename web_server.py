@@ -78,7 +78,6 @@ class ClientSocket(WebSocket):
         self.coords_buffer = None
         return output
     
-    
 #    def init_ZMQ(self):
 #        '''Set up a socket with a secure threadsafe message queue based on ZeroMQ: https://en.wikipedia.org/wiki/ZeroMQ
 #        '''

@@ -220,8 +220,10 @@ class AdventurerRegular(AdventurerBeginner):
             else: # rob them
                 self.pirate_token = True #just trying will make them a pirate
                 if success:
-                    self.wealth += adventurer.wealth//2 + adventurer.wealth%2
-                    adventurer.wealth //= 2    
+                    default_steal = adventurer.wealth//2 + adventurer.wealth%2
+                    chosen_steal = self.player.check_steal_amount(adventurer, adventurer.wealth, default_steal)
+                    self.wealth += chosen_steal
+                    adventurer.wealth -= chosen_steal    
         elif isinstance(token, Agent):
             if not token.is_dispossessed:
                 self.pirate_token = True #just trying will make them a pirate
