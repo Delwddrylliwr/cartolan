@@ -131,8 +131,8 @@ class PlayerHuman(Player):
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
         adventurers = game.adventurers[self]
-        #Clear the previously drawn route for this adventurer, before drawing a new one
-        adventurer.route = [adventurer.current_tile]
+#        #Clear the previously drawn route for this adventurer, before drawing a new one
+#        adventurer.route = [adventurer.current_tile]
         #Update the play area after other player's movements, such as virtual players
         game_vis.start_turn(self.colour)
         game_vis.draw_play_area()
@@ -155,19 +155,19 @@ class PlayerHuman(Player):
         if adventurers.index(adventurer) < len(adventurers) - 1:
             return True
         
-        #we'll need to clear routes up to either the next human player after this one in the play order...
-        players = game.players
-        for player_index in range(players.index(self)+1, len(players)):
-            if isinstance(players[player_index], PlayerHuman):
-                return True
-            for adventurer in game.adventurers[players[player_index]]:
-                adventurer.route = [adventurer.current_tile]
-        #...or if this was the last human player then we clear up to the first human in the play order
-        for player in players:
-            if isinstance(player, PlayerHuman):
-                return True
-            for adventurer in game.adventurers[player]:
-                adventurer.route = [adventurer.current_tile]
+#        #we'll need to clear routes up to either the next human player after this one in the play order...
+#        players = game.players
+#        for player_index in range(players.index(self)+1, len(players)):
+#            if isinstance(players[player_index], PlayerHuman):
+#                return True
+#            for adventurer in game.adventurers[players[player_index]]:
+#                adventurer.route = [adventurer.current_tile]
+#        #...or if this was the last human player then we clear up to the first human in the play order
+#        for player in players:
+#            if isinstance(player, PlayerHuman):
+#                return True
+#            for adventurer in game.adventurers[player]:
+#                adventurer.route = [adventurer.current_tile]
         
         return True
     
@@ -399,7 +399,7 @@ class PlayerHuman(Player):
         else:
             return None
     
-    # never move an agent when offered
+    # Let the player choose whether to move one of their Agents
     def check_move_agent(self, adventurer):     
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
@@ -442,7 +442,6 @@ class PlayerHuman(Player):
     
     #Give the player the choice to attack
     #@TODO highlight specific tokens to attack
-    #@TODO prompt the player on victory for how much wealth to take using input()
     def check_attack_adventurer(self, adventurer, other_adventurer):
         attack_coords = [[adventurer.current_tile.tile_position.longitude
                     , adventurer.current_tile.tile_position.latitude]]
@@ -483,6 +482,29 @@ class PlayerHuman(Player):
         game_vis.clear_move_options()
 #             game_vis.draw_tokens()
         return attack
+    
+    def check_travel_money(self, adventurer, maximum, default):
+        game = adventurer.game
+        game_vis = self.games[game.game_id]["game_vis"]
+        
+        #Ask the visual for an amount, so that it can either prompt the player or default
+        travel_money = game_vis.get_input_value("How much wealth will your Adventurer take with them, up to "+str(maximum)+"?", maximum)
+        if travel_money in range(0, maximum+1):
+            return travel_money
+        else:
+            return default
+    
+    #prompt the player on victory for how much wealth to take using input()
+    def check_steal_amount(self, adventurer, maximum, default):
+        game = adventurer.game
+        game_vis = self.games[game.game_id]["game_vis"]
+        
+        #Ask the visual for an amount, so that it can either prompt the player or default
+        steal_amount = game_vis.get_input_value("Your Adventurer's piracy succeeded. How much wealth will they take, up to "+str(maximum)+"?", maximum)
+        if steal_amount in range(0, maximum+1):
+            return steal_amount
+        else:
+            return default
     
     #@TODO prompt the player on victory for how much wealth to take 
     def check_attack_agent(self, adventurer, agent):
@@ -529,7 +551,44 @@ class PlayerHuman(Player):
     # Always restor own Agents if it can be afforded
     def check_restore_agent(self, adventurer, agent):
         if agent.player == adventurer.player and adventurer.wealth >= adventurer.game.COST_AGENT_RESTORE:
-            return True
+            game = adventurer.game
+            game_vis = self.games[game.game_id]["game_vis"]
+            
+            buy_coords = [[adventurer.current_tile.tile_position.longitude
+                        , adventurer.current_tile.tile_position.latitude]]
+
+            #make sure that tiles and token positions are up to date
+            game_vis.draw_play_area()
+            game_vis.draw_routes()
+            game_vis.draw_tokens()
+            game_vis.draw_scores()
+            
+            #highlight the tile where the agent can be placed
+            print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
+                  +" can restore an Agent")
+            moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
+            game_vis.draw_move_options(moves_since_rest, buy_coords=buy_coords)
+
+            #prompt the player to input
+            print("Prompting the "+self.colour+" player for input")
+#            game_vis.clear_prompt()
+            game_vis.give_prompt("If you want your Adventurer to restore your dispossessed Agent on this tile for "+str(adventurer.game.COST_AGENT_RESTORE)
+                            +" then click it, otherwise click elsewhere.")
+            
+            restore = False
+            move_coords = game_vis.get_input_coords(adventurer)
+            if move_coords in buy_coords:
+                print(self.colour+" player chose the coordinates of the tile where their Agent can be restored.")
+                restore = True
+            else:
+                print(self.colour+" player chose coordinates away from the tile where their Agent can be restored.")
+                restore = False
+
+            #clean up the highlights
+            game_vis.clear_move_options()
+            game_vis.clear_prompt()
+#             game_vis.draw_tokens()
+            return restore
         else:
             return False
         

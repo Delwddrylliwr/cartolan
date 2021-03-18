@@ -220,8 +220,10 @@ class AdventurerRegular(AdventurerBeginner):
             else: # rob them
                 self.pirate_token = True #just trying will make them a pirate
                 if success:
-                    self.wealth += adventurer.wealth//2 + adventurer.wealth%2
-                    adventurer.wealth //= 2    
+                    default_steal = adventurer.wealth//2 + adventurer.wealth%2
+                    chosen_steal = self.player.check_steal_amount(adventurer, adventurer.wealth, default_steal)
+                    self.wealth += chosen_steal
+                    adventurer.wealth -= chosen_steal    
         elif isinstance(token, Agent):
             if not token.is_dispossessed:
                 self.pirate_token = True #just trying will make them a pirate
@@ -286,6 +288,16 @@ class AdventurerRegular(AdventurerBeginner):
         
 class CityTileRegular(CityTileBeginner):
     '''Extends the CityTileBeginner class to redeem Adventurers from piracy'''
+    
+    def move_off_tile(self, token):
+        '''Adds a prompt to check how much wealth Adventurers want to take with them
+        '''
+        if token.player.vault_wealth > 0:
+            travel_money = token.player.check_travel_money(token, token.player.vault_wealth, 0)
+            token.wealth += travel_money
+            token.player.vault_wealth -= travel_money
+        super().move_off_tile(token)
+    
     def visit_city(self, adventurer):
         #Cities provide the Adventurer with civilised clothes so they can be redeemed from piracy
         if adventurer.pirate_token:

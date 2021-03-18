@@ -609,7 +609,17 @@ class GameVisualisation():
         '''Empties the prompt buffer for the visual
         '''
         self.promp_text = ""
-
+        
+    #@TODO introduce text input in pygame window
+    def get_input_value(self, prompt_text, maximum):
+        '''ends a prompt to the player, and waits for numerical input.
+        
+        Arguments
+        prompt takes a string
+        '''
+        return None
+        
+        
     def get_input_coords(self, adventurer):
         '''Passes mouseclick input from the user and converts it into the position of a game tile.
         
@@ -1408,6 +1418,27 @@ class WebServerVisualisation(GameVisualisation):
         self.client.sendMessage("IMAGE[00100]"+str(base64.b64encode(out)))
         print("data sent to client at "+str(self.client.address))
         os.remove(randname + self.TEMP_FILE_EXTENSION)
+    
+    def get_input_value(self, prompt_text, maximum):
+        '''Sends a prompt to the player, and waits for numerical input.
+        
+        Arguments
+        prompt takes a string
+        '''
+        print("Prompting client at " +str(self.client.address)+ " with: " +prompt_text)
+        self.client.sendMessage("TEXT[00100]"+prompt_text)
+        input_value = None
+        while not input_value:
+            input_value = self.client.get_text()
+            if input_value:
+                if type(input_value) == str:
+                    if input_value.isnumeric():
+                        if int(input_value) in range(0, maximum+1):
+                            return int(input_value)
+                self.client.sendMessage("TEXT[00100]"+prompt_text)
+                input_value = None
+            time.sleep(self.INPUT_DELAY)
+        return None
         
     
     def get_input_coords(self, adventurer):

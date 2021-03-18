@@ -468,6 +468,9 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
         # Explorer will never attack agents
         return False
     
+    def check_steal_amount(self, adventurer, maximum, default):
+        return default
+    
     def check_restore_agent(self, adventurer, agent):
         if agent.player == adventurer.player and adventurer.wealth >= adventurer.game.COST_AGENT_RESTORE:
             return True
