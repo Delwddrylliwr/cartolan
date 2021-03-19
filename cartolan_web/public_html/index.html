@@ -103,6 +103,7 @@
                     else if (decomposed[0] === 'TEXT') { // accept only text
                         console.log("Text prompt received: "+decomposed[1])
                         var input = prompt(decomposed[1]);
+                        if (input === "") {input = "BLANK"};
                         console.log("input: " + input);
                         this.send("TEXT[00100]" + input);
                     } else if (decomposed[0] === 'IMAGE') { //this is a base64 image to render

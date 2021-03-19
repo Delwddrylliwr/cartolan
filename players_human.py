@@ -520,8 +520,8 @@ class PlayerHuman(Player):
         game_vis.draw_scores()
             
         #highlight the tile where the opposing Agent can be attacked
-        print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
-              +" can attack "+ agent.player.colour+" player's Adventurer")
+#        print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
+#              +" can attack "+ agent.player.colour+" player's Adventurer")
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
         game_vis.draw_move_options(moves_since_rest, attack_coords=attack_coords)
 

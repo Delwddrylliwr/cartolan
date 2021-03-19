@@ -85,12 +85,12 @@ class AdventurerRegular(AdventurerBeginner):
             raise Exception("invalid direction given for movement")
         
         # check whether move is possible over the edge
-        print("Adventurer is checking whether movement is possible over the " +compass_point
-              + " edge from their tile at " +str(self.current_tile.tile_position.longitude)+ "," 
-              + str(self.current_tile.tile_position.latitude))
+#        print("Adventurer is checking whether movement is possible over the " +compass_point
+#              + " edge from their tile at " +str(self.current_tile.tile_position.longitude)+ "," 
+#              + str(self.current_tile.tile_position.latitude))
         if self.game.movement_rules == "initial": #this version 1 of movement allows land and upwind movement only initially after resting
             moves_since_rest = self.land_moves + self.downwind_moves + self.upwind_moves
-            print("Adventurer has determined that they have moved " +str(moves_since_rest)+ " times since resting")
+#            print("Adventurer has determined that they have moved " +str(moves_since_rest)+ " times since resting")
             if not self.current_tile.compass_edge_water(compass_point): #land movement needed
                 if(moves_since_rest < self.max_land_moves 
                    or (self.wealth == 0 and moves_since_rest < self.max_land_moves_unburdened)):
@@ -221,7 +221,9 @@ class AdventurerRegular(AdventurerBeginner):
                 self.pirate_token = True #just trying will make them a pirate
                 if success:
                     default_steal = adventurer.wealth//2 + adventurer.wealth%2
-                    chosen_steal = self.player.check_steal_amount(adventurer, adventurer.wealth, default_steal)
+                    chosen_steal = None
+                    while not chosen_steal in range(0, adventurer.wealth + 1):
+                        chosen_steal = self.player.check_steal_amount(adventurer, adventurer.wealth, default_steal)
                     self.wealth += chosen_steal
                     adventurer.wealth -= chosen_steal    
         elif isinstance(token, Agent):
@@ -293,7 +295,9 @@ class CityTileRegular(CityTileBeginner):
         '''Adds a prompt to check how much wealth Adventurers want to take with them
         '''
         if token.player.vault_wealth > 0:
-            travel_money = token.player.check_travel_money(token, token.player.vault_wealth, 0)
+            travel_money = None
+            while not travel_money in range(0, token.player.vault_wealth +1):
+                travel_money = token.player.check_travel_money(token, token.player.vault_wealth, 0)
             token.wealth += travel_money
             token.player.vault_wealth -= travel_money
         super().move_off_tile(token)
