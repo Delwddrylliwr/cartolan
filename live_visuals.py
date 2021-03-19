@@ -1431,14 +1431,17 @@ class WebServerVisualisation(GameVisualisation):
         while not input_value:
             input_value = self.client.get_text()
             if input_value:
-                if type(input_value) == str:
-                    if input_value.isnumeric():
-                        if int(input_value) in range(0, maximum+1):
-                            return int(input_value)
-                self.client.sendMessage("TEXT[00100]"+prompt_text)
-                input_value = None
-            else:
-                return None
+#                print("Trying to interpret "+input_value+" as a number")
+                if input_value.isnumeric():
+#                    print("Checking that "+input_value+" is between 0 and "+str(maximum))
+                    if int(input_value) in range(0, maximum+1):
+                        return int(input_value)
+                    self.client.sendMessage("TEXT[00100]"+prompt_text)
+                    input_value = None
+                else:
+#                    print("Decided it wasn't a number so interpretting as nothing")
+                    return None
+            input_value = None
             time.sleep(self.INPUT_DELAY)
         return None
         
@@ -1452,10 +1455,10 @@ class WebServerVisualisation(GameVisualisation):
         #print("Updating the display for all the other human players, whose visuals won't have been consulted.")
         for player in self.game.players:
             if isinstance(player, PlayerHuman):
-                print("Updating visuals for player "+str(self.game.players.index(player)+1)+" with visual "+str(player.games[self.game.game_id]["game_vis"]))
+#                print("Updating visuals for player "+str(self.game.players.index(player)+1)+" with visual "+str(player.games[self.game.game_id]["game_vis"]))
                 game_vis = player.games[self.game.game_id]["game_vis"]
                 if not self.client == game_vis.client:
-                    print("Recognised that this player is using a different client: "+str(game_vis.client.address))
+#                    print("Recognised that this player is using a different client: "+str(game_vis.client.address))
                     game_vis.draw_play_area()
                     game_vis.draw_tokens()
                     game_vis.draw_routes()

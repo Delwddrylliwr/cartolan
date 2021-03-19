@@ -75,12 +75,12 @@ class AdventurerBeginner(Adventurer):
             raise Exception("invalid direction given for movement")
         
         # check whether move is possible over the edge
-        print("Adventurer is checking whether movement is possible over the " +compass_point
-              + " edge from their tile at " +str(self.current_tile.tile_position.longitude)+ "," 
-              + str(self.current_tile.tile_position.latitude))
+#        print("Adventurer is checking whether movement is possible over the " +compass_point
+#              + " edge from their tile at " +str(self.current_tile.tile_position.longitude)+ "," 
+#              + str(self.current_tile.tile_position.latitude))
         if self.game.movement_rules == "initial": #this version 1 of movement allows land and upwind movement only initially after resting
             moves_since_rest = self.land_moves + self.downwind_moves + self.upwind_moves
-            print("Adventurer has determined that they have moved " +str(moves_since_rest)+ " times since resting")
+#            print("Adventurer has determined that they have moved " +str(moves_since_rest)+ " times since resting")
             if not self.current_tile.compass_edge_water(compass_point): #land movement needed
                 if moves_since_rest < self.max_land_moves:
                     return True
@@ -355,24 +355,24 @@ class AdventurerBeginner(Adventurer):
                 self.turns_moved += 1
                 self.game.game_over = True
                 break
-            print("Have drawn a tile with edges N:" +str(potential_tile.compass_edge_water("n"))
-                  +";E:"+str(potential_tile.compass_edge_water("e"))
-                  +";S:"+str(potential_tile.compass_edge_water("s"))
-                  +";W:"+str(potential_tile.compass_edge_water("w"))
-                  + " and with wind direction N:" +str(potential_tile.wind_direction.north)
-                  +";E:"+str(potential_tile.wind_direction.east))
+#            print("Have drawn a tile with edges N:" +str(potential_tile.compass_edge_water("n"))
+#                  +";E:"+str(potential_tile.compass_edge_water("e"))
+#                  +";S:"+str(potential_tile.compass_edge_water("s"))
+#                  +";W:"+str(potential_tile.compass_edge_water("w"))
+#                  + " and with wind direction N:" +str(potential_tile.wind_direction.north)
+#                  +";E:"+str(potential_tile.wind_direction.east))
             # rotate it to the orientation of the current tile
             def null():
                 pass
             while not (potential_tile.wind_direction.north == self.current_tile.wind_direction.north and 
                        potential_tile.wind_direction.east == self.current_tile.wind_direction.east):
                 potential_tile.rotate_tile_clock()
-            print("...after rotating to match wind, it has edges N:" +str(potential_tile.compass_edge_water("n"))
-                  +";E:"+str(potential_tile.compass_edge_water("e"))
-                  +";S:"+str(potential_tile.compass_edge_water("s"))
-                  +";W:"+str(potential_tile.compass_edge_water("w"))
-                  + " and wind direction N:" +str(potential_tile.wind_direction.north)
-                  +";E:"+str(potential_tile.wind_direction.east))
+#            print("...after rotating to match wind, it has edges N:" +str(potential_tile.compass_edge_water("n"))
+#                  +";E:"+str(potential_tile.compass_edge_water("e"))
+#                  +";S:"+str(potential_tile.compass_edge_water("s"))
+#                  +";W:"+str(potential_tile.compass_edge_water("w"))
+#                  + " and wind direction N:" +str(potential_tile.wind_direction.north)
+#                  +";E:"+str(potential_tile.wind_direction.east))
             
             # check whether the tile will place, rotating as needed
             if self.game.exploration_rules == "clockwise": # this version 1 of exploration rules will just try a clockwise rotation and then an anti
@@ -403,9 +403,9 @@ class AdventurerBeginner(Adventurer):
                 edge_matches = True
                 while edge_matches and len(compass_points) > 0:
                     compass_point = compass_points.pop()
-                    print("checking tile matches on the " +compass_point.upper()+ ", where an adjoining edge of "
-                         +str(adjoining_edges_water[compass_point])+ " must match with the tile's "
-                          + str(potential_tile.compass_edge_water(compass_point)))
+#                    print("checking tile matches on the " +compass_point.upper()+ ", where an adjoining edge of "
+#                         +str(adjoining_edges_water[compass_point])+ " must match with the tile's "
+#                          + str(potential_tile.compass_edge_water(compass_point)))
                     edge_matches = adjoining_edges_water[compass_point] is None or adjoining_edges_water[compass_point] == potential_tile.compass_edge_water(compass_point)
 
                 if edge_matches:
@@ -421,8 +421,8 @@ class AdventurerBeginner(Adventurer):
                         potential_tile.rotate_tile_anti()
                     # rotate the tile according to the alternative options in the exploration method
                     rotations.pop()()
-                    print("rotated tile, so that its wind points N:" +str(potential_tile.wind_direction.north)
-                         + ";E:"+ str(potential_tile.wind_direction.east))
+#                    print("rotated tile, so that its wind points N:" +str(potential_tile.wind_direction.north)
+#                         + ";E:"+ str(potential_tile.wind_direction.east))
             # discard the tile
             discard_pile.add_tile(potential_tile)
             self.game.exploration_attempts += 1
