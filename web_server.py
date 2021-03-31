@@ -129,7 +129,7 @@ class ClientSocket(WebSocket):
                         prompt_text += ", or "
                     else:
                         prompt_text += "."
-                prompt_text += " (Default is "+DEFAULT_GAME_MODE+")"
+                prompt_text += " (Hit enter for default "+DEFAULT_GAME_MODE+")"
                 print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
                 self.sendMessage("TEXT[00100]"+prompt_text)
                 while not new_game_type in valid_options:
@@ -148,7 +148,7 @@ class ClientSocket(WebSocket):
                 #Get remote user input about how many players they have at their end
                 valid_options = [str(i) for i in range(1, max_players + 1)]
                 prompt_text = ("Please specify how many players will play from this computer, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
-                prompt_text += " (Default is "+str(DEFAULT_LOCAL_PLAYERS)+")"
+                prompt_text += " (Hit enter for default "+str(DEFAULT_LOCAL_PLAYERS)+")"
                 num_client_players = None
                 print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
                 self.sendMessage("TEXT[00100]"+prompt_text)
@@ -170,7 +170,7 @@ class ClientSocket(WebSocket):
                 if num_client_players < max_players:
                     valid_options = [str(i) for i in range(0, max_players - num_client_players + 1)]
                     prompt_text = ("Please specify how many computer-controlled players will play, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
-                    prompt_text += " (Default is "+str(DEFAULT_VIRTUAL_PLAYERS)+")"
+                    prompt_text += " (Hit enter for default "+str(DEFAULT_VIRTUAL_PLAYERS)+")"
                     print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
                     self.sendMessage("TEXT[00100]"+prompt_text)
                     num_virtual_players = None
@@ -193,7 +193,7 @@ class ClientSocket(WebSocket):
                 if num_players < max_players:
                     valid_options = [str(i) for i in range(max(min_players - num_players, 0), max_players - num_players + 1)]
                     prompt_text = ("Please specify how many players from other computers will play, between "+str(valid_options[0])+" and " +str(valid_options[-1])+ "?")
-                    prompt_text += " (Default is "+str(DEFAULT_REMOTE_PLAYERS)+")"
+                    prompt_text += " (Hit enter for default "+str(DEFAULT_REMOTE_PLAYERS)+")"
                     print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
                     self.sendMessage("TEXT[00100]"+prompt_text)
                     num_players = None
@@ -334,6 +334,7 @@ class ClientSocket(WebSocket):
                 for client in games[game_id]["clients"]:
                     print("Closing game for client: "+str(client.address))
                     game_vis = client_visuals[client]
+                    game_vis.draw_play_area()
                     game_vis.current_player_colour = self.game.winning_player.colour
                     game_vis.give_prompt(self.game.winning_player.colour+" player won the game (refresh to play again)")
                     game_vis.update_web_display()
