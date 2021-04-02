@@ -268,6 +268,10 @@ class AdventurerBeginner(Adventurer):
         self.downwind_moves += 1
         
         #carry out any actions that are possible given this tile or tokens on it
+        tile = self.current_tile
+        if tile.dropped_wealth > 0:
+            self.wealth += tile.dropped_wealth
+            tile.dropped_wealth = 0
         self.interact_tile()
         self.interact_tokens()
         
@@ -616,6 +620,19 @@ class AdventurerBeginner(Adventurer):
                 return True
             else:
                 return False
+    
+    def end_expedition(self, city=None):
+        '''Prematurely returns an Adventurer to the last city they visited and empties their wealth.
+        '''
+        self.wealth = 0
+        self.current_tile.move_off_tile(self)
+        if isinstance(city, CityTile):
+            city.move_onto_tile(self)
+        else:
+            self.latest_city.move_onto_tile(self)
+        self.wonders_visited = [] #reset the list of where trade can happen
+        #End the Adventurer's turn so that movement resets
+#        self.end_turn()
         
 # Unit test, collects wealth from wonder tile
 

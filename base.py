@@ -219,6 +219,8 @@ class Tile:
         
         self.adventurers = [] # to keep track of the Adventurer tokens on a tile at any point
         self.agent = None # there can only be one Agent token on a given tile
+        self.dropped_wealth = 0 # to keep track of wealth dropped when returning abruptly to a City
+
     
     def place_tile(self, longitude, latitude):
         '''records the location of a Tile object in the PlayArea of a Cartolan game
@@ -340,6 +342,11 @@ class Tile:
         Token either an Agent or an Adventurer from the Cartolan module
         '''
         if isinstance(token, Token):
+            #Collect any wealth that has been dropped on this tile
+            if self.dropped_wealth > 0:
+                token.wealth += self.dropped_wealth
+                self.dropped_wealth = 0
+                
             if isinstance(token, Adventurer):
                 print("Moving adventurer for " +str(token.player.colour)+ " player onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                 if token.current_tile:

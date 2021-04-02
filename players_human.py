@@ -21,23 +21,24 @@ class PlayerHuman(Player):
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
         
-        valid_moves = [[adventurer.current_tile.tile_position.longitude
-                        , adventurer.current_tile.tile_position.latitude]]
-        chance_moves = []
-        invalid_moves = []
-        move_map = {adventurer.current_tile.tile_position.longitude:{adventurer.current_tile.tile_position.latitude:'wait'}}
-        
         #redraw all the tokens and scores
         game_vis.draw_play_area()
         game_vis.draw_routes()
         game_vis.draw_tokens()
         game_vis.draw_scores()
+                
         #prompt the player to choose a tile to move on to
         print("Prompting the "+self.colour+" player for input")
 #        game_vis.clear_prompt()
         game_vis.give_prompt("click which tile you would like "+str(self.colour)+" adventurer #" 
                                        +str(game.adventurers[self].index(adventurer)+1) 
                                        +" to move to?")
+        
+        moves = {}
+        moves["move"] = [[adventurer.current_tile.tile_position.longitude
+                        , adventurer.current_tile.tile_position.latitude]]
+        move_map = {adventurer.current_tile.tile_position.longitude:{adventurer.current_tile.tile_position.latitude:'wait'}}
+        moves["invalid"] = [] 
         
         #highlight the tiles that can be reached this move
         for compass_point in ['n', 'e', 's', 'w']:
@@ -48,38 +49,55 @@ class PlayerHuman(Player):
             potential_latitude = adventurer.current_tile.tile_position.latitude + latitude_increment
             can_move = adventurer.can_move(compass_point)
             if can_move:
-                valid_moves.append([potential_longitude, potential_latitude])
-            elif can_move is None:
-                chance_moves.append([potential_longitude, potential_latitude])
+                moves["move"].append([potential_longitude, potential_latitude])
             else:
-                invalid_moves.append([potential_longitude, potential_latitude])
+                moves["invalid"].append([potential_longitude, potential_latitude])
             #keep track of what compass point these coordinates correspond to
             if move_map.get(potential_longitude):
                 move_map[potential_longitude][potential_latitude] = compass_point
             else:
                 move_map[potential_longitude] = {potential_latitude:compass_point}
-        
+        #add all cities' coordinates to the valid moves list
+        moves["abandon"] = []
+        for city_tile in game.cities:
+            #Check whether this city can be reached by movement, before giving the option to abandon the expedition
+            city_longitude = city_tile.tile_position.longitude
+            city_latitude = city_tile.tile_position.latitude
+#            print("City tile found at coordinates: "+str(city_longitude)+str(city_latitude))
+            if move_map.get(city_longitude):
+                if move_map[city_longitude].get(city_latitude):
+                    continue
+            if city_longitude is not None and city_latitude is not None:
+                moves["abandon"].append([city_longitude, city_latitude])
+            
         #highlight the tiles
-        print("Highlighting the available moves for the "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1))
+#        print("Highlighting the available moves for the "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1))
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-        game_vis.draw_move_options(moves_since_rest, valid_moves, invalid_moves, chance_coords=chance_moves)
+        game_vis.draw_move_options(moves_since_rest, moves)
         
         #Carry out the player's chosen move
         move_coords = game_vis.get_input_coords(adventurer)
-        while move_coords not in valid_moves:
+        while move_coords not in moves["move"] and move_coords not in moves["abandon"]:
             move_coords = game_vis.get_input_coords(adventurer)
-        if move_coords in valid_moves or move_coords in chance_moves:
-            print(self.colour+" player chose valid coordinates to move to.")
+        if move_coords in moves["move"]:
+#            print(self.colour+" player chose valid coordinates to move to.")
             if move_map[move_coords[0]].get(move_coords[1]) == "wait":
                 game_vis.clear_move_options()
                 moved = adventurer.wait()
-                print("moved = "+str(moved))
+#                print("moved = "+str(moved))
             else:
                 game_vis.clear_move_options()
                 moved = adventurer.move(move_map[move_coords[0]].get(move_coords[1]))
                 #check whether the turn is over despite movement failing, e.g. it failed because exploration failed
                 if adventurer.turns_moved == adventurer.game.turn:
                     moved = True
+        elif move_coords in moves["abandon"]:
+            #Transfer the Adventurer's wealth to sit on their current tile for others to collect
+            adventurer.current_tile.dropped_wealth += adventurer.wealth
+            city_tile = game.play_area[move_coords[0]][move_coords[1]]
+            adventurer.end_expedition(city=city_tile)
+            if isinstance(adventurer.current_tile, CityTile):
+                adventurer.current_tile.visit_city(adventurer)
         else:
             game_vis.clear_prompt()
             game_vis.give_prompt("This is not a valid move, so waiting in place. click to continue.")
@@ -192,22 +210,23 @@ class PlayerHuman(Player):
         
         #highlight the tile where rest can be sought or bought
         print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)+" can rest")
+        moves = {}
         if not agent in adventurer.agents_rested:
             if agent.player == self:
-                valid_coords = [[adventurer.current_tile.tile_position.longitude
+                moves["rest"] = [[adventurer.current_tile.tile_position.longitude
                             , adventurer.current_tile.tile_position.latitude]]
                 moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-                game_vis.draw_move_options(moves_since_rest, rest_coords=valid_coords)
+                game_vis.draw_move_options(moves_since_rest, moves)
                 #prompt the player to choose a tile to move on to
                 print("Prompting the "+self.colour+" player for input")
                 game_vis.give_prompt("If you want "+str(self.colour)+" adventurer #" 
                                                +str(game.adventurers[self].index(adventurer)+1) 
                                                +" to rest then click their tile, otherwise click elsewhere.")          
             elif adventurer.wealth >= adventurer.game.COST_AGENT_EXPLORING:
-                valid_coords = [[adventurer.current_tile.tile_position.longitude
+                moves["buy"] = [[adventurer.current_tile.tile_position.longitude
                             , adventurer.current_tile.tile_position.latitude]]
                 moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-                game_vis.draw_move_options(moves_since_rest, buy_coords=valid_coords)
+                game_vis.draw_move_options(moves_since_rest, moves)
                 #prompt the player to choose a tile to move on to
                 print("Prompting the "+self.colour+" player for input")
                 game_vis.give_prompt("If you want "+str(self.colour)+" adventurer #" 
@@ -222,9 +241,14 @@ class PlayerHuman(Player):
 
         rest = False
         move_coords = game_vis.get_input_coords(adventurer)
-        if move_coords in valid_coords:
-            print(self.colour+" player chose the coordinates of the tile where their Adventurer can rest.")
-            rest = True
+        if moves.get("rest"):
+            if move_coords in moves["rest"]:
+                print(self.colour+" player chose the coordinates of the tile where their Adventurer can rest.")
+                rest = True
+        elif moves.get("buy"):
+            if move_coords in moves["buy"]:
+                print(self.colour+" player chose the coordinates of the tile where their Adventurer can rest.")
+                rest = True
         else:
             print(self.colour+" player chose coordinates away from the tile where their Adventurer can rest.")
             rest = False
@@ -248,8 +272,9 @@ class PlayerHuman(Player):
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
         
+        moves = {}
         if self.vault_wealth >= adventurer.game.COST_ADVENTURER:
-            buy_coords = [[adventurer.current_tile.tile_position.longitude
+            moves["buy"] = [[adventurer.current_tile.tile_position.longitude
                         , adventurer.current_tile.tile_position.latitude]]
 
             #make sure that tiles and token positions are up to date
@@ -262,7 +287,7 @@ class PlayerHuman(Player):
             print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
                   +" can recruit another adventurer")
             moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-            game_vis.draw_move_options(moves_since_rest, buy_coords=buy_coords)
+            game_vis.draw_move_options(moves_since_rest, moves)
 
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
@@ -273,7 +298,7 @@ class PlayerHuman(Player):
             
             recruit = False
             move_coords = game_vis.get_input_coords(adventurer)
-            if move_coords in buy_coords:
+            if move_coords in moves["buy"]:
                 print(self.colour+" player chose the coordinates of the tile where their Adventurer can recruit.")
                 recruit = True
             else:
@@ -293,8 +318,9 @@ class PlayerHuman(Player):
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
         
+        moves = {}
         if adventurer.wealth >= adventurer.game.COST_AGENT_EXPLORING:
-            buy_coords = [[adventurer.current_tile.tile_position.longitude
+            moves["buy"] = [[adventurer.current_tile.tile_position.longitude
                         , adventurer.current_tile.tile_position.latitude]]
 
             #make sure that tiles and token positions are up to date
@@ -310,7 +336,7 @@ class PlayerHuman(Player):
             print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
                   +" can recruit an Agent")
             moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-            game_vis.draw_move_options(moves_since_rest, buy_coords=buy_coords)
+            game_vis.draw_move_options(moves_since_rest, moves)
 
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
@@ -320,7 +346,7 @@ class PlayerHuman(Player):
             
             recruit = False
             move_coords = game_vis.get_input_coords(adventurer)
-            if move_coords in buy_coords:
+            if move_coords in moves["buy"]:
                 print(self.colour+" player chose the coordinates of the tile where their Adventurer can recruit.")
                 recruit = True
             else:
@@ -341,9 +367,10 @@ class PlayerHuman(Player):
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
         
+        moves = {}
         if self.vault_wealth >= adventurer.game.COST_AGENT_FROM_CITY:
             #Establish a list of all tiles without an active Agent, to offer the player
-            buy_coords = []
+            moves["buy"] = []
             play_area = adventurer.game.play_area
             for longitude in play_area:
                 for latitude in play_area[longitude]:
@@ -359,10 +386,10 @@ class PlayerHuman(Player):
                     tile = play_area[longitude][latitude] 
                     if tile.agent is None:
                         if not isinstance(tile, CityTile):
-                            buy_coords.append([tile.tile_position.longitude, tile.tile_position.latitude])
+                            moves["buy"].append([tile.tile_position.longitude, tile.tile_position.latitude])
                     elif isinstance(adventurer.game, GameRegular):
                         if tile.agent.is_dispossessed:
-                            buy_coords.append([tile.tile_position.longitude, tile.tile_position.latitude])
+                            moves["buy"].append([tile.tile_position.longitude, tile.tile_position.latitude])
             
             #make sure that tiles and token positions are up to date
             game_vis.draw_play_area()
@@ -373,7 +400,7 @@ class PlayerHuman(Player):
             #highlight the tiles where an Agent could be placed 
             print("Highlighting the tile where "+self.colour+" player can send an Agent")
             moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-            game_vis.draw_move_options(moves_since_rest=moves_since_rest, buy_coords=buy_coords)
+            game_vis.draw_move_options(moves_since_rest, moves)
 
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
@@ -384,7 +411,7 @@ class PlayerHuman(Player):
             
             agent_placement = None
             move_coords = game_vis.get_input_coords(adventurer)
-            if move_coords in buy_coords:
+            if move_coords in moves["buy"]:
                 print(self.colour+" player chose a tile where thay can send an agent.")
                 agent_placement = adventurer.game.play_area[move_coords[0]][move_coords[1]]
             else:
@@ -404,9 +431,9 @@ class PlayerHuman(Player):
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
         
-        agent_coords = []
+        moves = {"move":[]}
         for agent in game.agents[self]:
-            agent_coords.append([agent.current_tile.tile_position.longitude, agent.current_tile.tile_position.latitude])
+            moves["move"].append([agent.current_tile.tile_position.longitude, agent.current_tile.tile_position.latitude])
 
         #make sure that tiles and token positions are up to date
         game_vis.draw_play_area()
@@ -418,7 +445,7 @@ class PlayerHuman(Player):
         print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
               +" can recruit an Agent")
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-        game_vis.draw_move_options(moves_since_rest=moves_since_rest, valid_coords=agent_coords)
+        game_vis.draw_move_options(moves_since_rest, moves)
 
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
@@ -428,7 +455,7 @@ class PlayerHuman(Player):
 
         agent_to_move = None
         move_coords = game_vis.get_input_coords(adventurer)
-        if move_coords in agent_coords:
+        if move_coords in moves["move"]:
             print(self.colour+" player chose the coordinates of the tile where their Agent can move from.")
             agent_to_move = adventurer.game.play_area[move_coords[0]][move_coords[1]].agent
         else:
@@ -443,8 +470,8 @@ class PlayerHuman(Player):
     #Give the player the choice to attack
     #@TODO highlight specific tokens to attack
     def check_attack_adventurer(self, adventurer, other_adventurer):
-        attack_coords = [[adventurer.current_tile.tile_position.longitude
-                    , adventurer.current_tile.tile_position.latitude]]
+        moves = {"attack":[[adventurer.current_tile.tile_position.longitude
+                    , adventurer.current_tile.tile_position.latitude]]}
 
         #make sure that tiles and token positions are up to date
         game = adventurer.game
@@ -458,7 +485,7 @@ class PlayerHuman(Player):
         print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
               +" can attack "+ other_adventurer.player.colour+" player's Adventurer")
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-        game_vis.draw_move_options(moves_since_rest, attack_coords=attack_coords)
+        game_vis.draw_move_options(moves_since_rest, moves)
 
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
@@ -470,7 +497,7 @@ class PlayerHuman(Player):
 
         attack = False
         move_coords = game_vis.get_input_coords(adventurer)
-        if move_coords in attack_coords:
+        if move_coords in moves["attack"]:
             print(self.colour+" player chose the coordinates of the tile where their Adventurer can attack.")
             attack = True
         else:
@@ -508,8 +535,8 @@ class PlayerHuman(Player):
     
     #@TODO prompt the player on victory for how much wealth to take 
     def check_attack_agent(self, adventurer, agent):
-        attack_coords = [[adventurer.current_tile.tile_position.longitude
-                        , adventurer.current_tile.tile_position.latitude]]
+        moves = {"attack":[[adventurer.current_tile.tile_position.longitude
+                        , adventurer.current_tile.tile_position.latitude]]}
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
 
@@ -523,7 +550,7 @@ class PlayerHuman(Player):
 #        print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
 #              +" can attack "+ agent.player.colour+" player's Adventurer")
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-        game_vis.draw_move_options(moves_since_rest, attack_coords=attack_coords)
+        game_vis.draw_move_options(moves_since_rest, moves)
 
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
@@ -535,7 +562,7 @@ class PlayerHuman(Player):
 
         attack = False
         move_coords = game_vis.get_input_coords(adventurer)
-        if move_coords in attack_coords:
+        if move_coords in moves["attack"]:
             print(self.colour+" player chose the coordinates of the tile where their Adventurer can attack.")
             attack = True
         else:
@@ -554,8 +581,8 @@ class PlayerHuman(Player):
             game = adventurer.game
             game_vis = self.games[game.game_id]["game_vis"]
             
-            buy_coords = [[adventurer.current_tile.tile_position.longitude
-                        , adventurer.current_tile.tile_position.latitude]]
+            moves = {"buy":[[adventurer.current_tile.tile_position.longitude
+                        , adventurer.current_tile.tile_position.latitude]]}
 
             #make sure that tiles and token positions are up to date
             game_vis.draw_play_area()
@@ -567,7 +594,7 @@ class PlayerHuman(Player):
             print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
                   +" can restore an Agent")
             moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-            game_vis.draw_move_options(moves_since_rest, buy_coords=buy_coords)
+            game_vis.draw_move_options(moves_since_rest, moves)
 
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
@@ -577,7 +604,7 @@ class PlayerHuman(Player):
             
             restore = False
             move_coords = game_vis.get_input_coords(adventurer)
-            if move_coords in buy_coords:
+            if move_coords in moves["buy"]:
                 print(self.colour+" player chose the coordinates of the tile where their Agent can be restored.")
                 restore = True
             else:
@@ -597,8 +624,8 @@ class PlayerHuman(Player):
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
         
-        attack_coords = [[adventurer.current_tile.tile_position.longitude
-                    , adventurer.current_tile.tile_position.latitude]]
+        moves = {"attack":[[adventurer.current_tile.tile_position.longitude
+                    , adventurer.current_tile.tile_position.latitude]]}
 
         #make sure that tiles and token positions are up to date
         # current_tile_position = adventurer.current_tile.tile_position
@@ -613,7 +640,7 @@ class PlayerHuman(Player):
         print("Highlighting the Disaster tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
               +" can choose to court disaster")
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-        game_vis.draw_move_options(moves_since_rest, attack_coords=attack_coords)
+        game_vis.draw_move_options(moves_since_rest, moves)
 
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
@@ -623,7 +650,7 @@ class PlayerHuman(Player):
         
         recruit = False
         move_coords = game_vis.get_input_coords(adventurer)
-        if move_coords in attack_coords:
+        if move_coords in moves["attack"]:
             print(self.colour+" player chose the coordinates of the tile where their Adventurer can recruit.")
             recruit = True
         else:

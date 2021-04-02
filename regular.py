@@ -239,16 +239,6 @@ class AdventurerRegular(AdventurerBeginner):
         self.player.attack_history.append([self.current_tile, success])
         return success
     
-    def end_expedition(self):
-        '''Prematurely returns an Adventurer to the last city they visited and empties their wealth.
-        '''
-        self.wealth = 0
-        self.current_tile.move_off_tile(self)
-        self.latest_city.move_onto_tile(self)
-        self.wonders_visited = [] #reset the list of where trade can happen
-        #End the Adventurer's turn so that movement resets
-#        self.end_turn()
-    
     def check_tile_available(self, tile):
         '''Extends the AdventurerBeginner method to keep track of whether existing Agents have been dispossessed when placing on a tile'''
         if self.pirate_token:
@@ -331,10 +321,6 @@ class AgentRegular(AgentBeginner):
 
 class DisasterTile(Tile):
     '''Represents a Disaster Tile in the game Cartolan, which removes Adventurers' wealth and send them back to a city '''
-    def __init__(self, game, tile_back, wind_direction, tile_edges):
-        super().__init__(game, tile_back, wind_direction, tile_edges, False)
-        self.dropped_wealth = 0
-    
     def move_onto_tile(self, token):
         '''Takes the wealth of non-Pirate Adventurers as they land on the tile, but allows pirates to move as if from land
         
@@ -353,8 +339,8 @@ class DisasterTile(Tile):
                 if token.pirate_token:
                     print("Pirate moves onto disaster tile")
                     super().move_onto_tile(token)
-                    if token.player.check_court_disaster(token, self): # get player input on whether to attack the disaster
-                        self.attack_adventurer(token)
+#                    if token.player.check_court_disaster(token, self): # get player input on whether to attack the disaster
+#                        self.attack_adventurer(token)
                 else: # otherwise send the Adventurer to the capital and keep their wealth and end their turn 
                     print("Adventurer moved onto disaster tile. Dropping wealth and returning to last city visited.")
                     self.dropped_wealth += token.wealth
@@ -370,14 +356,14 @@ class DisasterTile(Tile):
         Arguments:
         Cartolan.Adventurer for the Adventurer token that is on the tile
         '''
-        import random
-        
-        # if the rolls are the same then the pirate gets helf the wealth
-        if random.random() < self.game.ATTACK_SUCCESS_PROB:
-            adventurer.wealth += self.dropped_wealth//2 + self.dropped_wealth%2
-        else: # otherwise send the Adventurer to the capital and keep their wealth
-            self.dropped_wealth += adventurer.wealth
-            adventurer.end_expedition()
+#        import random
+#        
+#        # if the rolls are the same then the pirate gets helf the wealth
+#        if random.random() < self.game.ATTACK_SUCCESS_PROB:
+#            adventurer.wealth += self.dropped_wealth//2 + self.dropped_wealth%2
+#        else: # otherwise send the Adventurer to the capital and keep their wealth
+#            self.dropped_wealth += adventurer.wealth
+#            adventurer.end_expedition()
             
     def compare(self, tile):
         if not isinstance(tile, DisasterTile):

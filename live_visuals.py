@@ -39,6 +39,7 @@ class GameVisualisation():
     DIMENSION_BUFFER = 1 #the number of tiles by which the play area is extended when methods are called
     BACKGROUND_COLOUR = (38,50,66)
     PLAIN_TEXT_COLOUR = (255,255,255)
+    WONDER_TEXT_COLOUR = (0,0,0)
     TILE_BORDER = 0.02 #the share of grid width/height that is used for border
     TOKEN_SCALE = 0.2 #relative to tile sizes
     AGENT_SCALE = 1.75 #relative to Adventurer radius
@@ -58,6 +59,7 @@ class GameVisualisation():
                      , "mythical":'./images/mythical.png'
                      } #file paths for special tiles
     HIGHLIGHT_PATHS = {"move":'./images/option_valid_move.png'
+                  , "abandon":'./images/option_valid_move.png'
                   , "invalid":'./images/option_invalid_move.png'
                   , "buy":'./images/option_buy.png'
                   , "attack":'./images/option_attack.png'
@@ -76,7 +78,7 @@ class GameVisualisation():
         self.move_timer = self.MOVE_TIME_LIMIT
         self.current_player_colour = "black"
         self.current_adventurer_number = 0
-        self.highlights = {"move":[], "invalid":[], "buy":[], "attack":[]}
+        self.highlights = {"move":[], "abandon":[], "rest":[], "invalid":[], "buy":[], "attack":[]}
         self.current_move_count = None
         
         self.init_GUI()
@@ -354,53 +356,51 @@ class GameVisualisation():
                 east = str(tile.wind_direction.east)
                 tile_image = self.tile_image_library[tile_name + north + east]
                 #place the tile image in the grid
-                horizontal = self.get_horizontal(longitude)
-                vertical = self.get_vertical(latitude)
+                horizontal = self.get_horizontal(longitude) * self.tile_size
+                vertical = self.get_vertical(latitude) *self.tile_size
 #                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
-                self.window.blit(tile_image, [horizontal*self.tile_size, vertical*self.tile_size])
+                self.window.blit(tile_image, [horizontal, vertical])
+                #Print a number on this tile showing the dropped wealth there
+                if tile.dropped_wealth > 0:
+                    if tile.is_wonder:
+                        text_colour = self.WONDER_TEXT_COLOUR
+                    else:
+                        text_colour = self.PLAIN_TEXT_COLOUR
+                    horizontal += int(self.tile_size * (1 - self.TOKEN_FONT_SCALE/2) / 2)
+                    vertical += int(self.tile_size * (1 - self.TOKEN_FONT_SCALE/2) / 2)
+                    wealth_label = self.token_font.render(str(tile.dropped_wealth), 1, text_colour)
+                    self.window.blit(wealth_label, [horizontal, vertical])
         # # Keep track of what the latest play_area to have been visualised was
         # self.play_area = self.play_area_union(self.play_area, play_area_update)
         return True
     
     #@TODO highlight the particular token(s) that an action relates to
     #display the number of moves since resting
-    def draw_move_options(self, moves_since_rest=None, valid_coords=None, invalid_coords=None, chance_coords=None
-                          , buy_coords=None, attack_coords=None, rest_coords=None):
+    def draw_move_options(self, moves_since_rest=None, highlight_coords={}):
         '''Outlines tiles where moves or actions are possible, designated by colour
+        
+        Arguments:
+        moves_since_rest expects an integer
+        highlight_coords expects a library of strings mapped to lists of integer 2-tuples
         '''
 #        print("Updating the dict of highlight positions, based on optional arguments")
         highlight_count = 0
-        if valid_coords:
-            self.highlights["move"] = valid_coords
-            highlight_count += len(self.highlights["move"])
-        else:
-            self.highlights["move"] = []
-        if invalid_coords:
-            self.highlights["invalid"] = invalid_coords
-            highlight_count += len(self.highlights["invalid"])
-        else:
-            self.highlights["invalid"] = []
-        if buy_coords:
-            self.highlights["buy"] = buy_coords
-            highlight_count += len(self.highlights["buy"])
-        else:
-            self.highlights["buy"] = []
-        if attack_coords:
-            self.highlights["attack"] = attack_coords
-            highlight_count += len(self.highlights["attack"])
-        else:
-            self.highlights["attack"] = []
-        if rest_coords:
-            self.highlights["rest"] = rest_coords
-            highlight_count += len(self.highlights["rest"])
-        else:
-            self.highlights["rest"] = []
+        for highlight_type in self.highlights:
+            coords = highlight_coords.get(highlight_type)
+            if coords:
+                self.highlights[highlight_type] = coords
+#                print(highlight_type + " highlight provided coords at "+str(coords) )
+                highlight_count += len(coords)
+            else:
+#                print("No coords provided for highight type: "+highlight_type)
+                self.highlights[highlight_type] = []
 #        print("Cycling through the various highlights' grid coordinates, outlining the " +str(highlight_count)+ " tiles that can and can't be subject to moves")
         for highlight_type in self.highlight_library:
             if self.highlights[highlight_type]:
                 highlight_image = self.highlight_library[highlight_type]
                 for tile_coords in self.highlights[highlight_type]:
                     #place the highlight image on the grid
+#                    print(highlight_type + " has coords "+str(tile_coords))
                     horizontal = self.get_horizontal(tile_coords[0])
                     vertical = self.get_vertical(tile_coords[1])
 #                    print("Drawing a highlight at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
@@ -645,7 +645,7 @@ class GameVisualisation():
 #                print("Click was a valid option of type: " + highlighted_option)
                 if True:
 #                if highlighted_option is not None:
-                    self.highlights = {"move":[], "invalid":[], "buy":[], "attack":[]} #clear the highlights until the server offers more
+                    self.highlights = {"move":[], "abandon":[], "rest":[], "invalid":[], "buy":[], "attack":[]} #clear the highlights until the server offers more
 #                    print("Have identified a move available at " +str(longitude)+ ", " +str(latitude)+ " of type " +str(highlighted_option))
                     return [longitude, latitude]
             if self.move_timer < 0:
@@ -1328,8 +1328,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         #Now continue with displaying locally
         super().draw_tokens()
     
-    def draw_move_options(self, moves_since_rest=None, valid_coords=None, invalid_coords=None, chance_coords=None
-                          , buy_coords=None, attack_coords=None, rest_coords=None):
+    def draw_move_options(self, moves_since_rest=None, highlight_coords = {}):
         '''Passes changes in the number of remaining moves to the server
         '''
         #print("Comparing the last reported move count with the current move count")
@@ -1340,8 +1339,7 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
         connection.Pump()
         self.Pump()
         #Now continue with displaying locally
-        super().draw_move_options(moves_since_rest, valid_coords, invalid_coords, chance_coords
-                          , buy_coords, attack_coords, rest_coords)
+        super().draw_move_options(moves_since_rest, highlight_coords)
         
     
     def draw_scores(self):
@@ -1477,7 +1475,7 @@ class WebServerVisualisation(GameVisualisation):
                 longitude = int(math.ceil((horizontal)/self.tile_size)) - self.origin[0] - 1
                 latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
                 if True:
-                    self.highlights = {"move":[], "invalid":[], "buy":[], "attack":[]} #clear the highlights until the server offers more
+                    self.highlights = {"move":[], "rest":[], "abandon":[], "invalid":[], "buy":[], "attack":[]} #clear the highlights until the server offers more
                     return [longitude, latitude]
             time.sleep(self.INPUT_DELAY)
 #        print("Waiting for input from the user")
