@@ -176,7 +176,10 @@ class AdventurerRegular(AdventurerBeginner):
         #check whether there is an adventurer here and attack if the player wants
         if self.current_tile.adventurers:
             for adventurer in self.current_tile.adventurers:
-                if adventurer.player != self.player and (adventurer.wealth > 0 or adventurer.pirate_token):
+                if (adventurer.player != self.player 
+                    and ((adventurer.wealth > 0 and not adventurer.pirate_token)
+                         or (adventurer.pirate_token #cannot arrest pirates on Disaster Tiles
+                             and not isinstance(self.current_tile, DisasterTile)))):
                     if self.player.check_attack_adventurer(self, adventurer):
                         self.attack(adventurer)
     
