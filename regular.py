@@ -73,8 +73,9 @@ class AdventurerRegular(AdventurerBeginner):
         
         #Check whether rest is possible and otherwise give an extra opportunity to retreat
         if compass_point is None:
-            if (self.downwind_moves + self.land_moves + self.upwind_moves < self.max_upwind_moves + 1
-                or self.downwind_moves + self.land_moves + self.upwind_moves < self.max_land_moves + 1):
+            if ((self.downwind_moves + self.land_moves + self.upwind_moves < self.max_upwind_moves + 1
+                or self.downwind_moves + self.land_moves + self.upwind_moves < self.max_land_moves + 1)
+                and self.downwind_moves + self.land_moves + self.upwind_moves < self.max_downwind_moves):
                 return True #give an estra opportunity to retreat
                 if self.current_tile.agent:
                     if self.current_tile.agent not in self.agents_rested:
