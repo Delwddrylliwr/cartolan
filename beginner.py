@@ -241,7 +241,11 @@ class AdventurerBeginner(Adventurer):
                     self.current_tile.move_onto_tile(self)
                     #as a new tile there are some special considerations
                     self.discover(self.current_tile)
-                    moved = True                
+                    moved = True 
+                else:
+                    print("Exploration failed, but offering Adventurer available actions on original tile")
+                    self.interact_tile()
+                    self.interact_tokens()
             else:
                 #place the Adventurer on the next existing Tile
                 self.current_tile.move_off_tile(self)
@@ -443,7 +447,7 @@ class AdventurerBeginner(Adventurer):
             
             
         # feed back to calling function that a tile has NOT been placed
-        print("Exploration failed")
+#        print("Exploration failed")
         self.game.num_failed_explorations += 1
         return False
             
