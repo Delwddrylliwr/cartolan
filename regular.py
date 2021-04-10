@@ -71,6 +71,15 @@ class AdventurerRegular(AdventurerBeginner):
                     if self.current_tile.agent not in self.agents_rested:
                         return True
         
+        #Check whether rest is possible and otherwise give an extra opportunity to retreat
+        if compass_point is None:
+            if (self.downwind_moves + self.land_moves + self.upwind_moves < self.max_upwind_moves + 1
+                or self.downwind_moves + self.land_moves + self.upwind_moves < self.max_land_moves + 1):
+                return True #give an estra opportunity to retreat
+                if self.current_tile.agent:
+                    if self.current_tile.agent not in self.agents_rested:
+                        return True
+        
         # check that instruction is valid: a direction provided or an explicit general check through a None
         if compass_point is None:
             print("Adventurer is checking whether any movement at all is possible")
