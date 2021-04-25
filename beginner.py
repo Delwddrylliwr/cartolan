@@ -244,7 +244,8 @@ class AdventurerBeginner(Adventurer):
                     moved = True 
                 else:
                     print("Exploration failed, but offering Adventurer available actions on original tile")
-                    self.interact_tile()
+                    if not isinstance(self.current_tile, CityTile): 
+                        self.interact_tile()
                     self.interact_tokens()
             else:
                 #place the Adventurer on the next existing Tile
@@ -734,11 +735,12 @@ class CityTileBeginner(CityTile):
     buy_agent takes a Cartolan.Adventurer
     '''
         
-    def visit_city(self, adventurer):
+    def visit_city(self, adventurer, abandoned=False):
         '''Initiates all the possible actions when a city is visited
         
         Arguments:
         Cartolan.Adventurer the Adventurer arriving on the City tile
+        Boolean aborted prevents hiring option if the Adventurer has aborted their expedition, making it harder to replace opponents' Agents.
         '''
         #reset Adventurer's list of visited Wonders
         adventurer.wonders_visited = []
@@ -750,7 +752,7 @@ class CityTileBeginner(CityTile):
         
         self.game.game_over = self.game.check_win_conditions()
         
-        if not self.game.game_over:
+        if not self.game.game_over and not abandoned:
             self.buy_adventurers(adventurer)
             
             self.buy_agents(adventurer)

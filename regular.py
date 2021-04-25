@@ -222,7 +222,7 @@ class AdventurerRegular(AdventurerBeginner):
             if adventurer.pirate_token:
                 # arrest them
                 if success:
-                    self.pirate_token = False # lose own pirate status for conducting arrest
+#                    self.pirate_token = False # lose own pirate status for conducting arrest
                     adventurer.wealth = 0
 #                     self.player.vault_wealth += self.game.VALUE_ARREST # get a reward straight to the Vault
                     self.wealth += self.game.VALUE_ARREST # get a reward
@@ -305,12 +305,12 @@ class CityTileRegular(CityTileBeginner):
             token.player.vault_wealth -= travel_money
         super().move_off_tile(token)
     
-    def visit_city(self, adventurer):
+    def visit_city(self, adventurer, abandoned=False):
         #Cities provide the Adventurer with civilised clothes so they can be redeemed from piracy
         if adventurer.pirate_token:
             adventurer.pirate_token = False
         
-        super().visit_city(adventurer)
+        super().visit_city(adventurer, abandoned)
                 
 
 class AgentRegular(AgentBeginner):
