@@ -57,17 +57,18 @@ class PlayerHuman(Player):
                 move_map[potential_longitude][potential_latitude] = compass_point
             else:
                 move_map[potential_longitude] = {potential_latitude:compass_point}
-        #add all cities' coordinates to the valid moves list
+        #add all cities' coordinates to a list of abandon expedition moves, unless a valid move is possible
         moves["abandon"] = []
         for city_tile in game.cities:
             #Check whether this city can be reached by movement, before giving the option to abandon the expedition
             city_longitude = city_tile.tile_position.longitude
             city_latitude = city_tile.tile_position.latitude
 #            print("City tile found at coordinates: "+str(city_longitude)+str(city_latitude))
-            if move_map.get(city_longitude):
-                if move_map[city_longitude].get(city_latitude):
-                    continue
             if city_longitude is not None and city_latitude is not None:
+                if [city_longitude, city_latitude] in moves["move"]:
+                        continue
+                elif [city_longitude, city_latitude] in moves["invalid"]:    
+                    moves["invalid"].pop(moves["invalid"].index([city_longitude, city_latitude]))
                 moves["abandon"].append([city_longitude, city_latitude])
             
         #highlight the tiles
@@ -97,7 +98,7 @@ class PlayerHuman(Player):
             city_tile = game.play_area[move_coords[0]][move_coords[1]]
             adventurer.end_expedition(city=city_tile)
             if isinstance(adventurer.current_tile, CityTile):
-                adventurer.current_tile.visit_city(adventurer)
+                adventurer.current_tile.visit_city(adventurer, abandoned=True)
         else:
             game_vis.clear_prompt()
             game_vis.give_prompt("This is not a valid move, so waiting in place. click to continue.")
