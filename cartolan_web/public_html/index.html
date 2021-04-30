@@ -152,7 +152,7 @@
                 //set up the websocket connection to the game server
                 openWS();
             }
-
+            
             var myGameArea = {
                 canvas: document.createElement("canvas"),
                 start: function () {
@@ -162,10 +162,58 @@
                     this.context = this.canvas.getContext("2d");
                     context = this.context;
                     document.body.insertBefore(this.canvas, document.body.childNodes[0]);
-                    context.font = "30px Arial";
+                    //Create a function to wrap text for this display size
+                    function wrapText(context, text, x, y, maxWidth, lineHeight) {
+                        var words = text.split(' ');
+                        var line = '';
+
+                        for(var n = 0; n < words.length; n++) {
+                          var testLine = line + words[n] + ' ';
+                          var metrics = context.measureText(testLine);
+                          var testWidth = metrics.width;
+                          if (testWidth > maxWidth && n > 0) {
+                            context.fillText(line, x, y);
+                            line = words[n] + ' ';
+                            y += lineHeight;
+                          }
+                          else {
+                            line = testLine;
+                          }
+                        }
+                        context.fillText(line, x, y);
+                      }
+                    //Display cover image
+                    var img = new Image();
+                    img.src = "./img/splash_screen.jpg"
+//                    var img = document.getElementById("icon");
+                    img.onload = function () {
+                        context.drawImage(img,canvas.width/2 - img.width/2,0); 
+                    };
+                    //Print a message informing the user that something is happening
+                    context.font = "36px Arial";
                     context.fillStyle = "white";
                     context.textAlign = "center";
-                    context.fillText("Configuring game and waiting for everyone to join...", canvas.width/2, canvas.height/2);
+                    var maxwidth = Math.round(this.canvas.width * heightShare)
+                    var lineHeight = 25;
+                    var text = "Configuring game and waiting for everyone to join..."
+                    var x = canvas.width/2;
+                    var y = canvas.height/2;
+//                    context.fillText(text, x, y);
+                    wrapText(context, text, x, y, maxwidth, lineHeight);
+                    //Now print the game title
+                    y = y + 120;
+                    text = 'Cartolan - Trade Winds';
+                    context.font = '24pt Calibri';
+//                    context.fillStyle = '#333';
+                    wrapText(context, text, x, y, maxwidth, lineHeight);
+                    //Now print the game blurb below
+                    y = y + 30;
+                    text = 'It is the age of exploration, an age of sails and trails and wonders from the far side of the world. Race your Adventurers out on expeditions to expand the far edges of the map, resting along the way with Agents on established trade routes and amassing exotic goods for a glorious return to the Capital. Perhaps you will be the first to locate the Mythical City on the far side of the world, or to earn your place in history by completing the world map, or simply to secure your legacy by buying a global monopoly. But always remember, there are rivals for your glory, and they may not be above a little piracy!';
+                    context.font = '16pt Calibri';
+//                    context.fillStyle = '#333';
+                    wrapText(context, text, x, y, maxwidth, lineHeight);
+//                    context.fillText(text, x, y)
+                    //Regularly refresh visuals
                     this.interval = setInterval(updateGameArea, 20);
                     window.addEventListener('pointerdown', function (e) {
                         myGameArea.x = Math.round(e.pageX);
