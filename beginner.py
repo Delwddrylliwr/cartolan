@@ -649,6 +649,15 @@ class AdventurerBeginner(Adventurer):
         #End the Adventurer's turn so that movement resets
 #        self.end_turn()
         
+    def abandon_expedition(self, city_tile):
+        '''Deliberately drops wealth and returns to a city
+        city_tile is a Cartolan CityTile
+        '''
+        self.current_tile.dropped_wealth += self.wealth
+        self.end_expedition(city=city_tile)
+        if isinstance(self.current_tile, CityTile):
+            self.current_tile.visit_city(self, abandoned=True)
+        
 # Unit test, collects wealth from wonder tile
 
 # Unit test, cannot place mismatched tiles - all land next to a water
