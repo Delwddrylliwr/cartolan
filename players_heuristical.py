@@ -145,7 +145,7 @@ class PlayerBeginnerExplorer(Player):
         return adventurer.wait()
             
     def move_towards_tile(self, adventurer, tile):
-        '''A heuristic that moves the Adventurer in the direction that decreases the distance from a given tile, by the maximum, but if unable moves away by the minimum'''
+        '''A heuristic that moves the Adventurer in the direction that decreases the distance from a given tile, by the maximum, but if unable waits in place'''
         print(str(adventurer.player.colour) +": trying heuristic that prefers moves towards the tile at " +str(tile.tile_position.longitude)+ ", " +str(tile.tile_position.longitude))
         #establish directions to the tile, as preferring to decrease the distance in the greater dimension first, between latitude and longitude
         if (abs(adventurer.current_tile.tile_position.longitude - tile.tile_position.longitude) 
@@ -153,25 +153,25 @@ class PlayerBeginnerExplorer(Player):
             #Now establish which cardinal compass direction would be moving towards rather than away
             if adventurer.current_tile.tile_position.latitude < tile.tile_position.latitude:
                 if adventurer.current_tile.tile_position.longitude <= tile.tile_position.longitude:
-                    preferred_moves = ['n', 'e', 'w']
+                    preferred_moves = ['n', 'e']
                 else:
-                    preferred_moves = ['n', 'w', 'e']
+                    preferred_moves = ['n', 'w']
             else:
                 if adventurer.current_tile.tile_position.longitude <= tile.tile_position.longitude:
-                    preferred_moves = ['s', 'e', 'w']
+                    preferred_moves = ['s', 'e']
                 else:
-                    preferred_moves = ['s', 'w', 'e']
+                    preferred_moves = ['s', 'w']
         else:
             if adventurer.current_tile.tile_position.longitude <= tile.tile_position.longitude:
                 if adventurer.current_tile.tile_position.latitude < tile.tile_position.latitude:
-                    preferred_moves = ['e', 'n', 's']
+                    preferred_moves = ['e', 'n']
                 else:
-                    preferred_moves = ['e', 's', 'n']
+                    preferred_moves = ['e', 's']
             else:
                 if adventurer.current_tile.tile_position.latitude < tile.tile_position.latitude:
-                    preferred_moves = ['w', 'n', 's']
+                    preferred_moves = ['w', 'n']
                 else:
-                    preferred_moves = ['w', 's', 'n']
+                    preferred_moves = ['w', 's']
         
         #Try the moves in sequence
         for compass_point in preferred_moves:
@@ -519,11 +519,11 @@ class PlayerRegularPirate(PlayerRegularExplorer):
     def continue_move(self, adventurer):    
     # seek out the other player's Adventurer or Agent or Disaster tile with the most wealth
         
-        #update awareness of disaster tiles, to avoid them, if not a pirate
-        for disaster_tile in adventurer.game.disaster_tiles:
-            if not disaster_tile in self.locations_to_avoid and not adventurer.pirate_token:
-                self.locations_to_avoid.append([disaster_tile.tile_position.longitude, disaster_tile.tile_position.latitude])
-        
+#        #update awareness of disaster tiles, to avoid them, if not a pirate
+#        for disaster_tile in adventurer.game.disaster_tiles:
+#            if not disaster_tile in self.locations_to_avoid and not adventurer.pirate_token:
+#                self.locations_to_avoid.append([disaster_tile.tile_position.longitude, disaster_tile.tile_position.latitude])
+#        
         #check whether already on a tile with an adventurer, and wait here in order to attack/arrest
         for other_adventurer in adventurer.current_tile.adventurers:
             if self.check_attack_adventurer(adventurer, other_adventurer):
@@ -546,12 +546,12 @@ class PlayerRegularPirate(PlayerRegularExplorer):
                           +other_adventurer.player.colour)
                     adventurer.wait()
             
-            # check all other players' adventurers and agents and disaster tiles for the most lucrative
+            # check all other players' adventurers and agents and tiles for the most lucrative
             max_score = 0
             score_location = None
             for player in adventurer.game.players:
                 if player != self:
-                    for other_adventurer in adventurer.game.adventurers[self]:
+                    for other_adventurer in adventurer.game.adventurers[player]:
                         if max_score < other_adventurer.wealth // 2 + other_adventurer.wealth % 2:
                             max_score = other_adventurer.wealth // 2 + other_adventurer.wealth % 2
                             score_location = other_adventurer.current_tile
@@ -559,14 +559,17 @@ class PlayerRegularPirate(PlayerRegularExplorer):
                         if max_score < agent.wealth + 1:
                             max_score = agent.wealth + 1
                             score_location = agent.current_tile
-            for disaster_tile in adventurer.game.disaster_tiles:
-                if max_score < disaster_tile.dropped_wealth // 2 + disaster_tile.dropped_wealth % 2:
-                    max_score = disaster_tile.dropped_wealth // 2 + disaster_tile.dropped_wealth % 2
-                    score_location = disaster_tile
+            for longitude in adventurer.game.play_area:
+                for latitude in adventurer.game.play_area[longitude]:
+                    tile = adventurer.game.play_area[longitude][latitude] 
+                if max_score < tile.dropped_wealth:
+                    max_score = tile.dropped_wealth
+                    score_location = tile
             if score_location is None:
 #                 self.explore_away_from_tile(adventurer, adventurer.latest_city)
                 self.explore_best_space(adventurer)
             else:
+                print("Pirate is moving towards the tile at location "+str(score_location.tile_position.longitude)+", "+str(score_location.tile_position.latitude))
                 self.move_towards_tile(adventurer, score_location)
         return True
     
