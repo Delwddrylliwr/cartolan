@@ -94,11 +94,8 @@ class PlayerHuman(Player):
                     moved = True
         elif move_coords in moves["abandon"]:
             #Transfer the Adventurer's wealth to sit on their current tile for others to collect
-            adventurer.current_tile.dropped_wealth += adventurer.wealth
             city_tile = game.play_area[move_coords[0]][move_coords[1]]
-            adventurer.end_expedition(city=city_tile)
-            if isinstance(adventurer.current_tile, CityTile):
-                adventurer.current_tile.visit_city(adventurer, abandoned=True)
+            adventurer.abandon_expedition(city_tile)
         else:
             game_vis.clear_prompt()
             game_vis.give_prompt("This is not a valid move, so waiting in place. click to continue.")

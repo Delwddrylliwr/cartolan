@@ -1,5 +1,5 @@
 '''
-Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
+    Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
 from base import Player
@@ -58,6 +58,7 @@ class PlayerBeginnerExplorer(Player):
         #for each possible move, check wether an empty space in the map
         preferred_move = None
         preferred_score = 0
+        exploration_moves = 0
         for compass_point in potential_moves:
             if adventurer.can_move(compass_point):
                 #translate the compass point into coordinates
@@ -69,10 +70,12 @@ class PlayerBeginnerExplorer(Player):
                 if (adventurer.exploration_needed(new_longitude, new_latitude) 
                     and not self.check_location_to_avoid(new_longitude, new_latitude)):
                     #Check whether the score from exploring here beats any checked so far
+                    exploration_moves += 1
                     potential_score = adventurer.get_exploration_value(adventurer.get_adjoining_edges(new_longitude, new_latitude), compass_point)
                     if potential_score > preferred_score:
                         preferred_move = compass_point
                         preferred_score = potential_score
+        print(self.colour +" player's Adventurer has "+str(exploration_moves)+" exploration options.")
         if preferred_move is not None:
             if adventurer.move(preferred_move):
                 return True
@@ -82,6 +85,10 @@ class PlayerBeginnerExplorer(Player):
                     return True
                 self.locations_to_avoid.append([new_longitude, new_latitude])
                 return False
+        elif exploration_moves == 3:
+            #The absence of any scoring opportunities despite exploration on all sides implies isolation and that it's worth abandoning the expedition
+            city_tile = adventurer.latest_city
+            adventurer.abandon_expedition(city_tile)
         print("With no valid exploration moves were found, then simply move away slowly from the Adventurer's city of choice")
         return self.move_away_from_tile(adventurer, adventurer.latest_city)
                     
