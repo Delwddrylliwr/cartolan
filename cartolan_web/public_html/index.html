@@ -112,8 +112,12 @@
 //                        download(decomposed[1], "test.png");
 //                        img.src = "data:image/png;base64, "+btoa(decomposed[1]);
                         img.onload = function () {
-                            context.fillStyle = "red";
-                            context.fillRect(0, 0, 100, 100);
+                            //If the user has asked not to queue moves then clear the history of clicks
+                            if(!context.queueMoves){
+                                myGameArea.clear();
+                            }
+//                            context.fillStyle = "red";
+//                            context.fillRect(0, 0, 100, 100);
                             context.drawImage(img,0,0);
                             console.log("Image drawn to canvas. ");
                         };
@@ -149,8 +153,101 @@
             function startGame() {
                 //initiate a play area of a suitable size within the browser window
                 myGameArea.start();
-                //set up the websocket connection to the game server
-                openWS();
+                //Function to check for mobiles, to tailor content to smaller displays
+                context = myGameArea.context;
+                function detectMob() {
+                    return ( ( window.innerWidth <= 800 ) && ( window.innerHeight <= 600 ) )
+                  }
+                //Create a function to wrap text for this display size
+                function wrapText(context, text, x, y, maxWidth, lineHeight) {
+                    var words = text.split(' ');
+                    var line = '';
+
+                    for(var n = 0; n < words.length; n++) {
+                      var testLine = line + words[n] + ' ';
+                      var metrics = context.measureText(testLine);
+                      var testWidth = metrics.width;
+                      if (testWidth > maxWidth && n > 0) {
+                        context.fillText(line, x, y);
+                        line = words[n] + ' ';
+                        y += lineHeight;
+                      }
+                      else {
+                        line = testLine;
+                      }
+                    }
+                    context.fillText(line, x, y);
+                  }
+                //Populate the splash screen with some introductory information
+                context.fillStyle = "white";
+                context.textAlign = "center";
+                function drawSplash() {
+                    
+                    var x = canvas.width/2;
+                    var y = canvas.height/2;
+                    //Display cover image
+                    var img = new Image();
+                    img.src = "./img/splash_screen.jpg"
+//                    var img = document.getElementById("icon");
+                    img.onload = function () {
+                        context.drawImage(img, x - img.width/2,0); 
+                    };
+                    //Now print the game title
+                    y = y + 120;
+                    text = 'Cartolan - Trade Winds';
+                    context.font = '24pt Calibri';
+//                    context.fillStyle = '#333';
+                    wrapText(context, text, x, y, maxwidth, lineHeight);
+                    //Now print the game blurb below
+                    y = y + 30;
+                    text = 'It is the age of exploration, an age of sails and trails and wonders from the far side of the world. Race your Adventurers out on expeditions to expand the far edges of the map, resting along the way with Agents on established trade routes and amassing exotic goods for a glorious return to the Capital. Perhaps you will be the first to locate the Mythical City on the far side of the world, or to earn your place in history by completing the world map, or simply to secure your legacy by buying a global monopoly. But always remember, there are rivals for your glory, and they may not be above a little piracy!';
+                    context.font = '16pt Calibri';
+//                    context.fillStyle = '#333';
+                    wrapText(context, text, x, y, maxwidth, lineHeight);
+//                    context.fillText(text, x, y)
+                }
+                var maxwidth = Math.round(this.canvas.width * heightShare)
+                var lineHeight = 25;
+                this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                if(!detectMob()){
+                   document.fonts.load('24pt Calibri').then(drawSplash);
+//                   drawSplash();
+                }
+                //Prompt user to click before connecting to game server and launching popups
+                context.font = "36px Arial";
+                var text = "Click to Create/Join next game"
+                var x = canvas.width/2;
+                var y = canvas.height/2;
+                wrapText(context, text, x, y, maxwidth, lineHeight);
+                //Wait for player input
+                function waiting(){
+
+                    if(myGameArea.clicked){
+                        console.log("Click detected. Proceeding with prompts...")
+                        myGameArea.clicked = false;
+                        //Redraw the splash screen
+                        var x = canvas.width/2;
+                        var y = canvas.height/2;
+                        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                        if(!detectMob()){
+                           drawSplash(); 
+                        }
+                        //Print a message informing the user that something is happening
+                        context.font = "36px Arial";
+                        var text = "Configuring game and waiting for everyone to join..."
+    //                    context.fillText(text, x, y);
+                        wrapText(context, text, x, y, maxwidth, lineHeight);
+                        //Regularly refresh visuals
+                        this.interval = setInterval(updateGameArea, 20);
+                        //set up the websocket connection to the game server
+                        openWS();
+                    } else {
+                        console.log("No click detected. Waiting further for input...")
+                        setTimeout(waiting, 300);
+                    }
+                }
+                myGameArea.clicked = false;
+                waiting();
             }
             
             var myGameArea = {
@@ -162,68 +259,10 @@
                     this.context = this.canvas.getContext("2d");
                     context = this.context;
                     document.body.insertBefore(this.canvas, document.body.childNodes[0]);
-                    //Function to check for mobiles, to tailor content to smaller displays
-                    function detectMob() {
-                        return ( ( window.innerWidth <= 800 ) && ( window.innerHeight <= 600 ) )
-                      }
-                    //Create a function to wrap text for this display size
-                    function wrapText(context, text, x, y, maxWidth, lineHeight) {
-                        var words = text.split(' ');
-                        var line = '';
-
-                        for(var n = 0; n < words.length; n++) {
-                          var testLine = line + words[n] + ' ';
-                          var metrics = context.measureText(testLine);
-                          var testWidth = metrics.width;
-                          if (testWidth > maxWidth && n > 0) {
-                            context.fillText(line, x, y);
-                            line = words[n] + ' ';
-                            y += lineHeight;
-                          }
-                          else {
-                            line = testLine;
-                          }
-                        }
-                        context.fillText(line, x, y);
-                      }
-                    if(!detectMob()){
-                        //Display cover image
-                        var img = new Image();
-                        img.src = "./img/splash_screen.jpg"
-    //                    var img = document.getElementById("icon");
-                        img.onload = function () {
-                            context.drawImage(img,canvas.width/2 - img.width/2,0); 
-                        };
-                    };
-                    //Print a message informing the user that something is happening
-                    context.font = "36px Arial";
-                    context.fillStyle = "white";
-                    context.textAlign = "center";
-                    var maxwidth = Math.round(this.canvas.width * heightShare)
-                    var lineHeight = 25;
-                    var text = "Configuring game and waiting for everyone to join..."
-                    var x = canvas.width/2;
-                    var y = canvas.height/2;
-//                    context.fillText(text, x, y);
-                    wrapText(context, text, x, y, maxwidth, lineHeight);
-                    if(!detectMob()){
-                        //Now print the game title
-                        y = y + 120;
-                        text = 'Cartolan - Trade Winds';
-                        context.font = '24pt Calibri';
-    //                    context.fillStyle = '#333';
-                        wrapText(context, text, x, y, maxwidth, lineHeight);
-                        //Now print the game blurb below
-                        y = y + 30;
-                        text = 'It is the age of exploration, an age of sails and trails and wonders from the far side of the world. Race your Adventurers out on expeditions to expand the far edges of the map, resting along the way with Agents on established trade routes and amassing exotic goods for a glorious return to the Capital. Perhaps you will be the first to locate the Mythical City on the far side of the world, or to earn your place in history by completing the world map, or simply to secure your legacy by buying a global monopoly. But always remember, there are rivals for your glory, and they may not be above a little piracy!';
-                        context.font = '16pt Calibri';
-    //                    context.fillStyle = '#333';
-                        wrapText(context, text, x, y, maxwidth, lineHeight);
-    //                    context.fillText(text, x, y)
-                    }
-                    //Regularly refresh visuals
-                    this.interval = setInterval(updateGameArea, 20);
+                    //@TODO allow queueing of moves to be configured
+                    context.queueMoves = true;
                     window.addEventListener('pointerdown', function (e) {
+                        myGameArea.clicked = true;
                         myGameArea.x = Math.round(e.pageX);
                         myGameArea.y = Math.round(e.pageY);
                     });
