@@ -289,6 +289,9 @@ class PlayerBeginnerExplorer(Player):
     def check_move_agent(self, adventurer):     
 #         return agent_to_move
         return None
+    
+    def check_travel_money(self, adventurer, maximum, default):
+        return default
 
 
 class PlayerBeginnerTrader(PlayerBeginnerExplorer):    
@@ -474,9 +477,6 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
     def check_attack_agent(self, adventurer, agent):
         # Explorer will never attack agents
         return False
-    
-    def check_travel_money(self, adventurer, maximum, default):
-        return default
     
     def check_steal_amount(self, adventurer, maximum, default):
         return default
