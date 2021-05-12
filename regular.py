@@ -294,17 +294,6 @@ class AdventurerRegular(AdventurerBeginner):
 class CityTileRegular(CityTileBeginner):
     '''Extends the CityTileBeginner class to redeem Adventurers from piracy'''
     
-    def move_off_tile(self, token):
-        '''Adds a prompt to check how much wealth Adventurers want to take with them
-        '''
-        if token.player.vault_wealth > 0:
-            travel_money = None
-            while not travel_money in range(0, token.player.vault_wealth +1):
-                travel_money = token.player.check_travel_money(token, token.player.vault_wealth, 0)
-            token.wealth += travel_money
-            token.player.vault_wealth -= travel_money
-        super().move_off_tile(token)
-    
     def visit_city(self, adventurer, abandoned=False):
         #Cities provide the Adventurer with civilised clothes so they can be redeemed from piracy
         if adventurer.pirate_token:
@@ -333,7 +322,7 @@ class AgentRegular(AgentBeginner):
             super().manage_trade(adventurer)
 
 class DisasterTile(Tile):
-    '''Represents a Disaster Tile in the game Cartolan, which removes Adventurers' wealth and send them back to a city '''
+    '''***DEPRECATED*** Represents a Disaster Tile in the game Cartolan, which removes Adventurers' wealth and send them back to a city '''
     def move_onto_tile(self, token):
         '''Takes the wealth of non-Pirate Adventurers as they land on the tile, but allows pirates to move as if from land
         

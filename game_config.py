@@ -20,7 +20,7 @@ class BeginnerConfig:
     MAX_ADVENTURERS = 3
     MAX_AGENTS = 4
     
-    VALUE_DISCOVER_WONDER = {"water":0}
+    VALUE_DISCOVER_WONDER = {"water":1}
     VALUE_TRADE = 1
     VALUE_AGENT_TRADE = 0
     VALUE_FILL_MAP_GAP = [[2 * land_edges + 2 * water_edges for land_edges in range(0,5)] for water_edges in range(0,5)] # These are the rewards for filling a gap with, 0,1,2,3, and 4 adjacent water tiles respectively, for each number of adjacent land tiles

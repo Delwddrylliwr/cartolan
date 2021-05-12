@@ -29,6 +29,7 @@ DEFAULT_GAME_MODE = "Regular"
 DEFAULT_LOCAL_PLAYERS = 1
 DEFAULT_VIRTUAL_PLAYERS = 0
 DEFAULT_REMOTE_PLAYERS = 2
+DEFAULT_JOINING_PLAYERS = 1
 #@TODO the below should be moved to the config file for all simulation and game versions
 MOVEMENT_RULES = "initial"
 EXPLORATION_RULES = "continuous"
@@ -243,16 +244,21 @@ class ClientSocket(WebSocket):
                 prompt_text = ("The current game has " +str(num_existing_players) +"/"
                                +str(num_players)+" players. Please specify how many players will play from this computer, between 1 and " 
                                +str(num_spaces)+ "?")
+                prompt_text += " (Hit enter for default "+str(DEFAULT_JOINING_PLAYERS)+")"
                 num_client_players = None
                 print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
                 self.sendMessage("TEXT[00100]"+prompt_text)
                 while not num_client_players in range(1, max_players + 1):
                     received_input = self.get_text()
                     if received_input:
-                        num_client_players = int(received_input)
-                        if not num_client_players in range(1, max_players + 1):
-                            num_client_players = None
-                            self.sendMessage("TEXT[00100]"+prompt_text)
+                        if received_input.isnumeric():
+                            num_client_players = int(received_input)
+                            if not num_client_players in range(1, max_players + 1):
+                                num_client_players = None
+                                self.sendMessage("TEXT[00100]"+prompt_text)
+                        else:
+                            #For any input besides a number, assume the default
+                            num_client_players = DEFAULT_JOINING_PLAYERS
                     else:
                         time.sleep(self.INPUT_DELAY)
                 #Now blocking is done, try to reserve a place in this game
@@ -331,12 +337,18 @@ class ClientSocket(WebSocket):
                     self.game.game_over = self.game.play_round()
                 
                 #Inform all clients that the game has ended
+                win_message = self.game.winning_player.colour+" player won the game"
+                if self.game.wealth_difference >= self.game.GAME_WINNING_DIFFERENCE:
+                    win_message += " by buying a global monopoly with their extra wealth"
+                else:
+                    win_message += " as the richest when the world map was completed"
+                win_message +=  " (refresh to play again)"
                 for client in games[game_id]["clients"]:
                     print("Closing game for client: "+str(client.address))
                     game_vis = client_visuals[client]
                     game_vis.draw_play_area()
                     game_vis.current_player_colour = self.game.winning_player.colour
-                    game_vis.give_prompt(self.game.winning_player.colour+" player won the game (refresh to play again)")
+                    game_vis.give_prompt(win_message)
                     game_vis.update_web_display()
                 game_vis.close()
                 

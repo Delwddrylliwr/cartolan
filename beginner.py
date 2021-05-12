@@ -738,12 +738,24 @@ class CityTileBeginner(CityTile):
     '''Represents a city tile in the Beginner mode for the game Cartolan
     
     Methods:
+    move_off_tile takes a Cartolan.Token
     visit_city takes a Cartolan.Adventurer
     bank_wealth takes a Cartolan.Adventurer
     buy_adventurer takes a Cartolan.Adventurer
     buy_agent takes a Cartolan.Adventurer
     '''
-        
+       
+    def move_off_tile(self, token):
+        '''Adds a prompt to check how much wealth Adventurers want to take with them
+        '''
+        if token.player.vault_wealth > 0:
+            travel_money = None
+            while not travel_money in range(0, token.player.vault_wealth +1):
+                travel_money = token.player.check_travel_money(token, token.player.vault_wealth, 0)
+            token.wealth += travel_money
+            token.player.vault_wealth -= travel_money
+        super().move_off_tile(token)
+    
     def visit_city(self, adventurer, abandoned=False):
         '''Initiates all the possible actions when a city is visited
         
