@@ -34,13 +34,15 @@ class PlayerHuman(Player):
                                        +str(game.adventurers[self].index(adventurer)+1) 
                                        +" to move to?")
         
+        #Build up a list of move options to highlight
         moves = {}
+        #Include waiting in the current location among move options
         moves["move"] = [[adventurer.current_tile.tile_position.longitude
                         , adventurer.current_tile.tile_position.latitude]]
         move_map = {adventurer.current_tile.tile_position.longitude:{adventurer.current_tile.tile_position.latitude:'wait'}}
         moves["invalid"] = [] 
         
-        #highlight the tiles that can be reached this move
+        #highlight the adjacent tiles that can be reached this move
         for compass_point in ['n', 'e', 's', 'w']:
             #locate the space in the play area that the Adventurer is moving into
             longitude_increment = int(compass_point.lower() in ["east","e"]) - int(compass_point.lower() in ["west","w"])
