@@ -59,7 +59,7 @@ class GameVisualisation():
                      , "mythical":'./images/mythical.png'
                      } #file paths for special tiles
     HIGHLIGHT_PATHS = {"move":'./images/option_valid_move.png'
-                  , "abandon":'./images/option_valid_move.png'
+                  , "abandon":'./images/option_abandon.png'
                   , "invalid":'./images/option_invalid_move.png'
                   , "buy":'./images/option_buy.png'
                   , "attack":'./images/option_attack.png'
@@ -384,13 +384,13 @@ class GameVisualisation():
         highlight_coords expects a library of strings mapped to lists of integer 2-tuples
         '''
 #        print("Updating the dict of highlight positions, based on optional arguments")
-        highlight_count = 0
+#        highlight_count = 0
         for highlight_type in self.highlights:
             coords = highlight_coords.get(highlight_type)
             if coords:
                 self.highlights[highlight_type] = coords
 #                print(highlight_type + " highlight provided coords at "+str(coords) )
-                highlight_count += len(coords)
+#                highlight_count += len(coords)
             else:
 #                print("No coords provided for highight type: "+highlight_type)
                 self.highlights[highlight_type] = []
@@ -406,7 +406,7 @@ class GameVisualisation():
 #                    print("Drawing a highlight at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
                     self.window.blit(highlight_image, [horizontal*self.tile_size, vertical*self.tile_size])
         #Report the number of moves that have been used so far:
-        #@TODO report the number of tiles in each bag in the same part of the display
+        #report the number of tiles in each bag in the same part of the display
         if moves_since_rest:
             move_count = self.scores_font.render(str(moves_since_rest)+" moves since rest", 1, self.PLAIN_TEXT_COLOUR)
             displacement = len(self.game.tile_piles) * self.SCORES_FONT_SCALE * self.height
