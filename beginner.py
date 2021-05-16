@@ -372,6 +372,7 @@ class AdventurerBeginner(Adventurer):
                 potential_tile = tile_pile.draw_tile()
             else: #the game is over, and so this exploration and the turn too
                 self.turns_moved += 1
+                self.player.vault_wealth += self.game.VALUE_COMPLETE_MAP
                 self.game.game_over = True
                 break
 #            print("Have drawn a tile with edges N:" +str(potential_tile.compass_edge_water("n"))
