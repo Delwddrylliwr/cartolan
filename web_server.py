@@ -348,6 +348,7 @@ class ClientSocket(WebSocket):
                     game_vis = client_visuals[client]
                     game_vis.draw_play_area()
                     game_vis.draw_scores()
+                    game_vis.draw_tokens()
                     game_vis.current_player_colour = self.game.winning_player.colour
                     game_vis.give_prompt(win_message)
                     game_vis.update_web_display()
