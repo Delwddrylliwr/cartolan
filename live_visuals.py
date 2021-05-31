@@ -226,8 +226,7 @@ class GameVisualisation():
         print("Updated tile size to be " +str(self.tile_size)+ " pixels, and with border: " +str(bordered_tile_size))
         self.rescale_images(self.tile_image_library, bordered_tile_size)
         self.rescale_images(self.highlight_library, self.tile_size)
-        if isinstance(self.game, GameAdvanced):
-            self.rescale_images(self.chest_tile_library, self.chest_tile_size)
+        self.rescale_images(self.chest_tile_library, self.chest_tile_size)
     
     def increase_max_longitude(self):
         '''Deprecated to allow legacy PlayerHuman interaction'''
