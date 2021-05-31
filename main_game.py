@@ -44,7 +44,13 @@ def setup_tiles(players, game_mode, movement_rules, exploration_rules, mythical_
         Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(1, 0) #east
         Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, -1) #south
         Tile(game, "water", WindDirection(False,False), TileEdges(True,True,True,True), False).place_tile(-1, 0) #west
-         
+
+    game.setup_tile_pile("water")
+    if game_mode in [GameRegular, GameAdvanced]:
+        game.setup_tile_pile("land")
+        if mythical_city:
+            game.tile_piles["land"].tiles.append(game.CITY_TYPE(game, WindDirection(True,True), TileEdges(False,False,False,False), False, True))
+      
     print("Placed the Capital tile, and surrounding water tiles")
     return game
 
@@ -79,13 +85,7 @@ def setup_simulation(players, game_mode, movement_rules, exploration_rules, myth
     String giving the exploration rules variant that will apply for this game
     '''
     game = setup_adventurers(players, game_mode, movement_rules, exploration_rules, mythical_city)
-    
-    game.setup_tile_pile("water")
-    if game_mode in [GameRegular, GameAdvanced]:
-        game.setup_tile_pile("land")
-        if mythical_city:
-            game.tile_piles["land"].tiles.append(game.CITY_TYPE(game, WindDirection(True,True), TileEdges(False,False,False,False), False, True))
-        
+      
     #turn order has been handled by the parent setup
 #     game.players = random.shuffle(game.players)
     print("Randomly chose " +str(players[0].colour)+ " player to start")

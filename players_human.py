@@ -4,6 +4,7 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 
 from base import Player, CityTile
 from game import GameRegular
+from advanced import AdventurerAdvanced
 
 class PlayerHuman(Player):
     '''A pyplot-based interface for a human players to make decisions in live play.
@@ -77,10 +78,16 @@ class PlayerHuman(Player):
 #        print("Highlighting the available moves for the "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1))
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
         game_vis.draw_move_options(moves_since_rest, moves)
+        if isinstance(adventurer, AdventurerAdvanced):
+            game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num)
         
         #Carry out the player's chosen move
         move_coords = game_vis.get_input_coords(adventurer)
         while move_coords not in moves["move"] and move_coords not in moves["abandon"]:
+            if isinstance(adventurer, AdventurerAdvanced):
+                if isinstance(move_coords, int):
+                    adventurer.preferred_tile_num = move_coords
+                    game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num)
             move_coords = game_vis.get_input_coords(adventurer)
         if move_coords in moves["move"]:
 #            print(self.colour+" player chose valid coordinates to move to.")

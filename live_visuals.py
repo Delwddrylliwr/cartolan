@@ -15,6 +15,7 @@ from PodSixNet.Connection import ConnectionListener, connection
 from time import sleep
 from base import CityTile, TileEdges, WindDirection
 from regular import DisasterTile, AdventurerRegular, AgentRegular, MythicalTileRegular
+from advanced import AdventurerAdvanced
 from game import GameBeginner, GameRegular, GameAdvanced
 from players_human import PlayerHuman
 from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
@@ -40,7 +41,10 @@ class GameVisualisation():
     BACKGROUND_COLOUR = (38,50,66)
     PLAIN_TEXT_COLOUR = (255,255,255)
     WONDER_TEXT_COLOUR = (0,0,0)
+    CHEST_HIGHLIGHT_COLOUR = (0, 255, 0)
     TILE_BORDER = 0.02 #the share of grid width/height that is used for border
+    CHEST_TILE_SCALE = 0.75
+    ROUTE_THICKNESS = 4.0
     TOKEN_SCALE = 0.2 #relative to tile sizes
     AGENT_SCALE = 1.75 #relative to Adventurer radius
     TOKEN_OUTLINE_SCALE = 0.25 #relative to token scale
@@ -80,6 +84,7 @@ class GameVisualisation():
         self.current_adventurer_number = 0
         self.highlights = {"move":[], "abandon":[], "rest":[], "invalid":[], "buy":[], "attack":[]}
         self.current_move_count = None
+        self.menu_rect = (0, 0, 0, 0)
         
         self.init_GUI()
         
@@ -98,6 +103,7 @@ class GameVisualisation():
         #Tiles will be scaled to fit the smaller dimension
         if self.width < self.tile_size * self.dimensions[0]:
             self.tile_size = self.width // self.dimensions[0]
+        self.chest_tile_size = int(round(self.tile_size * self.CHEST_TILE_SCALE))
         self.token_size = int(round(self.TOKEN_SCALE * self.tile_size)) #token size will be proportional to the tiles
         self.outline_width = math.ceil(self.TOKEN_OUTLINE_SCALE * self.token_size)
         self.token_font = pygame.font.SysFont(None, round(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
@@ -187,6 +193,11 @@ class GameVisualisation():
         for highlight_name in self.HIGHLIGHT_PATHS:
             highlight_image = self.HIGHLIGHT_PATHS[highlight_name]
             self.highlight_library[highlight_name] = pygame.image.load(highlight_image)
+        # duplicate these tiles at a smaller size for use in menus
+        self.chest_tile_library = {}
+        for tile_name in self.tile_image_library:
+            tile_image = self.tile_image_library[tile_name]
+            self.chest_tile_library[tile_name] = pygame.transform.scale(tile_image, [self.chest_tile_size, self.chest_tile_size])
         #adjust the size of the imported images to fit the display size
         self.rescale_graphics()
 
@@ -203,8 +214,11 @@ class GameVisualisation():
             self.tile_size = max_tile_height
         else:
             self.tile_size = max_tile_width
+        self.chest_tile_size = int(round(self.tile_size * self.CHEST_TILE_SCALE))
         self.token_size = int(round(self.TOKEN_SCALE * self.tile_size)) #token size will be proportional to the tiles
         self.outline_width = math.ceil(self.TOKEN_OUTLINE_SCALE * self.token_size)
+        self.route_thickness = self.ROUTE_THICKNESS
+        self.chest_highlight_thickness = int(self.route_thickness)
         self.token_font = pygame.font.SysFont(None, int(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
         #scale down the images as the dimensions of the grid are changed, rather than when placing
         #the tiles' scale will be slightly smaller than the space in the grid, to givea discernible margin
@@ -212,6 +226,8 @@ class GameVisualisation():
         print("Updated tile size to be " +str(self.tile_size)+ " pixels, and with border: " +str(bordered_tile_size))
         self.rescale_images(self.tile_image_library, bordered_tile_size)
         self.rescale_images(self.highlight_library, self.tile_size)
+        if isinstance(self.game, GameAdvanced):
+            self.rescale_images(self.chest_tile_library, self.chest_tile_size)
     
     def increase_max_longitude(self):
         '''Deprecated to allow legacy PlayerHuman interaction'''
@@ -318,6 +334,28 @@ class GameVisualisation():
         '''
         return self.dimensions[1] - self.origin[1] - latitude - 1
     
+    def establish_tilename(self, tile):
+        '''Works out what the image file will be called, corresponding to a Cartolan tile
+        '''
+        e = tile.tile_edges
+        if isinstance(tile, CityTile):
+            if tile.is_capital:
+                return "capital"
+            else:
+                return "mythical"
+        elif isinstance(tile, DisasterTile):
+            if tile.tile_back == "water":
+                return "water_disaster"
+            else:
+                return "land_disaster"
+        else:
+            wonder = str(tile.is_wonder)
+            uc = str(e.upwind_clock_water)
+            ua = str(e.upwind_anti_water)
+            dc = str(e.downwind_clock_water)
+            da = str(e.downwind_anti_water)
+            return uc + ua + dc + da + wonder
+    
     def draw_play_area(self):
         '''Renders the tiles that have been laid in a particular game of Cartolan - Trade Winds
         '''
@@ -334,24 +372,7 @@ class GameVisualisation():
             for latitude in play_area_update[longitude]:
                 #bring in the relevant image from the library
                 tile = play_area_update[longitude][latitude]
-                e = tile.tile_edges
-                if isinstance(tile, CityTile):
-                    if tile.is_capital:
-                        tile_name = "capital"
-                    else:
-                        tile_name = "mythical"
-                elif isinstance(tile, DisasterTile):
-                    if tile.tile_back == "water":
-                        tile_name = "water_disaster"
-                    else:
-                        tile_name = "land_disaster"
-                else:
-                    wonder = str(tile.is_wonder)
-                    uc = str(e.upwind_clock_water)
-                    ua = str(e.upwind_anti_water)
-                    dc = str(e.downwind_clock_water)
-                    da = str(e.downwind_anti_water)
-                    tile_name = uc + ua + dc + da + wonder
+                tile_name = self.establish_tilename(tile)
                 north = str(tile.wind_direction.north)
                 east = str(tile.wind_direction.east)
                 tile_image = self.tile_image_library[tile_name + north + east]
@@ -412,8 +433,26 @@ class GameVisualisation():
             displacement = len(self.game.tile_piles) * self.SCORES_FONT_SCALE * self.height
             move_count_position = [self.MOVE_COUNT_POSITION[0] * self.width, self.MOVE_COUNT_POSITION[1] * self.height + displacement]
             self.window.blit(move_count, move_count_position)
-        
-    
+        #Draw small versions of the tiles that have been discarded so far
+        displacement = (len(self.game.tile_piles) + 1) * self.SCORES_FONT_SCALE * self.height
+        discard_title = self.scores_font.render("Tried maps:", 1, self.PLAIN_TEXT_COLOUR)
+        discard_title_position = [self.MOVE_COUNT_POSITION[0] * self.width, self.MOVE_COUNT_POSITION[1] * self.height + displacement]
+        self.window.blit(discard_title, discard_title_position)
+        discard_tile_position = [self.width - self.chest_tile_size, self.MOVE_COUNT_POSITION[1] * self.height + displacement]
+        for discard_pile in list(self.game.discard_piles.values()):
+            for tile in discard_pile.tiles:
+                tile_name = self.establish_tilename(tile)
+                north = str(tile.wind_direction.north)
+                east = str(tile.wind_direction.east)
+                tile_image = self.chest_tile_library[tile_name + north + east]
+    #                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
+                self.window.blit(tile_image, discard_tile_position)
+                #Draw a frame to keep distinct from play area
+                pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
+                                 , (discard_tile_position[0], discard_tile_position[1], self.chest_tile_size, self.chest_tile_size)
+                                 , self.chest_highlight_thickness)
+                discard_tile_position[1] += self.chest_tile_size
+     
     def check_highlighted(self, input_longitude, input_latitude):
         '''Given play area grid coordinates, checks whether this is highlighted as a valid move/action
         '''
@@ -523,7 +562,10 @@ class GameVisualisation():
                         pygame.draw.line(self.window, colour
                                          , [previous_step[0], previous_step[1]]
                                          , [step[0], step[1]]
-                                         , math.ceil(4.0*float(move)/float(len(adventurer.route))))
+                                         , math.ceil(self.route_thickness 
+                                                     * float(move)/float(len(adventurer.route))
+                                                     )
+                                         )
                         previous_step = step
                         move += 1
             
@@ -576,6 +618,52 @@ class GameVisualisation():
             tile_count_position = [self.MOVE_COUNT_POSITION[0] * self.width, self.MOVE_COUNT_POSITION[1] * self.height + displacement]
             self.window.blit(tile_count, tile_count_position)
             displacement += self.SCORES_FONT_SCALE * self.height
+    
+    def draw_chest_tiles(self, chest_tiles, preferred_tile_num):
+        '''Visualises a set of tiles in the Adventurer's Chest, and highlights one if it is selected for use
+        
+        Arguments:
+        chest_tiles takes a list of Cartolan tiles
+        preferred_tile_num takes an integer index for that list
+        '''
+        #Establish the top left coordinate of the column of tiles to choose from, below the table of treasure scores
+        chest_menu_position = self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1)
+        chest_title = self.scores_font.render("Chest maps:", 1, self.PLAIN_TEXT_COLOUR)
+        self.window.blit(chest_title, (0, chest_menu_position))
+        #Draw a box to surround the Chest menu, and remember its coordinates for player input
+        chest_menu_position += self.SCORES_FONT_SCALE * self.height
+        menu_size = self.chest_tile_size * len(chest_tiles)
+        self.menu_rect = (0, chest_menu_position, self.chest_tile_size, menu_size)
+        print("Chest map menu corners defined at pixels...")
+        print(self.menu_rect)
+        pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
+                                 , self.menu_rect
+                                 , self.chest_highlight_thickness)
+        #Cycle through the chest tiles, drawing them
+        for tile in chest_tiles:
+            e = tile.tile_edges
+            wonder = str(tile.is_wonder)
+            uc = str(e.upwind_clock_water)
+            ua = str(e.upwind_anti_water)
+            dc = str(e.downwind_clock_water)
+            da = str(e.downwind_anti_water)
+            tile_name = uc + ua + dc + da + wonder
+            north = str(tile.wind_direction.north)
+            east = str(tile.wind_direction.east)
+            tile_image = self.chest_tile_library[tile_name + north + east]
+#                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
+            self.window.blit(tile_image, [0, chest_menu_position])
+            #If this is the tile selected then highlight this with a hollow rectangle
+            if chest_tiles.index(tile) == preferred_tile_num:
+                pygame.draw.rect(self.window, self.CHEST_HIGHLIGHT_COLOUR
+                                 , (0, chest_menu_position, self.chest_tile_size, self.chest_tile_size)
+                                 , self.chest_highlight_thickness)
+            else:
+                pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
+                                 , (0, chest_menu_position, self.chest_tile_size, self.chest_tile_size)
+                                 , self.chest_highlight_thickness)
+            #Increment the draw position down for the next map tile
+            chest_menu_position += self.chest_tile_size
     
     def draw_prompt(self):
         '''Prints a prompt on what moves/actions are available to the current player
@@ -638,6 +726,11 @@ class GameVisualisation():
                 self.window_resize(event)
             if event.type == pygame.MOUSEBUTTONDOWN:
                 self.move_timer = self.MOVE_TIME_LIMIT #reset the timelimit on moving
+                #check whether the click was within the menu, and return the index within the chest
+                if (event.pos[0] in range(self.menu_rect[0], self.menu_rect[2])
+                    and event.pos[1] in range(self.menu_rect[1], self.menu_rect[3])):
+                    return (event.pos[1] - self.menu_rect[1]) // self.chest_tile_size
+                #Otherwise return the coordinates
                 longitude = int(math.ceil((event.pos[0])/self.tile_size)) - self.origin[0] - 1
                 latitude = self.dimensions[1] - int(math.ceil((event.pos[1])/self.tile_size)) - self.origin[1]
                 #check whether the click was within the highlighted space and whether it's a local turn
@@ -703,6 +796,13 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
                                                                    , "orange":PlayerBeginnerExplorer
                                                                       }}
               , 'Regular':{'game_type':GameRegular, 'player_set':{
+                                                                  "orange":PlayerRegularPirate
+                                                                    , "blue":PlayerRegularExplorer
+                                                                   , "red":PlayerRegularTrader
+                                                                   , "yellow":PlayerRegularRouter
+#                                                                    , "green":PlayerRegularGenetic
+                                                                  }}
+              , 'Advanced':{'game_type':GameAdvanced, 'player_set':{
                                                                   "orange":PlayerRegularPirate
                                                                     , "blue":PlayerRegularExplorer
                                                                    , "red":PlayerRegularTrader
@@ -1392,6 +1492,7 @@ class WebServerVisualisation(GameVisualisation):
         #Tiles will be scaled to fit the smaller dimension
         if self.width < self.tile_size * self.dimensions[0]:
             self.tile_size = self.width // self.dimensions[0]
+        self.chest_tile_size = int(round(self.tile_size * self.CHEST_TILE_SCALE))
         self.token_size = int(round(self.TOKEN_SCALE * self.tile_size)) #token size will be proportional to the tiles
         self.outline_width = math.ceil(self.TOKEN_OUTLINE_SCALE * self.token_size)
         self.token_font = pygame.font.SysFont(None, round(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
@@ -1465,6 +1566,10 @@ class WebServerVisualisation(GameVisualisation):
                     game_vis.give_prompt(adventurer.player.colour+" player's is moving their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
                     moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
                     game_vis.draw_move_options(moves_since_rest)
+                    if isinstance(adventurer, AdventurerAdvanced):
+                        chest_tiles = adventurer.chest_tiles
+                        preferred_tile_num = adventurer.preferred_tile_num
+                        game_vis.draw_chest_tiles(chest_tiles, preferred_tile_num)
                 game_vis.update_web_display()
         
         coords = None
@@ -1472,6 +1577,14 @@ class WebServerVisualisation(GameVisualisation):
             coords = self.client.get_coords()
             if coords is not None:
                 horizontal, vertical = coords
+                #check whether the click was within the menu, and return the index within the chest
+                if (horizontal in range(int(self.menu_rect[0])
+                        , int(self.menu_rect[0]) + int(self.menu_rect[2]))
+                    and vertical in range(int(self.menu_rect[1])
+                        , int(self.menu_rect[1]) + int(self.menu_rect[3]))):
+                    print("Player chose coordinates within the menu")
+                    return (vertical - int(self.menu_rect[1])) // self.chest_tile_size
+                #Otherwise return the coordinates
                 longitude = int(math.ceil((horizontal)/self.tile_size)) - self.origin[0] - 1
                 latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
                 if True:
