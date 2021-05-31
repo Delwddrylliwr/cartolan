@@ -342,6 +342,73 @@ class AdventurerBeginner(Adventurer):
               + " water tiles and " +str(num_adjacent_land)+ " land tiles, and is worth " 
               +str(exploration_value))
         return exploration_value
+    
+    def rotate_and_place(self, potential_tile, longitude, latitude, compass_point_moving, adjoining_edges_water):
+        '''For a given potential tile try it in
+        '''
+        # rotate it to the orientation of the current tile
+        def null():
+            pass
+        while not (potential_tile.wind_direction.north == self.current_tile.wind_direction.north and 
+                   potential_tile.wind_direction.east == self.current_tile.wind_direction.east):
+            potential_tile.rotate_tile_clock()
+#            print("...after rotating to match wind, it has edges N:" +str(potential_tile.compass_edge_water("n"))
+#                  +";E:"+str(potential_tile.compass_edge_water("e"))
+#                  +";S:"+str(potential_tile.compass_edge_water("s"))
+#                  +";W:"+str(potential_tile.compass_edge_water("w"))
+#                  + " and wind direction N:" +str(potential_tile.wind_direction.north)
+#                  +";E:"+str(potential_tile.wind_direction.east))
+        
+        # check whether the tile will place, rotating as needed
+        if self.game.exploration_rules == "clockwise": # this version 1 of exploration rules will just try a clockwise rotation and then an anti
+            rotations = [null, potential_tile.rotate_tile_anti, potential_tile.rotate_tile_clock] # remember these will pop in reverse order, print used as a null function that will do nothing to the potential tile
+        elif  self.game.exploration_rules == "continuous": # this version 2 of the exploration rules will try to line up arrows head to toe as a first preference 
+            #the rotation will be anti first if the wind direction is north-east or south-west and the movement is north or south
+            if ((self.current_tile.wind_direction.north and self.current_tile.wind_direction.east) 
+                or (not self.current_tile.wind_direction.north and not self.current_tile.wind_direction.east)):
+                if compass_point_moving in ["n","s"]:
+#                         rotations = [null, potential_tile.rotate_tile_clock, potential_tile.rotate_tile_anti]
+                    rotations = [null, potential_tile.rotate_tile_anti]
+                else:
+#                         rotations = [null, potential_tile.rotate_tile_anti, potential_tile.rotate_tile_clock]
+                    rotations = [null, potential_tile.rotate_tile_clock]
+            #the rotation will be anti first if the wind direction is north-west or south-east and the movement is west or east
+            elif ((self.current_tile.wind_direction.north and not self.current_tile.wind_direction.east) 
+                or (not self.current_tile.wind_direction.north and self.current_tile.wind_direction.east)):
+                if compass_point_moving in ["n","s"]:
+#                         rotations = [null, potential_tile.rotate_tile_anti, potential_tile.rotate_tile_clock]
+                    rotations = [null, potential_tile.rotate_tile_clock]
+                else:
+#                         rotations = [null, potential_tile.rotate_tile_clock, potential_tile.rotate_tile_anti]
+                    rotations = [null, potential_tile.rotate_tile_anti]
+            else: raise Exception("Failed to exhaust wind directions")
+        
+        while len(rotations) > 0:
+            compass_points = ["n", "e", "s", "w"]
+            edge_matches = True
+            while edge_matches and len(compass_points) > 0:
+                compass_point = compass_points.pop()
+#                    print("checking tile matches on the " +compass_point.upper()+ ", where an adjoining edge of "
+#                         +str(adjoining_edges_water[compass_point])+ " must match with the tile's "
+#                          + str(potential_tile.compass_edge_water(compass_point)))
+                edge_matches = adjoining_edges_water[compass_point] is None or adjoining_edges_water[compass_point] == potential_tile.compass_edge_water(compass_point)
+
+            if edge_matches:
+                # place tile and feed back to calling function that tile has been placed
+                potential_tile.place_tile(longitude, latitude)
+                # if this filled a gap in the map then award the Adventurer accordingly 
+                self.wealth += self.get_exploration_value(adjoining_edges_water, compass_point_moving)
+                return True
+            else:
+                #return the tile to the same wind direction as the original
+                while not (potential_tile.wind_direction.north == self.current_tile.wind_direction.north and 
+                       potential_tile.wind_direction.east == self.current_tile.wind_direction.east):
+                    potential_tile.rotate_tile_anti()
+                # rotate the tile according to the alternative options in the exploration method
+                rotations.pop()()
+#                    print("rotated tile, so that its wind points N:" +str(potential_tile.wind_direction.north)
+#                         + ";E:"+ str(potential_tile.wind_direction.east))
+        return False
         
     
     def explore(self, tile_pile, discard_pile, longitude, latitude, compass_point_moving):        
@@ -381,72 +448,12 @@ class AdventurerBeginner(Adventurer):
 #                  +";W:"+str(potential_tile.compass_edge_water("w"))
 #                  + " and with wind direction N:" +str(potential_tile.wind_direction.north)
 #                  +";E:"+str(potential_tile.wind_direction.east))
-            # rotate it to the orientation of the current tile
-            def null():
-                pass
-            while not (potential_tile.wind_direction.north == self.current_tile.wind_direction.north and 
-                       potential_tile.wind_direction.east == self.current_tile.wind_direction.east):
-                potential_tile.rotate_tile_clock()
-#            print("...after rotating to match wind, it has edges N:" +str(potential_tile.compass_edge_water("n"))
-#                  +";E:"+str(potential_tile.compass_edge_water("e"))
-#                  +";S:"+str(potential_tile.compass_edge_water("s"))
-#                  +";W:"+str(potential_tile.compass_edge_water("w"))
-#                  + " and wind direction N:" +str(potential_tile.wind_direction.north)
-#                  +";E:"+str(potential_tile.wind_direction.east))
-            
-            # check whether the tile will place, rotating as needed
-            if self.game.exploration_rules == "clockwise": # this version 1 of exploration rules will just try a clockwise rotation and then an anti
-                rotations = [null, potential_tile.rotate_tile_anti, potential_tile.rotate_tile_clock] # remember these will pop in reverse order, print used as a null function that will do nothing to the potential tile
-            elif  self.game.exploration_rules == "continuous": # this version 2 of the exploration rules will try to line up arrows head to toe as a first preference 
-                #the rotation will be anti first if the wind direction is north-east or south-west and the movement is north or south
-                if ((self.current_tile.wind_direction.north and self.current_tile.wind_direction.east) 
-                    or (not self.current_tile.wind_direction.north and not self.current_tile.wind_direction.east)):
-                    if compass_point_moving in ["n","s"]:
-#                         rotations = [null, potential_tile.rotate_tile_clock, potential_tile.rotate_tile_anti]
-                        rotations = [null, potential_tile.rotate_tile_anti]
-                    else:
-#                         rotations = [null, potential_tile.rotate_tile_anti, potential_tile.rotate_tile_clock]
-                        rotations = [null, potential_tile.rotate_tile_clock]
-                #the rotation will be anti first if the wind direction is north-west or south-east and the movement is west or east
-                elif ((self.current_tile.wind_direction.north and not self.current_tile.wind_direction.east) 
-                    or (not self.current_tile.wind_direction.north and self.current_tile.wind_direction.east)):
-                    if compass_point_moving in ["n","s"]:
-#                         rotations = [null, potential_tile.rotate_tile_anti, potential_tile.rotate_tile_clock]
-                        rotations = [null, potential_tile.rotate_tile_clock]
-                    else:
-#                         rotations = [null, potential_tile.rotate_tile_clock, potential_tile.rotate_tile_anti]
-                        rotations = [null, potential_tile.rotate_tile_anti]
-                else: raise Exception("Failed to exhaust wind directions")
-            
-            while len(rotations) > 0:
-                compass_points = ["n", "e", "s", "w"]
-                edge_matches = True
-                while edge_matches and len(compass_points) > 0:
-                    compass_point = compass_points.pop()
-#                    print("checking tile matches on the " +compass_point.upper()+ ", where an adjoining edge of "
-#                         +str(adjoining_edges_water[compass_point])+ " must match with the tile's "
-#                          + str(potential_tile.compass_edge_water(compass_point)))
-                    edge_matches = adjoining_edges_water[compass_point] is None or adjoining_edges_water[compass_point] == potential_tile.compass_edge_water(compass_point)
-
-                if edge_matches:
-                    # place tile and feed back to calling function that tile has been placed
-                    potential_tile.place_tile(longitude, latitude)
-                    # if this filled a gap in the map then award the Adventurer accordingly 
-                    self.wealth += self.get_exploration_value(adjoining_edges_water, compass_point_moving)
-                    return True
-                else:
-                    #return the tile to the same wind direction as the original
-                    while not (potential_tile.wind_direction.north == self.current_tile.wind_direction.north and 
-                           potential_tile.wind_direction.east == self.current_tile.wind_direction.east):
-                        potential_tile.rotate_tile_anti()
-                    # rotate the tile according to the alternative options in the exploration method
-                    rotations.pop()()
-#                    print("rotated tile, so that its wind points N:" +str(potential_tile.wind_direction.north)
-#                         + ";E:"+ str(potential_tile.wind_direction.east))
+            if self.rotate_and_place(potential_tile, longitude, latitude, compass_point_moving, adjoining_edges_water):
+                return True
             # discard the tile
-            discard_pile.add_tile(potential_tile)
-            self.game.exploration_attempts += 1
-            
+            else:
+                discard_pile.add_tile(potential_tile)
+                self.game.exploration_attempts += 1
             
         # feed back to calling function that a tile has NOT been placed
 #        print("Exploration failed")

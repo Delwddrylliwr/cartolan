@@ -5,6 +5,7 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 from base import Game, TilePile
 from beginner import AdventurerBeginner, AgentBeginner, CityTileBeginner, WonderTile, CapitalTileBeginner
 from regular import AdventurerRegular, AgentRegular, CityTileRegular, DisasterTile, CapitalTileRegular, MythicalTileRegular
+from advanced import AdventurerAdvanced, AgentAdvanced, CityTileAdvanced
 from base import Tile, WindDirection, TileEdges
 import random
 import csv
@@ -290,12 +291,18 @@ class GameRegular(GameBeginner):
 class GameAdvanced(GameRegular):
     '''Extends the GameRegular class to include extra features of the Adventurer mode of Cartolan - Trade Winds
     
-    In Advanced mode special equipment cards can be equipped by Adventurers, to confer advantages, while each adventurer will have a character card giving them starting equipment.
+    Advanced mode allows each Adventurer to carry a small complement of Map Tiles.
+    In future, Advanced mode will have tech cards held by Adventurers, to confer advantages, while each adventurer will have a character card giving them starting equipment.
     
     Methods:
     __init__ takes a List of Cartolan.Player objects and two Strings
     '''
-    COST_BUY_EQUIPMENT = 10
+    ADVENTURER_TYPE = AdventurerAdvanced
+    AGENT_TYPE = AgentAdvanced
+    CITY_TYPE = CityTileAdvanced #no extra functionality needed until Advanced mode
+
+#    COST_BUY_TECH = 5
+    NUM_CHEST_TILES = 3
     
-    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
-        super().__init__(players, movement_rules, exploration_rules)
+#    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
+#        super().__init__(players, movement_rules, exploration_rules)
