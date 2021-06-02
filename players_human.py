@@ -240,7 +240,7 @@ class PlayerHuman(Player):
                                                +str(game.adventurers[self].index(adventurer)+1) 
                                                +" to rest for "
                                                +str(game.COST_AGENT_REST)+
-                                               " wealth then click their tile, otherwise click elsewhere.")                
+                                               " treasure then click their tile, otherwise click elsewhere.")                
             else:
                 return False
         else:
@@ -269,7 +269,7 @@ class PlayerHuman(Player):
     
     #if offered by a city then always bank everything
     #@TODO allow player to specify how much wealth to bank using input() or a text box: https://stackoverflow.com/questions/46390231/how-to-create-a-text-input-box-with-pygame
-    def check_bank_wealth(self, adventurer, report="Player is being asked whether to bank wealth"):
+    def check_bank_wealth(self, adventurer, report="Player is being asked whether to bank treasure"):
         print(report)
         return adventurer.wealth
     
@@ -349,7 +349,7 @@ class PlayerHuman(Player):
             print("Prompting the "+self.colour+" player for input")
 #            game_vis.clear_prompt()
             game_vis.give_prompt("If you want your Adventurer to recruit an Agent on this tile for "+str(adventurer.game.COST_AGENT_EXPLORING)
-                            +" then click it, otherwise click elsewhere.")
+                            +" treasure then click it, otherwise click elsewhere.")
             
             recruit = False
             move_coords = game_vis.get_input_coords(adventurer)
@@ -414,7 +414,7 @@ class PlayerHuman(Player):
 #            game_vis.clear_prompt()
             game_vis.give_prompt("Click any unoccupied tile to hire an Agent and send them there for " 
                                  +str(adventurer.game.COST_AGENT_FROM_CITY) 
-                                 +" wealth, otherwise click elsewhere.")
+                                 +" treasure, otherwise click elsewhere.")
             
             agent_placement = None
             move_coords = game_vis.get_input_coords(adventurer)
@@ -522,7 +522,7 @@ class PlayerHuman(Player):
         game_vis = self.games[game.game_id]["game_vis"]
         
         #Ask the visual for an amount, so that it can either prompt the player or default
-        travel_money = game_vis.get_input_value("How much wealth will your Adventurer take with them, up to "+str(maximum)+"?", maximum)
+        travel_money = game_vis.get_input_value("How much treasure will your Adventurer take with them, up to "+str(maximum)+"?", maximum)
         if travel_money in range(0, maximum+1):
             return travel_money
         else:
@@ -534,7 +534,7 @@ class PlayerHuman(Player):
         game_vis = self.games[game.game_id]["game_vis"]
         
         #Ask the visual for an amount, so that it can either prompt the player or default
-        steal_amount = game_vis.get_input_value("Your Adventurer's piracy succeeded. How much wealth will they take, up to "+str(maximum)+"?", maximum)
+        steal_amount = game_vis.get_input_value("Your Adventurer's piracy succeeded. How much treasure will they take, up to "+str(maximum)+"?", maximum)
         if steal_amount in range(0, maximum+1):
             return steal_amount
         else:

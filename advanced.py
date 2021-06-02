@@ -28,6 +28,17 @@ class AdventurerAdvanced(AdventurerRegular):
             chosen_tile = tile_pile.tiles.pop(random.randint(0,len(tile_pile.tiles)-1))
             self.chest_tiles.append(chosen_tile)
     
+    def move(self, compass_point):
+        '''Extends Beginnner movement to rotate Chest tiles after movement (for more comfortable visualisation)
+        '''
+        moved = super().move(compass_point)
+        if moved:
+            for chest_tile in self.chest_tiles:
+                while not (chest_tile.wind_direction.north == self.current_tile.wind_direction.north and 
+                           chest_tile.wind_direction.east == self.current_tile.wind_direction.east):
+                    chest_tile.rotate_tile_clock()
+        return moved
+    
     def explore(self, tile_pile, discard_pile, longitude, latitude, compass_point_moving):
         '''Extends exploration to allow tiles to be used from the Adventurer's Chest
         '''
