@@ -302,7 +302,7 @@ class GameAdvanced(GameRegular):
     CITY_TYPE = CityTileAdvanced #no extra functionality needed until Advanced mode
 
 #    COST_BUY_TECH = 5
-    NUM_CHEST_TILES = 3
+    NUM_CHEST_TILES = AdvancedConfig.NUM_CHEST_TILES
     
 #    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
 #        super().__init__(players, movement_rules, exploration_rules)

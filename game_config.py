@@ -48,4 +48,5 @@ class RegularConfig:
     
 class AdvancedConfig:
     COST_BUY_EQUIPMENT = 5
+    NUM_CHEST_TILES = 2
 
