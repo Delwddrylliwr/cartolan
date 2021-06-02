@@ -86,7 +86,10 @@ class PlayerHuman(Player):
         while move_coords not in moves["move"] and move_coords not in moves["abandon"]:
             if isinstance(adventurer, AdventurerAdvanced):
                 if isinstance(move_coords, int):
-                    adventurer.preferred_tile_num = move_coords
+                    if adventurer.preferred_tile_num == move_coords:
+                        adventurer.preferred_tile_num = None
+                    else:
+                        adventurer.preferred_tile_num = move_coords
                     game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num)
             move_coords = game_vis.get_input_coords(adventurer)
         if move_coords in moves["move"]:
