@@ -5,7 +5,7 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 from base import Game, TilePile
 from beginner import AdventurerBeginner, AgentBeginner, CityTileBeginner, WonderTile, CapitalTileBeginner
 from regular import AdventurerRegular, AgentRegular, CityTileRegular, DisasterTile, CapitalTileRegular, MythicalTileRegular
-from advanced import AdventurerAdvanced, AgentAdvanced, CityTileAdvanced
+from advanced import AdventurerAdvanced, AgentAdvanced, CityTileAdvanced, CardAdvanced
 from base import Tile, WindDirection, TileEdges
 import random
 import csv
@@ -27,6 +27,7 @@ class GameBeginner(Game):
     play_round
     check_win_conditions
     '''
+    #Set non-configurable class level constants
     TILE_PREFIX = "tile_distribution_"
     TILE_EXT = ".csv"
     TILE_TYPE_COLS = {"wonder":1}
@@ -35,28 +36,12 @@ class GameBeginner(Game):
     AGENT_TYPE = AgentBeginner
     CITY_TYPE = CityTileBeginner
     
+    #Inherit class level constants from config file
     NUM_TILES = BeginnerConfig.NUM_TILES
-    
-    GAME_WINNING_DIFFERENCE = BeginnerConfig.GAME_WINNING_DIFFERENCE
     
     MAX_ADVENTURERS = BeginnerConfig.MAX_ADVENTURERS
     MAX_AGENTS = BeginnerConfig.MAX_AGENTS
     
-    VALUE_DISCOVER_WONDER = BeginnerConfig.VALUE_DISCOVER_WONDER
-    VALUE_TRADE = BeginnerConfig.VALUE_TRADE
-    VALUE_AGENT_TRADE = BeginnerConfig.VALUE_AGENT_TRADE
-    VALUE_FILL_MAP_GAP = BeginnerConfig.VALUE_FILL_MAP_GAP
-    VALUE_COMPLETE_MAP = BeginnerConfig.VALUE_COMPLETE_MAP
-    
-    COST_ADVENTURER = BeginnerConfig.COST_ADVENTURER
-    COST_AGENT_EXPLORING = BeginnerConfig.COST_AGENT_EXPLORING
-    COST_AGENT_FROM_CITY = BeginnerConfig.COST_AGENT_FROM_CITY
-    COST_AGENT_REST = BeginnerConfig.COST_AGENT_REST
-    
-    EXPLORATION_ATTEMPTS = BeginnerConfig.EXPLORATION_ATTEMPTS
-    MAX_DOWNWIND_MOVES = BeginnerConfig.MAX_DOWNWIND_MOVES
-    MAX_LAND_MOVES = BeginnerConfig.MAX_LAND_MOVES
-    MAX_UPWIND_MOVES = BeginnerConfig.MAX_UPWIND_MOVES
     
     def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
         
@@ -74,6 +59,25 @@ class GameBeginner(Game):
 
         self.tile_piles = {"water":TilePile("water",[])}
         self.discard_piles = {"water":TilePile("water",[])}
+        
+        #Inherit instance level constants from config
+        self.game_winning_difference = BeginnerConfig.GAME_WINNING_DIFFERENCE
+        
+        self.value_trade = BeginnerConfig.VALUE_TRADE
+        self.value_agent_trade = BeginnerConfig.VALUE_AGENT_TRADE
+        self.value_complete_map = BeginnerConfig.VALUE_COMPLETE_MAP
+        self.value_discover_wonder = BeginnerConfig.VALUE_DISCOVER_WONDER
+        self.value_fill_map_gap = BeginnerConfig.VALUE_FILL_MAP_GAP
+            
+        self.cost_adventurer = BeginnerConfig.COST_ADVENTURER
+        self.cost_agent_exploring = BeginnerConfig.COST_AGENT_EXPLORING
+        self.cost_agent_from_city = BeginnerConfig.COST_AGENT_FROM_CITY
+        self.cost_agent_rest = BeginnerConfig.COST_AGENT_REST
+        
+        self.max_exploration_attempts = BeginnerConfig.MAX_EXPLORATION_ATTEMPTS
+        self.max_downwind_moves = BeginnerConfig.MAX_DOWNWIND_MOVES
+        self.max_land_moves = BeginnerConfig.MAX_LAND_MOVES
+        self.max_upwind_moves = BeginnerConfig.MAX_UPWIND_MOVES
         
         self.exploration_attempts = 0
         self.win_type = None
@@ -221,7 +225,7 @@ class GameBeginner(Game):
             elif self.max_wealth - player.vault_wealth < self.wealth_difference:
                     self.wealth_difference = self.max_wealth - player.vault_wealth
         
-        if self.wealth_difference > self.GAME_WINNING_DIFFERENCE:
+        if self.wealth_difference > self.game_winning_difference:
             print("won by wealth difference")
             self.win_type = "wealth difference"
             self.game_over = True
@@ -255,23 +259,27 @@ class GameRegular(GameBeginner):
     __init__ takes a List of Cartolan.Player objects and two Strings
     check_win_conditions
     '''
+    #Set class constants that can't be configured
     TILE_TYPE_COLS = {"wonder":1, "disaster":2}
     TILE_TYPES = {"plain":Tile, "capital":CapitalTileRegular, "mythical":MythicalTileRegular, "wonder":WonderTile, "disaster":DisasterTile}    
     ADVENTURER_TYPE = AdventurerRegular
     AGENT_TYPE = AgentRegular
     CITY_TYPE = CityTileRegular #no extra functionality needed until Advanced mode
 
+    #Inherit configurable class constants from config file
     NUM_TILES = RegularConfig.NUM_TILES
 
-    VALUE_DISCOVER_WONDER = RegularConfig.VALUE_DISCOVER_WONDER
-    VALUE_ARREST = RegularConfig.VALUE_ARREST
-    VALUE_DISPOSSESS_AGENT = RegularConfig.VALUE_DISPOSSESS_AGENT
-    COST_AGENT_RESTORE = RegularConfig.COST_AGENT_RESTORE
-    
-    ATTACK_SUCCESS_PROB = RegularConfig.ATTACK_SUCCESS_PROB
-    
     def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
         super().__init__(players, movement_rules, exploration_rules)
+        #Inherit some instance constants from the config file
+        self.value_discover_wonder = RegularConfig.VALUE_DISCOVER_WONDER
+        self.value_arrest = RegularConfig.VALUE_ARREST
+        self.value_dispossess_agent = RegularConfig.VALUE_DISPOSSESS_AGENT
+        self.cost_agent_restore = RegularConfig.COST_AGENT_RESTORE
+        
+        self.attack_success_prob = RegularConfig.ATTACK_SUCCESS_PROB
+        self.defence_rounds = RegularConfig.DEFENCE_ROUNDS
+        
         # a land tile pile is now needed
         self.tile_piles["land"] = TilePile("land",[])
         self.discard_piles["land"] = TilePile("land",[])
@@ -300,9 +308,24 @@ class GameAdvanced(GameRegular):
     ADVENTURER_TYPE = AdventurerAdvanced
     AGENT_TYPE = AgentAdvanced
     CITY_TYPE = CityTileAdvanced #no extra functionality needed until Advanced mode
+    CARD_TYPE = CardAdvanced
 
 #    COST_BUY_TECH = 5
-    NUM_CHEST_TILES = AdvancedConfig.NUM_CHEST_TILES
+    def __init__(self, players, movement_rules='initial', exploration_rules='continuous'):
+        
+        #Get config variables to act as masters in case of modification
+        self.num_chest_tiles = AdvancedConfig.NUM_CHEST_TILES
+        self.card_type_buffs = AdvancedConfig.CARD_TYPE_BUFFS
+        
+        self.attacks_abandon = AdvancedConfig.ATTACKS_ABANDON
+        
+        self.agent_on_existing = AdvancedConfig.AGENT_ON_EXISTING
+        self.transfers_to_agents = AdvancedConfig.TRANSFERS_TO_AGENTS
+        
+        #Set up the decks of cards
+        self.character_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.CHARACTER_CARDS] #a copy that can be modified independent of the config file
+        
+        super().__init__(players, movement_rules='initial', exploration_rules='continuous')
     
 #    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
 #        super().__init__(players, movement_rules, exploration_rules)

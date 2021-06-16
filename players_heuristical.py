@@ -236,7 +236,7 @@ class PlayerBeginnerExplorer(Player):
     
     #if offered always rest
     def check_rest(self, adventurer, agent):
-        if adventurer.wealth >= adventurer.game.COST_AGENT_REST:
+        if adventurer.wealth >= adventurer.game.cost_agent_rest:
             return True
         return False
     
@@ -253,7 +253,7 @@ class PlayerBeginnerExplorer(Player):
         if random.random() < 0.5:
             return False
         
-        if self.vault_wealth > adventurer.game.COST_ADVENTURER:
+        if self.vault_wealth > adventurer.game.cost_adventurer:
             #Check whether player has won compared to wealthiest opponent 
             wealthiest_opponent_wealth = 0
             #Check whether any opponent is in a position to win based just on their incoming wealth, if an Adventurer were hired
@@ -266,7 +266,7 @@ class PlayerBeginnerExplorer(Player):
                     for other_adventurer in adventurer.game.adventurers[player]:
                         player_chest_wealth += other_adventurer.wealth
                     if (player.vault_wealth + player_chest_wealth 
-                        > adventurer.game.GAME_WINNING_DIFFERENCE + self.vault_wealth - adventurer.game.COST_ADVENTURER):
+                        > adventurer.game.GAME_WINNING_DIFFERENCE + self.vault_wealth - adventurer.game.cost_adventurer):
                         opponent_near_win = True
             #Don't hire if player has won compared to wealthiest opponent 
             if self.vault_wealth > wealthiest_opponent_wealth + adventurer.game.GAME_WINNING_DIFFERENCE:
@@ -470,7 +470,7 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
     def check_attack_adventurer(self, adventurer, other_adventurer):
         # if the adventurer has a pirate token and the wealth from an arrest exceeds the loss from piracy then stick around and fight
         if (other_adventurer.pirate_token and other_adventurer.player != self
-           and adventurer.wealth < adventurer.game.VALUE_ARREST):
+           and adventurer.wealth < adventurer.game.value_arrest):
             return True
         return False
     
@@ -482,7 +482,7 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
         return default
     
     def check_restore_agent(self, adventurer, agent):
-        if agent.player == adventurer.player and adventurer.wealth >= adventurer.game.COST_AGENT_RESTORE:
+        if agent.player == adventurer.player and adventurer.wealth >= adventurer.game.cost_agent_restore:
             return True
         return False
     

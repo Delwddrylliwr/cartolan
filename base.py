@@ -367,8 +367,7 @@ class Tile:
                     self.agent = token
                     token.route.append(self) 
                 elif self.agent.__dict__.get("is_dispossessed"):
-                    self.agent.game.agents[self.agent.player].remove(self.agent)
-                    self.agent.current_tile = None
+                    self.agent.dismiss()
                     print("Moving agent for " +str(token.player.colour)+ " player onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                     self.agent = token
                     self.agent.current_tile = self

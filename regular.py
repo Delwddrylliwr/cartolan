@@ -24,6 +24,12 @@ class AdventurerRegular(AdventurerBeginner):
         super().__init__(game, player, starting_city)
         self.pirate_token = False
         
+        #Mirror that game variables, mostly for Advanced mode to modify them
+        self.attack_success_prob = game.attack_success_prob
+        self.value_arrest = game.value_arrest
+        self.value_dispossess_agent = game.value_dispossess_agent
+        self.cost_agent_restore = game.cost_agent_restore
+        
         #Unburdened movement is deprecated in Regular mode, see Advanced mode below
         self.max_upwind_moves_unburdened = self.max_upwind_moves
         self.max_land_moves_unburdened = self.max_land_moves
@@ -163,7 +169,7 @@ class AdventurerRegular(AdventurerBeginner):
                             self.collect_wealth()
                     if self.player.check_rest(self, agent):
                         self.rest()
-                if agent.player != self.player and agent.wealth + self.game.VALUE_DISPOSSESS_AGENT > 0:
+                if agent.player != self.player and agent.wealth + self.value_dispossess_agent > 0:
                     if not self.pirate_token:
                         if self.player.check_rest(self, agent):
                             self.rest()
@@ -211,7 +217,7 @@ class AdventurerRegular(AdventurerBeginner):
         
         success = False
         # have opponent roll for defence, roll for attack, compare rolls
-        if random.random() < self.game.ATTACK_SUCCESS_PROB:
+        if random.random() < self.attack_success_prob:
             success = True
         
         # resolve conflict
@@ -222,14 +228,8 @@ class AdventurerRegular(AdventurerBeginner):
             if adventurer.pirate_token:
                 # arrest them
                 if success:
-#                    self.pirate_token = False # lose own pirate status for conducting arrest
-                    adventurer.wealth = 0
-#                     self.player.vault_wealth += self.game.VALUE_ARREST # get a reward straight to the Vault
-                    self.wealth += self.game.VALUE_ARREST # get a reward
-                    adventurer.current_tile.move_off_tile(adventurer)
-                    adventurer.latest_city.move_onto_tile(adventurer) # send them back to their last city
-                    adventurer.pirate_token = False # remove their pirate token
-                    adventurer.wonders_visited = [] #reset the list of wonders that they've already stocked goods from
+                    self.wealth += self.value_arrest # get a reward
+                    adventurer.end_expedition()
             else: # rob them
                 self.pirate_token = True #just trying will make them a pirate
                 if success:
@@ -244,7 +244,7 @@ class AdventurerRegular(AdventurerBeginner):
                 self.pirate_token = True #just trying will make them a pirate
                 if success:
                     agent = token
-                    self.wealth += agent.wealth + self.game.VALUE_DISPOSSESS_AGENT
+                    self.wealth += agent.wealth + self.value_dispossess_agent
                     agent.is_dispossessed = True
                     agent.wealth = 0;
         else: raise Exception("Not able to deal with this kind of token.")
@@ -252,8 +252,15 @@ class AdventurerRegular(AdventurerBeginner):
         self.player.attack_history.append([self.current_tile, success])
         return success
     
+    def end_expedition(self, city=None):
+        '''Extends to deal with piracy
+        '''
+        self.pirate_token = False
+        return super().end_expedition(city)
+    
     def check_tile_available(self, tile):
-        '''Extends the AdventurerBeginner method to keep track of whether existing Agents have been dispossessed when placing on a tile'''
+        '''Extends the AdventurerBeginner method to keep track of whether existing Agents have been dispossessed when placing on a tile
+        '''
         if self.pirate_token:
             return False
         elif isinstance(tile, CityTile):
@@ -273,12 +280,12 @@ class AdventurerRegular(AdventurerBeginner):
         self.restored = True
         
         if agent.is_dispossessed:
-            if self.game.COST_AGENT_RESTORE <= self.wealth:
-                print("Paying " +str(self.game.COST_AGENT_RESTORE)+ " to restore " 
+            if self.cost_agent_restore <= self.wealth:
+                print("Paying " +str(self.cost_agent_restore)+ " to restore " 
                       +agent.player.colour+"'s Agent at position " 
                       +str(agent.current_tile.tile_position.longitude)
                      +","+ str(agent.current_tile.tile_position.latitude))
-                self.wealth -= self.game.COST_AGENT_RESTORE
+                self.wealth -= self.cost_agent_restore
                 agent.is_dispossessed = False
                 #Make sure that the Adventurer can't use this Agent this turn
                 self.agents_rested.append(agent)
@@ -320,6 +327,12 @@ class AgentRegular(AgentBeginner):
             return False
         else:
             super().manage_trade(adventurer)
+            
+    def dismiss(self):
+        '''Takes this Agent off a tile fully and out of the game
+        '''
+        self.game.agents[self.player].remove(self)
+        self.current_tile.move_off_tile(self)
 
 class DisasterTile(Tile):
     '''***DEPRECATED*** Represents a Disaster Tile in the game Cartolan, which removes Adventurers' wealth and send them back to a city '''
@@ -361,7 +374,7 @@ class DisasterTile(Tile):
 #        import random
 #        
 #        # if the rolls are the same then the pirate gets helf the wealth
-#        if random.random() < self.game.ATTACK_SUCCESS_PROB:
+#        if random.random() < self.game.attack_success_prob:
 #            adventurer.wealth += self.dropped_wealth//2 + self.dropped_wealth%2
 #        else: # otherwise send the Adventurer to the capital and keep their wealth
 #            self.dropped_wealth += adventurer.wealth

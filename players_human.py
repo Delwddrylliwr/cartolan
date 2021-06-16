@@ -31,7 +31,7 @@ class PlayerHuman(Player):
         #prompt the player to choose a tile to move on to
         print("Prompting the "+self.colour+" player for input")
 #        game_vis.clear_prompt()
-        game_vis.give_prompt("click which tile you would like "+str(self.colour)+" adventurer #" 
+        game_vis.give_prompt("Click which tile you would like "+str(self.colour)+" adventurer #" 
                                        +str(game.adventurers[self].index(adventurer)+1) 
                                        +" to move to?")
         
@@ -77,9 +77,11 @@ class PlayerHuman(Player):
         #highlight the tiles
 #        print("Highlighting the available moves for the "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1))
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-        game_vis.draw_move_options(moves_since_rest, moves)
+        max_moves = adventurer.max_downwind_moves
+        game_vis.draw_move_options(moves_since_rest, moves, max_moves)
         if isinstance(adventurer, AdventurerAdvanced):
-            game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num)
+            game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+            game_vis.draw_cards(adventurer)
         
         #Carry out the player's chosen move
         move_coords = game_vis.get_input_coords(adventurer)
@@ -88,9 +90,10 @@ class PlayerHuman(Player):
                 if isinstance(move_coords, int):
                     if adventurer.preferred_tile_num == move_coords:
                         adventurer.preferred_tile_num = None
-                    else:
+                    elif move_coords < len(adventurer.chest_tiles):
                         adventurer.preferred_tile_num = move_coords
-                    game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num)
+                    game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+                    game_vis.draw_cards(adventurer)
             move_coords = game_vis.get_input_coords(adventurer)
         if move_coords in moves["move"]:
 #            print(self.colour+" player chose valid coordinates to move to.")
@@ -226,23 +229,25 @@ class PlayerHuman(Player):
                 moves["rest"] = [[adventurer.current_tile.tile_position.longitude
                             , adventurer.current_tile.tile_position.latitude]]
                 moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-                game_vis.draw_move_options(moves_since_rest, moves)
+                max_moves = adventurer.max_downwind_moves
+                game_vis.draw_move_options(moves_since_rest, moves, max_moves)
                 #prompt the player to choose a tile to move on to
                 print("Prompting the "+self.colour+" player for input")
                 game_vis.give_prompt("If you want "+str(self.colour)+" adventurer #" 
                                                +str(game.adventurers[self].index(adventurer)+1) 
                                                +" to rest then click their tile, otherwise click elsewhere.")          
-            elif adventurer.wealth >= adventurer.game.COST_AGENT_EXPLORING:
+            elif adventurer.wealth >= adventurer.game.cost_agent_exploring:
                 moves["buy"] = [[adventurer.current_tile.tile_position.longitude
                             , adventurer.current_tile.tile_position.latitude]]
                 moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-                game_vis.draw_move_options(moves_since_rest, moves)
+                max_moves = adventurer.max_downwind_moves
+                game_vis.draw_move_options(moves_since_rest, moves, max_moves)
                 #prompt the player to choose a tile to move on to
                 print("Prompting the "+self.colour+" player for input")
                 game_vis.give_prompt("If you want "+str(self.colour)+" adventurer #" 
                                                +str(game.adventurers[self].index(adventurer)+1) 
                                                +" to rest for "
-                                               +str(game.COST_AGENT_REST)+
+                                               +str(game.cost_agent_rest)+
                                                " treasure then click their tile, otherwise click elsewhere.")                
             else:
                 return False
@@ -271,6 +276,7 @@ class PlayerHuman(Player):
         
     
     #if offered by a city then always bank everything
+    #@TODO depricate this, now that there is a check on withdrawing wealth before movement
     #@TODO allow player to specify how much wealth to bank using input() or a text box: https://stackoverflow.com/questions/46390231/how-to-create-a-text-input-box-with-pygame
     def check_bank_wealth(self, adventurer, report="Player is being asked whether to bank treasure"):
         print(report)
@@ -283,7 +289,7 @@ class PlayerHuman(Player):
         game_vis = self.games[game.game_id]["game_vis"]
         
         moves = {}
-        if self.vault_wealth >= adventurer.game.COST_ADVENTURER:
+        if self.vault_wealth >= adventurer.game.cost_adventurer:
             moves["buy"] = [[adventurer.current_tile.tile_position.longitude
                         , adventurer.current_tile.tile_position.latitude]]
 
@@ -297,13 +303,14 @@ class PlayerHuman(Player):
             print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
                   +" can recruit another adventurer")
             moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-            game_vis.draw_move_options(moves_since_rest, moves)
+            max_moves = adventurer.max_downwind_moves
+            game_vis.draw_move_options(moves_since_rest, moves, max_moves)
 
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
 #            game_vis.clear_prompt()
             game_vis.give_prompt("If you want to recruit another Adventurer for " 
-                                 +str(adventurer.game.COST_ADVENTURER)
+                                 +str(adventurer.game.cost_adventurer)
                                  +" then click the City, otherwise click elsewhere.")
             
             recruit = False
@@ -329,7 +336,7 @@ class PlayerHuman(Player):
         game_vis = self.games[game.game_id]["game_vis"]
         
         moves = {}
-        if adventurer.wealth >= adventurer.game.COST_AGENT_EXPLORING:
+        if adventurer.wealth >= adventurer.game.cost_agent_exploring:
             moves["buy"] = [[adventurer.current_tile.tile_position.longitude
                         , adventurer.current_tile.tile_position.latitude]]
 
@@ -346,12 +353,13 @@ class PlayerHuman(Player):
             print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
                   +" can recruit an Agent")
             moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-            game_vis.draw_move_options(moves_since_rest, moves)
+            max_moves = adventurer.max_downwind_moves
+            game_vis.draw_move_options(moves_since_rest, moves, max_moves)
 
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
 #            game_vis.clear_prompt()
-            game_vis.give_prompt("If you want your Adventurer to recruit an Agent on this tile for "+str(adventurer.game.COST_AGENT_EXPLORING)
+            game_vis.give_prompt("If you want your Adventurer to recruit an Agent on this tile for "+str(adventurer.game.cost_agent_exploring)
                             +" treasure then click it, otherwise click elsewhere.")
             
             recruit = False
@@ -378,7 +386,7 @@ class PlayerHuman(Player):
         game_vis = self.games[game.game_id]["game_vis"]
         
         moves = {}
-        if self.vault_wealth >= adventurer.game.COST_AGENT_FROM_CITY:
+        if self.vault_wealth >= adventurer.game.cost_agent_from_city:
             #Establish a list of all tiles without an active Agent, to offer the player
             moves["buy"] = []
             play_area = adventurer.game.play_area
@@ -410,13 +418,14 @@ class PlayerHuman(Player):
             #highlight the tiles where an Agent could be placed 
             print("Highlighting the tile where "+self.colour+" player can send an Agent")
             moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-            game_vis.draw_move_options(moves_since_rest, moves)
+            max_moves = adventurer.max_downwind_moves
+            game_vis.draw_move_options(moves_since_rest, moves, max_moves)
 
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
 #            game_vis.clear_prompt()
             game_vis.give_prompt("Click any unoccupied tile to hire an Agent and send them there for " 
-                                 +str(adventurer.game.COST_AGENT_FROM_CITY) 
+                                 +str(adventurer.game.cost_agent_from_city) 
                                  +" treasure, otherwise click elsewhere.")
             
             agent_placement = None
@@ -455,7 +464,8 @@ class PlayerHuman(Player):
         print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
               +" can recruit an Agent")
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-        game_vis.draw_move_options(moves_since_rest, moves)
+        max_moves = adventurer.max_downwind_moves
+        game_vis.draw_move_options(moves_since_rest, moves, max_moves)
 
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
@@ -495,7 +505,8 @@ class PlayerHuman(Player):
         print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
               +" can attack "+ other_adventurer.player.colour+" player's Adventurer")
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-        game_vis.draw_move_options(moves_since_rest, moves)
+        max_moves = adventurer.max_downwind_moves
+        game_vis.draw_move_options(moves_since_rest, moves, max_moves)
 
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
@@ -521,6 +532,8 @@ class PlayerHuman(Player):
         return attack
     
     def check_travel_money(self, adventurer, maximum, default):
+        '''Lets the player input a figure for the wealth that will be taken from the Vault before an expedition
+        '''
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
         
@@ -560,7 +573,8 @@ class PlayerHuman(Player):
 #        print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
 #              +" can attack "+ agent.player.colour+" player's Adventurer")
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-        game_vis.draw_move_options(moves_since_rest, moves)
+        max_moves = adventurer.max_downwind_moves
+        game_vis.draw_move_options(moves_since_rest, moves, max_moves)
 
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
@@ -587,7 +601,7 @@ class PlayerHuman(Player):
     
     # Always restor own Agents if it can be afforded
     def check_restore_agent(self, adventurer, agent):
-        if agent.player == adventurer.player and adventurer.wealth >= adventurer.game.COST_AGENT_RESTORE:
+        if agent.player == adventurer.player and adventurer.wealth >= adventurer.game.cost_agent_restore:
             game = adventurer.game
             game_vis = self.games[game.game_id]["game_vis"]
             
@@ -604,12 +618,13 @@ class PlayerHuman(Player):
             print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
                   +" can restore an Agent")
             moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-            game_vis.draw_move_options(moves_since_rest, moves)
+            max_moves = adventurer.max_downwind_moves
+            game_vis.draw_move_options(moves_since_rest, moves, max_moves)
 
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
 #            game_vis.clear_prompt()
-            game_vis.give_prompt("If you want your Adventurer to restore your dispossessed Agent on this tile for "+str(adventurer.game.COST_AGENT_RESTORE)
+            game_vis.give_prompt("If you want your Adventurer to restore your dispossessed Agent on this tile for "+str(adventurer.game.cost_agent_restore)
                             +" then click it, otherwise click elsewhere.")
             
             restore = False
@@ -650,7 +665,8 @@ class PlayerHuman(Player):
         print("Highlighting the Disaster tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
               +" can choose to court disaster")
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-        game_vis.draw_move_options(moves_since_rest, moves)
+        max_moves = adventurer.max_downwind_moves
+        game_vis.draw_move_options(moves_since_rest, moves, max_moves)
 
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")

@@ -17,7 +17,7 @@ class BeginnerConfig:
     
     GAME_WINNING_DIFFERENCE = 15
     
-    MAX_ADVENTURERS = 3
+    MAX_ADVENTURERS = 4
     MAX_AGENTS = 4
     
     VALUE_DISCOVER_WONDER = {"water":1}
@@ -31,7 +31,7 @@ class BeginnerConfig:
     COST_AGENT_FROM_CITY = 3
     COST_AGENT_REST = 1
     
-    EXPLORATION_ATTEMPTS = 1
+    MAX_EXPLORATION_ATTEMPTS = 1
     MAX_DOWNWIND_MOVES = 4
     MAX_LAND_MOVES = 2
     MAX_UPWIND_MOVES = 2
@@ -45,8 +45,33 @@ class RegularConfig:
     COST_AGENT_RESTORE = 1
     
     ATTACK_SUCCESS_PROB = 1.0/3.0
+    DEFENCE_ROUNDS = 1
     
 class AdvancedConfig:
     COST_BUY_EQUIPMENT = 5
     NUM_CHEST_TILES = 2
-
+    
+    ATTACKS_ABANDON = False
+    
+    AGENT_ON_EXISTING = False
+    TRANSFERS_TO_AGENTS = False
+    
+    CARD_TYPE_BUFFS = {"adv+agents":{"agent_on_existing":{"buff_type":"new", "buff_val":True}}
+                        , "adv+attack":{"attack_success_prob":{"buff_type":"new", "buff_val":2.0/3.0}} 
+                        , "adv+bank":{"transfers_to_agents":{"buff_type":"new", "buff_val":True}}
+                        , "adv+damage":{"attacks_abandon":{"buff_type":"new", "buff_val":True}}
+                        , "adv+defence":{"defence_rounds":{"buff_type":"boost", "buff_val":1}}
+                        , "adv+downwind":{"max_downwind_moves":{"buff_type":"boost", "buff_val":1}}
+                        , "adv+upwind":{"max_upwind_moves":{"buff_type":"boost", "buff_val":1}
+                                            ,"max_land_moves":{"buff_type":"boost", "buff_val":1}}
+                        , "adv+maps":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}}
+                        }
+    CHARACTER_CARDS = ["adv+agents"
+             , "adv+attack"
+             , "adv+bank"
+             , "adv+damage"
+             , "adv+defence", "adv+defence"
+             , "adv+downwind", "adv+downwind"
+             , "adv+upwind", "adv+upwind"
+             , "adv+maps", "adv+maps"
+             ]
