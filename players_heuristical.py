@@ -201,8 +201,10 @@ class PlayerBeginnerExplorer(Player):
         if random.random() < self.p_deviate:
             print(str(adventurer.player.colour)+ " is making a random movement, rather than following a heuristic")
             adventurer.move(random.choice(['n','e','s','w']))
-        #move towards a city while banking will put the player ahead, and explore otherwise
-        elif(adventurer.wealth > adventurer.game.wealth_difference):
+#        #move towards a city while banking will put the player ahead, and explore otherwise
+#        elif(adventurer.wealth > adventurer.game.wealth_difference):
+        #move towards a city while banking will increase earning potential
+        elif(adventurer.wealth > adventurer.game.cost_adventurer):
             self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
 #             self.explore_away_from_tile(adventurer, adventurer.latest_city)
@@ -329,7 +331,9 @@ class PlayerBeginnerTrader(PlayerBeginnerExplorer):
             else:
                 self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
-            if adventurer.wealth <= adventurer.game.wealth_difference:
+#            if adventurer.wealth <= adventurer.game.wealth_difference:
+            if (adventurer.wealth <= adventurer.game.cost_adventurer 
+                and self.next_agent_num[adventurers.index(adventurer)] < len(agents) - 1):
                 self.move_towards_tile(adventurer, agents[self.next_agent_num[adventurers.index(adventurer)]].current_tile)
             else:
                 self.move_towards_tile(adventurer, adventurer.latest_city)
@@ -397,7 +401,8 @@ class PlayerBeginnerRouter(PlayerBeginnerTrader):
             adventurer.move(random.choice(['n','e','s','w']))
         #locate the next unvisited agent and move towards them, or if all agents have been visited either explore or return home
         elif self.next_agent_num[adventurers.index(adventurer)] >= len(agents):
-            if (adventurer.wealth <= adventurer.game.wealth_difference):
+#            if (adventurer.wealth <= adventurer.game.wealth_difference):
+            if (adventurer.wealth <= adventurer.game.cost_adventurer):
                 self.explore_best_space(adventurer)
 #                 self.explore_above_distance(adventurer, adventurer.latest_city, adventurer.game.CITY_DOMAIN_RADIUS)
             else:
@@ -535,7 +540,8 @@ class PlayerRegularPirate(PlayerRegularExplorer):
         if random.random() < self.p_deviate:
             adventurer.move(random.choice(['n','e','s','w']))
         #move towards the capital while banking will put the player ahead, and chase the next big score otherwise
-        elif(adventurer.wealth > adventurer.game.wealth_difference):
+#        elif(adventurer.wealth > adventurer.game.wealth_difference):
+        elif(adventurer.wealth > adventurer.game.cost_adventurer):
             self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
             # if there is an adventurer on the same tile then attack them
