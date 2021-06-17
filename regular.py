@@ -307,7 +307,12 @@ class AdventurerRegular(AdventurerBeginner):
                     while not chosen_steal in range(0, adventurer.wealth + 1):
                         chosen_steal = self.player.check_steal_amount(adventurer, adventurer.wealth, default_steal)
                     self.wealth += chosen_steal
-                    adventurer.wealth -= chosen_steal    
+                    adventurer.wealth -= chosen_steal
+                    #Randomly steal chest tiles to top up
+                    if isinstance(token, AdventurerRegular):
+                        if len(self.chest_tiles) < self.num_chest_tiles:
+                            victim_chest = token.chest_tiles
+                            self.chest_tiles.append(victim_chest.pop(random.randint(0, len(victim_chest)-1)))
         elif isinstance(token, Agent):
             if not token.is_dispossessed:
                 self.pirate_token = True #just trying will make them a pirate

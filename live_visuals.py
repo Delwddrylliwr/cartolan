@@ -44,7 +44,7 @@ class GameVisualisation():
     CHEST_HIGHLIGHT_COLOUR = (0, 255, 0)
     TILE_BORDER = 0.02 #the share of grid width/height that is used for border
     CARD_HEADER_SHARE = 1.0 / 11.0 # the share of card images that is the header, visually summarising the buffs of the card with colour and a logo
-    CHEST_SCALE = 0.1
+    CHEST_SCALE = 0.13
     CHEST_TILE_COLS = 2
     DISCARD_SCALE = 0.075
     ROUTE_THICKNESS = 4.0

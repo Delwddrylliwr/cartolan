@@ -81,11 +81,6 @@ class AdventurerAdvanced(AdventurerRegular):
                 if random.random() > self.attack_success_prob:
                     return False
         if super().attack(token):
-            #Randomly steal tiles to top up
-            if isinstance(token, AdventurerAdvanced):
-                if len(self.chest_tiles) < self.num_chest_tiles:
-                    victim_chest = token.chest_tiles
-                    self.chest_tiles.append(victim_chest.pop(random.randint(0, len(victim_chest)-1)))
             if self.attacks_abandon: #Adventurers will return to cities, Agents are removed
                 if isinstance(token, AdventurerRegular):
                     token.end_expedition()
