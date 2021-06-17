@@ -285,6 +285,110 @@ class PlayerHuman(Player):
         print(report)
         return adventurer.wealth
     
+    #if offered by a city, then give the player the option to pay and refresh their chest maps
+    def check_buy_maps(self, adventurer, report="Player is being asked whether to pay to refresh their chest maps"):
+        print(report)
+        game = adventurer.game
+        game_vis = self.games[game.game_id]["game_vis"]
+        
+        moves = {}
+        if self.vault_wealth >= adventurer.game.cost_refresh_maps:
+            moves["buy"] = [[adventurer.current_tile.tile_position.longitude
+                        , adventurer.current_tile.tile_position.latitude]]
+
+            #make sure that tiles and token positions are up to date
+            game_vis.draw_play_area()
+            game_vis.draw_routes()
+            game_vis.draw_tokens()
+            game_vis.draw_scores()
+            if isinstance(adventurer, AdventurerRegular):
+                game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+            if isinstance(adventurer, AdventurerAdvanced):
+                game_vis.draw_cards(adventurer)
+            
+            #highlight the city tile where an adventurer can be bought
+            print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
+                  +" can buy new maps")
+            moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
+            max_moves = adventurer.max_downwind_moves
+            game_vis.draw_move_options(moves_since_rest, moves, max_moves)
+
+            #prompt the player to input
+            print("Prompting the "+self.colour+" player for input")
+#            game_vis.clear_prompt()
+            game_vis.give_prompt("If you want your Adventurer to buy a new set of maps for " 
+                                 +str(adventurer.game.cost_refresh_maps)
+                                 +" then click the City, otherwise click elsewhere.")
+            
+            recruit = False
+            move_coords = game_vis.get_input_coords(adventurer)
+            if move_coords in moves["buy"]:
+                print(self.colour+" player chose the coordinates of the tile where their Adventurer can upgrade.")
+                recruit = True
+            else:
+                print(self.colour+" player chose coordinates away from the tile where their Adventurer can upgrade.")
+                recruit = False
+
+            #clean up the highlights
+            game_vis.clear_prompt()
+            game_vis.clear_move_options()
+#             game_vis.draw_tokens()
+            return recruit
+        else:
+            return False
+    
+    #if offered by a city, then give the player the option to buy a discovery card 
+    def check_buy_tech(self, adventurer, report="Player is being asked whether to buy a Discovery card"):
+        print(report)
+        game = adventurer.game
+        game_vis = self.games[game.game_id]["game_vis"]
+        
+        moves = {}
+        if self.vault_wealth >= adventurer.game.cost_tech:
+            moves["buy"] = [[adventurer.current_tile.tile_position.longitude
+                        , adventurer.current_tile.tile_position.latitude]]
+
+            #make sure that tiles and token positions are up to date
+            game_vis.draw_play_area()
+            game_vis.draw_routes()
+            game_vis.draw_tokens()
+            game_vis.draw_scores()
+            if isinstance(adventurer, AdventurerRegular):
+                game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+            if isinstance(adventurer, AdventurerAdvanced):
+                game_vis.draw_cards(adventurer)
+            
+            #highlight the city tile where an adventurer can be bought
+            print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
+                  +" can learn a new discovery")
+            moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
+            max_moves = adventurer.max_downwind_moves
+            game_vis.draw_move_options(moves_since_rest, moves, max_moves)
+
+            #prompt the player to input
+            print("Prompting the "+self.colour+" player for input")
+#            game_vis.clear_prompt()
+            game_vis.give_prompt("If you want your Adventurer to master a new discovery for " 
+                                 +str(adventurer.game.cost_tech)
+                                 +" then click the City, otherwise click elsewhere.")
+            
+            recruit = False
+            move_coords = game_vis.get_input_coords(adventurer)
+            if move_coords in moves["buy"]:
+                print(self.colour+" player chose the coordinates of the tile where their Adventurer can upgrade.")
+                recruit = True
+            else:
+                print(self.colour+" player chose coordinates away from the tile where their Adventurer can upgrade.")
+                recruit = False
+
+            #clean up the highlights
+            game_vis.clear_prompt()
+            game_vis.clear_move_options()
+#             game_vis.draw_tokens()
+            return recruit
+        else:
+            return False
+    
     #if offered by a city, then give the player the option to buy an Adventurer 
     def check_buy_adventurer(self, adventurer, report="Player is being asked whether to buy an Adventurer"):
         print(report)

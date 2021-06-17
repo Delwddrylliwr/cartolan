@@ -44,12 +44,13 @@ class RegularConfig:
     VALUE_ARREST = 3
     VALUE_DISPOSSESS_AGENT = 1
     COST_AGENT_RESTORE = 1
+    COST_REFRESH_MAPS = 1
     
     ATTACK_SUCCESS_PROB = 1.0/3.0
     DEFENCE_ROUNDS = 1
     
 class AdvancedConfig:
-    COST_BUY_EQUIPMENT = 5
+    COST_TECH = 5
     NUM_CHEST_TILES = 2
     
     ATTACKS_ABANDON = False
@@ -57,15 +58,15 @@ class AdvancedConfig:
     AGENT_ON_EXISTING = False
     TRANSFERS_TO_AGENTS = False
     
-    CARD_TYPE_BUFFS = {"adv+agents":{"agent_on_existing":{"buff_type":"new", "buff_val":True}}
-                        , "adv+attack":{"attack_success_prob":{"buff_type":"new", "buff_val":2.0/3.0}} 
-                        , "adv+bank":{"transfers_to_agents":{"buff_type":"new", "buff_val":True}}
-                        , "adv+damage":{"attacks_abandon":{"buff_type":"new", "buff_val":True}}
-                        , "adv+defence":{"defence_rounds":{"buff_type":"boost", "buff_val":1}}
-                        , "adv+downwind":{"max_downwind_moves":{"buff_type":"boost", "buff_val":1}}
-                        , "adv+upwind":{"max_upwind_moves":{"buff_type":"boost", "buff_val":1}
+    CARD_TYPE_BUFFS = {"+agents":{"agent_on_existing":{"buff_type":"new", "buff_val":True}}
+                        , "+attack":{"attack_success_prob":{"buff_type":"new", "buff_val":2.0/3.0}} 
+                        , "+bank":{"transfers_to_agents":{"buff_type":"new", "buff_val":True}}
+                        , "+damage":{"attacks_abandon":{"buff_type":"new", "buff_val":True}}
+                        , "+defence":{"defence_rounds":{"buff_type":"boost", "buff_val":1}}
+                        , "+downwind":{"max_downwind_moves":{"buff_type":"boost", "buff_val":1}}
+                        , "+upwind":{"max_upwind_moves":{"buff_type":"boost", "buff_val":1}
                                             ,"max_land_moves":{"buff_type":"boost", "buff_val":1}}
-                        , "adv+maps":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}}
+                        , "+maps":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}}
                         }
     CHARACTER_CARDS = ["adv+agents"
              , "adv+attack"
@@ -76,3 +77,13 @@ class AdvancedConfig:
              , "adv+upwind", "adv+upwind"
              , "adv+maps", "adv+maps"
              ]
+    
+    DISCOVERY_CARDS = ["dis+agents"
+             , "dis+attack"
+             , "dis+bank"
+             , "dis+damage"
+             , "dis+defence", "dis+defence"
+             , "dis+downwind", "dis+downwind", "dis+downwind", "dis+downwind"
+             , "dis+upwind", "dis+upwind", "dis+upwind", "dis+upwind"
+             , "dis+maps", "dis+maps", "dis+maps", "dis+maps"
+            ]

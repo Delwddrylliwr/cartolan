@@ -722,14 +722,26 @@ class GameVisualisation():
         print("Card stack corners defined at pixels...")
         print(self.stack_rect)
                 
-        #@TODO Cycle through the Discovery Cards, drawing them
-        
-        #Draw the Adventurer's Character Card
-        card_type = adventurer.character_card.card_type
-        card_image = self.get_card_image(adventurer, card_type)
+        #Cycle through the Discovery Cards, drawing them
         card_horizontal = 0
         card_vertical = card_stack_position
+        for card in adventurer.discovery_cards:
+            print("Drawing a card of type "+card.card_type)
+            card_type = card.card_type
+            card_image = self.get_card_image(adventurer, card_type)
+            self.window.blit(card_image, [card_horizontal, card_vertical])
+            card_vertical += self.CARD_HEADER_SHARE * card_image.get_height()
+        
+        #Draw the Adventurer's Character Card over the top
+        card_type = adventurer.character_card.card_type
+        card_image = self.get_card_image(adventurer, card_type)
+#        card_horizontal = 0
+#        card_vertical = card_stack_position
         self.window.blit(card_image, [card_horizontal, card_vertical])
+#        card_rect = (0, card_stack_position, self.play_area_start, stack_size)
+#        pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
+#                                 , self.menu_rect
+#                                 , self.chest_highlight_thickness)
         
         #@TODO draw the Adventurer's Player's Company Card
         

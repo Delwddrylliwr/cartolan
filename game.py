@@ -277,6 +277,7 @@ class GameRegular(GameBeginner):
         self.value_arrest = RegularConfig.VALUE_ARREST
         self.value_dispossess_agent = RegularConfig.VALUE_DISPOSSESS_AGENT
         self.cost_agent_restore = RegularConfig.COST_AGENT_RESTORE
+        self.cost_refresh_maps = RegularConfig.COST_REFRESH_MAPS
         
         self.attack_success_prob = RegularConfig.ATTACK_SUCCESS_PROB
         self.defence_rounds = RegularConfig.DEFENCE_ROUNDS
@@ -320,13 +321,15 @@ class GameAdvanced(GameRegular):
         #Get config variables to act as masters in case of modification
         self.card_type_buffs = AdvancedConfig.CARD_TYPE_BUFFS
         
-        self.attacks_abandon = AdvancedConfig.ATTACKS_ABANDON
+        self.cost_tech = AdvancedConfig.COST_TECH
         
+        self.attacks_abandon = AdvancedConfig.ATTACKS_ABANDON
         self.agent_on_existing = AdvancedConfig.AGENT_ON_EXISTING
         self.transfers_to_agents = AdvancedConfig.TRANSFERS_TO_AGENTS
         
         #Set up the decks of cards
         self.character_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.CHARACTER_CARDS] #a copy that can be modified independent of the config file
+        self.discovery_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.DISCOVERY_CARDS] #a copy that can be modified independent of the config file
         
         super().__init__(players, movement_rules='initial', exploration_rules='continuous')
     
