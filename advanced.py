@@ -12,7 +12,7 @@ class CardAdvanced():
     def __init__(self, game, card_type):
         self.game = game
         self.card_type = card_type
-        self.buffs = game.card_type_buffs[card_type]
+        self.buffs = game.card_type_buffs[card_type[3:]]
         
     def apply_buffs(self, token):
         '''Incorporates rule changes for the Adventurer/Agent that come from this cards
@@ -40,8 +40,9 @@ class CardAdvanced():
                 if self.buffs[buff_attr]["buff_type"] == "boost":
                     setattr(token, buff_attr, current_attr_val - self.buffs[buff_attr]["buff_val"])
                 elif self.buffs[buff_attr]["buff_type"] == "new":
-                    #@TODO if a buff has been doubled then it shouldn't be lost
+                    #@TODO if a buff has been doubled up then it shouldn't be lost
                     setattr(token, buff_attr, getattr(self.game, buff_attr))
+                    print(token.player.colour+" player's "+buff_attr+" now has value "+str(getattr(token, buff_attr, None)))
 
 class AdventurerAdvanced(AdventurerRegular):
     '''Extends to allow a set of map tiles to be carried by each Adventurer in their chest and placed instead of a random one
@@ -60,6 +61,9 @@ class AdventurerAdvanced(AdventurerRegular):
         self.character_card = character_cards.pop(random.randint(0, len(character_cards)-1))
         #Take on the changes to rules based on the Character card
         self.character_card.apply_buffs(self)
+        self.replenish_chest_tiles() #in case the buffs increased the chest tile allowance
+        #Prepare to hold Discovery cards too
+        self.discovery_cards = []
         #Take on the changes to rules based on the Company card
 #        self.company_card = self.game.company_cards[self.player]
 #        self.company_card.apply_buffs(self)
@@ -69,6 +73,7 @@ class AdventurerAdvanced(AdventurerRegular):
     def discover_card(self, card):
         '''Adds a Discovery card to the Adventurer, modifying rules according to the card's buffs
         '''
+        print(self.player.colour+" player's Adventurer has received the card of type "+card.card_type)
         self.discovery_cards.append(card)
         card.apply_buffs(self)
     
@@ -81,6 +86,13 @@ class AdventurerAdvanced(AdventurerRegular):
                 if random.random() > self.attack_success_prob:
                     return False
         if super().attack(token):
+            if isinstance(self.current_tile, CityTileRegular): #If on a city then there's no attacking
+                return True
+            #Steal Discovery cards
+            if isinstance(token, AdventurerAdvanced):
+                if len(token.discovery_cards) > 0:
+                    stolen_card = token.discovery_cards.pop(random.randint(0, len(token.discovery_cards)-1))
+                    self.discover_card(stolen_card)
             if self.attacks_abandon: #Adventurers will return to cities, Agents are removed
                 if isinstance(token, AdventurerRegular):
                     token.end_expedition()
@@ -111,7 +123,8 @@ class AdventurerAdvanced(AdventurerRegular):
         super().interact_tokens()
         if self.current_tile.adventurers:
             for adventurer in self.current_tile.adventurers:
-                if self.attacks_abandon and adventurer.wealth == 0:
+                if (self.attacks_abandon and adventurer.wealth == 0 
+                    and not self == adventurer):
                     if self.player.check_attack_adventurer(self, adventurer):
                         self.attack(adventurer)
     
@@ -135,7 +148,14 @@ class CityTileAdvanced(CityTileRegular):
     def visit_city(self, adventurer, abandoned=False):
        '''Extends to allow rule changes from cards
        '''
-       super().visit_city(adventurer, abandoned)
+       super().visit_city(adventurer, abandoned) 
+       #Offer the chance to upgrade the Adventurer with a Discovery card
+       if (adventurer.player.vault_wealth >= self.game.cost_tech
+           and adventurer.player.check_buy_tech(adventurer)):
+           adventurer.player.vault_wealth -= self.game.cost_tech
+           available_cards = self.game.discovery_cards
+           new_tech_card = available_cards.pop(random.randint(0, len(available_cards)-1))
+           adventurer.discover_card(new_tech_card)
 
 class CapitalTileAdvanced(CityTileAdvanced):
     def __init__(self, game, tile_back = "water"

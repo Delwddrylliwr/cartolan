@@ -209,14 +209,13 @@ class AdventurerRegular(AdventurerBeginner):
     def rechoose_chest_tiles(self):
         '''Checks whether the player will pay to replace all an Adventurer's chest tiles
         '''
-#        if self.player.check_rechoose_tiles():
-#            #Return current tiles to the bag / tile pile
-#            while self.chest_tiles:
-#                tile = self.chest_tiles.pop()
-#                relevant_pile = self.game.tile_piles[tile.tile_back]
-#                relevant_pile.append(tile)
-#            #Replenish the empty Chest Tiles
-#            self.replenish_chest_tiles()
+        #Return current tiles to the bag / tile pile
+        while self.chest_tiles:
+            tile = self.chest_tiles.pop()
+            relevant_pile = self.game.tile_piles[tile.tile_back]
+            relevant_pile.tiles.append(tile)
+        #Replenish the empty Chest Tiles
+        self.replenish_chest_tiles()
         
     def discover(self, tile):
         #check whether this is a discovered city and don't offer the usual
@@ -389,10 +388,14 @@ class CityTileRegular(CityTileBeginner):
         
         #Top up any missing chest tiles from the bags
         adventurer.replenish_chest_tiles()
-        #Offer the chance to pay and completely swap out chest tiles
-        adventurer.rechoose_chest_tiles()
         
         super().visit_city(adventurer, abandoned)
+        
+        #Offer the chance to pay and completely swap out chest tiles
+        if (adventurer.player.vault_wealth >= self.game.cost_refresh_maps 
+            and adventurer.player.check_buy_maps(adventurer)):
+            adventurer.player.vault_wealth -= self.game.cost_refresh_maps
+            adventurer.rechoose_chest_tiles()
                 
 
 class AgentRegular(AgentBeginner):
