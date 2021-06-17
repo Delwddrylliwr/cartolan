@@ -201,8 +201,10 @@ class PlayerBeginnerExplorer(Player):
         if random.random() < self.p_deviate:
             print(str(adventurer.player.colour)+ " is making a random movement, rather than following a heuristic")
             adventurer.move(random.choice(['n','e','s','w']))
-        #move towards a city while banking will put the player ahead, and explore otherwise
-        elif(adventurer.wealth > adventurer.game.wealth_difference):
+#        #move towards a city while banking will put the player ahead, and explore otherwise
+#        elif(adventurer.wealth > adventurer.game.wealth_difference):
+        #move towards a city while banking will increase earning potential
+        elif(adventurer.wealth > adventurer.game.cost_adventurer):
             self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
 #             self.explore_away_from_tile(adventurer, adventurer.latest_city)
@@ -236,7 +238,7 @@ class PlayerBeginnerExplorer(Player):
     
     #if offered always rest
     def check_rest(self, adventurer, agent):
-        if adventurer.wealth >= adventurer.game.COST_AGENT_REST:
+        if adventurer.wealth >= adventurer.game.cost_agent_rest:
             return True
         return False
     
@@ -253,7 +255,7 @@ class PlayerBeginnerExplorer(Player):
         if random.random() < 0.5:
             return False
         
-        if self.vault_wealth > adventurer.game.COST_ADVENTURER:
+        if self.vault_wealth > adventurer.game.cost_adventurer:
             #Check whether player has won compared to wealthiest opponent 
             wealthiest_opponent_wealth = 0
             #Check whether any opponent is in a position to win based just on their incoming wealth, if an Adventurer were hired
@@ -266,7 +268,7 @@ class PlayerBeginnerExplorer(Player):
                     for other_adventurer in adventurer.game.adventurers[player]:
                         player_chest_wealth += other_adventurer.wealth
                     if (player.vault_wealth + player_chest_wealth 
-                        > adventurer.game.GAME_WINNING_DIFFERENCE + self.vault_wealth - adventurer.game.COST_ADVENTURER):
+                        > adventurer.game.GAME_WINNING_DIFFERENCE + self.vault_wealth - adventurer.game.cost_adventurer):
                         opponent_near_win = True
             #Don't hire if player has won compared to wealthiest opponent 
             if self.vault_wealth > wealthiest_opponent_wealth + adventurer.game.GAME_WINNING_DIFFERENCE:
@@ -329,7 +331,9 @@ class PlayerBeginnerTrader(PlayerBeginnerExplorer):
             else:
                 self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
-            if adventurer.wealth <= adventurer.game.wealth_difference:
+#            if adventurer.wealth <= adventurer.game.wealth_difference:
+            if (adventurer.wealth <= adventurer.game.cost_adventurer 
+                and self.next_agent_num[adventurers.index(adventurer)] < len(agents) - 1):
                 self.move_towards_tile(adventurer, agents[self.next_agent_num[adventurers.index(adventurer)]].current_tile)
             else:
                 self.move_towards_tile(adventurer, adventurer.latest_city)
@@ -397,7 +401,8 @@ class PlayerBeginnerRouter(PlayerBeginnerTrader):
             adventurer.move(random.choice(['n','e','s','w']))
         #locate the next unvisited agent and move towards them, or if all agents have been visited either explore or return home
         elif self.next_agent_num[adventurers.index(adventurer)] >= len(agents):
-            if (adventurer.wealth <= adventurer.game.wealth_difference):
+#            if (adventurer.wealth <= adventurer.game.wealth_difference):
+            if (adventurer.wealth <= adventurer.game.cost_adventurer):
                 self.explore_best_space(adventurer)
 #                 self.explore_above_distance(adventurer, adventurer.latest_city, adventurer.game.CITY_DOMAIN_RADIUS)
             else:
@@ -470,7 +475,7 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
     def check_attack_adventurer(self, adventurer, other_adventurer):
         # if the adventurer has a pirate token and the wealth from an arrest exceeds the loss from piracy then stick around and fight
         if (other_adventurer.pirate_token and other_adventurer.player != self
-           and adventurer.wealth < adventurer.game.VALUE_ARREST):
+           and adventurer.wealth < adventurer.game.value_arrest):
             return True
         return False
     
@@ -482,7 +487,7 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
         return default
     
     def check_restore_agent(self, adventurer, agent):
-        if agent.player == adventurer.player and adventurer.wealth >= adventurer.game.COST_AGENT_RESTORE:
+        if agent.player == adventurer.player and adventurer.wealth >= adventurer.game.cost_agent_restore:
             return True
         return False
     
@@ -535,7 +540,8 @@ class PlayerRegularPirate(PlayerRegularExplorer):
         if random.random() < self.p_deviate:
             adventurer.move(random.choice(['n','e','s','w']))
         #move towards the capital while banking will put the player ahead, and chase the next big score otherwise
-        elif(adventurer.wealth > adventurer.game.wealth_difference):
+#        elif(adventurer.wealth > adventurer.game.wealth_difference):
+        elif(adventurer.wealth > adventurer.game.cost_adventurer):
             self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
             # if there is an adventurer on the same tile then attack them

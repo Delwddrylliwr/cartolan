@@ -43,8 +43,9 @@ class GameVisualisation():
     WONDER_TEXT_COLOUR = (0,0,0)
     CHEST_HIGHLIGHT_COLOUR = (0, 255, 0)
     TILE_BORDER = 0.02 #the share of grid width/height that is used for border
-    CHEST_SCALE = 0.075
-    CHEST_TILE_COLS = 1
+    CARD_HEADER_SHARE = 1.0 / 11.0 # the share of card images that is the header, visually summarising the buffs of the card with colour and a logo
+    CHEST_SCALE = 0.1
+    CHEST_TILE_COLS = 2
     DISCARD_SCALE = 0.075
     ROUTE_THICKNESS = 4.0
     TOKEN_SCALE = 0.2 #relative to tile sizes
@@ -59,6 +60,7 @@ class GameVisualisation():
     PROMPT_FONT_SCALE = 0.05 #relative to window size
     
     GENERAL_TILE_PATH = './images/'
+    CARDS_PATH = './images/cards/'
     SPECIAL_TILE_PATHS = {"water_disaster":'./images/water_disaster.png'
                      , "land_disaster":'./images/land_disaster.png'
                      , "capital":'./images/capital.png'
@@ -87,7 +89,16 @@ class GameVisualisation():
         self.highlights = {"move":[], "abandon":[], "rest":[], "invalid":[], "buy":[], "attack":[]}
         self.current_move_count = None
         self.menu_rect = (0, 0, 0, 0)
-        
+        if isinstance(self.game, GameAdvanced):
+            self.held_cards = {} #Keep track of card images assigned to each adventurer/player
+            self.drawn_cards = {} #Keep track of which have been drawn already
+            for player in self.players:
+                #Allow cards to be held against players and adventurers separately
+                self.held_cards[player] = {}
+                self.drawn_cards[player] = {}
+                for adventurer in self.game.adventurers[player]:
+                    self.held_cards[adventurer] = {}
+                    self.drawn_cards[adventurer] = {}
         self.init_GUI()
         
     def init_GUI(self):
@@ -119,7 +130,8 @@ class GameVisualisation():
         self.token_font = pygame.font.SysFont(None, round(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
         self.scores_font = pygame.font.SysFont(None, round(self.height * self.SCORES_FONT_SCALE)) #the font size for scores will be proportionate to the window size
         self.prompt_font = pygame.font.SysFont(None, round(self.height * self.PROMPT_FONT_SCALE)) #the font size for prompt will be proportionate to the window size
-        self.prompt_position = [self.PROMPT_POSITION[0]*self.width, self.PROMPT_POSITION[1]*self.height]
+        self.prompt_position = [self.play_area_start + self.PROMPT_POSITION[0]*self.width
+                                , self.PROMPT_POSITION[1]*self.height]
         pygame.font.init()
         self.prompt_text = ""
         #Import images
@@ -212,6 +224,26 @@ class GameVisualisation():
         for tile_name in self.tile_image_library:
             tile_image = self.tile_image_library[tile_name]
             self.discard_tile_library[tile_name] = pygame.transform.scale(tile_image, [self.discard_tile_size, self.discard_tile_size])
+        #import the cards that will award various rule buffs
+        if isinstance(self.game, GameAdvanced):
+            self.card_image_library = {}
+            self.used_card_images = {} #just in case the images available don't provide enough unique versions of each card type
+            card_image_names = [filename for filename in os.listdir(self.CARDS_PATH) if ".png" in filename]
+            card_image_names.sort() #Ensure it's deterministic which specific cards are assigned to each adventurer, so that this is consistent with the game's other visuals
+            for card_image_name in card_image_names:
+                card_type = card_image_name.split("_")[0] #assumes that the card type will be the image filename will start with the type as recognised by the game
+                card_image = pygame.image.load(self.CARDS_PATH +card_image_name)
+                #Resize the card image to fit in the menu
+                new_width = self.play_area_start
+                new_height = int(card_image.get_height() * new_width / card_image.get_width())
+                self.card_height = new_height
+                card_type_set = self.card_image_library.get(card_type)
+                if card_type_set is None:
+                    self.card_image_library[card_type] = [pygame.transform.scale(card_image, [new_width, new_height])]
+                    #just in case the images available don't provide enough unique versions of each card type for what the game allocates
+                    self.used_card_images[card_type] = []
+                else:
+                    card_type_set.append(pygame.transform.scale(card_image, [new_width, new_height]))
         #adjust the size of the imported images to fit the display size
         self.rescale_graphics()
 
@@ -239,7 +271,7 @@ class GameVisualisation():
         print("Updated tile size to be " +str(self.tile_size)+ " pixels, and with border: " +str(bordered_tile_size))
         self.rescale_images(self.tile_image_library, bordered_tile_size)
         self.rescale_images(self.highlight_library, self.tile_size)
-        self.rescale_images(self.chest_tile_library, self.chest_tile_size)
+#        self.rescale_images(self.chest_tile_library, self.chest_tile_size)
     
     def increase_max_longitude(self):
         '''Deprecated to allow legacy PlayerHuman interaction'''
@@ -273,14 +305,6 @@ class GameVisualisation():
                     min_latitude = latitude
                 elif latitude > max_latitude:
                     max_latitude = latitude
-        #@TODO introduce a check for changes needed, rather than always recalculating dimensions
-#        if (self.dimensions[0] >= max_longitude - min_longitude + 1 + 2*self.DIMENSION_BUFFER
-#            and self.origin[0] 
-#            and self.dimensions[1] >= max_latitude - min_latitude + 1 + 2*self.DIMENSION_BUFFER
-#            and ):
-#            #No reason to change anything 
-#            #@TODO may still need to update the origin
-#            return False
         self.dimensions[0] = max_longitude - min_longitude + 1 + 2*self.DIMENSION_BUFFER
         self.dimensions[1] = max_latitude - min_latitude + 1 + 2*self.DIMENSION_BUFFER
         #Check whether the current dimensions are too great for the display size
@@ -325,7 +349,8 @@ class GameVisualisation():
         #Now update text sizes too
         self.scores_font = pygame.font.SysFont(None, round(self.height * self.SCORES_FONT_SCALE)) #the font size for scores will be proportionate to the window size
         self.prompt_font = pygame.font.SysFont(None, round(self.height * self.PROMPT_FONT_SCALE)) #the font size for prompt will be proportionate to the window size
-        self.prompt_position = [self.PROMPT_POSITION[0]*self.width, self.PROMPT_POSITION[1]*self.height]
+        self.prompt_position = [self.play_area_start + self.PROMPT_POSITION[0]*self.width
+                                , self.PROMPT_POSITION[1]*self.height]
         pygame.font.init()
         self.draw_play_area()
         self.draw_move_options()
@@ -409,7 +434,7 @@ class GameVisualisation():
     
     #@TODO highlight the particular token(s) that an action relates to
     #display the number of moves since resting
-    def draw_move_options(self, moves_since_rest=None, highlight_coords={}):
+    def draw_move_options(self, moves_since_rest=None, highlight_coords={}, max_moves=None):
         '''Outlines tiles where moves or actions are possible, designated by colour
         
         Arguments:
@@ -441,7 +466,7 @@ class GameVisualisation():
         #Report the number of moves that have been used so far:
         #report the number of tiles in each bag in the same part of the display
         if moves_since_rest:
-            move_count = self.scores_font.render(str(moves_since_rest)+" moves since rest", 1, self.PLAIN_TEXT_COLOUR)
+            move_count = self.scores_font.render(str(moves_since_rest)+" of "+str(max_moves)+" moves since rest", 1, self.PLAIN_TEXT_COLOUR)
             displacement = len(self.game.tile_piles) * self.SCORES_FONT_SCALE * self.height
             move_count_position = [self.MOVE_COUNT_POSITION[0] * self.width, self.MOVE_COUNT_POSITION[1] * self.height + displacement]
             self.window.blit(move_count, move_count_position)
@@ -631,7 +656,7 @@ class GameVisualisation():
             self.window.blit(tile_count, tile_count_position)
             displacement += self.SCORES_FONT_SCALE * self.height
     
-    def draw_chest_tiles(self, chest_tiles, preferred_tile_num):
+    def draw_chest_tiles(self, chest_tiles, preferred_tile_num, max_chest_tiles):
         '''Visualises a set of tiles in the Adventurer's Chest, and highlights one if it is selected for use
         
         Arguments:
@@ -643,11 +668,12 @@ class GameVisualisation():
         chest_title = self.scores_font.render("Chest maps:", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(chest_title, (0, chest_menu_position))
         #Draw a box to surround the Chest menu, and remember its coordinates for player input
+        #@TODO allow the Chest tiles menu to vary in size depending on Adventurer
         chest_menu_position += self.SCORES_FONT_SCALE * self.height
-        menu_size = self.chest_tile_size * (len(chest_tiles) // self.CHEST_TILE_COLS)
+        menu_size = self.chest_tile_size * math.ceil(max_chest_tiles / self.CHEST_TILE_COLS)
         self.menu_rect = (0, chest_menu_position, self.play_area_start, menu_size)
-        print("Chest map menu corners defined at pixels...")
-        print(self.menu_rect)
+#        print("Chest map menu corners defined at pixels...")
+#        print(self.menu_rect)
         pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
                                  , self.menu_rect
                                  , self.chest_highlight_thickness)
@@ -676,6 +702,87 @@ class GameVisualisation():
                 pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
                                  , (chest_horizontal, chest_vertical, self.chest_tile_size, self.chest_tile_size)
                                  , self.chest_highlight_thickness)
+    
+    def draw_cards(self, adventurer):
+        '''Adds images of the current Adventurer's character and discovery cards to the menu below their Chest
+        
+        Arguments:
+        Adventurer takes a Cartolan Adventurer
+        '''
+        #Establish the top left coordinate of the stack of cards
+#        card_stack_position = self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1)  + self.chest_tile_size * (self.game.num_chest_tiles // self.CHEST_TILE_COLS)
+        card_stack_position = self.menu_rect[1] + self.menu_rect[3]
+        card_title = self.scores_font.render("Adventurer cards:", 1, self.PLAIN_TEXT_COLOUR)
+        self.window.blit(card_title, (0, card_stack_position))
+        #Draw a box to surround the Chest menu, and remember its coordinates for player input
+        card_stack_position += self.SCORES_FONT_SCALE * self.height
+#        stack_size = self.card_height * (1 + self.CARD_HEADER_SHARE * len(adventurer.character_cards))
+        stack_size = self.card_height
+        self.stack_rect = (0, card_stack_position, self.play_area_start, stack_size)
+        print("Card stack corners defined at pixels...")
+        print(self.stack_rect)
+                
+        #@TODO Cycle through the Discovery Cards, drawing them
+        
+        #Draw the Adventurer's Character Card
+        card_type = adventurer.character_card.card_type
+        card_image = self.get_card_image(adventurer, card_type)
+        card_horizontal = 0
+        card_vertical = card_stack_position
+        self.window.blit(card_image, [card_horizontal, card_vertical])
+        
+        #@TODO draw the Adventurer's Player's Company Card
+        
+        #Return any drawn card images to their holder for next time
+        self.restore_card_images(adventurer)
+#        self.restore_card_images(player)
+        
+    
+    def get_card_image(self, card_holder, card_type):
+        '''Draws a Character or Discovery card
+        '''
+        #To save reallocating cards to all on each visualisation, keep track of how they have been allocated
+        holders_cards = self.held_cards.get(card_holder)
+        if holders_cards is None: #If this Adventurer has only just appeared in the game then start assigning cards
+            self.held_cards[card_holder] = {}
+            holders_cards = self.held_cards[card_holder] 
+        holders_drawn = self.drawn_cards.get(card_holder)
+        if holders_drawn is None:
+            self.drawn_cards[card_holder] = {}
+            holders_drawn = self.drawn_cards[card_holder]
+        if holders_cards.get(card_type) is None:
+            holders_cards[card_type] = [] #This will be needed in future but won't have anything in it until returned from the drawn pile
+            #choose a card image from those of this type and remember it for this player
+            available_cards = self.card_image_library[card_type]
+            if not available_cards: #if all the card images have been used then recycle
+                self.card_image_library[card_type] = self.used_card_images[card_type]
+                available_cards = self.card_image_library[card_type]
+                self.used_card_images[card_type] = []
+            card_image = available_cards.pop()
+            self.used_card_images[card_type].append(card_image)
+        else:
+            #recover the previously assigned card_image
+            card_image = holders_cards[card_type].pop()
+        #if there are multiple discovery cards of the same type, then each image must be used only once, probably by cycling them to another list
+        already_drawn_cards = holders_drawn.get(card_type)
+        if already_drawn_cards is None: #If this Adventurer hasn't previously appeared
+            holders_drawn[card_type] = []
+            already_drawn_cards = holders_drawn[card_type]
+        already_drawn_cards.append(card_image)
+        return card_image
+    
+    def restore_card_images(self, card_holder):
+        '''After keeping track of which card images have been used for a particular player/adventurer, make them available for drawing again
+        '''
+        holders_undrawn_cards = self.held_cards.get(card_holder)
+        already_drawn_cards = self.drawn_cards.get(card_holder)
+        if not holders_undrawn_cards or not already_drawn_cards:
+            return False
+        for card_type in already_drawn_cards:
+            drawn_card_images = already_drawn_cards[card_type]
+            #Put each card image back in the list available to draw
+            while drawn_card_images:
+                holders_undrawn_cards[card_type].append(drawn_card_images.pop())
     
     def draw_prompt(self):
         '''Prints a prompt on what moves/actions are available to the current player
@@ -741,7 +848,9 @@ class GameVisualisation():
                 #check whether the click was within the menu, and return the index within the chest
                 if (event.pos[0] in range(self.menu_rect[0], self.menu_rect[2])
                     and event.pos[1] in range(self.menu_rect[1], self.menu_rect[3])):
-                    return (event.pos[1] - self.menu_rect[1]) // self.chest_tile_size
+                    menu_row = (event.pos[1] - self.menu_rect[1]) // self.chest_tile_size
+                    menu_column = (event.pos[0] - self.menu_rect[0]) // self.chest_tile_size
+                    return self.CHEST_TILE_COLS * menu_row + menu_column
                 #Otherwise return the coordinates
                 longitude = int(math.ceil((event.pos[0])/self.tile_size)) - self.origin[0] - 1
                 latitude = self.dimensions[1] - int(math.ceil((event.pos[1])/self.tile_size)) - self.origin[1]
@@ -1502,7 +1611,7 @@ class WebServerVisualisation(GameVisualisation):
         print("Initialising visual scale variables, to fit window of size "+str(self.width)+"x"+str(self.height))
         self.tile_size = self.height // self.dimensions[1]
         #Before sizing against the horizontal dimension, we'll work out how much space the menus will take away
-        if isinstance(self.game, GameAdvanced):
+        if isinstance(self.game, GameRegular):
             self.play_area_width = round(self.width * (1 - self.CHEST_SCALE - self.DISCARD_SCALE))
             self.play_area_start = round(self.width * self.CHEST_SCALE)
         else:
@@ -1518,7 +1627,8 @@ class WebServerVisualisation(GameVisualisation):
         self.token_font = pygame.font.SysFont(None, round(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
         self.scores_font = pygame.font.SysFont(None, round(self.height * self.SCORES_FONT_SCALE)) #the font size for scores will be proportionate to the window size
         self.prompt_font = pygame.font.SysFont(None, round(self.height * self.PROMPT_FONT_SCALE)) #the font size for prompt will be proportionate to the window size
-        self.prompt_position = [self.PROMPT_POSITION[0]*self.width, self.PROMPT_POSITION[1]*self.height]
+        self.prompt_position = [self.play_area_start + self.PROMPT_POSITION[0]*self.width
+                                , self.PROMPT_POSITION[1]*self.height]
         pygame.font.init()
         self.prompt_text = ""
         #Import images
@@ -1603,7 +1713,9 @@ class WebServerVisualisation(GameVisualisation):
                     and vertical in range(int(self.menu_rect[1])
                         , int(self.menu_rect[1]) + int(self.menu_rect[3]))):
                     print("Player chose coordinates within the menu")
-                    return (vertical - int(self.menu_rect[1])) // self.chest_tile_size
+                    menu_row = (vertical - int(self.menu_rect[1])) // self.chest_tile_size
+                    menu_column = (horizontal - int(self.menu_rect[0])) // self.chest_tile_size
+                    return self.CHEST_TILE_COLS * menu_row + menu_column
                 #Otherwise return the coordinates
                 longitude = int(math.ceil((horizontal - self.play_area_start)/self.tile_size)) - self.origin[0] - 1
                 latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]

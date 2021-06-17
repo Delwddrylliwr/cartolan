@@ -2,6 +2,7 @@
 Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
+import random
 from base import Token, Adventurer, Agent, Tile, WindDirection, TileEdges, CityTile
 from beginner import AdventurerBeginner, AgentBeginner, CityTileBeginner
 
@@ -24,16 +25,31 @@ class AdventurerRegular(AdventurerBeginner):
         super().__init__(game, player, starting_city)
         self.pirate_token = False
         
-        #Unburdened movement is deprecated in Regular mode, see Advanced mode below
+        #Mirror that game variables, mostly for Advanced mode to modify them
+        self.attack_success_prob = game.attack_success_prob
+        self.value_arrest = game.value_arrest
+        self.value_dispossess_agent = game.value_dispossess_agent
+        self.cost_agent_restore = game.cost_agent_restore
+        self.num_chest_tiles = game.num_chest_tiles
+        
+        #Unburdened movement is deprecated
         self.max_upwind_moves_unburdened = self.max_upwind_moves
         self.max_land_moves_unburdened = self.max_land_moves
         
         #Record some additional instructions
         self.attacked = 0
         self.restored = False
+        
+        #Draw some tiles randomly to the Adventurer's Chest
+        self.chest_tiles = []
+        self.choose_random_tiles(self.num_chest_tiles)
+        #Keep track of which of these should be tried for movement
+        self.preferred_tile_num = None
+    
     
     def choose_pile(self, compass_point):
-        # establish which pile to draw from, based on the edge being moved over from the preceding tile
+        '''establish which pile to draw from, based on the edge being moved over from the preceding tile
+        '''
         if self.current_tile.compass_edge_water(compass_point):
             tile_pile = self.game.tile_piles["water"]
             print("Identified the " +tile_pile.tile_back+ " tile pile, which still has " +str(len(tile_pile.tiles)) +" tiles")
@@ -44,7 +60,8 @@ class AdventurerRegular(AdventurerBeginner):
             return tile_pile
     
     def choose_discard_pile(self, compass_point):
-        # establish which pile to draw from, based on the edge being moved over from the preceding tile
+        ''' establish which pile to draw from, based on the edge being moved over from the preceding tile
+        '''
         if self.current_tile.compass_edge_water(compass_point):
             discard_pile = self.game.discard_piles["water"]
             print("Identified the " +discard_pile.tile_back+ " discard pile, which still has " +str(len(discard_pile.tiles)) +" tiles")
@@ -53,10 +70,21 @@ class AdventurerRegular(AdventurerBeginner):
             discard_pile = self.game.discard_piles["land"]
             print("Identified the " +discard_pile.tile_back+ " discard pile, which still has " +str(len(discard_pile.tiles)) +" tiles")
             return discard_pile
+    
+    def choose_random_tiles(self, num_tiles):
+        '''For a given number of tiles, select randomly from across the bags / tile_piles
+        '''
+        for tile_num in range(num_tiles):
+            #Randomly select a tile pile to draw from
+            tile_pile = self.game.tile_piles[random.choice(list(self.game.tile_piles.keys()))]
+            #Randomly choose a tile from the bag / pile and add it to their Chest
+            chosen_tile = tile_pile.tiles.pop(random.randint(0, len(tile_pile.tiles)-1))
+            self.chest_tiles.append(chosen_tile)
             
     # Whether movement is possible is handled much like the Beginner mode, except that carrying no wealth increases upwind and land moves, and a dice roll can allow upwind movement
     def can_move(self, compass_point): 
-        #Before checking any further, make sure that the total possible moves havne't been used
+        '''Before checking any further, make sure that the total possible moves havne't been used
+        '''
         if self.downwind_moves + self.land_moves + self.upwind_moves >= self.max_downwind_moves:
             return False
         
@@ -143,6 +171,53 @@ class AdventurerRegular(AdventurerBeginner):
                 else: return False
         else: raise Exception("Invalid movement rules specified")
     
+    def move(self, compass_point):
+        '''Extends Beginnner movement to rotate Chest tiles after movement (for more comfortable visualisation)
+        '''
+        moved = super().move(compass_point)
+        if moved:
+            for chest_tile in self.chest_tiles:
+                while not (chest_tile.wind_direction.north == self.current_tile.wind_direction.north and 
+                           chest_tile.wind_direction.east == self.current_tile.wind_direction.east):
+                    chest_tile.rotate_tile_clock()
+        return moved
+    
+    def explore(self, tile_pile, discard_pile, longitude, latitude, compass_point_moving):
+        '''Extends exploration to allow tiles to be used from the Adventurer's Chest
+        '''
+        #check if there is a chest tile selected and try to place this
+        if isinstance(self.preferred_tile_num, int):
+            preferred_tile = self.chest_tiles[self.preferred_tile_num]
+            #establish what edges adjoin the given space
+            adjoining_edges_water = self.get_adjoining_edges(longitude, latitude)
+            #try to place the tile
+            if self.rotate_and_place(preferred_tile, longitude, latitude, compass_point_moving, adjoining_edges_water):
+                self.chest_tiles.pop(self.preferred_tile_num)
+                self.preferred_tile_num = None
+                return True          
+        #If there was no tile selected or this wouldn't fit, then explore normally, drawing a random tile
+        return super().explore(tile_pile, discard_pile, longitude, latitude, compass_point_moving)
+        
+    def replenish_chest_tiles(self):
+        '''If this Adventurer has fewer chest tiles than the max, then draw more
+        '''
+        #Count how many tiles they are short of the max chest tiles
+        num_tiles_to_choose = self.num_chest_tiles - len(self.chest_tiles)
+        #Add this many extra tiles to their chest
+        self.choose_random_tiles(num_tiles_to_choose)
+    
+    def rechoose_chest_tiles(self):
+        '''Checks whether the player will pay to replace all an Adventurer's chest tiles
+        '''
+#        if self.player.check_rechoose_tiles():
+#            #Return current tiles to the bag / tile pile
+#            while self.chest_tiles:
+#                tile = self.chest_tiles.pop()
+#                relevant_pile = self.game.tile_piles[tile.tile_back]
+#                relevant_pile.append(tile)
+#            #Replenish the empty Chest Tiles
+#            self.replenish_chest_tiles()
+        
     def discover(self, tile):
         #check whether this is a discovered city and don't offer the usual
         if isinstance(self.current_tile, CityTile):
@@ -163,7 +238,7 @@ class AdventurerRegular(AdventurerBeginner):
                             self.collect_wealth()
                     if self.player.check_rest(self, agent):
                         self.rest()
-                if agent.player != self.player and agent.wealth + self.game.VALUE_DISPOSSESS_AGENT > 0:
+                if agent.player != self.player and agent.wealth + self.value_dispossess_agent > 0:
                     if not self.pirate_token:
                         if self.player.check_rest(self, agent):
                             self.rest()
@@ -211,7 +286,7 @@ class AdventurerRegular(AdventurerBeginner):
         
         success = False
         # have opponent roll for defence, roll for attack, compare rolls
-        if random.random() < self.game.ATTACK_SUCCESS_PROB:
+        if random.random() < self.attack_success_prob:
             success = True
         
         # resolve conflict
@@ -222,14 +297,8 @@ class AdventurerRegular(AdventurerBeginner):
             if adventurer.pirate_token:
                 # arrest them
                 if success:
-#                    self.pirate_token = False # lose own pirate status for conducting arrest
-                    adventurer.wealth = 0
-#                     self.player.vault_wealth += self.game.VALUE_ARREST # get a reward straight to the Vault
-                    self.wealth += self.game.VALUE_ARREST # get a reward
-                    adventurer.current_tile.move_off_tile(adventurer)
-                    adventurer.latest_city.move_onto_tile(adventurer) # send them back to their last city
-                    adventurer.pirate_token = False # remove their pirate token
-                    adventurer.wonders_visited = [] #reset the list of wonders that they've already stocked goods from
+                    self.wealth += self.value_arrest # get a reward
+                    adventurer.end_expedition()
             else: # rob them
                 self.pirate_token = True #just trying will make them a pirate
                 if success:
@@ -244,7 +313,7 @@ class AdventurerRegular(AdventurerBeginner):
                 self.pirate_token = True #just trying will make them a pirate
                 if success:
                     agent = token
-                    self.wealth += agent.wealth + self.game.VALUE_DISPOSSESS_AGENT
+                    self.wealth += agent.wealth + self.value_dispossess_agent
                     agent.is_dispossessed = True
                     agent.wealth = 0;
         else: raise Exception("Not able to deal with this kind of token.")
@@ -252,8 +321,15 @@ class AdventurerRegular(AdventurerBeginner):
         self.player.attack_history.append([self.current_tile, success])
         return success
     
+    def end_expedition(self, city=None):
+        '''Extends to deal with piracy
+        '''
+        self.pirate_token = False
+        return super().end_expedition(city)
+    
     def check_tile_available(self, tile):
-        '''Extends the AdventurerBeginner method to keep track of whether existing Agents have been dispossessed when placing on a tile'''
+        '''Extends the AdventurerBeginner method to keep track of whether existing Agents have been dispossessed when placing on a tile
+        '''
         if self.pirate_token:
             return False
         elif isinstance(tile, CityTile):
@@ -273,12 +349,12 @@ class AdventurerRegular(AdventurerBeginner):
         self.restored = True
         
         if agent.is_dispossessed:
-            if self.game.COST_AGENT_RESTORE <= self.wealth:
-                print("Paying " +str(self.game.COST_AGENT_RESTORE)+ " to restore " 
+            if self.cost_agent_restore <= self.wealth:
+                print("Paying " +str(self.cost_agent_restore)+ " to restore " 
                       +agent.player.colour+"'s Agent at position " 
                       +str(agent.current_tile.tile_position.longitude)
                      +","+ str(agent.current_tile.tile_position.latitude))
-                self.wealth -= self.game.COST_AGENT_RESTORE
+                self.wealth -= self.cost_agent_restore
                 agent.is_dispossessed = False
                 #Make sure that the Adventurer can't use this Agent this turn
                 self.agents_rested.append(agent)
@@ -292,12 +368,20 @@ class AdventurerRegular(AdventurerBeginner):
 
         
 class CityTileRegular(CityTileBeginner):
-    '''Extends the CityTileBeginner class to redeem Adventurers from piracy'''
+    '''Extends the CityTileBeginner class to redeem Adventurers from piracy and to replenish Chest Tiles, and offer purchase of refreshed chest tiles
+    '''
     
     def visit_city(self, adventurer, abandoned=False):
+        '''Extends to redeem pirates, replenish Chest Tiles, and offer purchase of refreshed chest tiles
+        '''
         #Cities provide the Adventurer with civilised clothes so they can be redeemed from piracy
         if adventurer.pirate_token:
             adventurer.pirate_token = False
+        
+        #Top up any missing chest tiles from the bags
+        adventurer.replenish_chest_tiles()
+        #Offer the chance to pay and completely swap out chest tiles
+        adventurer.rechoose_chest_tiles()
         
         super().visit_city(adventurer, abandoned)
                 
@@ -310,9 +394,12 @@ class AgentRegular(AgentBeginner):
         self.is_dispossessed = False
         
     def give_rest(self, adventurer):
+        '''Takes into account whether Agents have been dispossessed, and replenishes chest tiles
+        '''
         if self.is_dispossessed:
             return False
         else:
+            adventurer.replenish_chest_tiles()
             super().give_rest(adventurer)
         
     def manage_trade(self, adventurer):
@@ -320,6 +407,12 @@ class AgentRegular(AgentBeginner):
             return False
         else:
             super().manage_trade(adventurer)
+            
+    def dismiss(self):
+        '''Takes this Agent off a tile fully and out of the game
+        '''
+        self.game.agents[self.player].remove(self)
+        self.current_tile.move_off_tile(self)
 
 class DisasterTile(Tile):
     '''***DEPRECATED*** Represents a Disaster Tile in the game Cartolan, which removes Adventurers' wealth and send them back to a city '''
@@ -361,7 +454,7 @@ class DisasterTile(Tile):
 #        import random
 #        
 #        # if the rolls are the same then the pirate gets helf the wealth
-#        if random.random() < self.game.ATTACK_SUCCESS_PROB:
+#        if random.random() < self.game.attack_success_prob:
 #            adventurer.wealth += self.dropped_wealth//2 + self.dropped_wealth%2
 #        else: # otherwise send the Adventurer to the capital and keep their wealth
 #            self.dropped_wealth += adventurer.wealth
