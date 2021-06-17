@@ -653,6 +653,7 @@ class AdventurerBeginner(Adventurer):
     def end_expedition(self, city=None):
         '''Prematurely returns an Adventurer to the last city they visited and empties their wealth.
         '''
+        print(self.player.colour+ " player's expedition has been ended and they've returned to a city")
         self.wealth = 0
         self.current_tile.move_off_tile(self)
         if isinstance(city, CityTile):

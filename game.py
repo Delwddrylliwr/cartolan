@@ -273,6 +273,7 @@ class GameRegular(GameBeginner):
         super().__init__(players, movement_rules, exploration_rules)
         #Inherit some instance constants from the config file
         self.value_discover_wonder = RegularConfig.VALUE_DISCOVER_WONDER
+        self.value_discover_city = RegularConfig.VALUE_DISCOVER_CITY
         self.value_arrest = RegularConfig.VALUE_ARREST
         self.value_dispossess_agent = RegularConfig.VALUE_DISPOSSESS_AGENT
         self.cost_agent_restore = RegularConfig.COST_AGENT_RESTORE

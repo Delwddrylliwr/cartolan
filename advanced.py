@@ -105,6 +105,16 @@ class AdventurerAdvanced(AdventurerRegular):
 #                self.place_agent()
 #                self.game.cost_agent_exploring = cost_exploring
     
+    def interact_tokens(self):
+        '''Extends regular to attack even poor Adventurers if the card is held that will send them home.
+        '''
+        super().interact_tokens()
+        if self.current_tile.adventurers:
+            for adventurer in self.current_tile.adventurers:
+                if self.attacks_abandon and adventurer.wealth == 0:
+                    if self.player.check_attack_adventurer(self, adventurer):
+                        self.attack(adventurer)
+    
     def transfer_funds(self):
         '''Offers the player the chance to move this Adventurer's trasure to any Agent.
         '''

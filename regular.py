@@ -222,6 +222,7 @@ class AdventurerRegular(AdventurerBeginner):
         #check whether this is a discovered city and don't offer the usual
         if isinstance(self.current_tile, CityTile):
             self.current_tile.is_discovered = True
+            self.wealth += self.game.value_discover_city
             self.current_tile.visit_city(self)
             return True
         else:
@@ -297,11 +298,13 @@ class AdventurerRegular(AdventurerBeginner):
             if adventurer.pirate_token:
                 # arrest them
                 if success:
+                    print(self.player.colour+" player successfully arrested "+token.player.colour+" player's Adventurer.")
                     self.wealth += self.value_arrest # get a reward
                     adventurer.end_expedition()
             else: # rob them
                 self.pirate_token = True #just trying will make them a pirate
                 if success:
+                    print(self.player.colour+" player successfully attacked "+token.player.colour+" player's Adventurer.")
                     default_steal = adventurer.wealth//2 + adventurer.wealth%2
                     chosen_steal = None
                     while not chosen_steal in range(0, adventurer.wealth + 1):
@@ -317,6 +320,7 @@ class AdventurerRegular(AdventurerBeginner):
             if not token.is_dispossessed:
                 self.pirate_token = True #just trying will make them a pirate
                 if success:
+                    print(self.player.colour+" player successfully attacked "+token.player.colour+" player's Agent.")
                     agent = token
                     self.wealth += agent.wealth + self.value_dispossess_agent
                     agent.is_dispossessed = True
