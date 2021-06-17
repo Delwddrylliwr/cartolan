@@ -338,7 +338,7 @@ class ClientSocket(WebSocket):
                 
                 #Inform all clients that the game has ended
                 win_message = self.game.winning_player.colour+" player won the game"
-                if self.game.wealth_difference >= self.game.GAME_WINNING_DIFFERENCE:
+                if self.game.wealth_difference >= self.game.game_winning_difference:
                     win_message += " by buying a global monopoly with their extra wealth"
                 else:
                     win_message += " as the richest when the world map was completed"

@@ -40,6 +40,7 @@ class RegularConfig:
     NUM_TILES = {"water":60, "land":40}
 
     VALUE_DISCOVER_WONDER = {"water":1, "land":1}
+    VALUE_DISCOVER_CITY = 5
     VALUE_ARREST = 3
     VALUE_DISPOSSESS_AGENT = 1
     COST_AGENT_RESTORE = 1
