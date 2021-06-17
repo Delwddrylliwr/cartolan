@@ -280,6 +280,9 @@ class GameRegular(GameBeginner):
         self.attack_success_prob = RegularConfig.ATTACK_SUCCESS_PROB
         self.defence_rounds = RegularConfig.DEFENCE_ROUNDS
         
+        #Chest tiles will now be carried
+        self.num_chest_tiles = AdvancedConfig.NUM_CHEST_TILES
+        
         # a land tile pile is now needed
         self.tile_piles["land"] = TilePile("land",[])
         self.discard_piles["land"] = TilePile("land",[])
@@ -314,7 +317,6 @@ class GameAdvanced(GameRegular):
     def __init__(self, players, movement_rules='initial', exploration_rules='continuous'):
         
         #Get config variables to act as masters in case of modification
-        self.num_chest_tiles = AdvancedConfig.NUM_CHEST_TILES
         self.card_type_buffs = AdvancedConfig.CARD_TYPE_BUFFS
         
         self.attacks_abandon = AdvancedConfig.ATTACKS_ABANDON

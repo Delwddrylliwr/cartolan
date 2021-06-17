@@ -1611,7 +1611,7 @@ class WebServerVisualisation(GameVisualisation):
         print("Initialising visual scale variables, to fit window of size "+str(self.width)+"x"+str(self.height))
         self.tile_size = self.height // self.dimensions[1]
         #Before sizing against the horizontal dimension, we'll work out how much space the menus will take away
-        if isinstance(self.game, GameAdvanced):
+        if isinstance(self.game, GameRegular):
             self.play_area_width = round(self.width * (1 - self.CHEST_SCALE - self.DISCARD_SCALE))
             self.play_area_start = round(self.width * self.CHEST_SCALE)
         else:

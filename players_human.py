@@ -4,6 +4,7 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 
 from base import Player, CityTile
 from game import GameRegular
+from regular import AdventurerRegular
 from advanced import AdventurerAdvanced
 
 class PlayerHuman(Player):
@@ -79,20 +80,22 @@ class PlayerHuman(Player):
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
         max_moves = adventurer.max_downwind_moves
         game_vis.draw_move_options(moves_since_rest, moves, max_moves)
-        if isinstance(adventurer, AdventurerAdvanced):
+        if isinstance(adventurer, AdventurerRegular):
             game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+        if isinstance(adventurer, AdventurerAdvanced):
             game_vis.draw_cards(adventurer)
         
         #Carry out the player's chosen move
         move_coords = game_vis.get_input_coords(adventurer)
         while move_coords not in moves["move"] and move_coords not in moves["abandon"]:
-            if isinstance(adventurer, AdventurerAdvanced):
+            if isinstance(adventurer, AdventurerRegular):
                 if isinstance(move_coords, int):
                     if adventurer.preferred_tile_num == move_coords:
                         adventurer.preferred_tile_num = None
                     elif move_coords < len(adventurer.chest_tiles):
                         adventurer.preferred_tile_num = move_coords
                     game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+                if isinstance(adventurer, AdventurerAdvanced):
                     game_vis.draw_cards(adventurer)
             move_coords = game_vis.get_input_coords(adventurer)
         if move_coords in moves["move"]:
