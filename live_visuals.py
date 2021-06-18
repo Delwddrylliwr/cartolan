@@ -1709,11 +1709,13 @@ class WebServerVisualisation(GameVisualisation):
                     game_vis.give_prompt(adventurer.player.colour+" player's is moving their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
                     moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
                     game_vis.draw_move_options(moves_since_rest)
-                    if isinstance(adventurer, AdventurerAdvanced):
+                    if isinstance(adventurer, AdventurerRegular):
                         chest_tiles = adventurer.chest_tiles
                         preferred_tile_num = adventurer.preferred_tile_num
                         num_chest_tiles = adventurer.num_chest_tiles
                         game_vis.draw_chest_tiles(chest_tiles, preferred_tile_num, num_chest_tiles)
+                    if isinstance(adventurer, AdventurerAdvanced):
+                        game_vis.draw_cards(adventurer)
                 game_vis.update_web_display()
         
         coords = None
