@@ -150,11 +150,21 @@ class CityTileAdvanced(CityTileRegular):
        '''
        super().visit_city(adventurer, abandoned) 
        #Offer the chance to upgrade the Adventurer with a Discovery card
-       if (adventurer.player.vault_wealth >= self.game.cost_tech
+       while (adventurer.player.vault_wealth >= self.game.cost_tech
            and adventurer.player.check_buy_tech(adventurer)):
            adventurer.player.vault_wealth -= self.game.cost_tech
            available_cards = self.game.discovery_cards
            new_tech_card = available_cards.pop(random.randint(0, len(available_cards)-1))
+           #Check whether this is a one off perk and then whether its a duplicate, returning it and drawing another if so
+           for buff_attr in new_tech_card.buffs:
+               if new_tech_card.buffs[buff_attr]["buff_type"] == "new":
+                   if buff_attr in adventurer.character_card.buffs:
+                       available_cards.append(new_tech_card)
+                       continue
+                   for existing_card in adventurer.discovery_cards:
+                       if buff_attr in existing_card.buffs:
+                           available_cards.append(new_tech_card)
+                           continue
            adventurer.discover_card(new_tech_card)
 
 class CapitalTileAdvanced(CityTileAdvanced):

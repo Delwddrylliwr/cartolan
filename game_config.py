@@ -38,7 +38,8 @@ class BeginnerConfig:
 
 class RegularConfig:
     NUM_TILES = {"water":60, "land":40}
-
+    
+    NUM_CHEST_TILES = 2
     VALUE_DISCOVER_WONDER = {"water":1, "land":1}
     VALUE_DISCOVER_CITY = 5
     VALUE_ARREST = 3
@@ -50,8 +51,7 @@ class RegularConfig:
     DEFENCE_ROUNDS = 1
     
 class AdvancedConfig:
-    COST_TECH = 5
-    NUM_CHEST_TILES = 2
+    COST_TECH = 3
     
     ATTACKS_ABANDON = False
     
@@ -63,7 +63,7 @@ class AdvancedConfig:
                         , "+bank":{"transfers_to_agents":{"buff_type":"new", "buff_val":True}}
                         , "+damage":{"attacks_abandon":{"buff_type":"new", "buff_val":True}}
                         , "+defence":{"defence_rounds":{"buff_type":"boost", "buff_val":1}}
-                        , "+downwind":{"max_downwind_moves":{"buff_type":"boost", "buff_val":1}}
+                        , "+downwind":{"max_downwind_moves":{"buff_type":"boost", "buff_val":2}}
                         , "+upwind":{"max_upwind_moves":{"buff_type":"boost", "buff_val":1}
                                             ,"max_land_moves":{"buff_type":"boost", "buff_val":1}}
                         , "+maps":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}}

@@ -168,11 +168,6 @@ class AdventurerBeginner(Adventurer):
                 self.rest()
     
     def interact_tile(self):
-        #check whether this is a city and remember the visit
-        if isinstance(self.current_tile, CityTile):
-            self.current_tile.visit_city(self)
-            return
-
         #check whether this is a wonder, and if the player wants to trade
         if self.current_tile.is_wonder:
             if self.player.check_trade(self, self.current_tile):
@@ -252,15 +247,18 @@ class AdventurerBeginner(Adventurer):
                     print("Exploration failed, but offering Adventurer available actions on original tile")
                     if not isinstance(self.current_tile, CityTile): 
                         self.interact_tile()
-                    self.interact_tokens()
+                        self.interact_tokens()
             else:
                 #place the Adventurer on the next existing Tile
                 self.current_tile.move_off_tile(self)
                 self.current_tile = self.game.play_area.get(new_longitude).get(new_latitude)
                 self.current_tile.move_onto_tile(self)
                 #carry out any actions that are possible given this tile or tokens on it
-                self.interact_tile()                
-                self.interact_tokens()
+                if isinstance(self.current_tile, CityTile):
+                    self.current_tile.visit_city(self, False)
+                else:
+                    self.interact_tile()
+                    self.interact_tokens()
                 moved = True
         
         #check whether any more moves will be possible
@@ -290,11 +288,14 @@ class AdventurerBeginner(Adventurer):
         
         #carry out any actions that are possible given this tile or tokens on it
         tile = self.current_tile
-        if tile.dropped_wealth > 0:
-            self.wealth += tile.dropped_wealth
-            tile.dropped_wealth = 0
-        self.interact_tile()
-        self.interact_tokens()
+        if isinstance(self.current_tile, CityTile):
+            self.tile.visit_city(self, False)
+        else:
+            if tile.dropped_wealth > 0:
+                self.wealth += tile.dropped_wealth
+                tile.dropped_wealth = 0
+            self.interact_tile()
+            self.interact_tokens()
         
         if not self.can_move(None):
             print("Adventurer determined that cannot move any more, so finishing turn")
