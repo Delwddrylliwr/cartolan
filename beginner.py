@@ -288,8 +288,8 @@ class AdventurerBeginner(Adventurer):
         
         #carry out any actions that are possible given this tile or tokens on it
         tile = self.current_tile
-        if isinstance(self.current_tile, CityTile):
-            self.tile.visit_city(self, False)
+        if isinstance(tile, CityTile):
+            tile.visit_city(self, False)
         else:
             if tile.dropped_wealth > 0:
                 self.wealth += tile.dropped_wealth
