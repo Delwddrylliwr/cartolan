@@ -283,7 +283,7 @@ class GameRegular(GameBeginner):
         self.defence_rounds = RegularConfig.DEFENCE_ROUNDS
         
         #Chest tiles will now be carried
-        self.num_chest_tiles = AdvancedConfig.NUM_CHEST_TILES
+        self.num_chest_tiles = RegularConfig.NUM_CHEST_TILES
         
         # a land tile pile is now needed
         self.tile_piles["land"] = TilePile("land",[])

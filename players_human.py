@@ -360,7 +360,7 @@ class PlayerHuman(Player):
             
             #highlight the city tile where an adventurer can be bought
             print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
-                  +" can learn a new discovery")
+                  +" can buy a new manuscript")
             moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
             max_moves = adventurer.max_downwind_moves
             game_vis.draw_move_options(moves_since_rest, moves, max_moves)
@@ -368,7 +368,7 @@ class PlayerHuman(Player):
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
 #            game_vis.clear_prompt()
-            game_vis.give_prompt("If you want your Adventurer to master a new discovery for " 
+            game_vis.give_prompt("If you want your Adventurer to buy a manuscript for " 
                                  +str(adventurer.game.cost_tech)
                                  +" then click the City, otherwise click elsewhere.")
             

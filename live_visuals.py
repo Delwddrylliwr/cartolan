@@ -43,7 +43,7 @@ class GameVisualisation():
     WONDER_TEXT_COLOUR = (0,0,0)
     CHEST_HIGHLIGHT_COLOUR = (0, 255, 0)
     TILE_BORDER = 0.02 #the share of grid width/height that is used for border
-    CARD_HEADER_SHARE = 1.0 / 11.0 # the share of card images that is the header, visually summarising the buffs of the card with colour and a logo
+    CARD_HEADER_SHARE = 0.15 # the share of card images that is the header, visually summarising the buffs of the card with colour and a logo
     CHEST_SCALE = 0.13
     CHEST_TILE_COLS = 2
     DISCARD_SCALE = 0.075
@@ -764,6 +764,7 @@ class GameVisualisation():
             holders_drawn = self.drawn_cards[card_holder]
         if holders_cards.get(card_type) is None:
             holders_cards[card_type] = [] #This will be needed in future but won't have anything in it until returned from the drawn pile
+        if len(holders_cards[card_type]) == 0:
             #choose a card image from those of this type and remember it for this player
             available_cards = self.card_image_library[card_type]
             if not available_cards: #if all the card images have been used then recycle
