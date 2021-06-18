@@ -1712,7 +1712,8 @@ class WebServerVisualisation(GameVisualisation):
                     if isinstance(adventurer, AdventurerAdvanced):
                         chest_tiles = adventurer.chest_tiles
                         preferred_tile_num = adventurer.preferred_tile_num
-                        game_vis.draw_chest_tiles(chest_tiles, preferred_tile_num)
+                        num_chest_tiles = adventurer.num_chest_tiles
+                        game_vis.draw_chest_tiles(chest_tiles, preferred_tile_num, num_chest_tiles)
                 game_vis.update_web_display()
         
         coords = None
