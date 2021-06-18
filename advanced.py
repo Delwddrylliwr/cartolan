@@ -154,17 +154,22 @@ class CityTileAdvanced(CityTileRegular):
            and adventurer.player.check_buy_tech(adventurer)):
            adventurer.player.vault_wealth -= self.game.cost_tech
            available_cards = self.game.discovery_cards
-           new_tech_card = available_cards.pop(random.randint(0, len(available_cards)-1))
-           #Check whether this is a one off perk and then whether its a duplicate, returning it and drawing another if so
-           for buff_attr in new_tech_card.buffs:
-               if new_tech_card.buffs[buff_attr]["buff_type"] == "new":
-                   if "adv"+buff_attr[3:] in adventurer.character_card.buffs:
-                       available_cards.append(new_tech_card)
-                       continue
-                   for existing_card in adventurer.discovery_cards:
-                       if buff_attr in existing_card.buffs:
+           card_selected = False
+           while not card_selected:
+               new_tech_card = available_cards.pop(random.randint(0, len(available_cards)-1))
+               card_selected = True
+               #Check whether this is a one off perk and then whether its a duplicate, returning it and drawing another if so
+               for buff_attr in new_tech_card.buffs:
+                   if new_tech_card.buffs[buff_attr]["buff_type"] == "new":
+                       if buff_attr in adventurer.character_card.buffs:
                            available_cards.append(new_tech_card)
-                           continue
+                           card_selected = False
+                           break
+                       for existing_card in adventurer.discovery_cards:
+                           if buff_attr in existing_card.buffs:
+                               available_cards.append(new_tech_card)
+                               card_selected = False
+                               break
            adventurer.discover_card(new_tech_card)
 
 class CapitalTileAdvanced(CityTileAdvanced):
