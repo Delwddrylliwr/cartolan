@@ -62,21 +62,21 @@ class AdventurerBeginner(Adventurer):
         self.moved_agent = None #@TODO this variable may need to store different information
     
     
+    def has_remaining_moves(self):
+        '''Checks whether there are moves left for the Adventurer, regardless of whether there are direction they can move
+        '''
+        return not self.downwind_moves + self.land_moves + self.upwind_moves >= self.max_downwind_moves
+
     def can_move(self, compass_point):
         '''confirm whether the Adventurer can move in a given cardinal compass direction
         
         key arguments:
         String word or letter cardinal compass direction
         '''
-        #Check whether rest is possible and otherwise give an extra opportunity to retreat
         if compass_point is None:
-            if ((self.downwind_moves + self.land_moves + self.upwind_moves < self.max_upwind_moves + 1
-                or self.downwind_moves + self.land_moves + self.upwind_moves < self.max_land_moves + 1)
-                and self.downwind_moves + self.land_moves + self.upwind_moves < self.max_downwind_moves):
-                return True #give an estra opportunity to retreat
-                if self.current_tile.agent:
-                    if self.current_tile.agent not in self.agents_rested:
-                        return True
+            #Check whether there are moves left for the Adventurer, regardless of whether there are direction they can move
+            if not self.has_remaining_moves():
+               return False
         
         # check that instruction is valid: a direction provided or an explicit general check through a None
         if compass_point is None:
