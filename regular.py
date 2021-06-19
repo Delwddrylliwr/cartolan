@@ -85,7 +85,7 @@ class AdventurerRegular(AdventurerBeginner):
     def can_move(self, compass_point): 
         '''Before checking any further, make sure that the total possible moves havne't been used
         '''
-        if self.downwind_moves + self.land_moves + self.upwind_moves >= self.max_downwind_moves:
+        if not self.has_remaining_moves:
             return False
         
         #Check whether attack is possible
@@ -245,8 +245,10 @@ class AdventurerRegular(AdventurerBeginner):
                     if self.player.check_attack_agent(self, agent):
                         self.attack(agent)
             else:
-                if self.player.check_restore_agent(self, agent):
-                    self.restore_agent(agent)
+                if (agent.player == self.player 
+                    and self.wealth >= self.cost_agent_restore):
+                    if self.player.check_restore_agent(self, agent):
+                        self.restore_agent(agent)
 
         #check whether there is an adventurer here and attack if the player wants
         if self.current_tile.adventurers:
@@ -326,7 +328,11 @@ class AdventurerRegular(AdventurerBeginner):
                     agent.wealth = 0;
         else: raise Exception("Not able to deal with this kind of token.")
         
-        self.player.attack_history.append([self.current_tile, success])
+        #Keep track of attacks for static visualisation
+        attack_history = self.player.attack_history.get(self.game)
+        if not attack_history:
+            attack_history = self.player.attack_history[self.game] = []
+        attack_history.append([self.current_tile, success])
         return success
     
     def end_expedition(self, city=None):
@@ -390,6 +396,9 @@ class CityTileRegular(CityTileBeginner):
         adventurer.replenish_chest_tiles()
         
         super().visit_city(adventurer, abandoned)
+        
+        if self.game.game_over or abandoned:
+            return
         
         #Offer the chance to pay and completely swap out chest tiles
         if (adventurer.player.vault_wealth >= self.game.cost_refresh_maps 

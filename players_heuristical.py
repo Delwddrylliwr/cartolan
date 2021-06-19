@@ -443,7 +443,7 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
     check_restore_agent takes a Cartolan.Adventurer and a Carolan.Agent
     '''
     def __init__(self, colour):
-        self.attack_history = [] #to keep track of when this player has attacked, for reference
+        self.attack_history = {} #to keep track of when this player has attacked, for reference
         super().__init__(colour)
     
     

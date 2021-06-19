@@ -72,6 +72,7 @@ class GameVisualisation():
                   , "buy":'./images/option_buy.png'
                   , "attack":'./images/option_attack.png'
                   , "rest":'./images/option_rest.png'
+                  , "move_agent":'./images/option_valid_move.png'
                   }
     
     def __init__(self, game, dimensions, origin):
@@ -86,7 +87,7 @@ class GameVisualisation():
         self.move_timer = self.MOVE_TIME_LIMIT
         self.current_player_colour = "black"
         self.current_adventurer_number = 0
-        self.highlights = {"move":[], "abandon":[], "rest":[], "invalid":[], "buy":[], "attack":[]}
+        self.highlights = {"move":[], "abandon":[], "rest":[], "invalid":[], "buy":[], "attack":[], "move_agent":[]}
         self.current_move_count = None
         self.menu_rect = (0, 0, 0, 0)
         if isinstance(self.game, GameAdvanced):
@@ -872,7 +873,7 @@ class GameVisualisation():
 #                print("Click was a valid option of type: " + highlighted_option)
                 if True:
 #                if highlighted_option is not None:
-                    self.highlights = {"move":[], "abandon":[], "rest":[], "invalid":[], "buy":[], "attack":[]} #clear the highlights until the server offers more
+                    self.highlights = {"move":[], "abandon":[], "rest":[], "invalid":[], "buy":[], "attack":[], "move_agent":[]} #clear the highlights until the server offers more
 #                    print("Have identified a move available at " +str(longitude)+ ", " +str(latitude)+ " of type " +str(highlighted_option))
                     return [longitude, latitude]
             if self.move_timer < 0:
@@ -1731,12 +1732,12 @@ class WebServerVisualisation(GameVisualisation):
                     print("Player chose coordinates within the menu")
                     menu_row = (vertical - int(self.menu_rect[1])) // self.chest_tile_size
                     menu_column = (horizontal - int(self.menu_rect[0])) // self.chest_tile_size
-                    return self.CHEST_TILE_COLS * menu_row + menu_column
+                    return {"preferred_tile":self.CHEST_TILE_COLS * menu_row + menu_column}
                 #Otherwise return the coordinates
                 longitude = int(math.ceil((horizontal - self.play_area_start)/self.tile_size)) - self.origin[0] - 1
                 latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
                 if True:
-                    self.highlights = {"move":[], "rest":[], "abandon":[], "invalid":[], "buy":[], "attack":[]} #clear the highlights until the server offers more
+                    self.highlights = {"move":[], "rest":[], "abandon":[], "invalid":[], "buy":[], "attack":[], "move_agent":[]} #clear the highlights until the server offers more
                     return [longitude, latitude]
             time.sleep(self.INPUT_DELAY)
 #        print("Waiting for input from the user")

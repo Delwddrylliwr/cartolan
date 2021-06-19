@@ -400,7 +400,7 @@ class PlayAreaVisualisation:
 #                                   , linewidth=1, edgecolors=player.colour, facecolor=face_colour, marker="s", s=self.token_width)
                 
             if isinstance(player, PlayerRegularExplorer):
-                for attack in player.attack_history: 
+                for attack in player.attack_history[self.game]: 
                     # we want to draw a cross anywhere that an attack happened, the attack_history is full of pairs with a tile and a bool for the attack's success
                     if attack[1]:
                         face_colour = player.colour

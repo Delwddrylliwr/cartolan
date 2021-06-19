@@ -148,7 +148,11 @@ class CityTileAdvanced(CityTileRegular):
     def visit_city(self, adventurer, abandoned=False):
        '''Extends to allow rule changes from cards
        '''
-       super().visit_city(adventurer, abandoned) 
+       super().visit_city(adventurer, abandoned)
+       
+       if self.game.game_over or abandoned:
+            return
+        
        #Offer the chance to upgrade the Adventurer with a Discovery card
        while (adventurer.player.vault_wealth >= self.game.cost_tech
            and adventurer.player.check_buy_tech(adventurer)):
