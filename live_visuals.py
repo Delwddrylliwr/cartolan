@@ -91,7 +91,9 @@ class GameVisualisation():
         self.highlights = {highlight_type:[] for highlight_type in self.HIGHLIGHT_PATHS}
         self.current_move_count = None
         self.menu_rect = (0, 0, 0, 0)
+        self.stack_rect = (0, 0, 0, 0)
         if isinstance(self.game, GameAdvanced):
+            self.selected_card_num = None
             self.held_cards = {} #Keep track of card images assigned to each adventurer/player
             self.drawn_cards = {} #Keep track of which have been drawn already
             for player in self.players:
@@ -719,7 +721,7 @@ class GameVisualisation():
         #Draw a box to surround the Chest menu, and remember its coordinates for player input
         card_stack_position += self.SCORES_FONT_SCALE * self.height
 #        stack_size = self.card_height * (1 + self.CARD_HEADER_SHARE * len(adventurer.character_cards))
-        stack_size = self.card_height
+        stack_size = self.card_height + self.card_height * self.CARD_HEADER_SHARE * len(adventurer.discovery_cards)  #one character card plus all the manuscripts
         self.stack_rect = (0, card_stack_position, self.play_area_start, stack_size)
         print("Card stack corners defined at pixels...")
         print(self.stack_rect)
@@ -728,22 +730,36 @@ class GameVisualisation():
         card_horizontal = 0
         card_vertical = card_stack_position
         for card in adventurer.discovery_cards:
+            if self.selected_card_num is not None:
+                if adventurer.discovery_cards.index(card) == self.selected_card_num:
+                    break
             print("Drawing a card of type "+card.card_type)
             card_type = card.card_type
             card_image = self.get_card_image(adventurer, card_type)
             self.window.blit(card_image, [card_horizontal, card_vertical])
-            card_vertical += self.CARD_HEADER_SHARE * card_image.get_height()
+            card_vertical += self.CARD_HEADER_SHARE * card_image.get_height() 
         
         #Draw the Adventurer's Character Card over the top
         card_type = adventurer.character_card.card_type
         card_image = self.get_card_image(adventurer, card_type)
 #        card_horizontal = 0
-#        card_vertical = card_stack_position
+        card_vertical = card_stack_position + card_image.get_height() * self.CARD_HEADER_SHARE * len(adventurer.discovery_cards)
         self.window.blit(card_image, [card_horizontal, card_vertical])
 #        card_rect = (0, card_stack_position, self.play_area_start, stack_size)
 #        pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
 #                                 , self.menu_rect
 #                                 , self.chest_highlight_thickness)
+        #If one of the discovery/manuscript cards has been selected then draw cards back over the current ones in reverse up to that one
+        if self.selected_card_num is not None:
+            for card in reversed(adventurer.discovery_cards):
+                card_vertical -= self.CARD_HEADER_SHARE * card_image.get_height()
+                print("Drawing a card of type "+card.card_type)
+                card_type = card.card_type
+                card_image = self.get_card_image(adventurer, card_type)
+                self.window.blit(card_image, [card_horizontal, card_vertical])
+                if adventurer.discovery_cards.index(card) == self.selected_card_num:
+                    break
+        
         
         #@TODO draw the Adventurer's Player's Company Card
         
@@ -866,6 +882,21 @@ class GameVisualisation():
                     menu_row = (event.pos[1] - self.menu_rect[1]) // self.chest_tile_size
                     menu_column = (event.pos[0] - self.menu_rect[0]) // self.chest_tile_size
                     return self.CHEST_TILE_COLS * menu_row + menu_column
+                #Check whether the click was within the card stack, and update the index of the selected card
+                if (event.pos[0] in range(self.stack_rect[0], self.stack_rect[2])
+                    and event.pos[1] in range(self.stack_rect[1], self.stack_rect[3])):
+                    if self.selected_card_num is None: #The Character card at the bottom will be on top
+                        if event.pos[1] < self.stack_rect[3] - self.card_height:
+                            self.selected_card_num = (event.pos[1] - self.stack_rect[1]) // (self.card_height * self.CARD_HEADER_SHARE)
+                    else:
+                        selected_card_top = self.stack_rect[1] + (self.selected_card_num - 1) * self.card_height * self.CARD_HEADER_SHARE
+                        selected_card_bottom = selected_card_top + self.card_height
+                        if event.pos[1] > self.stack_rect[3] - self.card_height * self.CARD_HEADER_SHARE:
+                            self.selected_card_num = None
+                        elif event.pos[1] < selected_card_top:
+                            self.selected_card_num = (event.pos[1] - self.stack_rect[1]) // (self.card_height * self.CARD_HEADER_SHARE)
+                        elif event.pos[1] > selected_card_bottom:
+                            self.selected_card_num += (event.pos[1] - selected_card_bottom) // (self.card_height * self.CARD_HEADER_SHARE)
                 #Otherwise return the coordinates
                 longitude = int(math.ceil((event.pos[0])/self.tile_size)) - self.origin[0] - 1
                 latitude = self.dimensions[1] - int(math.ceil((event.pos[1])/self.tile_size)) - self.origin[1]
@@ -1734,12 +1765,35 @@ class WebServerVisualisation(GameVisualisation):
                     menu_row = (vertical - int(self.menu_rect[1])) // self.chest_tile_size
                     menu_column = (horizontal - int(self.menu_rect[0])) // self.chest_tile_size
                     return {"preferred_tile":self.CHEST_TILE_COLS * menu_row + menu_column}
-                #Otherwise return the coordinates
-                longitude = int(math.ceil((horizontal - self.play_area_start)/self.tile_size)) - self.origin[0] - 1
-                latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
-                if True:
-                    self.highlights = {highlight_type:[] for highlight_type in self.HIGHLIGHT_PATHS} #clear the highlights until the server offers more
-                    return [longitude, latitude]
+                #Check whether the click was within the card stack, and update the index of the selected card
+                #Check whether the click was within the card stack, and update the index of the selected card
+                elif (horizontal in range(int(self.stack_rect[0]), int(self.stack_rect[0] + self.stack_rect[2]))
+                    and vertical in range(int(self.stack_rect[1]), int(self.stack_rect[1] + self.stack_rect[3]))):
+                    print("Player chose coordinates within the card stack, with vertical: "+str(vertical))
+                    if self.selected_card_num is None: #The Character card at the bottom will be on top
+#                        print("Stack top is "+str(int(self.stack_rect[1] + self.stack_rect[3])))
+#                        print("Card height is "+str(self.card_height))
+                        if vertical < int(self.stack_rect[1] + self.stack_rect[3]) - self.card_height:
+                            self.selected_card_num = int(vertical - self.stack_rect[1]) // int(self.card_height * self.CARD_HEADER_SHARE)
+                            print("Updated the selected card to number "+str(self.selected_card_num))
+                    else:
+                        selected_card_top = int(self.stack_rect[1] + (self.selected_card_num - 1) * self.card_height * self.CARD_HEADER_SHARE)
+                        selected_card_bottom = selected_card_top + self.card_height
+                        if vertical > int(self.stack_rect[3]) - self.card_height * self.CARD_HEADER_SHARE:
+                            self.selected_card_num = None                            
+                        elif vertical < selected_card_top:
+                            self.selected_card_num = (vertical - int(self.stack_rect[1])) // int(self.card_height * self.CARD_HEADER_SHARE)
+                        elif vertical > selected_card_bottom:
+                            self.selected_card_num += (vertical - selected_card_bottom) // int(self.card_height * self.CARD_HEADER_SHARE)
+                        print("Updated the selected card to number "+str(self.selected_card_num))
+                    return {"update_cards":None}
+                else:
+                    #Otherwise return the coordinates
+                    longitude = int(math.ceil((horizontal - self.play_area_start)/self.tile_size)) - self.origin[0] - 1
+                    latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
+                    if True:
+                        self.highlights = {highlight_type:[] for highlight_type in self.HIGHLIGHT_PATHS} #clear the highlights until the server offers more
+                        return [longitude, latitude]
             time.sleep(self.INPUT_DELAY)
 #        print("Waiting for input from the user")
 #        while True:
