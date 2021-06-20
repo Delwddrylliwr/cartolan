@@ -73,6 +73,7 @@ class GameVisualisation():
                   , "attack":'./images/option_attack.png'
                   , "rest":'./images/option_rest.png'
                   , "move_agent":'./images/option_valid_move.png'
+                  , "agent_transfer":'./images/option_buy.png'
                   }
     
     def __init__(self, game, dimensions, origin):
@@ -87,7 +88,7 @@ class GameVisualisation():
         self.move_timer = self.MOVE_TIME_LIMIT
         self.current_player_colour = "black"
         self.current_adventurer_number = 0
-        self.highlights = {"move":[], "abandon":[], "rest":[], "invalid":[], "buy":[], "attack":[], "move_agent":[]}
+        self.highlights = {highlight_type:[] for highlight_type in self.HIGHLIGHT_PATHS}
         self.current_move_count = None
         self.menu_rect = (0, 0, 0, 0)
         if isinstance(self.game, GameAdvanced):
@@ -873,7 +874,7 @@ class GameVisualisation():
 #                print("Click was a valid option of type: " + highlighted_option)
                 if True:
 #                if highlighted_option is not None:
-                    self.highlights = {"move":[], "abandon":[], "rest":[], "invalid":[], "buy":[], "attack":[], "move_agent":[]} #clear the highlights until the server offers more
+                    self.highlights = {highlight_type:[] for highlight_type in self.HIGHLIGHT_PATHS} #clear the highlights until the server offers more
 #                    print("Have identified a move available at " +str(longitude)+ ", " +str(latitude)+ " of type " +str(highlighted_option))
                     return [longitude, latitude]
             if self.move_timer < 0:
@@ -1662,7 +1663,7 @@ class WebServerVisualisation(GameVisualisation):
         print("data sent to client at "+str(self.client.address))
         os.remove(randname + self.TEMP_FILE_EXTENSION)
     
-    def get_input_value(self, prompt_text, maximum):
+    def get_input_value(self, prompt_text, maximum, minimum = 0):
         '''Sends a prompt to the player, and waits for numerical input.
         
         Arguments
@@ -1675,13 +1676,13 @@ class WebServerVisualisation(GameVisualisation):
             input_value = self.client.get_text()
             if input_value:
 #                print("Trying to interpret "+input_value+" as a number")
-                if input_value.isnumeric():
+                try:
 #                    print("Checking that "+input_value+" is between 0 and "+str(maximum))
-                    if int(input_value) in range(0, maximum+1):
+                    if int(input_value) in range(minimum, maximum+1):
                         return int(input_value)
                     self.client.sendMessage("TEXT[00100]"+prompt_text)
                     input_value = None
-                else:
+                except:
 #                    print("Decided it wasn't a number so interpretting as nothing")
                     return None
             input_value = None
@@ -1737,7 +1738,7 @@ class WebServerVisualisation(GameVisualisation):
                 longitude = int(math.ceil((horizontal - self.play_area_start)/self.tile_size)) - self.origin[0] - 1
                 latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
                 if True:
-                    self.highlights = {"move":[], "rest":[], "abandon":[], "invalid":[], "buy":[], "attack":[], "move_agent":[]} #clear the highlights until the server offers more
+                    self.highlights = {highlight_type:[] for highlight_type in self.HIGHLIGHT_PATHS} #clear the highlights until the server offers more
                     return [longitude, latitude]
             time.sleep(self.INPUT_DELAY)
 #        print("Waiting for input from the user")

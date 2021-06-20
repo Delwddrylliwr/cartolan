@@ -811,7 +811,7 @@ class CityTileBeginner(CityTile):
         Cartolan.Adventurer the Adventurer that has arrived at the City
         '''
         #check whether and how much the player wants to bank
-        wealth_to_bank = adventurer.player.check_bank_wealth(adventurer)
+        wealth_to_bank = adventurer.player.check_deposit(adventurer, adventurer.wealth, adventurer.player.vault_wealth)
         #record the decision about how much wealth will be banked
         adventurer.banked = wealth_to_bank
         

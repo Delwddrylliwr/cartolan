@@ -106,16 +106,24 @@ class AdventurerAdvanced(AdventurerRegular):
         '''Extends the Regular, to allow placing Agents on existing tiles for some Adventurer buffs
         '''
         super().interact_tile()
-#        if self.transfers_to_agents:
-#            self.transfer_funds()
-#        if self.agent_on_existing and self.check_tile_available(self.current_tile):
-#            #An agent can still be placed on this existing tile, but at the cost of placing from the city
-#            cost_exploring = self.game.cost_agent_exploring
-#            cost_existing = self.game.cost_agent_from_city
-#            if self.wealth >= cost_existing:
-#                self.game.cost_agent_exploring = cost_existing
-#                self.place_agent()
-#                self.game.cost_agent_exploring = cost_exploring
+        if self.agent_on_existing and self.check_tile_available(self.current_tile):
+            #An agent can still be placed on this existing tile, but at the cost of placing from the city
+            cost_exploring = self.game.cost_agent_exploring
+            cost_existing = self.game.cost_agent_from_city
+            if self.wealth >= cost_existing:
+                self.cost_agent_exploring = cost_existing
+                self.place_agent()
+                self.cost_agent_exploring = cost_exploring
+        if self.transfers_to_agents and self.wealth > 0:
+            #Offer the opportunity to move wealth around between Agents
+            transfer_agent = self.player.check_transfer_agent(self)
+            while isinstance(transfer_agent, AgentAdvanced):
+                #Check the amount to transfer and move it
+                transfer_amount = self.player.check_deposit(self, self.wealth, -transfer_agent.wealth)
+                self.wealth -= transfer_amount
+                transfer_agent.wealth += transfer_amount
+                #See if another transfer is desired
+                transfer_agent = self.player.check_transfer_agent(self)
     
     def interact_tokens(self):
         '''Extends regular to attack even poor Adventurers if the card is held that will send them home.
@@ -127,12 +135,6 @@ class AdventurerAdvanced(AdventurerRegular):
                     and not self == adventurer):
                     if self.player.check_attack_adventurer(self, adventurer):
                         self.attack(adventurer)
-    
-    def transfer_funds(self):
-        '''Offers the player the chance to move this Adventurer's trasure to any Agent.
-        '''
-        #@TODO need to refactor player input checks before implementing this
-        return False
 
 class AgentAdvanced(AgentRegular):
     '''Extends Regular mode to allow Agents' rules to be changed by cards
