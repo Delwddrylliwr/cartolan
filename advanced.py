@@ -114,7 +114,9 @@ class AdventurerAdvanced(AdventurerRegular):
                 self.cost_agent_exploring = cost_existing
                 self.place_agent()
                 self.cost_agent_exploring = cost_exploring
-        if self.transfers_to_agents and self.wealth > 0:
+        if (self.transfers_to_agents 
+            and len(self.game.agents[self.player]) > 0 
+            and self.wealth > 0):
             #Offer the opportunity to move wealth around between Agents
             transfer_agent = self.player.check_transfer_agent(self)
             while isinstance(transfer_agent, AgentAdvanced):

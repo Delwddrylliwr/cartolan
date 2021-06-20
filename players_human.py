@@ -78,6 +78,8 @@ class PlayerHuman(Player):
                     fixed_response = gui_input.get(action)
                     if isinstance(fixed_response, bool) or fixed_response is None:
                         self.fixed_responses[action] = fixed_response
+            if isinstance(adventurer, AdventurerAdvanced):
+                game_vis.draw_cards(adventurer)
                 
     
     def continue_move(self, adventurer):
