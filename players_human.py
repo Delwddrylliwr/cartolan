@@ -328,14 +328,6 @@ class PlayerHuman(Player):
         else:
             return False
         
-    
-    #if offered by a city then always bank everything
-    #@TODO depricate this, now that there is a check on withdrawing wealth before movement
-    #@TODO allow player to specify how much wealth to bank using input() or a text box: https://stackoverflow.com/questions/46390231/how-to-create-a-text-input-box-with-pygame
-    def check_bank_wealth(self, adventurer, report="Player is being asked whether to bank treasure"):
-        print(report)
-        return adventurer.wealth
-    
     #if offered by a city, then give the player the option to pay and refresh their chest maps
     def check_buy_maps(self, adventurer, report="Player is being asked whether to pay to refresh their chest maps"):
         print(report)
@@ -388,7 +380,7 @@ class PlayerHuman(Player):
         action_type = "buy"
         actions[action_type] = [[adventurer.current_tile.tile_position.longitude
                     , adventurer.current_tile.tile_position.latitude]]
-        prompt = ("If you want your Adventurer to recruit an Agent on this tile for "+str(adventurer.game.cost_agent_exploring)
+        prompt = ("If you want your Adventurer to recruit an Agent on this tile for "+str(adventurer.cost_agent_exploring)
                         +" treasure then click it, otherwise click elsewhere.")
         if self.check_action(adventurer, action_type, actions, prompt):
             return True
@@ -434,7 +426,24 @@ class PlayerHuman(Player):
             actions[action_type].append([agent.current_tile.tile_position.longitude, agent.current_tile.tile_position.latitude])
         prompt = ("You will need to move an existing " +str(self.colour)+ " Agent, click to choose one"
                                        +", otherwise click elsewhere to cancel buying an Agent.")
-        return self.check_action(adventurer, action_type, actions, prompt).agent
+        selected_tile = self.check_action(adventurer, action_type, actions, prompt)
+        if selected_tile is not None:
+            return selected_tile.agent
+        else:
+            return None
+    
+    def check_transfer_agent(self, adventurer):
+        action_type = "agent_transfer"
+        actions = {action_type:[]}
+        for agent in adventurer.game.agents[self]:
+            actions[action_type].append([agent.current_tile.tile_position.longitude, agent.current_tile.tile_position.latitude])
+        prompt = ("Select an Agent If you want " +str(self.colour)+ " Adventurer to move treasure there "
+                                       +", otherwise click elsewhere.")
+        selected_tile = self.check_action(adventurer, action_type, actions, prompt)
+        if selected_tile is not None:
+            return selected_tile.agent
+        else:
+            return None
     
     #Give the player the choice to attack
     #@TODO highlight specific tokens to attack
@@ -450,6 +459,26 @@ class PlayerHuman(Player):
             return True
         else:
             return False
+    
+    #if offered by a city then always bank everything
+    def check_deposit(self, adventurer, maximum, minimum=0, report="Player is being asked whether to bank treasure"):
+        print(report)
+        game = adventurer.game
+        game_vis = self.games[game.game_id]["game_vis"]
+        
+        #Protect in case of inversions
+        if minimum > maximum:
+            old_max = maximum
+            maximum = minimum
+            minimum = old_max
+        
+        if isinstance(adventurer.current_tile, CityTile): #As there is a separate check to withdraw treasure before a turn, assume they will always bank everything
+            return adventurer.wealth
+        else:
+            deposit_amount = None
+            while deposit_amount not in range(minimum, maximum+1):
+                deposit_amount = game_vis.get_input_value("How much treasure will your Adventurer move to this Agent, from "+str(minimum)+" to "+str(maximum)+"?", maximum, minimum)
+            return deposit_amount
     
     def check_travel_money(self, adventurer, maximum, default):
         '''Lets the player input a figure for the wealth that will be taken from the Vault before an expedition

@@ -243,9 +243,9 @@ class PlayerBeginnerExplorer(Player):
         return False
     
     #if offered by a city then always bank everything
-    def check_bank_wealth(self, adventurer, report="Player is being asked whether to bank wealth"):
+    def check_deposit(self, adventurer, maximum, minimum, report="Player is being asked whether to bank wealth"):
         print(report)
-        return adventurer.wealth
+        return maximum
     
     #if offered by a city, then check whether oponents will win on their next visit to a city, and buy an Adventurer if not
     def check_buy_adventurer(self, adventurer, report="Player is being asked whether to buy an adventurer"):
@@ -290,6 +290,9 @@ class PlayerBeginnerExplorer(Player):
     # never move an agent when offered
     def check_move_agent(self, adventurer):     
 #         return agent_to_move
+        return None
+    
+    def check_transfer_agent(self, adventurer):
         return None
     
     def check_travel_money(self, adventurer, maximum, default):
