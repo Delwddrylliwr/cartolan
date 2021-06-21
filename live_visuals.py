@@ -1779,8 +1779,10 @@ class WebServerVisualisation(GameVisualisation):
                     else:
                         selected_card_top = int(self.stack_rect[1] + (self.selected_card_num - 1) * self.card_height * self.CARD_HEADER_SHARE)
                         selected_card_bottom = selected_card_top + self.card_height
-                        if vertical > int(self.stack_rect[3]) - self.card_height * self.CARD_HEADER_SHARE:
+                        if vertical > int(self.stack_rect[1] + self.stack_rect[3]) - self.card_height * self.CARD_HEADER_SHARE:
                             self.selected_card_num = None                            
+                        elif selected_card_top < vertical < selected_card_bottom:
+                            self.selected_card_num = None #clicking on the selected card de-selects it
                         elif vertical < selected_card_top:
                             self.selected_card_num = (vertical - int(self.stack_rect[1])) // int(self.card_height * self.CARD_HEADER_SHARE)
                         elif vertical > selected_card_bottom:
