@@ -53,6 +53,9 @@ class RegularConfig:
 class AdvancedConfig:
     COST_TECH = 3
     
+    NUM_CHARACTER_CHOICES = 2
+    NUM_DISCOVERY_CHOICES = 2
+    
     ATTACKS_ABANDON = False
     
     AGENT_ON_EXISTING = False

@@ -57,11 +57,12 @@ class AdventurerAdvanced(AdventurerRegular):
         self.attacks_abandon = game.attacks_abandon
         #Randomly draw a Character card
         #@TODO let the player choose between multiple character cards
-        character_cards = self.game.character_cards
-        self.character_card = character_cards.pop(random.randint(0, len(character_cards)-1))
-        #Take on the changes to rules based on the Character card
-        self.character_card.apply_buffs(self)
-        self.replenish_chest_tiles() #in case the buffs increased the chest tile allowance
+#        character_cards = self.game.character_cards
+#        self.character_card = character_cards.pop(random.randint(0, len(character_cards)-1))
+        if self.game.game_started:
+            self.choose_character()    
+        else:
+            self.character_card = None
         #Prepare to hold Discovery cards too
         self.discovery_cards = []
         #Take on the changes to rules based on the Company card
@@ -69,7 +70,18 @@ class AdventurerAdvanced(AdventurerRegular):
 #        self.company_card.apply_buffs(self)
 #        #Be ready to receive further buffs from Discovery cards
 #        self.discovery_cards = []
-        
+    
+    def choose_character(self):
+        '''Lets the player choose a character card from a random subset
+        '''
+        character_cards = self.game.character_cards
+        card_options = random.sample(character_cards, k=self.game.num_character_choices[self.player])
+        self.character_card = self.player.choose_card(self, card_options)
+        character_cards.remove(self.character_card)
+        #Take on the changes to rules based on the Character card
+        self.character_card.apply_buffs(self)
+        self.replenish_chest_tiles() #in case the buffs increased the chest tile 
+    
     def discover_card(self, card):
         '''Adds a Discovery card to the Adventurer, modifying rules according to the card's buffs
         '''
@@ -158,27 +170,35 @@ class CityTileAdvanced(CityTileRegular):
             return
         
        #Offer the chance to upgrade the Adventurer with a Discovery card
-       while (adventurer.player.vault_wealth >= self.game.cost_tech
+       available_cards = self.game.discovery_cards
+       rejected_cards = []
+       while (available_cards 
+           and adventurer.player.vault_wealth >= self.game.cost_tech
            and adventurer.player.check_buy_tech(adventurer)):
-           adventurer.player.vault_wealth -= self.game.cost_tech
-           available_cards = self.game.discovery_cards
-           card_selected = False
-           while not card_selected:
+           
+           card_options = []
+           #Offer several cards, but only those which don't duplicate another one time card buff the Adventurer already has
+           while (len(card_options) < self.game.num_discovery_choices[adventurer.player]
+               and available_cards):
                new_tech_card = available_cards.pop(random.randint(0, len(available_cards)-1))
-               card_selected = True
                #Check whether this is a one off perk and then whether its a duplicate, returning it and drawing another if so
                for buff_attr in new_tech_card.buffs:
                    if new_tech_card.buffs[buff_attr]["buff_type"] == "new":
                        if buff_attr in adventurer.character_card.buffs:
-                           available_cards.append(new_tech_card)
-                           card_selected = False
+                           rejected_cards.append(new_tech_card)
                            break
                        for existing_card in adventurer.discovery_cards:
                            if buff_attr in existing_card.buffs:
-                               available_cards.append(new_tech_card)
-                               card_selected = False
+                               rejected_cards.append(new_tech_card)
                                break
-           adventurer.discover_card(new_tech_card)
+               card_options.append(new_tech_card)
+           if card_options: #Providing there were some valid discovery cards still available, let the player choose
+               chosen_card = adventurer.player.choose_card(adventurer, card_options)
+               card_options.remove(chosen_card)
+               adventurer.discover_card(chosen_card)
+               adventurer.player.vault_wealth -= self.game.cost_tech
+           available_cards += card_options #Return the remaining options to the deck
+           available_cards += rejected_cards #Return the cards that weren't suitable to the Discovery deck
 
 class CapitalTileAdvanced(CityTileAdvanced):
     def __init__(self, game, tile_back = "water"

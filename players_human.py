@@ -101,13 +101,6 @@ class PlayerHuman(Player):
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
                         
-        #prompt the player to choose a tile to move on to
-        print("Prompting the "+self.colour+" player for input")
-#        game_vis.clear_prompt()
-        game_vis.give_prompt("Click which tile you would like "+str(self.colour)+" adventurer #" 
-                                       +str(game.adventurers[self].index(adventurer)+1) 
-                                       +" to move to?")
-        
         moves, move_map = self.establish_moves(adventurer)
         #Include waiting in the current location among move options
         moves["move"].append([adventurer.current_tile.tile_position.longitude
@@ -145,6 +138,13 @@ class PlayerHuman(Player):
             game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
         if isinstance(adventurer, AdventurerAdvanced):
             game_vis.draw_cards(adventurer)
+            
+        #prompt the player to choose a tile to move on to
+        print("Prompting the "+self.colour+" player for input")
+#        game_vis.clear_prompt()
+        game_vis.give_prompt("Click which tile you would like "+str(self.colour)+" adventurer #" 
+                                       +str(game.adventurers[self].index(adventurer)+1) 
+                                       +" to move to?")
         
         #Carry out the player's chosen move
         move_coords = game_vis.get_input_coords(adventurer)
@@ -204,6 +204,10 @@ class PlayerHuman(Player):
         game_vis.draw_move_options()
         game_vis.get_input_coords(adventurer)
         game_vis.clear_prompt()
+        
+        if isinstance(adventurer, AdventurerAdvanced):
+            if adventurer.character_card is None:
+                adventurer.choose_character()
         
         #Move while moves are still available
         while adventurer.turns_moved < adventurer.game.turn:
@@ -438,7 +442,8 @@ class PlayerHuman(Player):
         action_type = "agent_transfer"
         actions = {action_type:[]}
         for agent in adventurer.game.agents[self]:
-            actions[action_type].append([agent.current_tile.tile_position.longitude, agent.current_tile.tile_position.latitude])
+            if not agent.current_tile == adventurer.current_tile: #Avoid trying to transfer treasure to the current tile
+                actions[action_type].append([agent.current_tile.tile_position.longitude, agent.current_tile.tile_position.latitude])
         prompt = ("Select an Agent If you want " +str(self.colour)+ " Adventurer to move treasure there "
                                        +", otherwise click elsewhere.")
         selected_tile = self.check_action(adventurer, action_type, actions, prompt)
@@ -463,7 +468,7 @@ class PlayerHuman(Player):
             return False
     
     #if offered by a city then always bank everything
-    def check_deposit(self, adventurer, maximum, minimum=0, report="Player is being asked whether to bank treasure"):
+    def check_deposit(self, adventurer, maximum, minimum=0, default=0, report="Player is being asked whether to bank treasure"):
         print(report)
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
@@ -477,10 +482,11 @@ class PlayerHuman(Player):
         if isinstance(adventurer.current_tile, CityTile): #As there is a separate check to withdraw treasure before a turn, assume they will always bank everything
             return adventurer.wealth
         else:
-            deposit_amount = None
-            while deposit_amount not in range(minimum, maximum+1):
-                deposit_amount = game_vis.get_input_value("How much treasure will your Adventurer move to this Agent, from "+str(minimum)+" to "+str(maximum)+"?", maximum, minimum)
-            return deposit_amount
+            deposit_amount = game_vis.get_input_value("How much treasure will your Adventurer move to this Agent, from "+str(minimum)+" to "+str(maximum)+"?", maximum, minimum)
+            if deposit_amount is not None:
+                return deposit_amount
+            else:
+                return default
     
     def check_travel_money(self, adventurer, maximum, default):
         '''Lets the player input a figure for the wealth that will be taken from the Vault before an expedition
@@ -544,3 +550,32 @@ class PlayerHuman(Player):
             return True
         else:
             return False
+        
+    def choose_card(self, adventurer, cards):
+        '''Responds to option from the game to pick from a list of cards, based on player input
+        '''
+        prompt = "Select a card for "+self.colour+" player's Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
+        
+        game = adventurer.game
+        game_vis = self.games[game.game_id]["game_vis"]
+        
+        #make sure that tiles and token positions are up to date
+        game_vis.draw_play_area()
+        game_vis.draw_routes()
+        game_vis.draw_tokens()
+        game_vis.draw_scores()
+        if isinstance(adventurer, AdventurerRegular):
+            game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+        if isinstance(adventurer, AdventurerAdvanced):
+            game_vis.draw_cards(adventurer)
+        
+        #prompt the player to input
+        print("Prompting the "+self.colour+" player for input")
+#            game_vis.clear_prompt()
+        game_vis.give_prompt(prompt)
+        game_vis.draw_card_options(cards)
+        card = cards[game_vis.get_input_card_choice(adventurer, cards)]
+
+        #clean up the highlights
+        game_vis.clear_prompt()
+        return card
