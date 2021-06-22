@@ -20,6 +20,7 @@ from game import GameBeginner, GameRegular, GameAdvanced
 from players_human import PlayerHuman
 from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
 from players_heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
+from players_heuristical import PlayerAdvancedExplorer, PlayerAdvancedTrader, PlayerAdvancedRouter, PlayerAdvancedPirate
 
 class GameVisualisation():
     '''A pygame-based interactive visualisation for games of Cartolan
@@ -740,11 +741,12 @@ class GameVisualisation():
             card_vertical += self.CARD_HEADER_SHARE * card_image.get_height() 
         
         #Draw the Adventurer's Character Card over the top
-        card_type = adventurer.character_card.card_type
-        card_image = self.get_card_image(adventurer, card_type)
-#        card_horizontal = 0
-        card_vertical = card_stack_position + card_image.get_height() * self.CARD_HEADER_SHARE * len(adventurer.discovery_cards)
-        self.window.blit(card_image, [card_horizontal, card_vertical])
+        if adventurer.character_card is not None:
+            card_type = adventurer.character_card.card_type
+            card_image = self.get_card_image(adventurer, card_type)
+    #        card_horizontal = 0
+            card_vertical = card_stack_position + card_image.get_height() * self.CARD_HEADER_SHARE * len(adventurer.discovery_cards)
+            self.window.blit(card_image, [card_horizontal, card_vertical])
 #        card_rect = (0, card_stack_position, self.play_area_start, stack_size)
 #        pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
 #                                 , self.menu_rect
@@ -814,6 +816,32 @@ class GameVisualisation():
             #Put each card image back in the list available to draw
             while drawn_card_images:
                 holders_undrawn_cards[card_type].append(drawn_card_images.pop())
+    
+    def draw_card_options(self, cards):
+        '''Prominently displays an array of cards from which the player can choose
+        
+        Arguments:
+        Cards takes a list of Cartolan Cards
+        '''
+        self.offered_card_images = [] #reset the record of card images in use
+        self.card_rects = [] #reset the record of card positions for selection
+        #Cycle through the offered Cards, drawing them
+        horizontal_increment = self.width // (len(cards) + 1)
+        card_horizontal = horizontal_increment
+        card_vertical = (self.height - self.card_height) // 2 #Centre the cards vertically
+        for card in cards:
+            print("Drawing a card of type "+card.card_type)
+            card_type = card.card_type
+            available_cards = self.card_image_library[card_type]
+            if available_cards:
+                card_image =  available_cards[0] #Choose the first image available
+            else:
+                card_image = self.used_card_images[card_type][0]
+            adjusted_horizontal = card_horizontal - card_image.get_width() // 2
+            self.window.blit(card_image, [adjusted_horizontal, card_vertical])
+            card_horizontal += horizontal_increment
+            self.offered_card_images.append(card_image)
+            self.card_rects.append((adjusted_horizontal, card_vertical, card_image.get_width(), card_image.get_height()))
     
     def draw_prompt(self):
         '''Prints a prompt on what moves/actions are available to the current player
@@ -970,10 +998,10 @@ class ClientGameVisualisation(GameVisualisation, ConnectionListener):
 #                                                                    , "green":PlayerRegularGenetic
                                                                   }}
               , 'Advanced':{'game_type':GameAdvanced, 'player_set':{
-                                                                  "orange":PlayerRegularPirate
-                                                                    , "blue":PlayerRegularExplorer
-                                                                   , "red":PlayerRegularTrader
-                                                                   , "yellow":PlayerRegularRouter
+                                                                  "orange":PlayerAdvancedPirate
+                                                                    , "blue":PlayerAdvancedExplorer
+                                                                   , "red":PlayerAdvancedTrader
+                                                                   , "yellow":PlayerAdvancedRouter
 #                                                                    , "green":PlayerRegularGenetic
                                                                   }}
         }
@@ -1820,6 +1848,65 @@ class WebServerVisualisation(GameVisualisation):
         
         return False
 
+    def get_input_card_choice(self, adventurer, cards):
+        '''Sends an image of the latest play area, accepts input only from this visual's players.
+        
+        Arguments
+        adventurer takes a Cartolan.Adventurer
+        '''
+        #print("Updating the display for all the other human players, whose visuals won't have been consulted.")
+        for player in self.game.players:
+            if isinstance(player, PlayerHuman):
+#                print("Updating visuals for player "+str(self.game.players.index(player)+1)+" with visual "+str(player.games[self.game.game_id]["game_vis"]))
+                game_vis = player.games[self.game.game_id]["game_vis"]
+                if not self.client == game_vis.client:
+#                    print("Recognised that this player is using a different client: "+str(game_vis.client.address))
+                    game_vis.draw_play_area()
+                    game_vis.draw_tokens()
+                    game_vis.draw_routes()
+                    game_vis.draw_scores()
+                    game_vis.current_player_colour = adventurer.player.colour
+                    game_vis.give_prompt(adventurer.player.colour+" player is choosing a card for their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
+                    if isinstance(adventurer, AdventurerRegular):
+                        chest_tiles = adventurer.chest_tiles
+                        preferred_tile_num = adventurer.preferred_tile_num
+                        num_chest_tiles = adventurer.num_chest_tiles
+                        game_vis.draw_chest_tiles(chest_tiles, preferred_tile_num, num_chest_tiles)
+                    if isinstance(adventurer, AdventurerAdvanced):
+                        game_vis.draw_cards(adventurer)
+                        game_vis.draw_card_options(cards)
+                game_vis.update_web_display()
+        
+        coords = None
+        while coords is None:
+            coords = self.client.get_coords()
+            if coords is not None:
+                horizontal, vertical = coords
+                #check whether the click was within each of the card areas, and return the index
+                for card_rect in self.card_rects:
+                    if (horizontal in range(int(card_rect[0])
+                            , int(card_rect[0]) + int(card_rect[2]))
+                        and vertical in range(int(card_rect[1])
+                            , int(card_rect[1]) + int(card_rect[3]))):
+                        print("Player chose coordinates within a card")
+                        #Now remember the image that the player chose and return the index of the card to the game
+                        selected_card_index = self.card_rects.index(card_rect)
+                        card = cards[selected_card_index]
+                        if self.held_cards.get(adventurer) is None:
+                            existing_images = self.held_cards[adventurer] = {card.card_type:[]}
+                        elif self.held_cards[adventurer].get(card.card_type) is None:
+                            existing_images = self.held_cards[adventurer][card.card_type] = []
+                        else:
+                            existing_images = self.held_cards[adventurer][card.card_type]
+                        selected_card_image = self.offered_card_images[selected_card_index]
+                        existing_images.append(selected_card_image)
+                        self.card_image_library[card.card_type].remove(selected_card_image)
+                        self.used_card_images[card.card_type].append(selected_card_image)
+                        return selected_card_index
+                coords = None #Let them try again
+            time.sleep(self.INPUT_DELAY)
+        
+        return False
 
 #class GameMenu():
 #    '''Generates a standalone menu window for parametrising games.

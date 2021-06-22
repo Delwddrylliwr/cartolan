@@ -34,7 +34,8 @@ class Game:
         for player in players:
             self.adventurers[player] = []
             self.agents[player] = []
-
+        
+        self.game_started = False #Keep track of whether the game is running
         self.turn = 0
         
         #some information to keep track of centrally for players to make decisions

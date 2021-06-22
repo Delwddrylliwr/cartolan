@@ -136,6 +136,7 @@ class GameBeginner(Game):
     
     def start_game(self):
         '''Begins the sequence of play, under the assumption that the play area has been set up'''
+        self.game_started = True
         self.game_over = False
         while not self.game_over:
             self.turn += 1
@@ -317,6 +318,12 @@ class GameAdvanced(GameRegular):
 
 #    COST_BUY_TECH = 5
     def __init__(self, players, movement_rules='initial', exploration_rules='continuous'):
+        #Get player level config variables
+        self.num_character_choices = {}
+        self.num_discovery_choices = {}
+        for player in players:
+            self.num_character_choices[player] = AdvancedConfig.NUM_CHARACTER_CHOICES
+            self.num_discovery_choices[player] = AdvancedConfig.NUM_DISCOVERY_CHOICES
         
         #Get config variables to act as masters in case of modification
         self.card_type_buffs = AdvancedConfig.CARD_TYPE_BUFFS

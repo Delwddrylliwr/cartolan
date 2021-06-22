@@ -330,6 +330,7 @@ class ClientSocket(WebSocket):
                         player.connect_gui(game_vis)
                 
                 #start game in this thread including all the client visuals (so that the players created here are available to just one thread)
+                self.game.game_started = True
                 self.game.turn = 0
                 self.game.game_over = False
                 while not self.game.game_over:
