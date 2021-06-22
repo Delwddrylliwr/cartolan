@@ -1892,16 +1892,24 @@ class WebServerVisualisation(GameVisualisation):
                         #Now remember the image that the player chose and return the index of the card to the game
                         selected_card_index = self.card_rects.index(card_rect)
                         card = cards[selected_card_index]
-                        if self.held_cards.get(adventurer) is None:
-                            existing_images = self.held_cards[adventurer] = {card.card_type:[]}
-                        elif self.held_cards[adventurer].get(card.card_type) is None:
-                            existing_images = self.held_cards[adventurer][card.card_type] = []
-                        else:
-                            existing_images = self.held_cards[adventurer][card.card_type]
-                        selected_card_image = self.offered_card_images[selected_card_index]
-                        existing_images.append(selected_card_image)
-                        self.card_image_library[card.card_type].remove(selected_card_image)
-                        self.used_card_images[card.card_type].append(selected_card_image)
+                        #Make sure that all computers involved use the same card image
+                        updated_visuals = []
+                        for player in self.game.players:
+                            if isinstance(player, PlayerHuman):
+                                game_vis = player.games[self.game.game_id]["game_vis"]
+                                if game_vis in updated_visuals:
+                                    continue #This visual has already reserved the image, and will cause errors if it tries to reserve it again
+                                if game_vis.held_cards.get(adventurer) is None:
+                                    existing_images = game_vis.held_cards[adventurer] = {card.card_type:[]}
+                                elif game_vis.held_cards[adventurer].get(card.card_type) is None:
+                                    existing_images = game_vis.held_cards[adventurer][card.card_type] = []
+                                else:
+                                    existing_images = game_vis.held_cards[adventurer][card.card_type]
+                                selected_card_image = game_vis.offered_card_images[selected_card_index]
+                                existing_images.append(selected_card_image)
+                                game_vis.card_image_library[card.card_type].remove(selected_card_image)
+                                game_vis.used_card_images[card.card_type].append(selected_card_image)
+                                updated_visuals.append(game_vis)
                         return selected_card_index
                 coords = None #Let them try again
             time.sleep(self.INPUT_DELAY)
