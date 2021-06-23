@@ -574,8 +574,37 @@ class PlayerHuman(Player):
 #            game_vis.clear_prompt()
         game_vis.give_prompt(prompt)
         game_vis.draw_card_options(cards)
-        card = cards[game_vis.get_input_card_choice(adventurer, cards)]
+        card = cards[game_vis.get_input_choice(adventurer, cards)]
 
         #clean up the highlights
         game_vis.clear_prompt()
         return card
+    
+    def choose_tile(self, adventurer, tiles):
+        '''Responds to option from the game to pick from a list of tiles, based on player input
+        '''
+        prompt = "Select a tile for "+self.colour+" player's Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
+        
+        game = adventurer.game
+        game_vis = self.games[game.game_id]["game_vis"]
+        
+        #make sure that tiles and token positions are up to date
+        game_vis.draw_play_area()
+        game_vis.draw_routes()
+        game_vis.draw_tokens()
+        game_vis.draw_scores()
+        if isinstance(adventurer, AdventurerRegular):
+            game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+        if isinstance(adventurer, AdventurerAdvanced):
+            game_vis.draw_cards(adventurer)
+        
+        #prompt the player to input
+        print("Prompting the "+self.colour+" player for input")
+#            game_vis.clear_prompt()
+        game_vis.give_prompt(prompt)
+        game_vis.draw_tile_options(tiles)
+        tile = tiles[game_vis.get_input_choice(adventurer, tiles, "tile")]
+
+        #clean up the highlights
+        game_vis.clear_prompt()
+        return tile

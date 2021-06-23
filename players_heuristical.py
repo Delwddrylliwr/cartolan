@@ -3,6 +3,7 @@
 '''
 
 from base import Player
+from advanced import AdventurerAdvanced
 import random
 
 class PlayerBeginnerExplorer(Player):    
@@ -28,7 +29,7 @@ class PlayerBeginnerExplorer(Player):
     def __init__(self, colour):
         super().__init__(colour)
         self.p_deviate = 0.1 #some randomness for artificial player behaviour to avoid rutts
-        self.return_city_attr = "cost_buy_adventurer"
+        self.return_city_attr = "cost_adventurer"
     
     def check_location_to_avoid(self, longitude, latitude):
         '''Compares coordinates to a list to avoid'''
@@ -610,6 +611,13 @@ class PlayerAdvancedExplorer(PlayerRegularExplorer):
     def __init__(self, colour):
         super().__init__(colour)
         self.return_city_attr = "cost_tech"
+    
+    def continue_turn(self, adventurer):
+        if isinstance(adventurer, AdventurerAdvanced):
+            if adventurer.character_card is None:
+                adventurer.choose_character()
+        
+        super().continue_turn(adventurer)
     
     def check_buy_tech(self, adventurer):
         #randomly choose not to buy, regardless of other conditions

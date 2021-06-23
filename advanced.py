@@ -102,7 +102,9 @@ class AdventurerAdvanced(AdventurerRegular):
             #Steal Discovery cards
             if isinstance(token, AdventurerAdvanced):
                 if len(token.discovery_cards) > 0:
-                    stolen_card = token.discovery_cards.pop(random.randint(0, len(token.discovery_cards)-1))
+#                    stolen_card = token.discovery_cards.pop(random.randint(0, len(token.discovery_cards)-1))
+                    stolen_card = self.player.choose_card(self, token.discovery_cards)
+                    token.discovery_cards.remove(stolen_card)
                     self.discover_card(stolen_card)
             if self.attacks_abandon: #Adventurers will return to cities, Agents are removed
                 if isinstance(token, AdventurerRegular):

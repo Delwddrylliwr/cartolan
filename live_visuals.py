@@ -817,14 +817,44 @@ class GameVisualisation():
             while drawn_card_images:
                 holders_undrawn_cards[card_type].append(drawn_card_images.pop())
     
+#    def draw_offers(self, offers, offer_type="card"):
+#        '''Prominently displays an array of cards from which the player can choose
+#        
+#        Arguments:
+#        offers takes a list of Cartolan Cards or Tiles
+#        offer_type takes a string identifying the offers as either "card" or "tile"
+#        '''
+#        self.offered_images = [] #reset the record of card images in use
+#        self.offered_rects = [] #reset the record of card positions for selection
+#        #Cycle through the offered Cards, drawing them
+#        horizontal_increment = self.width // (len(offers) + 1)
+#        horizontal = horizontal_increment
+#        vertical = (self.height - self.offer_image_sizes[offer_type]) // 2 #Centre the cards vertically
+#        for offer in offers:
+#            if offer_type = "card":
+#                offer_image = self.get_offer_image[offer_type]
+#            
+#            print("Drawing a card of type "+card.card_type)
+#            card_type = card.card_type
+#            available_cards = self.card_image_library[card_type]
+#            if available_cards:
+#                card_image =  available_cards[0] #Choose the first image available
+#            else:
+#                card_image = self.used_card_images[card_type][0]
+#            adjusted_horizontal = card_horizontal - card_image.get_width() // 2
+#            self.window.blit(card_image, [adjusted_horizontal, card_vertical])
+#            card_horizontal += horizontal_increment
+#            self.offered_images.append(card_image)
+#            self.offered_rects.append((adjusted_horizontal, card_vertical, card_image.get_width(), card_image.get_height()))
+    
     def draw_card_options(self, cards):
         '''Prominently displays an array of cards from which the player can choose
         
         Arguments:
         Cards takes a list of Cartolan Cards
         '''
-        self.offered_card_images = [] #reset the record of card images in use
-        self.card_rects = [] #reset the record of card positions for selection
+        self.offered_images = [] #reset the record of card images in use
+        self.offered_rects = [] #reset the record of card positions for selection
         #Cycle through the offered Cards, drawing them
         horizontal_increment = self.width // (len(cards) + 1)
         card_horizontal = horizontal_increment
@@ -840,9 +870,41 @@ class GameVisualisation():
             adjusted_horizontal = card_horizontal - card_image.get_width() // 2
             self.window.blit(card_image, [adjusted_horizontal, card_vertical])
             card_horizontal += horizontal_increment
-            self.offered_card_images.append(card_image)
-            self.card_rects.append((adjusted_horizontal, card_vertical, card_image.get_width(), card_image.get_height()))
+            self.offered_images.append(card_image)
+            self.offered_rects.append((adjusted_horizontal, card_vertical, card_image.get_width(), card_image.get_height()))
     
+    #@TODO combine the two methods for choosing cards and tiles, once there are multiple tile images too
+    def draw_tile_options(self, tiles):
+        '''Prominently displays an array of tiles from which the player can choose
+        
+        Arguments:
+        tiles takes a list of Cartolan Tiles
+        '''
+        self.offered_images = [] #reset the record of card images in use
+        self.offered_rects = [] #reset the record of card positions for selection
+        #Cycle through the offered Cards, drawing them
+        horizontal_increment = self.width // (len(tiles) + 1)
+        tile_horizontal = horizontal_increment
+        tile_vertical = (self.height - self.tile_size) // 2 #Centre the cards vertically
+        for tile in tiles:
+            e = tile.tile_edges
+            wonder = str(tile.is_wonder)
+            uc = str(e.upwind_clock_water)
+            ua = str(e.upwind_anti_water)
+            dc = str(e.downwind_clock_water)
+            da = str(e.downwind_anti_water)
+            tile_name = uc + ua + dc + da + wonder
+            north = str(tile.wind_direction.north)
+            east = str(tile.wind_direction.east)
+            tile_image = self.chest_tile_library[tile_name + north + east]
+#                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
+            print("Drawing a card of type "+tile_name + north + east)
+            adjusted_horizontal = tile_horizontal - self.tile_size // 2
+            self.window.blit(tile_image, [adjusted_horizontal, tile_vertical])
+            tile_horizontal += horizontal_increment
+            self.offered_images.append(tile_image)
+            self.offered_rects.append((adjusted_horizontal, tile_vertical, self.tile_size, self.tile_size))
+            
     def draw_prompt(self):
         '''Prints a prompt on what moves/actions are available to the current player
         '''        
@@ -1848,7 +1910,7 @@ class WebServerVisualisation(GameVisualisation):
         
         return False
 
-    def get_input_card_choice(self, adventurer, cards):
+    def get_input_choice(self, adventurer, cards, offer_type="card"):
         '''Sends an image of the latest play area, accepts input only from this visual's players.
         
         Arguments
@@ -1883,34 +1945,35 @@ class WebServerVisualisation(GameVisualisation):
             if coords is not None:
                 horizontal, vertical = coords
                 #check whether the click was within each of the card areas, and return the index
-                for card_rect in self.card_rects:
-                    if (horizontal in range(int(card_rect[0])
-                            , int(card_rect[0]) + int(card_rect[2]))
-                        and vertical in range(int(card_rect[1])
-                            , int(card_rect[1]) + int(card_rect[3]))):
+                for offered_rect in self.offered_rects:
+                    if (horizontal in range(int(offered_rect[0])
+                            , int(offered_rect[0]) + int(offered_rect[2]))
+                        and vertical in range(int(offered_rect[1])
+                            , int(offered_rect[1]) + int(offered_rect[3]))):
                         print("Player chose coordinates within a card")
-                        #Now remember the image that the player chose and return the index of the card to the game
-                        selected_card_index = self.card_rects.index(card_rect)
-                        card = cards[selected_card_index]
-                        #Make sure that all computers involved use the same card image
-                        updated_visuals = []
-                        for player in self.game.players:
-                            if isinstance(player, PlayerHuman):
-                                game_vis = player.games[self.game.game_id]["game_vis"]
-                                if game_vis in updated_visuals:
-                                    continue #This visual has already reserved the image, and will cause errors if it tries to reserve it again
-                                if game_vis.held_cards.get(adventurer) is None:
-                                    game_vis.held_cards[adventurer] = {card.card_type:[]}
-                                if game_vis.held_cards[adventurer].get(card.card_type) is None:
-                                    existing_images = game_vis.held_cards[adventurer][card.card_type] = []
-                                else:
-                                    existing_images = game_vis.held_cards[adventurer][card.card_type]
-                                selected_card_image = game_vis.offered_card_images[selected_card_index]
-                                existing_images.append(selected_card_image)
-                                game_vis.card_image_library[card.card_type].remove(selected_card_image)
-                                game_vis.used_card_images[card.card_type].append(selected_card_image)
-                                updated_visuals.append(game_vis)
-                        return selected_card_index
+                        selected_index = self.offered_rects.index(offered_rect)
+                        if offer_type == "card":
+                            #Now remember the image that the player chose and return the index of the card to the game
+                            card = cards[selected_index]
+                            #Make sure that all computers involved use the same card image
+                            updated_visuals = []
+                            for player in self.game.players:
+                                if isinstance(player, PlayerHuman):
+                                    game_vis = player.games[self.game.game_id]["game_vis"]
+                                    if game_vis in updated_visuals:
+                                        continue #This visual has already reserved the image, and will cause errors if it tries to reserve it again
+                                    if game_vis.held_cards.get(adventurer) is None:
+                                        game_vis.held_cards[adventurer] = {card.card_type:[]}
+                                    if game_vis.held_cards[adventurer].get(card.card_type) is None:
+                                        existing_images = game_vis.held_cards[adventurer][card.card_type] = []
+                                    else:
+                                        existing_images = game_vis.held_cards[adventurer][card.card_type]
+                                    selected_card_image = game_vis.offered_images[selected_index]
+                                    existing_images.append(selected_card_image)
+                                    game_vis.card_image_library[card.card_type].remove(selected_card_image)
+                                    game_vis.used_card_images[card.card_type].append(selected_card_image)
+                                    updated_visuals.append(game_vis)
+                        return selected_index
                 coords = None #Let them try again
             time.sleep(self.INPUT_DELAY)
         
