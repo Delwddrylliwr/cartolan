@@ -1900,8 +1900,8 @@ class WebServerVisualisation(GameVisualisation):
                                 if game_vis in updated_visuals:
                                     continue #This visual has already reserved the image, and will cause errors if it tries to reserve it again
                                 if game_vis.held_cards.get(adventurer) is None:
-                                    existing_images = game_vis.held_cards[adventurer] = {card.card_type:[]}
-                                elif game_vis.held_cards[adventurer].get(card.card_type) is None:
+                                    game_vis.held_cards[adventurer] = {card.card_type:[]}
+                                if game_vis.held_cards[adventurer].get(card.card_type) is None:
                                     existing_images = game_vis.held_cards[adventurer][card.card_type] = []
                                 else:
                                     existing_images = game_vis.held_cards[adventurer][card.card_type]
