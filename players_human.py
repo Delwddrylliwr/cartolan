@@ -15,19 +15,26 @@ class PlayerHuman(Player):
         self.attack_history = {} #to keep track of when this player has attacked, for reference
         
         #Allow for fixed responses to checks on particular actions, to speed up GUI
-        self.fixed_responses = {"rest":None
-                           , "attack":None
-                           , "place_agent":None
-                           , "restore_agent":None
-                           }
+        self.clear_fixed_response()
         #Keep track of whether the player has chosen to queue up a move rather than take any Actions
         self.queued_move = None
         self.fast_forward = False
+        #Keep track of any routes that the player has chosen to follow
+        self.follow_route = None
+    
+    def clear_fixed_response(self):
+        '''Resets any fixed responses that have been set.
+        '''
+        self.fixed_responses = {"rest":None
+                           , "buy":None
+                           , "attack":None
+                           , "move_agent":None
+                           , "agent_transfer":None
+                           }
     
     def establish_moves(self, adventurer):
         '''Checks the available moves away from their tile for an adventurer and provides suitable highlights, as well as a mapping from coordinates to compass points
         '''
-        game = adventurer.game
         moves = {}
         move_map = {}
             
@@ -80,7 +87,23 @@ class PlayerHuman(Player):
                         self.fixed_responses[action] = fixed_response
             if isinstance(adventurer, AdventurerAdvanced):
                 game_vis.draw_cards(adventurer)
-                
+    
+    def move_to_tile(self, adventurer, tile):
+        '''Establishes the direction for movement to an adjacent tile.'''
+        print(str(adventurer.player.colour) +": trying a move from the tile at "+str(adventurer.current_tile.tile_position.longitude)+ ", " +str(adventurer.current_tile.tile_position.latitude)+" onto the tile at " +str(tile.tile_position.longitude)+ ", " +str(tile.tile_position.latitude))
+        #check that the tile is adjacent to the current one
+        if abs(adventurer.current_tile.tile_position.longitude - tile.tile_position.longitude) + abs(adventurer.current_tile.tile_position.latitude - tile.tile_position.latitude) > 1:
+            print("Next tile in route was further away than a single move!?")
+            return False
+        #establish directions to the tile
+        if adventurer.current_tile.tile_position.latitude < tile.tile_position.latitude:
+            return adventurer.move('n')
+        elif adventurer.current_tile.tile_position.longitude < tile.tile_position.longitude:
+            return adventurer.move('e')
+        elif adventurer.current_tile.tile_position.latitude > tile.tile_position.latitude:
+            return adventurer.move('s')
+        else:
+            return adventurer.move('w')
     
     def continue_move(self, adventurer):
         '''Offers the user available moves, translates their mouse input into movement, and updates visuals.
@@ -88,6 +111,17 @@ class PlayerHuman(Player):
         Arguments
         adventurer takes a Cartolan.Adventurer
         '''
+        #If a route is being followed, then try to proceed to the next tile until hitting a city
+        if self.follow_route:
+            next_tile = self.follow_route.pop(0)
+            while adventurer.current_tile == next_tile:
+                next_tile = self.follow_route.pop(0)
+            if isinstance(next_tile, CityTile) and adventurer.has_remaining_moves():
+                #As about to complete a route to the city, turn off route-following mode
+                self.follow_route = []
+                self.clear_fixed_response()
+            return self.move_to_tile(adventurer, next_tile)
+        
         #If Actions were skipped for a queued move, then carry it out and start checking actions with input again
         if self.fast_forward:
             self.fast_forward = False
@@ -142,17 +176,43 @@ class PlayerHuman(Player):
         #prompt the player to choose a tile to move on to
         print("Prompting the "+self.colour+" player for input")
 #        game_vis.clear_prompt()
-        game_vis.give_prompt("Click which tile you would like "+str(self.colour)+" adventurer #" 
+        prompt = ("Click which tile you would like "+str(self.colour)+" Adventurer #" 
                                        +str(game.adventurers[self].index(adventurer)+1) 
                                        +" to move to?")
+        if game_vis.drawn_routes:
+            prompt += " Or select a route to follow."
+        game_vis.give_prompt(prompt)
         
         #Carry out the player's chosen move
-        move_coords = game_vis.get_input_coords(adventurer)
+        player_input = {"Nothing":"Nothing"}
+        while player_input.get("Nothing") is not None:
+            player_input = game_vis.get_input_coords(adventurer)
         #Recieve input for menu actions that change player preferences, while no coordinates are received
-        while move_coords not in moves["move"] and move_coords not in moves["abandon"]:
-            self.respond_menu_choices(adventurer, move_coords)
-            move_coords = game_vis.get_input_coords(adventurer)
-        if move_coords in moves["move"]:
+        while (player_input.get("move") is None 
+               and player_input.get("abandon") is None):
+            if player_input.get("route"):
+                if adventurer.current_tile in player_input["route"]:
+                    self.follow_route = player_input["route"][:] #Copy the other player's route rather than referncing the list (which would then mean modifying it and disrupting the visuals)
+#                    print("Setting out on route of length "+str(len(self.follow_route)))
+                    self.fixed_responses = {"rest":True
+                               , "buy":None #Break the automatic following and let the player decide
+                               , "attack":False
+                               , "move_agent":False
+                               , "agent_transfer":False
+                               }
+                    #Remove the route up until the current tile
+                    while not self.follow_route[0] == adventurer.current_tile:
+                            self.follow_route.pop(0)
+                    print("Trimmed route to curren tile, with length "+str(len(self.follow_route)))
+                    return self.continue_move(adventurer)
+                else:
+                    player_input = game_vis.get_input_coords(adventurer)
+            else:
+                self.respond_menu_choices(adventurer, player_input)
+                player_input = game_vis.get_input_coords(adventurer)
+        
+        if player_input.get("move") is not None:
+            move_coords = player_input["move"]
 #            print(self.colour+" player chose valid coordinates to move to.")
             if move_map[move_coords[0]].get(move_coords[1]) == "wait":
                 game_vis.clear_move_options()
@@ -164,7 +224,8 @@ class PlayerHuman(Player):
                 #check whether the turn is over despite movement failing, e.g. it failed because exploration failed
                 if adventurer.turns_moved == adventurer.game.turn:
                     moved = True
-        elif move_coords in moves["abandon"]:
+        elif player_input.get("abandon"):
+            move_coords = player_input["abandon"]
             #Transfer the Adventurer's wealth to sit on their current tile for others to collect
             city_tile = game.play_area[move_coords[0]][move_coords[1]]
             adventurer.abandon_expedition(city_tile)
@@ -211,8 +272,9 @@ class PlayerHuman(Player):
         
         #Move while moves are still available
         while adventurer.turns_moved < adventurer.game.turn:
-            print(self.colour+" player's Adventurer #"+str(adventurers.index(adventurer)+1)+" is still able to move.")
+            print(self.colour.capitalize()+" player's Adventurer #"+str(adventurers.index(adventurer)+1)+" is still able to move.")
             self.continue_move(adventurer)
+        self.follow_route = [] #Break the following at the end of the turn
         
         #If this is not the last adventurer for the player then finish here, otherwise clear the routes for all the non-human players that will play between this and the next human player
         if adventurers.index(adventurer) < len(adventurers) - 1:
@@ -242,6 +304,13 @@ class PlayerHuman(Player):
         
         prompt takes a string that will be communicated to the human player
         '''
+        #Deal with automated player responses, whether fixed responses to certain prompts or ignoring prompts because of a queued move
+        if self.fixed_responses[action_type] is not None:
+            return self.fixed_responses[action_type]
+        else:
+            print("With no fixed response set, stopping following route.")
+            self.follow_route = [] #If there was no fixed response then stop automatically following and return control to the player
+            self.clear_fixed_response()
         if self.fast_forward:
             return None
         
@@ -275,25 +344,28 @@ class PlayerHuman(Player):
 #            game_vis.clear_prompt()
         game_vis.give_prompt(prompt)
         
-        move_location = None
-        move_coords = game_vis.get_input_coords(adventurer)
-        if move_coords in actions[action_type]:
-            print(self.colour+" player chose the coordinates of the tile where their Adventurer can buy.")
-            move_location = adventurer.game.play_area[move_coords[0]][move_coords[1]]
-        elif actions.get("move"): # If there were movement options, then check whether these were chosen
-            if move_coords in actions["move"]:
-                self.fast_forward = True
-                self.queued_move = move_map[move_coords[0]].get(move_coords[1])
-                move_location = None
-        else:
-            print(self.colour+" player chose coordinates away from the tile where their Adventurer can buy.")
-            move_location = None
+        action_location = None
+#        player_input = None
+#        while not player_input:
+        player_input = game_vis.get_input_coords(adventurer)
+        if player_input.get(action_type) is not None:
+            action_coords = player_input.get(action_type)
+            print(self.colour.capitalize()+" player chose the coordinates of the tile where their Adventurer can buy.")
+            action_location = adventurer.game.play_area[action_coords[0]][action_coords[1]]
+        elif player_input.get("move") is not None: # If there were movement options, then check whether these were chosen
+            move_coords = player_input.get("move")
+            self.fast_forward = True
+            self.queued_move = move_map[move_coords[0]].get(move_coords[1])
+            action_location = None
+        else: #@TODO this isn't registering
+            print(self.colour.capitalize()+" player chose coordinates away from the tile where their Adventurer can buy.")
+            action_location = None
 
         #clean up the highlights
         game_vis.clear_prompt()
         game_vis.clear_move_options()
 #             game_vis.draw_tokens()
-        return move_location
+        return action_location
         
     #if offered by a Wonder, always trade
     def check_trade(self, adventurer, tile):
@@ -314,14 +386,14 @@ class PlayerHuman(Player):
                 action_type = "rest"
                 actions[action_type] = [[adventurer.current_tile.tile_position.longitude
                             , adventurer.current_tile.tile_position.latitude]]
-                prompt = ("If you want "+str(self.colour)+" adventurer #" 
+                prompt = ("If you want "+str(self.colour)+" Adventurer #" 
                                                +str(game.adventurers[self].index(adventurer)+1) 
                                                +" to rest then click their tile, otherwise click elsewhere.")
             elif adventurer.wealth >= adventurer.game.cost_agent_exploring:
                 action_type = "buy"
                 actions[action_type] = [[adventurer.current_tile.tile_position.longitude
                             , adventurer.current_tile.tile_position.latitude]]
-                prompt = ("If you want "+str(self.colour)+" adventurer #" 
+                prompt = ("If you want "+str(self.colour)+" Adventurer #" 
                                                +str(game.adventurers[self].index(adventurer)+1) 
                                                +" to rest for "
                                                +str(game.cost_agent_rest)+
@@ -573,7 +645,7 @@ class PlayerHuman(Player):
         print("Prompting the "+self.colour+" player for input")
 #            game_vis.clear_prompt()
         game_vis.give_prompt(prompt)
-        game_vis.draw_card_options(cards)
+        game_vis.draw_card_offers(cards)
         card = cards[game_vis.get_input_choice(adventurer, cards)]
 
         #clean up the highlights
@@ -602,7 +674,7 @@ class PlayerHuman(Player):
         print("Prompting the "+self.colour+" player for input")
 #            game_vis.clear_prompt()
         game_vis.give_prompt(prompt)
-        game_vis.draw_tile_options(tiles)
+        game_vis.draw_tile_offers(tiles)
         tile = tiles[game_vis.get_input_choice(adventurer, tiles, "tile")]
 
         #clean up the highlights

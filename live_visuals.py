@@ -48,6 +48,7 @@ class GameVisualisation():
     CHEST_SCALE = 0.13
     CHEST_TILE_COLS = 2
     DISCARD_SCALE = 0.075
+    OFFER_SCALE = 0.15
     ROUTE_THICKNESS = 4.0
     TOKEN_SCALE = 0.2 #relative to tile sizes
     AGENT_SCALE = 1.75 #relative to Adventurer radius
@@ -90,9 +91,12 @@ class GameVisualisation():
         self.current_player_colour = "black"
         self.current_adventurer_number = 0
         self.highlights = {highlight_type:[] for highlight_type in self.HIGHLIGHT_PATHS}
+        self.highlight_rects = []
+        self.drawn_routes = []
         self.current_move_count = None
         self.menu_rect = (0, 0, 0, 0)
         self.stack_rect = (0, 0, 0, 0)
+        self.offer_rects = []
         if isinstance(self.game, GameAdvanced):
             self.selected_card_num = None
             self.held_cards = {} #Keep track of card images assigned to each adventurer/player
@@ -118,6 +122,10 @@ class GameVisualisation():
 #        self.window.blit(self.backing_image, [0,0])
         print("Initialising visual scale variables, to fit window of size "+str(self.width)+"x"+str(self.height))
         self.tile_size = self.height // self.dimensions[1]
+        #We'll have a different tile size for dicards
+        self.discard_tile_size = round(self.DISCARD_SCALE * self.width)
+        #Where piracy is possible, we'll have a different tile size for 
+        self.offer_tile_size = round(self.OFFER_SCALE * self.width)
         #Before sizing against the horizontal dimension, we'll work out how much space the menus will take away
         if isinstance(self.game, GameAdvanced):
             self.play_area_width = round(self.width * (1 - self.CHEST_SCALE - self.DISCARD_SCALE))
@@ -129,7 +137,6 @@ class GameVisualisation():
         #Tiles will be scaled to fit the smaller dimension
         if self.play_area_width < self.tile_size * self.dimensions[0]:
             self.tile_size = self.play_area_width // self.dimensions[0]
-        self.discard_tile_size = round(self.DISCARD_SCALE * self.width)
         self.token_size = round(self.TOKEN_SCALE * self.tile_size) #token size will be proportional to the tiles
         self.outline_width = math.ceil(self.TOKEN_OUTLINE_SCALE * self.token_size)
         self.token_font = pygame.font.SysFont(None, round(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
@@ -229,6 +236,10 @@ class GameVisualisation():
         for tile_name in self.tile_image_library:
             tile_image = self.tile_image_library[tile_name]
             self.discard_tile_library[tile_name] = pygame.transform.scale(tile_image, [self.discard_tile_size, self.discard_tile_size])
+        self.offer_tile_library = {}
+        for tile_name in self.tile_image_library:
+            tile_image = self.tile_image_library[tile_name]
+            self.offer_tile_library[tile_name] = pygame.transform.scale(tile_image, [self.offer_tile_size, self.offer_tile_size])
         #import the cards that will award various rule buffs
         if isinstance(self.game, GameAdvanced):
             self.card_image_library = {}
@@ -448,6 +459,7 @@ class GameVisualisation():
         '''
 #        print("Updating the dict of highlight positions, based on optional arguments")
 #        highlight_count = 0
+        self.highlight_rects = {} #Reset the record of where highlights have been drawn for click detection
         for highlight_type in self.highlights:
             coords = highlight_coords.get(highlight_type)
             if coords:
@@ -460,6 +472,7 @@ class GameVisualisation():
 #        print("Cycling through the various highlights' grid coordinates, outlining the " +str(highlight_count)+ " tiles that can and can't be subject to moves")
         for highlight_type in self.highlight_library:
             if self.highlights[highlight_type]:
+                self.highlight_rects[highlight_type] = []
                 highlight_image = self.highlight_library[highlight_type]
                 for tile_coords in self.highlights[highlight_type]:
                     #place the highlight image on the grid
@@ -468,6 +481,8 @@ class GameVisualisation():
                     vertical = self.get_vertical(tile_coords[1]) *self.tile_size
 #                    print("Drawing a highlight at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
                     self.window.blit(highlight_image, [horizontal, vertical])
+                    #remember where this highlight was drawn, to detect input later
+                    self.highlight_rects[highlight_type].append((horizontal, vertical, highlight_image.get_width(), highlight_image.get_height()))
         #Report the number of moves that have been used so far:
         #report the number of tiles in each bag in the same part of the display
         if moves_since_rest:
@@ -584,6 +599,7 @@ class GameVisualisation():
         '''
 #        print("Drawing a series of lines to mark out the route travelled by players since the last move")
         players = self.game.players
+        self.drawn_routes = []
         for player in players:
             player_offset = self.PLAYER_OFFSETS[players.index(player)]
             adventurers = self.game.adventurers[player]
@@ -596,12 +612,13 @@ class GameVisualisation():
                             , int(self.tile_size * (self.get_vertical(adventurer.route[0].tile_position.latitude) + adventurer_offset[1]))]
                     # we'll introduce a gradual offset during the course of the game, to help keep track of when a route was travelled
                     move = 0
+                    drawn_route = []
                     for tile in adventurer.route:
                         # you'll need to get the centre-point for each tile_image
                         offset = [0.5 + float(move)/float(len(adventurer.route))*(x - 0.5) for x in adventurer_offset]
                         step = [int(self.play_area_start + self.tile_size * (self.get_horizontal(tile.tile_position.longitude) + offset[0]))
                                 , int(self.tile_size * (self.get_vertical(tile.tile_position.latitude) + offset[1]))]
-                        pygame.draw.line(self.window, colour
+                        segment = pygame.draw.line(self.window, colour
                                          , [previous_step[0], previous_step[1]]
                                          , [step[0], step[1]]
                                          , math.ceil(self.route_thickness 
@@ -609,7 +626,16 @@ class GameVisualisation():
                                                      )
                                          )
                         previous_step = step
+                        drawn_route.append(segment)
                         move += 1
+                    #retain this for detecting clicks, providing it doesn't end with abandoning
+                    route_to_follow = adventurer.route[:]
+                    if (drawn_route[-1][2] > self.tile_size and drawn_route[-1][3] > self.tile_size):
+                        route_to_follow.pop()
+                    if len(drawn_route) > 1:
+#                        print("Recording route of "+adventurer.player.colour+" player, for fast travel.")
+#                        print("Route length: "+str(len(drawn_route)))
+                        self.drawn_routes.append([drawn_route, route_to_follow])
             
 #            if isinstance(player, PlayerRegularExplorer):
 #                for attack in player.attack_history: 
@@ -824,8 +850,8 @@ class GameVisualisation():
 #        offers takes a list of Cartolan Cards or Tiles
 #        offer_type takes a string identifying the offers as either "card" or "tile"
 #        '''
-#        self.offered_images = [] #reset the record of card images in use
-#        self.offered_rects = [] #reset the record of card positions for selection
+#        self.offer_images = [] #reset the record of card images in use
+#        self.offer_rects = [] #reset the record of card positions for selection
 #        #Cycle through the offered Cards, drawing them
 #        horizontal_increment = self.width // (len(offers) + 1)
 #        horizontal = horizontal_increment
@@ -844,17 +870,17 @@ class GameVisualisation():
 #            adjusted_horizontal = card_horizontal - card_image.get_width() // 2
 #            self.window.blit(card_image, [adjusted_horizontal, card_vertical])
 #            card_horizontal += horizontal_increment
-#            self.offered_images.append(card_image)
-#            self.offered_rects.append((adjusted_horizontal, card_vertical, card_image.get_width(), card_image.get_height()))
+#            self.offer_images.append(card_image)
+#            self.offer_rects.append((adjusted_horizontal, card_vertical, card_image.get_width(), card_image.get_height()))
     
-    def draw_card_options(self, cards):
+    def draw_card_offers(self, cards):
         '''Prominently displays an array of cards from which the player can choose
         
         Arguments:
         Cards takes a list of Cartolan Cards
         '''
-        self.offered_images = [] #reset the record of card images in use
-        self.offered_rects = [] #reset the record of card positions for selection
+        self.offer_images = [] #reset the record of card images in use
+        self.offer_rects = [] #reset the record of card positions for selection
         #Cycle through the offered Cards, drawing them
         horizontal_increment = self.width // (len(cards) + 1)
         card_horizontal = horizontal_increment
@@ -870,22 +896,22 @@ class GameVisualisation():
             adjusted_horizontal = card_horizontal - card_image.get_width() // 2
             self.window.blit(card_image, [adjusted_horizontal, card_vertical])
             card_horizontal += horizontal_increment
-            self.offered_images.append(card_image)
-            self.offered_rects.append((adjusted_horizontal, card_vertical, card_image.get_width(), card_image.get_height()))
+            self.offer_images.append(card_image)
+            self.offer_rects.append((adjusted_horizontal, card_vertical, card_image.get_width(), card_image.get_height()))
     
     #@TODO combine the two methods for choosing cards and tiles, once there are multiple tile images too
-    def draw_tile_options(self, tiles):
+    def draw_tile_offers(self, tiles):
         '''Prominently displays an array of tiles from which the player can choose
         
         Arguments:
         tiles takes a list of Cartolan Tiles
         '''
-        self.offered_images = [] #reset the record of card images in use
-        self.offered_rects = [] #reset the record of card positions for selection
+        self.offer_images = [] #reset the record of card images in use
+        self.offer_rects = [] #reset the record of card positions for selection
         #Cycle through the offered Cards, drawing them
         horizontal_increment = self.width // (len(tiles) + 1)
         tile_horizontal = horizontal_increment
-        tile_vertical = (self.height - self.tile_size) // 2 #Centre the cards vertically
+        tile_vertical = (self.height - self.offer_tile_size) // 2 #Centre the cards vertically
         for tile in tiles:
             e = tile.tile_edges
             wonder = str(tile.is_wonder)
@@ -896,14 +922,14 @@ class GameVisualisation():
             tile_name = uc + ua + dc + da + wonder
             north = str(tile.wind_direction.north)
             east = str(tile.wind_direction.east)
-            tile_image = self.chest_tile_library[tile_name + north + east]
+            tile_image = self.offer_tile_library[tile_name + north + east]
 #                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
             print("Drawing a card of type "+tile_name + north + east)
-            adjusted_horizontal = tile_horizontal - self.tile_size // 2
+            adjusted_horizontal = tile_horizontal - self.offer_tile_size // 2
             self.window.blit(tile_image, [adjusted_horizontal, tile_vertical])
             tile_horizontal += horizontal_increment
-            self.offered_images.append(tile_image)
-            self.offered_rects.append((adjusted_horizontal, tile_vertical, self.tile_size, self.tile_size))
+            self.offer_images.append(tile_image)
+            self.offer_rects.append((adjusted_horizontal, tile_image, self.offer_tile_size, self.offer_tile_size))
             
     def draw_prompt(self):
         '''Prints a prompt on what moves/actions are available to the current player
@@ -1746,6 +1772,8 @@ class WebServerVisualisation(GameVisualisation):
         self.window.fill(self.BACKGROUND_COLOUR) #fill the screen with white
         print("Initialising visual scale variables, to fit window of size "+str(self.width)+"x"+str(self.height))
         self.tile_size = self.height // self.dimensions[1]
+        #We'll have a different tile size for dicards
+        self.discard_tile_size = round(self.DISCARD_SCALE * self.width)
         #Before sizing against the horizontal dimension, we'll work out how much space the menus will take away
         if isinstance(self.game, GameRegular):
             self.play_area_width = round(self.width * (1 - self.CHEST_SCALE - self.DISCARD_SCALE))
@@ -1757,7 +1785,8 @@ class WebServerVisualisation(GameVisualisation):
         if self.play_area_width < self.tile_size * self.dimensions[0]:
             self.tile_size = self.play_area_width // self.dimensions[0]
         self.chest_tile_size = round(self.CHEST_SCALE * self.width) // self.CHEST_TILE_COLS
-        self.discard_tile_size = round(self.DISCARD_SCALE * self.width)
+        #Where piracy is possible, we'll have a different tile size for 
+        self.offer_tile_size = round(self.OFFER_SCALE * self.width)
         self.token_size = int(round(self.TOKEN_SCALE * self.tile_size)) #token size will be proportional to the tiles
         self.outline_width = math.ceil(self.TOKEN_OUTLINE_SCALE * self.token_size)
         self.token_font = pygame.font.SysFont(None, round(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
@@ -1880,41 +1909,38 @@ class WebServerVisualisation(GameVisualisation):
                         print("Updated the selected card to number "+str(self.selected_card_num))
                     return {"update_cards":None}
                 else:
-                    #Otherwise return the coordinates
-                    longitude = int(math.ceil((horizontal - self.play_area_start)/self.tile_size)) - self.origin[0] - 1
-                    latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
-                    if True:
-                        self.highlights = {highlight_type:[] for highlight_type in self.HIGHLIGHT_PATHS} #clear the highlights until the server offers more
-                        return [longitude, latitude]
+                    #Otherwise check whether the click was within a highlighted cell and return the coordinates
+                    for highlight_type in self.highlight_rects:
+                        for highlight_rect in self.highlight_rects[highlight_type]:
+                            if (horizontal in range(int(highlight_rect[0])
+                                    , int(highlight_rect[0]) + int(highlight_rect[2]))
+                                and vertical in range(int(highlight_rect[1])
+                                    , int(highlight_rect[1]) + int(highlight_rect[3]))):
+                                longitude = int(math.ceil((horizontal - self.play_area_start)/self.tile_size)) - self.origin[0] - 1
+                                latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
+                                print("Identified coordinates within a highlighted option.")
+                                return {highlight_type:[longitude, latitude]}
+                    #Also check whether the click was on a drawn route
+                    for route in self.drawn_routes:
+                        for segment in route[0]:
+                            if (horizontal in range(int(segment[0])
+                                , int(segment[0]) + int(segment[2]))
+                            and vertical in range(int(segment[1])
+                                , int(segment[1]) + int(segment[3]))):
+                                print("Identified coordinates on a route of length "+str(len(route[1])))
+                                return {"route":route[1]}
+#                coords = None
+            #Wait before checking again            
             time.sleep(self.INPUT_DELAY)
-#        print("Waiting for input from the user")
-#        while True:
-#            data = self.socket.recv()
-#            code, value = data.split('[00100]')
-#            
-#            if code == "COORDS":
-#                horizontal, vertical = value.split('[66666]')
-#                self.move_timer = self.MOVE_TIME_LIMIT #reset the timelimit on moving
-#                longitude = int(math.ceil((horizontal)/self.tile_size)) - self.origin[0] - 1
-#                latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
-#                #check whether the click was within the highlighted space and whether it's a local turn
-##                highlighted_option = self.check_highlighted(longitude, latitude)
-##                print("Click was a valid option of type: " + highlighted_option)
-#                if True:
-##                if highlighted_option is not None:
-#                    self.highlights = {"move":[], "invalid":[], "buy":[], "attack":[]} #clear the highlights until the server offers more
-##                    print("Have identified a move available at " +str(longitude)+ ", " +str(latitude)+ " of type " +str(highlighted_option))
-#                    return [longitude, latitude]
-
-        #@TODO introduce move timer and compare to time limit
         
-        return False
+        return {"Nothing":"Nothing"}
 
     def get_input_choice(self, adventurer, cards, offer_type="card"):
         '''Sends an image of the latest play area, accepts input only from this visual's players.
         
         Arguments
-        adventurer takes a Cartolan.Adventurer
+        adventurer takes a Cartolan.adventurer
+        cards takes a list of Cartolan.card
         '''
         #print("Updating the display for all the other human players, whose visuals won't have been consulted.")
         for player in self.game.players:
@@ -1945,15 +1971,16 @@ class WebServerVisualisation(GameVisualisation):
             if coords is not None:
                 horizontal, vertical = coords
                 #check whether the click was within each of the card areas, and return the index
-                for offered_rect in self.offered_rects:
-                    if (horizontal in range(int(offered_rect[0])
-                            , int(offered_rect[0]) + int(offered_rect[2]))
-                        and vertical in range(int(offered_rect[1])
-                            , int(offered_rect[1]) + int(offered_rect[3]))):
+                for offer_rect in self.offer_rects:
+                    if (horizontal in range(int(offer_rect[0])
+                            , int(offer_rect[0]) + int(offer_rect[2]))
+                        and vertical in range(int(offer_rect[1])
+                            , int(offer_rect[1]) + int(offer_rect[3]))):
                         print("Player chose coordinates within a card")
-                        selected_index = self.offered_rects.index(offered_rect)
+                        selected_index = self.offer_rects.index(offer_rect)
                         if offer_type == "card":
                             #Now remember the image that the player chose and return the index of the card to the game
+                            #@TODO this has potential for conflicts and the card tyoes corresponding to offered images should be kept with them rather than being resubmitted
                             card = cards[selected_index]
                             #Make sure that all computers involved use the same card image
                             updated_visuals = []
@@ -1968,7 +1995,7 @@ class WebServerVisualisation(GameVisualisation):
                                         existing_images = game_vis.held_cards[adventurer][card.card_type] = []
                                     else:
                                         existing_images = game_vis.held_cards[adventurer][card.card_type]
-                                    selected_card_image = game_vis.offered_images[selected_index]
+                                    selected_card_image = game_vis.offer_images[selected_index]
                                     existing_images.append(selected_card_image)
                                     game_vis.card_image_library[card.card_type].remove(selected_card_image)
                                     game_vis.used_card_images[card.card_type].append(selected_card_image)
