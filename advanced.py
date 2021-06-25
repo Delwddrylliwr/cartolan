@@ -55,16 +55,15 @@ class AdventurerAdvanced(AdventurerRegular):
         self.agent_on_existing = game.agent_on_existing
         self.transfers_to_agents = game.transfers_to_agents
         self.attacks_abandon = game.attacks_abandon
+        #Prepare to hold cards
+        self.character_card = None
+        self.discovery_cards = []
         #Randomly draw a Character card
-        #@TODO let the player choose between multiple character cards
+        #let the player choose between multiple character cards if the game visual is already started
 #        character_cards = self.game.character_cards
 #        self.character_card = character_cards.pop(random.randint(0, len(character_cards)-1))
         if self.game.game_started:
-            self.choose_character()    
-        else:
-            self.character_card = None
-        #Prepare to hold Discovery cards too
-        self.discovery_cards = []
+            self.choose_character()
         #Take on the changes to rules based on the Company card
 #        self.company_card = self.game.company_cards[self.player]
 #        self.company_card.apply_buffs(self)
@@ -103,7 +102,9 @@ class AdventurerAdvanced(AdventurerRegular):
             #Steal Discovery cards
             if isinstance(token, AdventurerAdvanced):
                 if len(token.discovery_cards) > 0:
-                    stolen_card = token.discovery_cards.pop(random.randint(0, len(token.discovery_cards)-1))
+#                    stolen_card = token.discovery_cards.pop(random.randint(0, len(token.discovery_cards)-1))
+                    stolen_card = self.player.choose_card(self, token.discovery_cards)
+                    token.discovery_cards.remove(stolen_card)
                     self.discover_card(stolen_card)
             if self.attacks_abandon: #Adventurers will return to cities, Agents are removed
                 if isinstance(token, AdventurerRegular):
