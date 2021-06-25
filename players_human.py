@@ -21,6 +21,7 @@ class PlayerHuman(Player):
         self.fast_forward = False
         #Keep track of any routes that the player has chosen to follow
         self.follow_route = None
+        self.destination = None
     
     def clear_fixed_response(self):
         '''Resets any fixed responses that have been set.
@@ -115,10 +116,15 @@ class PlayerHuman(Player):
         if self.follow_route:
             next_tile = self.follow_route.pop(0)
             while adventurer.current_tile == next_tile:
-                next_tile = self.follow_route.pop(0)
-            if isinstance(next_tile, CityTile) and adventurer.has_remaining_moves():
+                if self.follow_route:
+                    next_tile = self.follow_route.pop(0)
+                else:
+                    return False
+            if ((next_tile == self.destination or isinstance(next_tile, CityTile)) 
+                and adventurer.has_remaining_moves()):
                 #As about to complete a route to the city, turn off route-following mode
                 self.follow_route = []
+                self.destination = None
                 self.clear_fixed_response()
             return self.move_to_tile(adventurer, next_tile)
         
@@ -193,6 +199,11 @@ class PlayerHuman(Player):
             if player_input.get("route"):
                 if adventurer.current_tile in player_input["route"]:
                     self.follow_route = player_input["route"][:] #Copy the other player's route rather than referncing the list (which would then mean modifying it and disrupting the visuals)
+                    destination_coords = player_input["destination"]
+                    play_area = adventurer.game.play_area
+                    self.destination = None
+                    if play_area.get(destination_coords[0]):
+                        self.destination = play_area[destination_coords[0]].get(destination_coords[1])
 #                    print("Setting out on route of length "+str(len(self.follow_route)))
                     self.fixed_responses = {"rest":True
                                , "buy":None #Break the automatic following and let the player decide
@@ -274,7 +285,9 @@ class PlayerHuman(Player):
         while adventurer.turns_moved < adventurer.game.turn:
             print(self.colour.capitalize()+" player's Adventurer #"+str(adventurers.index(adventurer)+1)+" is still able to move.")
             self.continue_move(adventurer)
-        self.follow_route = [] #Break the following at the end of the turn
+        self.follow_route = [] #Break the route-following behaviour at the end of the turn
+        self.destination = None
+        self.clear_fixed_response()
         
         #If this is not the last adventurer for the player then finish here, otherwise clear the routes for all the non-human players that will play between this and the next human player
         if adventurers.index(adventurer) < len(adventurers) - 1:
@@ -310,6 +323,7 @@ class PlayerHuman(Player):
         else:
             print("With no fixed response set, stopping following route.")
             self.follow_route = [] #If there was no fixed response then stop automatically following and return control to the player
+            self.destination = None
             self.clear_fixed_response()
         if self.fast_forward:
             return None
