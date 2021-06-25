@@ -1927,8 +1927,10 @@ class WebServerVisualisation(GameVisualisation):
                                 , int(segment[0]) + int(segment[2]))
                             and vertical in range(int(segment[1])
                                 , int(segment[1]) + int(segment[3]))):
+                                longitude = int(math.ceil((horizontal - self.play_area_start)/self.tile_size)) - self.origin[0] - 1
+                                latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
                                 print("Identified coordinates on a route of length "+str(len(route[1])))
-                                return {"route":route[1]}
+                                return {"route":route[1], "destination":[longitude, latitude]}
 #                coords = None
             #Wait before checking again            
             time.sleep(self.INPUT_DELAY)
