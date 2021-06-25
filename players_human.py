@@ -115,7 +115,10 @@ class PlayerHuman(Player):
         if self.follow_route:
             next_tile = self.follow_route.pop(0)
             while adventurer.current_tile == next_tile:
-                next_tile = self.follow_route.pop(0)
+                if self.follow_route:
+                    next_tile = self.follow_route.pop(0)
+                else:
+                    return False
             if isinstance(next_tile, CityTile) and adventurer.has_remaining_moves():
                 #As about to complete a route to the city, turn off route-following mode
                 self.follow_route = []
@@ -274,7 +277,8 @@ class PlayerHuman(Player):
         while adventurer.turns_moved < adventurer.game.turn:
             print(self.colour.capitalize()+" player's Adventurer #"+str(adventurers.index(adventurer)+1)+" is still able to move.")
             self.continue_move(adventurer)
-        self.follow_route = [] #Break the following at the end of the turn
+        self.follow_route = [] #Break the route-following behaviour at the end of the turn
+        self.clear_fixed_response()
         
         #If this is not the last adventurer for the player then finish here, otherwise clear the routes for all the non-human players that will play between this and the next human player
         if adventurers.index(adventurer) < len(adventurers) - 1:
