@@ -128,7 +128,7 @@ class PlayerHuman(Player):
                 #As about to complete a route to the city, turn off route-following mode
                 self.follow_route = []
                 self.destination = None
-                self.clear_fixed_response()
+#                self.clear_fixed_response()
             return self.move_to_tile(adventurer, next_tile)
         
         #If Actions were skipped for a queued move, then carry it out and start checking actions with input again
@@ -197,6 +197,8 @@ class PlayerHuman(Player):
         player_input = {"Nothing":"Nothing"}
         while player_input.get("Nothing") is not None:
             player_input = game_vis.get_input_coords(adventurer)
+        print("Player's input:")
+        print(player_input)
         #Recieve input for menu actions that change player preferences, while no coordinates are received
         while (player_input.get("move") is None 
                and player_input.get("abandon") is None):
@@ -209,10 +211,10 @@ class PlayerHuman(Player):
                     if play_area.get(destination_coords[0]):
                         self.destination = play_area[destination_coords[0]].get(destination_coords[1])
 #                    print("Setting out on route of length "+str(len(self.follow_route)))
-                    self.fixed_responses = {"rest":True
-                               , "buy":None #Break the automatic following and let the player decide
-                               , "attack":False
-                               }
+#                    self.fixed_responses = {"rest":True
+#                               , "buy":None #Break the automatic following and let the player decide
+#                               , "attack":False
+#                               }
                     #Remove the route up until the current tile
                     while not self.follow_route[0] == adventurer.current_tile:
                             self.follow_route.pop(0)
@@ -289,7 +291,7 @@ class PlayerHuman(Player):
             self.continue_move(adventurer)
         self.follow_route = [] #Break the route-following behaviour at the end of the turn
         self.destination = None
-        self.clear_fixed_response()
+#        self.clear_fixed_response()
         
         #If this is not the last adventurer for the player then finish here, otherwise clear the routes for all the non-human players that will play between this and the next human player
         if adventurers.index(adventurer) < len(adventurers) - 1:
@@ -326,7 +328,7 @@ class PlayerHuman(Player):
             print("With no fixed response set, stopping following route.")
             self.follow_route = [] #If there was no fixed response then stop automatically following and return control to the player
             self.destination = None
-            self.clear_fixed_response()
+#            self.clear_fixed_response()
         if self.fast_forward:
             return None
         
@@ -365,6 +367,14 @@ class PlayerHuman(Player):
 #        player_input = None
 #        while not player_input:
         player_input = game_vis.get_input_coords(adventurer)
+        print("Player's input:")
+        print(player_input)
+        #Check if this was a menu click, respond and gather another
+        while (player_input.get(action_type) is None 
+               and player_input.get("move") is None
+               and player_input.get("Nothing") is None):
+            self.respond_menu_choices(adventurer, player_input)
+            player_input = game_vis.get_input_coords(adventurer)
         if player_input.get(action_type) is not None:
             action_coords = player_input.get(action_type)
             print(self.colour.capitalize()+" player chose the coordinates of the tile where their Adventurer can buy.")
@@ -374,7 +384,7 @@ class PlayerHuman(Player):
             self.fast_forward = True
             self.queued_move = move_map[move_coords[0]].get(move_coords[1])
             action_location = None
-        else: #@TODO this isn't registering
+        else:
             print(self.colour.capitalize()+" player chose coordinates away from the tile where their Adventurer can buy.")
             action_location = None
 
