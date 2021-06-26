@@ -43,9 +43,11 @@ class GameVisualisation():
     PLAIN_TEXT_COLOUR = (255,255,255)
     WONDER_TEXT_COLOUR = (0,0,0)
     CHEST_HIGHLIGHT_COLOUR = (0, 255, 0)
+    TOGGLE_TRUE_COLOUR = (0, 255, 0)
+    TOGGLE_FALSE_COLOUR = (255, 0, 0)
     TILE_BORDER = 0.02 #the share of grid width/height that is used for border
     CARD_HEADER_SHARE = 0.15 # the share of card images that is the header, visually summarising the buffs of the card with colour and a logo
-    CHEST_SCALE = 0.13
+    MENU_SCALE = 0.13
     CHEST_TILE_COLS = 2
     DISCARD_SCALE = 0.075
     OFFER_SCALE = 0.15
@@ -77,6 +79,7 @@ class GameVisualisation():
                   , "move_agent":'./images/option_valid_move.png'
                   , "agent_transfer":'./images/option_buy.png'
                   }
+    TOGGLE_HIGHLIGHTS = ["buy", "attack", "rest"]
     
     def __init__(self, game, dimensions, origin):
         #Retain game data
@@ -94,8 +97,10 @@ class GameVisualisation():
         self.highlight_rects = []
         self.drawn_routes = []
         self.current_move_count = None
-        self.menu_rect = (0, 0, 0, 0)
+        self.chest_rect = (0, 0, 0, 0)
         self.stack_rect = (0, 0, 0, 0)
+        self.toggles_rect = (0, 0, 0, 0)
+        self.toggle_rects = []
         self.offer_rects = []
         if isinstance(self.game, GameAdvanced):
             self.selected_card_num = None
@@ -127,13 +132,11 @@ class GameVisualisation():
         #Where piracy is possible, we'll have a different tile size for 
         self.offer_tile_size = round(self.OFFER_SCALE * self.width)
         #Before sizing against the horizontal dimension, we'll work out how much space the menus will take away
-        if isinstance(self.game, GameAdvanced):
-            self.play_area_width = round(self.width * (1 - self.CHEST_SCALE - self.DISCARD_SCALE))
-            self.play_area_start = round(self.width * self.CHEST_SCALE)
-            self.chest_tile_size = round(self.CHEST_SCALE * self.width) // self.CHEST_TILE_COLS
-        else:
-            self.play_area_width = round(self.width * (1 - self.DISCARD_SCALE))
-            self.play_area_start = 0
+        self.play_area_width = round(self.width * (1 - self.MENU_SCALE - self.DISCARD_SCALE))
+        self.play_area_start = round(self.width * self.MENU_SCALE)
+        self.menu_highlight_size = round(self.MENU_SCALE * self.width) // len(self.TOGGLE_HIGHLIGHTS)
+        if isinstance(self.game, GameRegular):
+            self.chest_tile_size = round(self.MENU_SCALE * self.width) // self.CHEST_TILE_COLS
         #Tiles will be scaled to fit the smaller dimension
         if self.play_area_width < self.tile_size * self.dimensions[0]:
             self.tile_size = self.play_area_width // self.dimensions[0]
@@ -228,18 +231,23 @@ class GameVisualisation():
             highlight_image = self.HIGHLIGHT_PATHS[highlight_name]
             self.highlight_library[highlight_name] = pygame.image.load(highlight_image)
         # duplicate these tiles at a smaller size for use in menus
-        self.chest_tile_library = {}
-        for tile_name in self.tile_image_library:
-            tile_image = self.tile_image_library[tile_name]
-            self.chest_tile_library[tile_name] = pygame.transform.scale(tile_image, [self.chest_tile_size, self.chest_tile_size])
         self.discard_tile_library = {}
         for tile_name in self.tile_image_library:
             tile_image = self.tile_image_library[tile_name]
             self.discard_tile_library[tile_name] = pygame.transform.scale(tile_image, [self.discard_tile_size, self.discard_tile_size])
-        self.offer_tile_library = {}
-        for tile_name in self.tile_image_library:
-            tile_image = self.tile_image_library[tile_name]
-            self.offer_tile_library[tile_name] = pygame.transform.scale(tile_image, [self.offer_tile_size, self.offer_tile_size])
+        self.toggle_library = {}
+        for highlight_name in self.highlight_library:
+            highlight_image = self.highlight_library[highlight_name]
+            self.toggle_library[highlight_name] = pygame.transform.scale(highlight_image, [self.menu_highlight_size, self.menu_highlight_size])
+        if isinstance(self.game, GameRegular):
+            self.chest_tile_library = {}
+            for tile_name in self.tile_image_library:
+                tile_image = self.tile_image_library[tile_name]
+                self.chest_tile_library[tile_name] = pygame.transform.scale(tile_image, [self.chest_tile_size, self.chest_tile_size])
+            self.offer_tile_library = {}
+            for tile_name in self.tile_image_library:
+                tile_image = self.tile_image_library[tile_name]
+                self.offer_tile_library[tile_name] = pygame.transform.scale(tile_image, [self.offer_tile_size, self.offer_tile_size])
         #import the cards that will award various rule buffs
         if isinstance(self.game, GameAdvanced):
             self.card_image_library = {}
@@ -687,6 +695,48 @@ class GameVisualisation():
             self.window.blit(tile_count, tile_count_position)
             displacement += self.SCORES_FONT_SCALE * self.height
     
+    def draw_toggle_menu(self, fixed_responses):
+        '''Visualises a set of tiles in the Adventurer's Chest, and highlights one if it is selected for use
+        
+        Arguments:
+        chest_tiles takes a list of Cartolan tiles
+        preferred_tile_num takes an integer index for that list
+        '''
+        self.toggle_rects = [] #Reset the record of where the toggle menu buttons have been drawn
+        #Establish the top left coordinate below the table of treasure scores
+        toggle_menu_position = self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1)
+        toggle_title = self.scores_font.render("Auto-Actions:", 1, self.PLAIN_TEXT_COLOUR)
+        self.window.blit(toggle_title, (0, toggle_menu_position))
+        #Draw a box to surround the Chest menu, and remember its coordinates for player input
+        #@TODO allow the Chest tiles menu to vary in size depending on Adventurer
+        toggle_menu_position += self.SCORES_FONT_SCALE * self.height
+        self.toggles_rect = (0, toggle_menu_position, self.play_area_start, self.menu_highlight_size)
+#        print("Chest map menu corners defined at pixels...")
+#        print(self.chest_rect)
+#        pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
+#                                 , self.chest_rect
+#                                 , self.chest_highlight_thickness)
+        #Cycle through the chest tiles, drawing them
+        horizontal = 0
+        vertical = toggle_menu_position 
+        for highlight_type in fixed_responses:
+            #If there is a fixed response set for this action type, then give it a colour to indicate True / False
+            if fixed_responses[highlight_type]:
+                pygame.draw.rect(self.window, self.TOGGLE_TRUE_COLOUR
+                                 , (horizontal, vertical, self.menu_highlight_size, self.menu_highlight_size))
+            elif fixed_responses[highlight_type] is not None:
+                pygame.draw.rect(self.window, self.TOGGLE_FALSE_COLOUR
+                                 , (horizontal, vertical, self.menu_highlight_size, self.menu_highlight_size))
+            else:
+                pygame.draw.rect(self.window, self.BACKGROUND_COLOUR
+                                 , (horizontal, vertical, self.menu_highlight_size, self.menu_highlight_size))
+            #Now draw the highlight over the top
+            highlight_image = self.toggle_library[highlight_type]
+            self.window.blit(highlight_image, [horizontal, vertical])
+            #Remember the position of this highlight's toggle
+            self.toggle_rects.append([(horizontal, vertical, self.menu_highlight_size, self.menu_highlight_size), highlight_type])
+            horizontal += self.menu_highlight_size #increment the horizontal placement before the next toggle is drawn
+                
     def draw_chest_tiles(self, chest_tiles, preferred_tile_num, max_chest_tiles):
         '''Visualises a set of tiles in the Adventurer's Chest, and highlights one if it is selected for use
         
@@ -695,18 +745,19 @@ class GameVisualisation():
         preferred_tile_num takes an integer index for that list
         '''
         #Establish the top left coordinate of the column of tiles to choose from, below the table of treasure scores
-        chest_menu_position = self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1)
+#        chest_menu_position = self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1)
+        chest_menu_position = self.toggles_rect[1] + self.toggles_rect[3] 
         chest_title = self.scores_font.render("Chest maps:", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(chest_title, (0, chest_menu_position))
         #Draw a box to surround the Chest menu, and remember its coordinates for player input
         #@TODO allow the Chest tiles menu to vary in size depending on Adventurer
         chest_menu_position += self.SCORES_FONT_SCALE * self.height
         menu_size = self.chest_tile_size * math.ceil(max_chest_tiles / self.CHEST_TILE_COLS)
-        self.menu_rect = (0, chest_menu_position, self.play_area_start, menu_size)
+        self.chest_rect = (0, chest_menu_position, self.play_area_start, menu_size)
 #        print("Chest map menu corners defined at pixels...")
-#        print(self.menu_rect)
+#        print(self.chest_rect)
         pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
-                                 , self.menu_rect
+                                 , self.chest_rect
                                  , self.chest_highlight_thickness)
         #Cycle through the chest tiles, drawing them
         for tile in chest_tiles:
@@ -742,7 +793,7 @@ class GameVisualisation():
         '''
         #Establish the top left coordinate of the stack of cards
 #        card_stack_position = self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1)  + self.chest_tile_size * (self.game.num_chest_tiles // self.CHEST_TILE_COLS)
-        card_stack_position = self.menu_rect[1] + self.menu_rect[3]
+        card_stack_position = self.chest_rect[1] + self.chest_rect[3]
         card_title = self.scores_font.render("Adventurer cards:", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(card_title, (0, card_stack_position))
         #Draw a box to surround the Chest menu, and remember its coordinates for player input
@@ -775,7 +826,7 @@ class GameVisualisation():
             self.window.blit(card_image, [card_horizontal, card_vertical])
 #        card_rect = (0, card_stack_position, self.play_area_start, stack_size)
 #        pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
-#                                 , self.menu_rect
+#                                 , self.chest_rect
 #                                 , self.chest_highlight_thickness)
         #If one of the discovery/manuscript cards has been selected then draw cards back over the current ones in reverse up to that one
         if self.selected_card_num is not None:
@@ -993,10 +1044,10 @@ class GameVisualisation():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 self.move_timer = self.MOVE_TIME_LIMIT #reset the timelimit on moving
                 #check whether the click was within the menu, and return the index within the chest
-                if (event.pos[0] in range(self.menu_rect[0], self.menu_rect[2])
-                    and event.pos[1] in range(self.menu_rect[1], self.menu_rect[3])):
-                    menu_row = (event.pos[1] - self.menu_rect[1]) // self.chest_tile_size
-                    menu_column = (event.pos[0] - self.menu_rect[0]) // self.chest_tile_size
+                if (event.pos[0] in range(self.chest_rect[0], self.chest_rect[2])
+                    and event.pos[1] in range(self.chest_rect[1], self.chest_rect[3])):
+                    menu_row = (event.pos[1] - self.chest_rect[1]) // self.chest_tile_size
+                    menu_column = (event.pos[0] - self.chest_rect[0]) // self.chest_tile_size
                     return self.CHEST_TILE_COLS * menu_row + menu_column
                 #Check whether the click was within the card stack, and update the index of the selected card
                 if (event.pos[0] in range(self.stack_rect[0], self.stack_rect[2])
@@ -1772,19 +1823,16 @@ class WebServerVisualisation(GameVisualisation):
         self.window.fill(self.BACKGROUND_COLOUR) #fill the screen with white
         print("Initialising visual scale variables, to fit window of size "+str(self.width)+"x"+str(self.height))
         self.tile_size = self.height // self.dimensions[1]
-        #We'll have a different tile size for dicards
+        #We'll have a different tile size for dicards and menu highlights
+        self.menu_highlight_size = round(self.MENU_SCALE * self.width) // len(self.TOGGLE_HIGHLIGHTS)
         self.discard_tile_size = round(self.DISCARD_SCALE * self.width)
         #Before sizing against the horizontal dimension, we'll work out how much space the menus will take away
-        if isinstance(self.game, GameRegular):
-            self.play_area_width = round(self.width * (1 - self.CHEST_SCALE - self.DISCARD_SCALE))
-            self.play_area_start = round(self.width * self.CHEST_SCALE)
-        else:
-            self.play_area_width = round(self.width * (1 - self.DISCARD_SCALE))
-            self.play_area_start = 0
+        self.play_area_width = round(self.width * (1 - self.MENU_SCALE - self.DISCARD_SCALE))
+        self.play_area_start = round(self.width * self.MENU_SCALE)
         #Tiles will be scaled to fit the smaller dimension
         if self.play_area_width < self.tile_size * self.dimensions[0]:
             self.tile_size = self.play_area_width // self.dimensions[0]
-        self.chest_tile_size = round(self.CHEST_SCALE * self.width) // self.CHEST_TILE_COLS
+        self.chest_tile_size = round(self.MENU_SCALE * self.width) // self.CHEST_TILE_COLS
         #Where piracy is possible, we'll have a different tile size for 
         self.offer_tile_size = round(self.OFFER_SCALE * self.width)
         self.token_size = int(round(self.TOKEN_SCALE * self.tile_size)) #token size will be proportional to the tiles
@@ -1854,13 +1902,13 @@ class WebServerVisualisation(GameVisualisation):
                 if not self.client == game_vis.client:
 #                    print("Recognised that this player is using a different client: "+str(game_vis.client.address))
                     game_vis.draw_play_area()
-                    game_vis.draw_tokens()
                     game_vis.draw_routes()
                     game_vis.draw_scores()
                     game_vis.current_player_colour = adventurer.player.colour
                     game_vis.give_prompt(adventurer.player.colour+" player's is moving their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
                     moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
                     game_vis.draw_move_options(moves_since_rest)
+                    game_vis.draw_tokens() #Draw them on top of the highlights
                     if isinstance(adventurer, AdventurerRegular):
                         chest_tiles = adventurer.chest_tiles
                         preferred_tile_num = adventurer.preferred_tile_num
@@ -1876,15 +1924,14 @@ class WebServerVisualisation(GameVisualisation):
             if coords is not None:
                 horizontal, vertical = coords
                 #check whether the click was within the menu, and return the index within the chest
-                if (horizontal in range(int(self.menu_rect[0])
-                        , int(self.menu_rect[0]) + int(self.menu_rect[2]))
-                    and vertical in range(int(self.menu_rect[1])
-                        , int(self.menu_rect[1]) + int(self.menu_rect[3]))):
+                if (horizontal in range(int(self.chest_rect[0])
+                        , int(self.chest_rect[0]) + int(self.chest_rect[2]))
+                    and vertical in range(int(self.chest_rect[1])
+                        , int(self.chest_rect[1]) + int(self.chest_rect[3]))):
                     print("Player chose coordinates within the menu")
-                    menu_row = (vertical - int(self.menu_rect[1])) // self.chest_tile_size
-                    menu_column = (horizontal - int(self.menu_rect[0])) // self.chest_tile_size
+                    menu_row = (vertical - int(self.chest_rect[1])) // self.chest_tile_size
+                    menu_column = (horizontal - int(self.chest_rect[0])) // self.chest_tile_size
                     return {"preferred_tile":self.CHEST_TILE_COLS * menu_row + menu_column}
-                #Check whether the click was within the card stack, and update the index of the selected card
                 #Check whether the click was within the card stack, and update the index of the selected card
                 elif (horizontal in range(int(self.stack_rect[0]), int(self.stack_rect[0] + self.stack_rect[2]))
                     and vertical in range(int(self.stack_rect[1]), int(self.stack_rect[1] + self.stack_rect[3]))):
@@ -1908,6 +1955,19 @@ class WebServerVisualisation(GameVisualisation):
                             self.selected_card_num += (vertical - selected_card_bottom) // int(self.card_height * self.CARD_HEADER_SHARE)
                         print("Updated the selected card to number "+str(self.selected_card_num))
                     return {"update_cards":None}
+                #Check whether the click was within the toggle menu, and update the index of the selected card
+                elif (horizontal in range(int(self.toggles_rect[0]), int(self.toggles_rect[0] + self.toggles_rect[2]))
+                    and vertical in range(int(self.toggles_rect[1]), int(self.toggles_rect[1] + self.toggles_rect[3]))):
+                    print("Player chose coordinates within the toggle menu, with vertical: "+str(vertical))
+                    #Check which highlight was clicked and return it
+                    for highlight in self.toggle_rects:
+                        highlight_rect = highlight[0]
+                        if (horizontal in range(int(highlight_rect[0])
+                                , int(highlight_rect[0]) + int(highlight_rect[2]))
+                            and vertical in range(int(highlight_rect[1])
+                                , int(highlight_rect[1]) + int(highlight_rect[3]))):
+                            print("Identified coordinates within one of the auto-response toggles.")
+                            return {"toggle":highlight[1]}
                 else:
                     #Otherwise check whether the click was within a highlighted cell and return the coordinates
                     for highlight_type in self.highlight_rects:
@@ -1964,7 +2024,7 @@ class WebServerVisualisation(GameVisualisation):
                         game_vis.draw_chest_tiles(chest_tiles, preferred_tile_num, num_chest_tiles)
                     if isinstance(adventurer, AdventurerAdvanced):
                         game_vis.draw_cards(adventurer)
-                        game_vis.draw_card_options(cards)
+                        game_vis.draw_card_offers(cards)
                 game_vis.update_web_display()
         
         coords = None
