@@ -29,8 +29,6 @@ class PlayerHuman(Player):
         self.fixed_responses = {"rest":None
                            , "buy":None
                            , "attack":None
-                           , "move_agent":None
-                           , "agent_transfer":None
                            }
     
     def establish_moves(self, adventurer):
@@ -73,6 +71,15 @@ class PlayerHuman(Player):
         '''
         game_vis = self.games[adventurer.game.game_id]["game_vis"]
         if isinstance(gui_input, dict):    
+            if gui_input.get("toggle"):
+                toggled_action = gui_input["toggle"]
+                if self.fixed_responses[toggled_action] is None:
+                    self.fixed_responses[toggled_action] = True
+                elif self.fixed_responses[toggled_action]:
+                    self.fixed_responses[toggled_action] = False
+                else:
+                    self.fixed_responses[toggled_action] = None
+                game_vis.draw_toggle_menu(self.fixed_responses)
             if isinstance(adventurer, AdventurerRegular):
                 preferred_tile = gui_input.get("preferred_tile")
                 print("Player received menu input, choosing a chest tile, with a value of "+str(preferred_tile))
@@ -82,10 +89,6 @@ class PlayerHuman(Player):
                     elif preferred_tile < len(adventurer.chest_tiles):
                         adventurer.preferred_tile_num = preferred_tile
                     game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
-                for action in self.fixed_responses:
-                    fixed_response = gui_input.get(action)
-                    if isinstance(fixed_response, bool) or fixed_response is None:
-                        self.fixed_responses[action] = fixed_response
             if isinstance(adventurer, AdventurerAdvanced):
                 game_vis.draw_cards(adventurer)
     
@@ -169,11 +172,12 @@ class PlayerHuman(Player):
         #redraw all the tokens and scores
         game_vis.draw_play_area()
         game_vis.draw_routes()
-        game_vis.draw_tokens()
         game_vis.draw_scores()
+        game_vis.draw_toggle_menu(self.fixed_responses)
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
         max_moves = adventurer.max_downwind_moves
         game_vis.draw_move_options(moves_since_rest, moves, max_moves)
+        game_vis.draw_tokens() #draw them on top of highlights
         if isinstance(adventurer, AdventurerRegular):
             game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
         if isinstance(adventurer, AdventurerAdvanced):
@@ -208,8 +212,6 @@ class PlayerHuman(Player):
                     self.fixed_responses = {"rest":True
                                , "buy":None #Break the automatic following and let the player decide
                                , "attack":False
-                               , "move_agent":False
-                               , "agent_transfer":False
                                }
                     #Remove the route up until the current tile
                     while not self.follow_route[0] == adventurer.current_tile:
@@ -334,8 +336,8 @@ class PlayerHuman(Player):
         #make sure that tiles and token positions are up to date
         game_vis.draw_play_area()
         game_vis.draw_routes()
-        game_vis.draw_tokens()
         game_vis.draw_scores()
+        game_vis.draw_toggle_menu(self.fixed_responses)
         if isinstance(adventurer, AdventurerRegular):
             game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
         if isinstance(adventurer, AdventurerAdvanced):
@@ -352,6 +354,7 @@ class PlayerHuman(Player):
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
         max_moves = adventurer.max_downwind_moves
         game_vis.draw_move_options(moves_since_rest, actions, max_moves)
+        game_vis.draw_tokens() #draw tokens on top of highlights
 
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
