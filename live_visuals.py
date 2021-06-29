@@ -47,9 +47,9 @@ class GameVisualisation():
     TOGGLE_FALSE_COLOUR = (255, 0, 0)
     TILE_BORDER = 0.02 #the share of grid width/height that is used for border
     CARD_HEADER_SHARE = 0.15 # the share of card images that is the header, visually summarising the buffs of the card with colour and a logo
-    MENU_SCALE = 0.13
-    CHEST_TILE_COLS = 2
-    DISCARD_SCALE = 0.075
+    LEFT_MENU_SCALE = 0.13
+    MENU_TILE_COLS = 2
+    RIGHT_MENU_SCALE = 0.13
     OFFER_SCALE = 0.15
     ROUTE_THICKNESS = 4.0
     TOKEN_SCALE = 0.2 #relative to tile sizes
@@ -61,6 +61,7 @@ class GameVisualisation():
     SCORES_FONT_SCALE = 0.05 #relative to window size
     SCORES_SPACING = 1.5 #the multiple of the score pixel scale to leave for each number
     MOVE_COUNT_POSITION = [0.8, 0.0]
+    PROMPT_SHARE = 0 #@TODO move prompt into the bottom right corner, with multi-line
     PROMPT_POSITION = [0.0, 0.95]
     PROMPT_FONT_SCALE = 0.05 #relative to window size
     
@@ -97,12 +98,16 @@ class GameVisualisation():
         self.highlights = {highlight_type:[] for highlight_type in self.HIGHLIGHT_PATHS}
         self.highlight_rects = []
         self.drawn_routes = []
-        self.current_move_count = None
-        self.chest_rect = (0, 0, 0, 0)
-        self.stack_rect = (0, 0, 0, 0)
-        self.toggles_rect = (0, 0, 0, 0)
-        self.toggle_rects = []
         self.offer_rects = []
+        #Placeholders for the various GUI elements
+        self.scores_rect = (0, 0, 0, 0)
+        self.stack_rect = (0, 0, 0, 0)
+        self.current_move_count = None
+        self.move_count_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
+        self.chest_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
+        self.toggles_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
+        self.toggle_rects = []
+        self.piles_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
         if isinstance(self.game, GameAdvanced):
             self.selected_card_num = None
             self.held_cards = {} #Keep track of card images assigned to each adventurer/player
@@ -129,15 +134,15 @@ class GameVisualisation():
         print("Initialising visual scale variables, to fit window of size "+str(self.width)+"x"+str(self.height))
         self.tile_size = self.height // self.dimensions[1]
         #We'll have a different tile size for dicards
-        self.discard_tile_size = round(self.DISCARD_SCALE * self.width)
+        self.menu_tile_size = round(self.RIGHT_MENU_SCALE * self.width) // self.MENU_TILE_COLS
         #Where piracy is possible, we'll have a different tile size for 
         self.offer_tile_size = round(self.OFFER_SCALE * self.width)
         #Before sizing against the horizontal dimension, we'll work out how much space the menus will take away
-        self.play_area_width = round(self.width * (1 - self.MENU_SCALE - self.DISCARD_SCALE))
-        self.play_area_start = round(self.width * self.MENU_SCALE)
-        self.menu_highlight_size = round(self.DISCARD_SCALE * self.width) // len(self.TOGGLE_HIGHLIGHTS)
-        if isinstance(self.game, GameRegular):
-            self.chest_tile_size = round(self.MENU_SCALE * self.width) // self.CHEST_TILE_COLS
+        self.play_area_width = round(self.width * (1 - self.LEFT_MENU_SCALE - self.RIGHT_MENU_SCALE))
+        self.play_area_start = round(self.width * self.LEFT_MENU_SCALE)
+        self.right_menu_width = round(self.width * self.RIGHT_MENU_SCALE)
+        self.right_menu_start = self.play_area_start + self.play_area_width
+        self.menu_highlight_size = round(self.RIGHT_MENU_SCALE * self.width) // len(self.TOGGLE_HIGHLIGHTS)
         #Tiles will be scaled to fit the smaller dimension
         if self.play_area_width < self.tile_size * self.dimensions[0]:
             self.tile_size = self.play_area_width // self.dimensions[0]
@@ -150,6 +155,14 @@ class GameVisualisation():
                                 , self.PROMPT_POSITION[1]*self.height]
         pygame.font.init()
         self.prompt_text = ""
+        #Make sure that the GUI menus are drawn on the correct sides from the start
+        self.scores_rect = (0, 0, 0, 0)
+        self.stack_rect = (0, 0, 0, 0)
+        self.current_move_count = None
+        self.move_count_rect = (self.MOVE_COUNT_POSITION[0]*self.width, self.MOVE_COUNT_POSITION[1]*self.height, 0, round(self.height * self.SCORES_FONT_SCALE))
+        self.toggles_rect = (self.right_menu_start, self.move_count_rect[1]+self.move_count_rect[3], 0, self.menu_tile_size+round(self.height * self.SCORES_FONT_SCALE))
+        self.chest_rect = (self.right_menu_start, self.toggles_rect[1]+self.toggles_rect[3]+round(self.height * self.SCORES_FONT_SCALE), 0, self.menu_tile_size)
+        self.piles_rect = (self.right_menu_start, self.toggles_rect[1]+self.toggles_rect[3]+round(self.height * self.SCORES_FONT_SCALE), 0, 0)
         #Import images
         self.init_graphics()
         #Update the display
@@ -232,19 +245,16 @@ class GameVisualisation():
             highlight_image = self.HIGHLIGHT_PATHS[highlight_name]
             self.highlight_library[highlight_name] = pygame.image.load(highlight_image)
         # duplicate these tiles at a smaller size for use in menus
-        self.discard_tile_library = {}
+        self.menu_tile_library = {}
         for tile_name in self.tile_image_library:
             tile_image = self.tile_image_library[tile_name]
-            self.discard_tile_library[tile_name] = pygame.transform.scale(tile_image, [self.discard_tile_size, self.discard_tile_size])
+            self.menu_tile_library[tile_name] = pygame.transform.scale(tile_image, [self.menu_tile_size, self.menu_tile_size])
         self.toggle_library = {}
         for highlight_name in self.highlight_library:
             highlight_image = self.highlight_library[highlight_name]
             self.toggle_library[highlight_name] = pygame.transform.scale(highlight_image, [self.menu_highlight_size, self.menu_highlight_size])
         if isinstance(self.game, GameRegular):
-            self.chest_tile_library = {}
-            for tile_name in self.tile_image_library:
-                tile_image = self.tile_image_library[tile_name]
-                self.chest_tile_library[tile_name] = pygame.transform.scale(tile_image, [self.chest_tile_size, self.chest_tile_size])
+            #duplicate tiles for use in selection mennu after piracy
             self.offer_tile_library = {}
             for tile_name in self.tile_image_library:
                 tile_image = self.tile_image_library[tile_name]
@@ -296,7 +306,7 @@ class GameVisualisation():
         print("Updated tile size to be " +str(self.tile_size)+ " pixels, and with border: " +str(bordered_tile_size))
         self.rescale_images(self.tile_image_library, bordered_tile_size)
         self.rescale_images(self.highlight_library, self.tile_size)
-#        self.rescale_images(self.chest_tile_library, self.chest_tile_size)
+#        self.rescale_images(self.menu_tile_library, self.menu_tile_size)
     
     def increase_max_longitude(self):
         '''Deprecated to allow legacy PlayerHuman interaction'''
@@ -459,7 +469,7 @@ class GameVisualisation():
     
     #@TODO highlight the particular token(s) that an action relates to
     #display the number of moves since resting
-    def draw_move_options(self, moves_since_rest=None, highlight_coords={}, max_moves=None):
+    def draw_move_options(self, highlight_coords={}):
         '''Outlines tiles where moves or actions are possible, designated by colour
         
         Arguments:
@@ -492,33 +502,52 @@ class GameVisualisation():
                     self.window.blit(highlight_image, [horizontal, vertical])
                     #remember where this highlight was drawn, to detect input later
                     self.highlight_rects[highlight_type].append((horizontal, vertical, highlight_image.get_width(), highlight_image.get_height()))
-        #Report the number of moves that have been used so far:
-        #report the number of tiles in each bag in the same part of the display
+        
+    def draw_move_count(self, moves_since_rest=None, max_moves=None):
+        '''eport the number of moves that have been used so far:
+        '''
+        horizontal = self.MOVE_COUNT_POSITION[0] * self.width
+#            vertical = self.MOVE_COUNT_POSITION[1] * self.height + len(self.game.tile_piles) * self.SCORES_FONT_SCALE * self.height
+        vertical = 0
         if moves_since_rest:
             move_count = self.scores_font.render(str(moves_since_rest)+" of "+str(max_moves)+" moves since rest", 1, self.PLAIN_TEXT_COLOUR)
-            displacement = len(self.game.tile_piles) * self.SCORES_FONT_SCALE * self.height
-            move_count_position = [self.MOVE_COUNT_POSITION[0] * self.width, self.MOVE_COUNT_POSITION[1] * self.height + displacement]
-            self.window.blit(move_count, move_count_position)
-        #Draw small versions of the tiles that have been discarded so far
-        vertical = self.MOVE_COUNT_POSITION[1] * self.height + (len(self.game.tile_piles) + 1) * self.SCORES_FONT_SCALE * self.height + self.menu_highlight_size # the text lines of the tile counts plus a text line for the move counts, plus the auto-action menu
-        discard_title = self.scores_font.render("Mapping attempts:", 1, self.PLAIN_TEXT_COLOUR)
-        discard_title_position = [self.MOVE_COUNT_POSITION[0] * self.width,  vertical]
-        self.window.blit(discard_title, discard_title_position)
-        horizontal = round(self.width * (1-self.DISCARD_SCALE)) 
+        else:
+            move_count = self.scores_font.render("No moves since rest", 1, self.PLAIN_TEXT_COLOUR)
+        self.window.blit(move_count, [horizontal, vertical])
+        self.move_count_rect = (horizontal, vertical, move_count.get_width(), move_count.get_height())
+        
+    def draw_discard_pile(self):
+        '''Draw small versions of the tiles that have been discarded so far
+        '''
+        horizontal = self.move_count_rect[0]
+        vertical = self.piles_rect[1] + self.piles_rect[3]
+        discard_title = self.scores_font.render("Failed mapping attempts:", 1, self.PLAIN_TEXT_COLOUR)
+        self.window.blit(discard_title, [horizontal, vertical])
+        horizontal = self.right_menu_start
         vertical += self.SCORES_FONT_SCALE * self.height
+        tile_count = 0
         for discard_pile in list(self.game.discard_piles.values()):
             for tile in discard_pile.tiles:
                 tile_name = self.establish_tilename(tile)
                 north = str(tile.wind_direction.north)
                 east = str(tile.wind_direction.east)
-                tile_image = self.discard_tile_library[tile_name + north + east]
+                tile_image = self.menu_tile_library[tile_name + north + east]
     #                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
                 self.window.blit(tile_image, [horizontal, vertical])
                 #Draw a frame to keep distinct from play area
                 pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
-                                 , (horizontal, vertical, self.discard_tile_size, self.discard_tile_size)
+                                 , (horizontal, vertical, self.menu_tile_size, self.menu_tile_size)
                                  , self.chest_highlight_thickness)
-                vertical += self.discard_tile_size
+                tile_count += 1
+                if tile_count % self.MENU_TILE_COLS == 0:
+                    vertical += self.menu_tile_size
+                    horizontal = self.right_menu_start
+                else:
+                    horizontal += self.menu_tile_size
+                #If the vertical is encroaching on the prompt area then stop
+                if vertical > (1 - self.PROMPT_SHARE) * self.height:
+                    return False
+        return True #confirm that all the discarded tiles were drawn
      
     def check_highlighted(self, input_longitude, input_latitude):
         '''Given play area grid coordinates, checks whether this is highlighted as a valid move/action
@@ -557,6 +586,9 @@ class GameVisualisation():
             #We'll want to differentiate players by colour and the offset from the tile location
             colour = pygame.Color(player.colour)
             player_offset = self.PLAYER_OFFSETS[players.index(player)]
+            token_label_colour = self.PLAIN_TEXT_COLOUR
+            if self.TOKEN_FONT_COLOURS.get(player.colour) is not None:
+                token_label_colour = self.TOKEN_FONT_COLOURS[player.colour]
             #Each player may have multiple Adventurers to draw
             adventurers = self.game.adventurers[player]
             for adventurer in adventurers:
@@ -574,10 +606,6 @@ class GameVisualisation():
 #                        print("Drawing an outline")
                         pygame.draw.circle(self.window, (0, 0, 0), location, self.token_size, self.outline_width)
                 #For the text label we'll change the indent
-                if self.TOKEN_FONT_COLOURS.get(player.colour) is None:
-                    token_label_colour = self.PLAIN_TEXT_COLOUR
-                else:
-                    token_label_colour = self.TOKEN_FONT_COLOURS[player.colour]
                 token_label = self.token_font.render(str(adventurers.index(adventurer)+1), 1, token_label_colour)
                 location[0] -= self.token_size // 2
                 location[1] -= self.token_size
@@ -599,7 +627,7 @@ class GameVisualisation():
                 else:
                     #for a filled rectangle the fill method could be quicker: https://www.pygame.org/docs/ref/draw.html#pygame.draw.rect
                     self.window.fill(colour, rect=agent_shape)
-                token_label = self.token_font.render(str(agent.wealth), 1, self.PLAIN_TEXT_COLOUR)
+                token_label = self.token_font.render(str(agent.wealth), 1, token_label_colour)
                 location[0] += self.token_size // 2
                 self.window.blit(token_label, location)
         return True
@@ -670,9 +698,16 @@ class GameVisualisation():
 #        print("Creating a table of the wealth held by Players and their Adventurers")
         #Draw the column headings
         game = self.game
+        horizontal = self.SCORES_POSITION[0] * self.width
+        vertical = self.SCORES_POSITION[1] * self.height
+        score_title = self.scores_font.render("Treasure in...", 1, self.PLAIN_TEXT_COLOUR)
+        self.window.blit(score_title, [horizontal, vertical])
+        vertical += score_title.get_height()
         score_title = self.scores_font.render("Vault", 1, self.PLAIN_TEXT_COLOUR)
-        scores_position = [self.SCORES_POSITION[0] * self.width, self.SCORES_POSITION[1] * self.height]
-        self.window.blit(score_title, scores_position)
+        self.window.blit(score_title, [horizontal, vertical])
+        #Start recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
+        self.scores_rect = (horizontal, vertical, 0, 0)
+        self.score_rects = []
         #Work out the maximum number of Adventurers in play, to only draw this many columns
         max_num_adventurers = 1
         for player in self.players:
@@ -680,26 +715,49 @@ class GameVisualisation():
                 max_num_adventurers = len(game.adventurers[player])
         for adventurer_num in range(1, max_num_adventurers + 1):
                 score_title = self.scores_font.render("Chest #"+str(adventurer_num), 1, self.PLAIN_TEXT_COLOUR)
-                scores_position[0] += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width
-                self.window.blit(score_title, scores_position)
+                horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width
+                self.window.blit(score_title, [horizontal, vertical])
         for player in self.players:
             colour = pygame.Color(player.colour)
-            scores_position[0] = self.SCORES_POSITION[0] * self.width #reset the scores position before going through other rows below
-            scores_position[1] += self.SCORES_FONT_SCALE * self.height #increment the vertical position to a new row
+            horizontal = self.SCORES_POSITION[0] * self.width #reset the scores position before going through other rows below
+            vertical += self.SCORES_FONT_SCALE * self.height #increment the vertical position to a new row
             score_value = self.scores_font.render(str(player.vault_wealth), 1, colour)
-            self.window.blit(score_value, scores_position)
+            self.window.blit(score_value, [horizontal, vertical])
+            #Record this space for click detection
+            self.score_rects.append([(horizontal, vertical, self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width, self.SCORES_FONT_SCALE * self.height), player])
             for adventurer in game.adventurers[player]:
-                    scores_position[0] += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width #Shift to a new column
-                    score_value = self.scores_font.render(str(adventurer.wealth), 1, colour)
-                    self.window.blit(score_value, scores_position)
-        #Draw the numbers of tiles in each pile
-        displacement = 0
+                horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width #Shift to a new column
+                score_value = self.scores_font.render(str(adventurer.wealth), 1, colour)
+                self.window.blit(score_value, [horizontal, vertical])
+                #Record this space for click detection
+                self.score_rects.append([(horizontal, vertical, self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width, self.SCORES_FONT_SCALE * self.height), adventurer])
+        #Finish recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
+        self.scores_rect = (self.scores_rect[0]
+            , self.scores_rect[1]
+            , self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width * (max_num_adventurers + 1)
+            , self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1))
+        
+    def draw_tile_piles(self):
+        '''Draw the numbers of tiles in each pile
+        '''
+        horizontal = self.MOVE_COUNT_POSITION[0] * self.width
+        vertical = self.chest_rect[1] + self.chest_rect[3]
+        #Start recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
+        self.piles_rect = (horizontal, vertical, 0, 0)
+        max_pile_width = 0
         for tile_back in self.game.tile_piles:
             tiles = self.game.tile_piles[tile_back].tiles
-            tile_count = self.scores_font.render(str(len(tiles))+" tiles left in "+tile_back+" bag", 1, self.PLAIN_TEXT_COLOUR)
-            tile_count_position = [self.MOVE_COUNT_POSITION[0] * self.width, self.MOVE_COUNT_POSITION[1] * self.height + displacement]
+            tile_count = self.scores_font.render(str(len(tiles))+" maps left in "+tile_back+" bag", 1, self.PLAIN_TEXT_COLOUR)
+            if tile_count.get_width() > max_pile_width:
+                max_pile_width = tile_count.get_width()
+            tile_count_position = [horizontal, vertical]
             self.window.blit(tile_count, tile_count_position)
-            displacement += self.SCORES_FONT_SCALE * self.height
+            vertical += self.SCORES_FONT_SCALE * self.height
+        #Finish recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
+        self.piles_rect = (self.piles_rect[0]
+            , self.piles_rect[1]
+            , max_pile_width
+            , vertical - self.piles_rect[1])   
     
     def draw_toggle_menu(self, fixed_responses):
         '''Visualises a set of tiles in the Adventurer's Chest, and highlights one if it is selected for use
@@ -710,14 +768,16 @@ class GameVisualisation():
         '''
         self.toggle_rects = [] #Reset the record of where the toggle menu buttons have been drawn
         #Establish the top left coordinate below the table of treasure scores
-        horizontal = self.MOVE_COUNT_POSITION[0] * self.width
-        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.game.tile_piles) + 1)
+#        horizontal = self.MOVE_COUNT_POSITION[0] * self.width
+#        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.game.tile_piles) + 1)
+        horizontal = self.move_count_rect[0]
+        vertical = self.move_count_rect[1] + self.move_count_rect[3] 
         toggle_title = self.scores_font.render("Auto-Actions:", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(toggle_title, (horizontal, vertical))
         #Draw a box to surround the Chest menu, and remember its coordinates for player input
         #@TODO allow the Chest tiles menu to vary in size depending on Adventurer
-        horizontal = self.width*(1-self.DISCARD_SCALE)
-#        vertical += self.SCORES_FONT_SCALE * self.height
+        horizontal = self.right_menu_start
+        vertical += self.SCORES_FONT_SCALE * self.height
         self.toggles_rect = (horizontal, vertical, self.play_area_start, self.menu_highlight_size)
 #        print("Chest map menu corners defined at pixels...")
 #        print(self.chest_rect)
@@ -752,14 +812,16 @@ class GameVisualisation():
         '''
         #Establish the top left coordinate of the column of tiles to choose from, below the table of treasure scores
 #        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1)
-        horizontal = 0
-        vertical = (len(self.game.players) + 1) * self.SCORES_FONT_SCALE * self.height
+        horizontal = self.move_count_rect[0]
+#        vertical = (len(self.game.players) + 1) * self.SCORES_FONT_SCALE * self.height
+        vertical = self.toggles_rect[1] + self.toggles_rect[3] 
         chest_title = self.scores_font.render("Chest maps:", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(chest_title, (horizontal, vertical))
         #Draw a box to surround the Chest menu, and remember its coordinates for player input
         #@TODO allow the Chest tiles menu to vary in size depending on Adventurer
+        horizontal = self.right_menu_start
         vertical += self.SCORES_FONT_SCALE * self.height
-        menu_size = self.chest_tile_size * math.ceil(max_chest_tiles / self.CHEST_TILE_COLS)
+        menu_size = self.menu_tile_size * math.ceil(max_chest_tiles / self.MENU_TILE_COLS)
         self.chest_rect = (horizontal, vertical, self.play_area_start, menu_size)
 #        print("Chest map menu corners defined at pixels...")
 #        print(self.chest_rect)
@@ -777,19 +839,20 @@ class GameVisualisation():
             tile_name = uc + ua + dc + da + wonder
             north = str(tile.wind_direction.north)
             east = str(tile.wind_direction.east)
-            tile_image = self.chest_tile_library[tile_name + north + east]
+            tile_image = self.menu_tile_library[tile_name + north + east]
 #                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
-            horizontal = (chest_tiles.index(tile) % self.CHEST_TILE_COLS) * self.chest_tile_size
-            vertical += (chest_tiles.index(tile) // self.CHEST_TILE_COLS) * self.chest_tile_size
+            horizontal = self.chest_rect[0] + (chest_tiles.index(tile) % self.MENU_TILE_COLS) * self.menu_tile_size
+#            vertical += (chest_tiles.index(tile) // self.MENU_TILE_COLS) * self.menu_tile_size
+            vertical = self.chest_rect[1] + (chest_tiles.index(tile) // self.MENU_TILE_COLS) * self.menu_tile_size
             self.window.blit(tile_image, [horizontal, vertical])
             #If this is the tile selected then highlight this with a hollow rectangle
             if chest_tiles.index(tile) == preferred_tile_num:
                 pygame.draw.rect(self.window, self.CHEST_HIGHLIGHT_COLOUR
-                                 , (horizontal, vertical, self.chest_tile_size, self.chest_tile_size)
+                                 , (horizontal, vertical, self.menu_tile_size, self.menu_tile_size)
                                  , self.chest_highlight_thickness)
             else:
                 pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
-                                 , (horizontal, vertical, self.chest_tile_size, self.chest_tile_size)
+                                 , (horizontal, vertical, self.menu_tile_size, self.menu_tile_size)
                                  , self.chest_highlight_thickness)
     
     def draw_cards(self, adventurer):
@@ -798,22 +861,26 @@ class GameVisualisation():
         Arguments:
         Adventurer takes a Cartolan Adventurer
         '''
+        #@TODO name the selected player and adventurer
+        #@TODO draw company card
+        
         #Establish the top left coordinate of the stack of cards
-#        card_stack_position = self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1)  + self.chest_tile_size * (self.game.num_chest_tiles // self.CHEST_TILE_COLS)
-        card_stack_position = self.chest_rect[1] + self.chest_rect[3]
-        card_title = self.scores_font.render("Adventurer cards:", 1, self.PLAIN_TEXT_COLOUR)
-        self.window.blit(card_title, (0, card_stack_position))
+        horizontal = 0
+#        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1) 
+        vertical = self.scores_rect[1] + self.scores_rect[3]
+#        vertical = self.chest_rect[1] + self.chest_rect[3]
+        if adventurer.character_card is not None:
+            card_title = self.scores_font.render("Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1)+" cards:", 1, self.PLAIN_TEXT_COLOUR)
+            self.window.blit(card_title, [horizontal, vertical])
         #Draw a box to surround the Chest menu, and remember its coordinates for player input
-        card_stack_position += self.SCORES_FONT_SCALE * self.height
+        vertical += self.SCORES_FONT_SCALE * self.height
 #        stack_size = self.card_height * (1 + self.CARD_HEADER_SHARE * len(adventurer.character_cards))
         stack_size = self.card_height + self.card_height * self.CARD_HEADER_SHARE * len(adventurer.discovery_cards)  #one character card plus all the manuscripts
-        self.stack_rect = (0, card_stack_position, self.play_area_start, stack_size)
+        self.stack_rect = (horizontal, vertical, self.play_area_start, stack_size)
         print("Card stack corners defined at pixels...")
         print(self.stack_rect)
                 
         #Cycle through the Discovery Cards, drawing them
-        card_horizontal = 0
-        card_vertical = card_stack_position
         for card in adventurer.discovery_cards:
             if self.selected_card_num is not None:
                 if adventurer.discovery_cards.index(card) == self.selected_card_num:
@@ -821,16 +888,16 @@ class GameVisualisation():
             print("Drawing a card of type "+card.card_type)
             card_type = card.card_type
             card_image = self.get_card_image(adventurer, card_type)
-            self.window.blit(card_image, [card_horizontal, card_vertical])
-            card_vertical += self.CARD_HEADER_SHARE * card_image.get_height() 
+            self.window.blit(card_image, [horizontal, vertical])
+            vertical += self.CARD_HEADER_SHARE * card_image.get_height() 
         
         #Draw the Adventurer's Character Card over the top
         if adventurer.character_card is not None:
             card_type = adventurer.character_card.card_type
             card_image = self.get_card_image(adventurer, card_type)
     #        card_horizontal = 0
-            card_vertical = card_stack_position + card_image.get_height() * self.CARD_HEADER_SHARE * len(adventurer.discovery_cards)
-            self.window.blit(card_image, [card_horizontal, card_vertical])
+            vertical = self.stack_rect[1] + card_image.get_height() * self.CARD_HEADER_SHARE * len(adventurer.discovery_cards)
+            self.window.blit(card_image, [horizontal, vertical])
 #        card_rect = (0, card_stack_position, self.play_area_start, stack_size)
 #        pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
 #                                 , self.chest_rect
@@ -838,11 +905,11 @@ class GameVisualisation():
         #If one of the discovery/manuscript cards has been selected then draw cards back over the current ones in reverse up to that one
         if self.selected_card_num is not None:
             for card in reversed(adventurer.discovery_cards):
-                card_vertical -= self.CARD_HEADER_SHARE * card_image.get_height()
+                vertical -= self.CARD_HEADER_SHARE * card_image.get_height()
                 print("Drawing a card of type "+card.card_type)
                 card_type = card.card_type
                 card_image = self.get_card_image(adventurer, card_type)
-                self.window.blit(card_image, [card_horizontal, card_vertical])
+                self.window.blit(card_image, [horizontal, vertical])
                 if adventurer.discovery_cards.index(card) == self.selected_card_num:
                     break
         
@@ -1053,9 +1120,9 @@ class GameVisualisation():
                 #check whether the click was within the menu, and return the index within the chest
                 if (event.pos[0] in range(self.chest_rect[0], self.chest_rect[2])
                     and event.pos[1] in range(self.chest_rect[1], self.chest_rect[3])):
-                    menu_row = (event.pos[1] - self.chest_rect[1]) // self.chest_tile_size
-                    menu_column = (event.pos[0] - self.chest_rect[0]) // self.chest_tile_size
-                    return self.CHEST_TILE_COLS * menu_row + menu_column
+                    menu_row = (event.pos[1] - self.chest_rect[1]) // self.menu_tile_size
+                    menu_column = (event.pos[0] - self.chest_rect[0]) // self.menu_tile_size
+                    return self.MENU_TILE_COLS * menu_row + menu_column
                 #Check whether the click was within the card stack, and update the index of the selected card
                 if (event.pos[0] in range(self.stack_rect[0], self.stack_rect[2])
                     and event.pos[1] in range(self.stack_rect[1], self.stack_rect[3])):
@@ -1831,15 +1898,18 @@ class WebServerVisualisation(GameVisualisation):
         print("Initialising visual scale variables, to fit window of size "+str(self.width)+"x"+str(self.height))
         self.tile_size = self.height // self.dimensions[1]
         #We'll have a different tile size for dicards and menu highlights
-        self.menu_highlight_size = round(self.DISCARD_SCALE * self.width) // len(self.TOGGLE_HIGHLIGHTS)
-        self.discard_tile_size = round(self.DISCARD_SCALE * self.width)
+        self.play_area_width = round(self.width * (1 - self.LEFT_MENU_SCALE - self.RIGHT_MENU_SCALE))
+        self.play_area_start = round(self.width * self.LEFT_MENU_SCALE)
+        self.right_menu_width = round(self.width * self.RIGHT_MENU_SCALE)
+        self.right_menu_start = self.play_area_start + self.play_area_width
+        self.menu_highlight_size = round(self.RIGHT_MENU_SCALE * self.width) // len(self.TOGGLE_HIGHLIGHTS)
+        self.menu_tile_size = round(self.RIGHT_MENU_SCALE * self.width) // self.MENU_TILE_COLS
         #Before sizing against the horizontal dimension, we'll work out how much space the menus will take away
-        self.play_area_width = round(self.width * (1 - self.MENU_SCALE - self.DISCARD_SCALE))
-        self.play_area_start = round(self.width * self.MENU_SCALE)
+        self.play_area_width = round(self.width * (1 - self.LEFT_MENU_SCALE - self.RIGHT_MENU_SCALE))
+        self.play_area_start = round(self.width * self.LEFT_MENU_SCALE)
         #Tiles will be scaled to fit the smaller dimension
         if self.play_area_width < self.tile_size * self.dimensions[0]:
             self.tile_size = self.play_area_width // self.dimensions[0]
-        self.chest_tile_size = round(self.MENU_SCALE * self.width) // self.CHEST_TILE_COLS
         #Where piracy is possible, we'll have a different tile size for 
         self.offer_tile_size = round(self.OFFER_SCALE * self.width)
         self.token_size = int(round(self.TOKEN_SCALE * self.tile_size)) #token size will be proportional to the tiles
@@ -1851,6 +1921,15 @@ class WebServerVisualisation(GameVisualisation):
                                 , self.PROMPT_POSITION[1]*self.height]
         pygame.font.init()
         self.prompt_text = ""
+        #Make sure that the GUI menus are drawn on the correct sides from the start
+        self.scores_rect = (0, 0, 0, 0)
+        self.stack_rect = (0, 0, 0, 0)
+        self.current_move_count = None
+        self.move_count_rect = (self.MOVE_COUNT_POSITION[0]*self.width, self.MOVE_COUNT_POSITION[1]*self.height, 0, round(self.height * self.SCORES_FONT_SCALE))
+        self.toggles_rect = (self.right_menu_start, self.move_count_rect[1]+self.move_count_rect[3], 0, self.menu_tile_size+round(self.height * self.SCORES_FONT_SCALE))
+        self.chest_rect = (self.right_menu_start, self.toggles_rect[1]+self.toggles_rect[3]+round(self.height * self.SCORES_FONT_SCALE), 0, self.menu_tile_size)
+        self.piles_rect = (self.right_menu_start, self.toggles_rect[1]+self.toggles_rect[3]+round(self.height * self.SCORES_FONT_SCALE), 0, 0)
+        
         #Import images
         self.init_graphics()
     
@@ -1908,21 +1987,28 @@ class WebServerVisualisation(GameVisualisation):
                 game_vis = player.games[self.game.game_id]["game_vis"]
                 if not self.client == game_vis.client:
 #                    print("Recognised that this player is using a different client: "+str(game_vis.client.address))
+                    
                     game_vis.draw_play_area()
+                    game_vis.draw_tokens()
                     game_vis.draw_routes()
+                    #Draw the left menu items
                     game_vis.draw_scores()
-                    game_vis.current_player_colour = adventurer.player.colour
-                    game_vis.give_prompt(adventurer.player.colour+" player's is moving their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
+                    if isinstance(adventurer, AdventurerAdvanced):
+                        game_vis.draw_cards(adventurer)
+                    #Draw the right menu items
                     moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-                    game_vis.draw_move_options(moves_since_rest, max_moves=adventurer.max_downwind_moves)
-                    game_vis.draw_tokens() #Draw them on top of the highlights
+                    game_vis.draw_move_count(moves_since_rest, max_moves=adventurer.max_downwind_moves)
                     if isinstance(adventurer, AdventurerRegular):
                         chest_tiles = adventurer.chest_tiles
                         preferred_tile_num = adventurer.preferred_tile_num
                         num_chest_tiles = adventurer.num_chest_tiles
                         game_vis.draw_chest_tiles(chest_tiles, preferred_tile_num, num_chest_tiles)
-                    if isinstance(adventurer, AdventurerAdvanced):
-                        game_vis.draw_cards(adventurer)
+                    game_vis.draw_tile_piles()
+                    game_vis.draw_discard_pile()
+                    #Prompt the player
+                    game_vis.current_player_colour = adventurer.player.colour
+                    game_vis.give_prompt(adventurer.player.colour+" player's is moving their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
+                    
                 game_vis.update_web_display()
         
         coords = None
@@ -1936,9 +2022,9 @@ class WebServerVisualisation(GameVisualisation):
                     and vertical in range(int(self.chest_rect[1])
                         , int(self.chest_rect[1]) + int(self.chest_rect[3]))):
                     print("Player chose coordinates within the menu")
-                    menu_row = (vertical - int(self.chest_rect[1])) // self.chest_tile_size
-                    menu_column = (horizontal - int(self.chest_rect[0])) // self.chest_tile_size
-                    return {"preferred_tile":self.CHEST_TILE_COLS * menu_row + menu_column}
+                    menu_row = (vertical - int(self.chest_rect[1])) // self.menu_tile_size
+                    menu_column = (horizontal - int(self.chest_rect[0])) // self.menu_tile_size
+                    return {"preferred_tile":self.MENU_TILE_COLS * menu_row + menu_column}
                 #Check whether the click was within the card stack, and update the index of the selected card
                 elif (horizontal in range(int(self.stack_rect[0]), int(self.stack_rect[0] + self.stack_rect[2]))
                     and vertical in range(int(self.stack_rect[1]), int(self.stack_rect[1] + self.stack_rect[3]))):
@@ -2021,17 +2107,24 @@ class WebServerVisualisation(GameVisualisation):
                     game_vis.draw_play_area()
                     game_vis.draw_tokens()
                     game_vis.draw_routes()
+                    #Draw the left menu items
                     game_vis.draw_scores()
-                    game_vis.current_player_colour = adventurer.player.colour
-                    game_vis.give_prompt(adventurer.player.colour+" player is choosing a card for their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
+                    if isinstance(adventurer, AdventurerAdvanced):
+                        game_vis.draw_cards(adventurer)
+                        game_vis.draw_card_offers(cards)
+                    #Draw the right menu items
+                    game_vis.draw_move_count()
                     if isinstance(adventurer, AdventurerRegular):
                         chest_tiles = adventurer.chest_tiles
                         preferred_tile_num = adventurer.preferred_tile_num
                         num_chest_tiles = adventurer.num_chest_tiles
                         game_vis.draw_chest_tiles(chest_tiles, preferred_tile_num, num_chest_tiles)
-                    if isinstance(adventurer, AdventurerAdvanced):
-                        game_vis.draw_cards(adventurer)
-                        game_vis.draw_card_offers(cards)
+                    game_vis.draw_tile_piles()
+                    game_vis.draw_discard_pile()
+                    #Prompt the player
+                    game_vis.current_player_colour = adventurer.player.colour
+                    game_vis.give_prompt(adventurer.player.colour+" player is choosing a card for their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
+                    
                 game_vis.update_web_display()
         
         coords = None
