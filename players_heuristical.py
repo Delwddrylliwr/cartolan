@@ -503,6 +503,10 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
     #Never refresh map tiles
     def check_buy_maps(self, adventurer):
         return False
+    
+    def choose_tile(self, adventurer, tiles):
+        #randomly choose one
+        return random.choice(tiles) 
 
         
 class PlayerRegularTrader(PlayerBeginnerTrader, PlayerRegularExplorer):    

@@ -142,6 +142,7 @@ class GameVisualisation():
         self.play_area_start = round(self.width * self.LEFT_MENU_SCALE)
         self.right_menu_width = round(self.width * self.RIGHT_MENU_SCALE)
         self.right_menu_start = self.play_area_start + self.play_area_width
+        self.right_text_start = self.MOVE_COUNT_POSITION[0] * self.width #All text indicators in the right menu will follow the same indent
         self.menu_highlight_size = round(self.RIGHT_MENU_SCALE * self.width) // len(self.TOGGLE_HIGHLIGHTS)
         #Tiles will be scaled to fit the smaller dimension
         if self.play_area_width < self.tile_size * self.dimensions[0]:
@@ -513,13 +514,15 @@ class GameVisualisation():
             move_count = self.scores_font.render(str(moves_since_rest)+" of "+str(max_moves)+" moves since rest", 1, self.PLAIN_TEXT_COLOUR)
         else:
             move_count = self.scores_font.render("No moves since rest", 1, self.PLAIN_TEXT_COLOUR)
+        if move_count.get_width() > self.right_text_start:
+            self.right_text_start = move_count.get_width() #permanently adjust the text margin on this setup if it doesn't fit
         self.window.blit(move_count, [horizontal, vertical])
         self.move_count_rect = (horizontal, vertical, move_count.get_width(), move_count.get_height())
         
     def draw_discard_pile(self):
         '''Draw small versions of the tiles that have been discarded so far
         '''
-        horizontal = self.move_count_rect[0]
+        horizontal = self.right_text_start
         vertical = self.piles_rect[1] + self.piles_rect[3]
         discard_title = self.scores_font.render("Failed mapping attempts:", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(discard_title, [horizontal, vertical])
@@ -740,7 +743,7 @@ class GameVisualisation():
     def draw_tile_piles(self):
         '''Draw the numbers of tiles in each pile
         '''
-        horizontal = self.MOVE_COUNT_POSITION[0] * self.width
+        horizontal = self.right_text_start
         vertical = self.chest_rect[1] + self.chest_rect[3]
         #Start recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
         self.piles_rect = (horizontal, vertical, 0, 0)
@@ -770,7 +773,7 @@ class GameVisualisation():
         #Establish the top left coordinate below the table of treasure scores
 #        horizontal = self.MOVE_COUNT_POSITION[0] * self.width
 #        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.game.tile_piles) + 1)
-        horizontal = self.move_count_rect[0]
+        horizontal = self.right_menu_start
         vertical = self.move_count_rect[1] + self.move_count_rect[3] 
         toggle_title = self.scores_font.render("Auto-Actions:", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(toggle_title, (horizontal, vertical))
@@ -812,7 +815,7 @@ class GameVisualisation():
         '''
         #Establish the top left coordinate of the column of tiles to choose from, below the table of treasure scores
 #        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1)
-        horizontal = self.move_count_rect[0]
+        horizontal = self.right_menu_start
 #        vertical = (len(self.game.players) + 1) * self.SCORES_FONT_SCALE * self.height
         vertical = self.toggles_rect[1] + self.toggles_rect[3] 
         chest_title = self.scores_font.render("Chest maps:", 1, self.PLAIN_TEXT_COLOUR)
@@ -1902,6 +1905,7 @@ class WebServerVisualisation(GameVisualisation):
         self.play_area_start = round(self.width * self.LEFT_MENU_SCALE)
         self.right_menu_width = round(self.width * self.RIGHT_MENU_SCALE)
         self.right_menu_start = self.play_area_start + self.play_area_width
+        self.right_text_start = self.MOVE_COUNT_POSITION[0] * self.width #All text indicators in the right menu will follow the same indent
         self.menu_highlight_size = round(self.RIGHT_MENU_SCALE * self.width) // len(self.TOGGLE_HIGHLIGHTS)
         self.menu_tile_size = round(self.RIGHT_MENU_SCALE * self.width) // self.MENU_TILE_COLS
         #Before sizing against the horizontal dimension, we'll work out how much space the menus will take away
