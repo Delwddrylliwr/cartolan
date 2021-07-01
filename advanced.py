@@ -53,6 +53,7 @@ class AdventurerAdvanced(AdventurerRegular):
         #Bring in game variables that might be altered by company/character stats
         self.defence_rounds = game.defence_rounds
         self.agent_on_existing = game.agent_on_existing
+        self.rest_after_placing = game.rest_after_placing
         self.transfers_to_agents = game.transfers_to_agents
         self.attacks_abandon = game.attacks_abandon
         #Prepare to hold cards
@@ -108,7 +109,8 @@ class AdventurerAdvanced(AdventurerRegular):
                     self.discover_card(stolen_card)
             if self.attacks_abandon: #Adventurers will return to cities, Agents are removed
                 if isinstance(token, AdventurerRegular):
-                    token.end_expedition()
+                    if not isinstance(token.current_tile, CityTileRegular): #in case they were a Pirate already sent back to a city
+                        token.end_expedition()
                 elif isinstance(token, AgentRegular):
                     token.dismiss()
             return True
@@ -139,6 +141,22 @@ class AdventurerAdvanced(AdventurerRegular):
                 transfer_agent.wealth += transfer_amount
                 #See if another transfer is desired
                 transfer_agent = self.player.check_transfer_agent(self)
+    
+    def place_agent(self):
+        '''Extends standard behaviour to allow a buff with same-turn resting
+        '''
+        if super().place_agent() and self.rest_after_placing:
+            self.agents_rested.remove(self.current_tile.agent)
+            return True
+        else: return False
+    
+    def restore_agent(self, agent):
+        '''Extends standard behaviour to allow a buff with same-turn resting
+        '''
+        if super().restore_agent(agent) and self.rest_after_placing:
+            self.agents_rested.remove(self.current_tile.agent)
+            return True
+        else: return False        
     
     def interact_tokens(self):
         '''Extends regular to attack even poor Adventurers if the card is held that will send them home.

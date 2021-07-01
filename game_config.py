@@ -61,7 +61,8 @@ class AdvancedConfig:
     AGENT_ON_EXISTING = False
     TRANSFERS_TO_AGENTS = False
     
-    CARD_TYPE_BUFFS = {"+agents":{"agent_on_existing":{"buff_type":"new", "buff_val":True}}
+    CARD_TYPE_BUFFS = {"+agents":{"agent_on_existing":{"buff_type":"new", "buff_val":True}
+                                        , "rest_after_placing":{"buff_type":"new", "buff_val":True}}
                         , "+attack":{"attack_success_prob":{"buff_type":"new", "buff_val":2.0/3.0}} 
                         , "+bank":{"transfers_to_agents":{"buff_type":"new", "buff_val":True}}
                         , "+damage":{"attacks_abandon":{"buff_type":"new", "buff_val":True}}
@@ -70,6 +71,13 @@ class AdvancedConfig:
                         , "+upwind":{"max_upwind_moves":{"buff_type":"boost", "buff_val":1}
                                             ,"max_land_moves":{"buff_type":"boost", "buff_val":1}}
                         , "+maps":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}}
+                        #@TODO, broaden cards to affect Agents
+                        , "com+rests":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}
+                        , "com+transfers"
+                        , "com+earning"
+                        , "com+arrest"
+                        , "com+refurnish"
+                        , "com+pool"
                         }
     CHARACTER_CARDS = ["adv+agents"
              , "adv+attack"
@@ -89,4 +97,12 @@ class AdvancedConfig:
              , "dis+downwind", "dis+downwind", "dis+downwind", "dis+downwind"
              , "dis+upwind", "dis+upwind", "dis+upwind", "dis+upwind"
              , "dis+maps", "dis+maps", "dis+maps", "dis+maps"
+            ]
+    
+    COMPANY_CARDS = ["com+rests"
+            , "com+transfers"
+            , "com+earning"
+            , "com+arrest"
+            , "com+refurnish"
+            , "com+pool"
             ]
