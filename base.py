@@ -112,6 +112,28 @@ class Token:
         
         current_tile.move_onto_tile(self)
 
+class Card:
+    '''A template for cards that will modify other objects with buffs
+    '''
+    def __init__(self, game, card_type):
+        self.game = game
+        self.card_type = card_type
+        self.buffs = None
+        self.card_id = card_type+str(random.random())
+        
+    def __hash__(self):
+        return hash(self.card_id)
+    
+    def __eq__(self, other):
+        if isinstance(other, Card):
+            return self.card_id == other.card_id
+        else: return False
+        
+    def __ne__(self, other):
+        if isinstance(other, Card):
+            return not self.card_id == other.card_id
+        else: return True
+
 class Adventurer(Token):
     '''A template for actual Adventurer tokens used in different game modes.
     
@@ -221,7 +243,20 @@ class Tile:
         self.adventurers = [] # to keep track of the Adventurer tokens on a tile at any point
         self.agent = None # there can only be one Agent token on a given tile
         self.dropped_wealth = 0 # to keep track of wealth dropped when returning abruptly to a City
-
+        self.tile_id = tile_back+str(wind_direction.north)+str(wind_direction.east)+str(tile_edges.upwind_clock_water)+str(tile_edges.upwind_anti_water)+str(tile_edges.downwind_clock_water) + str(tile_edges.downwind_anti_water)+str(random.random())
+        
+    def __hash__(self):
+        return hash(self.tile_id)
+    
+    def __eq__(self, other):
+        if isinstance(other, Tile):
+            return self.tile_id == other.tile_id
+        else: return False
+        
+    def __ne__(self, other):
+        if isinstance(other, Tile):
+            return not self.tile_id == other.tile_id
+        else: return True
     
     def place_tile(self, longitude, latitude):
         '''records the location of a Tile object in the PlayArea of a Cartolan game

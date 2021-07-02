@@ -540,14 +540,6 @@ class AdventurerBeginner(Adventurer):
         self.placed = True
         
         tile = self.current_tile
-        #@DEPRECATED city tile domains are no longer a feature
-        #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm
-#        for city_tile in self.game.cities:
-#            city_longitude = city_tile.tile_position.longitude
-#            city_latitude = city_tile.tile_position.latitude
-#            if (abs(tile.tile_position.longitude - city_longitude) 
-#                + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
-#                return False
         
         #check that the adventurer has requisite wealth in their Chest
         if self.wealth >= self.cost_agent_exploring and self.check_tile_available(tile):

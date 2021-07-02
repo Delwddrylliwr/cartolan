@@ -332,6 +332,7 @@ class GameAdvanced(GameRegular):
         
         self.attacks_abandon = AdvancedConfig.ATTACKS_ABANDON
         self.agent_on_existing = AdvancedConfig.AGENT_ON_EXISTING
+        self.rest_after_placing = AdvancedConfig.REST_AFTER_PLACING
         self.transfers_to_agents = AdvancedConfig.TRANSFERS_TO_AGENTS
         
         #Set up the decks of cards

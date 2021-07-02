@@ -4,19 +4,19 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 
 import random
 from regular import AdventurerRegular, AgentRegular, CityTileRegular
-from base import WindDirection, TileEdges
+from base import WindDirection, TileEdges, Card
 
-class CardAdvanced():
+class CardAdvanced(Card):
     '''Modifies the rules for objects from other Cartolan classes.
     '''
     def __init__(self, game, card_type):
-        self.game = game
-        self.card_type = card_type
+        super().__init__(game, card_type)
         self.buffs = game.card_type_buffs[card_type[3:]]
         
     def apply_buffs(self, token):
         '''Incorporates rule changes for the Adventurer/Agent that come from this cards
         '''
+        print("Adding card buffs for "+token.player.colour+" player...")
         for buff_attr in self.buffs:
             #Check that the token has the attribute associated with the buff
             current_attr_val = getattr(token, buff_attr, None) 
@@ -32,17 +32,18 @@ class CardAdvanced():
     def remove_buffs(self, token):
         '''Reverts rule changes for the Adventurer/Agent that come from this card
         '''
+        print("Removing card buffs for "+token.player.colour+" player...")
         for buff_attr in self.buffs:
             #Check that the token has the attribute associated with the buff
             current_attr_val = getattr(token, buff_attr, None) 
             if current_attr_val is not None:
-                #Apply the buff
+                #Remove the buff
                 if self.buffs[buff_attr]["buff_type"] == "boost":
                     setattr(token, buff_attr, current_attr_val - self.buffs[buff_attr]["buff_val"])
                 elif self.buffs[buff_attr]["buff_type"] == "new":
                     #@TODO if a buff has been doubled up then it shouldn't be lost
                     setattr(token, buff_attr, getattr(self.game, buff_attr))
-                    print(token.player.colour+" player's "+buff_attr+" now has value "+str(getattr(token, buff_attr, None)))
+                print(token.player.colour+" player's "+buff_attr+" now has value "+str(getattr(token, buff_attr, None)))
 
 class AdventurerAdvanced(AdventurerRegular):
     '''Extends to allow a set of map tiles to be carried by each Adventurer in their chest and placed instead of a random one
@@ -53,6 +54,7 @@ class AdventurerAdvanced(AdventurerRegular):
         #Bring in game variables that might be altered by company/character stats
         self.defence_rounds = game.defence_rounds
         self.agent_on_existing = game.agent_on_existing
+        self.rest_after_placing = game.rest_after_placing
         self.transfers_to_agents = game.transfers_to_agents
         self.attacks_abandon = game.attacks_abandon
         #Prepare to hold cards
@@ -105,10 +107,12 @@ class AdventurerAdvanced(AdventurerRegular):
 #                    stolen_card = token.discovery_cards.pop(random.randint(0, len(token.discovery_cards)-1))
                     stolen_card = self.player.choose_card(self, token.discovery_cards)
                     token.discovery_cards.remove(stolen_card)
+                    stolen_card.remove_buffs(token)
                     self.discover_card(stolen_card)
             if self.attacks_abandon: #Adventurers will return to cities, Agents are removed
                 if isinstance(token, AdventurerRegular):
-                    token.end_expedition()
+                    if not isinstance(token.current_tile, CityTileRegular): #in case they were a Pirate already sent back to a city
+                        token.end_expedition()
                 elif isinstance(token, AgentRegular):
                     token.dismiss()
             return True
@@ -139,6 +143,22 @@ class AdventurerAdvanced(AdventurerRegular):
                 transfer_agent.wealth += transfer_amount
                 #See if another transfer is desired
                 transfer_agent = self.player.check_transfer_agent(self)
+    
+    def place_agent(self):
+        '''Extends standard behaviour to allow a buff with same-turn resting
+        '''
+        if super().place_agent() and self.rest_after_placing:
+            self.agents_rested.remove(self.current_tile.agent)
+            return True
+        else: return False
+    
+    def restore_agent(self, agent):
+        '''Extends standard behaviour to allow a buff with same-turn resting
+        '''
+        if super().restore_agent(agent) and self.rest_after_placing:
+            self.agents_rested.remove(self.current_tile.agent)
+            return True
+        else: return False        
     
     def interact_tokens(self):
         '''Extends regular to attack even poor Adventurers if the card is held that will send them home.
