@@ -380,8 +380,8 @@ class PlayerHuman(Player):
 #        player_input = None
 #        while not player_input:
         player_input = game_vis.get_input_coords(adventurer)
-        print("Player's input:")
-        print(player_input)
+#        print("Player's input:")
+#        print(player_input)
         #Check if this was a menu click, respond and gather another
         while (player_input.get(action_type) is None 
                and player_input.get("move") is None

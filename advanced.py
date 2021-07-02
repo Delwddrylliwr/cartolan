@@ -4,19 +4,19 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 
 import random
 from regular import AdventurerRegular, AgentRegular, CityTileRegular
-from base import WindDirection, TileEdges
+from base import WindDirection, TileEdges, Card
 
-class CardAdvanced():
+class CardAdvanced(Card):
     '''Modifies the rules for objects from other Cartolan classes.
     '''
     def __init__(self, game, card_type):
-        self.game = game
-        self.card_type = card_type
+        super().__init__(game, card_type)
         self.buffs = game.card_type_buffs[card_type[3:]]
         
     def apply_buffs(self, token):
         '''Incorporates rule changes for the Adventurer/Agent that come from this cards
         '''
+        print("Adding card buffs for "+token.player.colour+" player...")
         for buff_attr in self.buffs:
             #Check that the token has the attribute associated with the buff
             current_attr_val = getattr(token, buff_attr, None) 
@@ -32,17 +32,18 @@ class CardAdvanced():
     def remove_buffs(self, token):
         '''Reverts rule changes for the Adventurer/Agent that come from this card
         '''
+        print("Removing card buffs for "+token.player.colour+" player...")
         for buff_attr in self.buffs:
             #Check that the token has the attribute associated with the buff
             current_attr_val = getattr(token, buff_attr, None) 
             if current_attr_val is not None:
-                #Apply the buff
+                #Remove the buff
                 if self.buffs[buff_attr]["buff_type"] == "boost":
                     setattr(token, buff_attr, current_attr_val - self.buffs[buff_attr]["buff_val"])
                 elif self.buffs[buff_attr]["buff_type"] == "new":
                     #@TODO if a buff has been doubled up then it shouldn't be lost
                     setattr(token, buff_attr, getattr(self.game, buff_attr))
-                    print(token.player.colour+" player's "+buff_attr+" now has value "+str(getattr(token, buff_attr, None)))
+                print(token.player.colour+" player's "+buff_attr+" now has value "+str(getattr(token, buff_attr, None)))
 
 class AdventurerAdvanced(AdventurerRegular):
     '''Extends to allow a set of map tiles to be carried by each Adventurer in their chest and placed instead of a random one
@@ -106,6 +107,7 @@ class AdventurerAdvanced(AdventurerRegular):
 #                    stolen_card = token.discovery_cards.pop(random.randint(0, len(token.discovery_cards)-1))
                     stolen_card = self.player.choose_card(self, token.discovery_cards)
                     token.discovery_cards.remove(stolen_card)
+                    stolen_card.remove_buffs(token)
                     self.discover_card(stolen_card)
             if self.attacks_abandon: #Adventurers will return to cities, Agents are removed
                 if isinstance(token, AdventurerRegular):

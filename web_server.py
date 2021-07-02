@@ -4,10 +4,15 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 Based on this example from AlexiK: https://stackoverflow.com/questions/32595130/javascript-html5-canvas-display-from-python-websocket-server
 '''
 
-from SimpleWebSocketServer import WebSocket, SimpleWebSocketServer, SimpleSSLWebSocketServer
+from SimpleWebSocketServer import WebSocket, SimpleWebSocketServer #, SimpleSSLWebSocketServer
 from main_game import setup_simulation
-from live_visuals import ClientGameVisualisation, WebServerVisualisation
+#from live_visuals import ClientGameVisualisation, WebServerVisualisation
+from live_visuals import WebServerVisualisation
+from game import GameBeginner, GameRegular, GameAdvanced
 from players_human import PlayerHuman
+from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
+from players_heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
+from players_heuristical import PlayerAdvancedExplorer, PlayerAdvancedTrader, PlayerAdvancedRouter, PlayerAdvancedPirate
 #import zmq
 #import zmq.auth
 #from zmq.auth.thread import ThreadAuthenticator
@@ -24,7 +29,27 @@ DEFAULT_WIDTH = int(0.8*1366)
 DEFAULT_HEIGHT = int(0.8*768)
 DIMENSION_INCREMENT = 2
 
-GAME_MODES = ClientGameVisualisation.GAME_MODES
+GAME_MODES = { 'Beginner':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeginnerExplorer
+                                                                   , "red":PlayerBeginnerTrader
+                                                                   , "yellow":PlayerBeginnerRouter
+#                                                                    , "green":PlayerBeginnerGenetic
+                                                                   , "orange":PlayerBeginnerExplorer
+                                                                      }}
+              , 'Regular':{'game_type':GameRegular, 'player_set':{
+                                                                  "orange":PlayerRegularPirate
+                                                                    , "blue":PlayerRegularExplorer
+                                                                   , "red":PlayerRegularTrader
+                                                                   , "yellow":PlayerRegularRouter
+#                                                                    , "green":PlayerRegularGenetic
+                                                                  }}
+              , 'Advanced':{'game_type':GameAdvanced, 'player_set':{
+                                                                  "orange":PlayerAdvancedPirate
+                                                                    , "blue":PlayerAdvancedExplorer
+                                                                   , "red":PlayerAdvancedTrader
+                                                                   , "yellow":PlayerAdvancedRouter
+#                                                                    , "green":PlayerRegularGenetic
+                                                                  }}
+              }
 DEFAULT_GAME_MODE = "Regular"
 DEFAULT_LOCAL_PLAYERS = 1
 DEFAULT_VIRTUAL_PLAYERS = 0
@@ -392,7 +417,7 @@ class ClientSocket(WebSocket):
             print("Client responded to ping")
             self.connection_confirmed = True
         elif protocode == ("TEXT"):
-           print("TEXT... "+msg)
+#           print("TEXT... "+msg)
            if not msg == "":
                self.text_buffer = msg
 #           msg = str(msg)
@@ -400,7 +425,7 @@ class ClientSocket(WebSocket):
 #           msg = ('%sSPLIT%s' % (ident, mdata))
 ##           self.socket.send(str(msg))
         elif protocode == ("COORDS"):
-           print("COORDS... "+msg)
+#           print("COORDS... "+msg)
            input_coords = msg.split("[66666]")
            try:
                if len(input_coords) == 2:

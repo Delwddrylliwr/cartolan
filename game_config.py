@@ -59,6 +59,7 @@ class AdvancedConfig:
     ATTACKS_ABANDON = False
     
     AGENT_ON_EXISTING = False
+    REST_AFTER_PLACING = False
     TRANSFERS_TO_AGENTS = False
     
     CARD_TYPE_BUFFS = {"+agents":{"agent_on_existing":{"buff_type":"new", "buff_val":True}
@@ -72,12 +73,12 @@ class AdvancedConfig:
                                             ,"max_land_moves":{"buff_type":"boost", "buff_val":1}}
                         , "+maps":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}}
                         #@TODO, broaden cards to affect Agents
-                        , "com+rests":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}
-                        , "com+transfers"
-                        , "com+earning"
-                        , "com+arrest"
-                        , "com+refurnish"
-                        , "com+pool"
+#                        , "com+rests":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}
+#                        , "com+transfers"
+#                        , "com+earning"
+#                        , "com+arrest"
+#                        , "com+refurnish"
+#                        , "com+pool"
                         }
     CHARACTER_CARDS = ["adv+agents"
              , "adv+attack"
