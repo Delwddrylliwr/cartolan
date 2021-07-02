@@ -4,7 +4,7 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 
 import random
 from regular import AdventurerRegular, AgentRegular, CityTileRegular
-from base import WindDirection, TileEdges, Card
+from base import Player, Token, WindDirection, TileEdges, Card
 
 class CardAdvanced(Card):
     '''Modifies the rules for objects from other Cartolan classes.
@@ -13,37 +13,49 @@ class CardAdvanced(Card):
         super().__init__(game, card_type)
         self.buffs = game.card_type_buffs[card_type[3:]]
         
-    def apply_buffs(self, token):
+    def apply_buffs(self, target):
         '''Incorporates rule changes for the Adventurer/Agent that come from this cards
         '''
-        print("Adding card buffs for "+token.player.colour+" player...")
+        if isinstance(target, Token):
+            player_colour = target.player.colour
+        elif isinstance(target, Player):
+            player_colour = target.colour
+        else:
+            player_colour = "Anonymous"
+        print("Adding card buffs for "+player_colour+" player...")
         for buff_attr in self.buffs:
             #Check that the token has the attribute associated with the buff
-            current_attr_val = getattr(token, buff_attr, None) 
+            current_attr_val = getattr(target, buff_attr, None) 
             if current_attr_val is not None:
-                print("For "+token.player.colour+" player, adding a buff to their "+buff_attr)
+                print("For "+player_colour+" player, adding a buff to their "+buff_attr)
                 #Apply the buff
                 if self.buffs[buff_attr]["buff_type"] == "boost":
-                    setattr(token, buff_attr, current_attr_val + self.buffs[buff_attr]["buff_val"])
+                    setattr(target, buff_attr, current_attr_val + self.buffs[buff_attr]["buff_val"])
                 elif self.buffs[buff_attr]["buff_type"] == "new":
-                    setattr(token, buff_attr, self.buffs[buff_attr]["buff_val"])
-                print(token.player.colour+" player's "+buff_attr+" now has value "+str(getattr(token, buff_attr, None)))
+                    setattr(target, buff_attr, self.buffs[buff_attr]["buff_val"])
+                print(player_colour+" player's "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
     
-    def remove_buffs(self, token):
+    def remove_buffs(self, target):
         '''Reverts rule changes for the Adventurer/Agent that come from this card
         '''
-        print("Removing card buffs for "+token.player.colour+" player...")
+        if isinstance(target, Token):
+            player_colour = target.player.colour
+        elif isinstance(target, Player):
+            player_colour = target.colour
+        else:
+            player_colour = "Anonymous"
+        print("Removing card buffs for "+player_colour+" player...")
         for buff_attr in self.buffs:
             #Check that the token has the attribute associated with the buff
-            current_attr_val = getattr(token, buff_attr, None) 
+            current_attr_val = getattr(target, buff_attr, None) 
             if current_attr_val is not None:
                 #Remove the buff
                 if self.buffs[buff_attr]["buff_type"] == "boost":
-                    setattr(token, buff_attr, current_attr_val - self.buffs[buff_attr]["buff_val"])
+                    setattr(target, buff_attr, current_attr_val - self.buffs[buff_attr]["buff_val"])
                 elif self.buffs[buff_attr]["buff_type"] == "new":
                     #@TODO if a buff has been doubled up then it shouldn't be lost
-                    setattr(token, buff_attr, getattr(self.game, buff_attr))
-                print(token.player.colour+" player's "+buff_attr+" now has value "+str(getattr(token, buff_attr, None)))
+                    setattr(target, buff_attr, getattr(self.game, buff_attr))
+                print(player_colour+" player's "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
 
 class AdventurerAdvanced(AdventurerRegular):
     '''Extends to allow a set of map tiles to be carried by each Adventurer in their chest and placed instead of a random one
@@ -129,7 +141,9 @@ class AdventurerAdvanced(AdventurerRegular):
             cost_existing = self.game.cost_agent_from_city
             if self.wealth >= cost_existing:
                 self.cost_agent_exploring = cost_existing
-                self.place_agent()
+#                self.place_agent()
+                if super().place_agent() and self.rest_after_placing:
+                    self.agents_rested.remove(self.current_tile.agent)
                 self.cost_agent_exploring = cost_exploring
         if (self.transfers_to_agents 
             and len(self.game.agents[self.player]) > 0 
@@ -144,13 +158,13 @@ class AdventurerAdvanced(AdventurerRegular):
                 #See if another transfer is desired
                 transfer_agent = self.player.check_transfer_agent(self)
     
-    def place_agent(self):
-        '''Extends standard behaviour to allow a buff with same-turn resting
-        '''
-        if super().place_agent() and self.rest_after_placing:
-            self.agents_rested.remove(self.current_tile.agent)
-            return True
-        else: return False
+#    def place_agent(self):
+#        '''Extends standard behaviour to allow a buff with same-turn resting
+#        '''
+#        if super().place_agent() and self.rest_after_placing:
+#            self.agents_rested.remove(self.current_tile.agent)
+#            return True
+#        else: return False
     
     def restore_agent(self, agent):
         '''Extends standard behaviour to allow a buff with same-turn resting

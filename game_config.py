@@ -72,7 +72,6 @@ class AdvancedConfig:
                         , "+upwind":{"max_upwind_moves":{"buff_type":"boost", "buff_val":1}
                                             ,"max_land_moves":{"buff_type":"boost", "buff_val":1}}
                         , "+maps":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}}
-                        #@TODO, broaden cards to affect Agents
 #                        , "com+rests":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}
 #                        , "com+transfers"
 #                        , "com+earning"
