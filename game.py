@@ -318,12 +318,30 @@ class GameAdvanced(GameRegular):
 
 #    COST_BUY_TECH = 5
     def __init__(self, players, movement_rules='initial', exploration_rules='continuous'):
+        #Get game level config variables
+        self.num_cadre_choices = AdvancedConfig.NUM_CADRE_CHOICES
         #Get player level config variables
         self.num_character_choices = {}
         self.num_discovery_choices = {}
+        self.rest_with_adventurers = {}
+        self.transfer_agent_earnings = {}
+        self.agents_arrest = {}
+        self.resting_refurnishes = {}
+        self.pool_maps = {}
+        self.rechoose_at_agents = {}
+        #And a placeholder for players to choose a Cadre/Company
+        self.assigned_cadres = {}
         for player in players:
             self.num_character_choices[player] = AdvancedConfig.NUM_CHARACTER_CHOICES
             self.num_discovery_choices[player] = AdvancedConfig.NUM_DISCOVERY_CHOICES
+            self.rest_with_adventurers[player] = AdvancedConfig.REST_WITH_ADVENTURERS 
+            self.transfer_agent_earnings[player] = AdvancedConfig.TRANSFER_AGENT_EARNINGS
+            self.agents_arrest[player] = AdvancedConfig.AGENTS_ARREST
+            self.resting_refurnishes[player] = AdvancedConfig.RESTING_REFURNISHES
+            self.pool_maps[player] = AdvancedConfig.POOL_MAPS
+            self.rechoose_at_agents[player] = AdvancedConfig.RECHOOSE_AT_AGENTS
+            #And a placeholder for players to choose a Cadre/Company
+            self.assigned_cadres[player] = None
         
         #Get config variables to act as masters in case of modification
         self.card_type_buffs = AdvancedConfig.CARD_TYPE_BUFFS
@@ -336,10 +354,21 @@ class GameAdvanced(GameRegular):
         self.transfers_to_agents = AdvancedConfig.TRANSFERS_TO_AGENTS
         
         #Set up the decks of cards
+        self.cadre_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.CADRE_CARDS] #a copy that can be modified independent of the config file
         self.character_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.CHARACTER_CARDS] #a copy that can be modified independent of the config file
-        self.discovery_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.DISCOVERY_CARDS] #a copy that can be modified independent of the config file
+        self.discovery_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.MANUSCRIPT_CARDS] #a copy that can be modified independent of the config file
         
         super().__init__(players, movement_rules='initial', exploration_rules='continuous')
-    
+        
+    def choose_cadre(self, player):
+        '''Lets the player choose a character card from a random subset
+        '''
+        cadre_cards = self.cadre_cards
+        card_options = random.sample(cadre_cards, k=self.num_cadre_choices)
+        self.assigned_cadres[player] = player.choose_card(self.adventurers[player][0], card_options)
+        cadre_cards.remove(self.assigned_cadres[player])
+        #Take on the changes to rules based on the Character card
+        self.assigned_cadres[player].apply_buffs(player)
+        
 #    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
 #        super().__init__(players, movement_rules, exploration_rules)

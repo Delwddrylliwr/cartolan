@@ -18,45 +18,56 @@ class CardAdvanced(Card):
         '''
         if isinstance(target, Token):
             player_colour = target.player.colour
+            print("Adding card buffs for "+player_colour+" player...")
+            for buff_attr in self.buffs:
+                #Check that the token has the attribute associated with the buff
+                current_attr_val = getattr(target, buff_attr, None) 
+                if current_attr_val is not None:
+                    print("For "+player_colour+" player, adding a buff to their "+buff_attr)
+                    #Apply the buff
+                    if self.buffs[buff_attr]["buff_type"] == "boost":
+                        setattr(target, buff_attr, current_attr_val + self.buffs[buff_attr]["buff_val"])
+                    elif self.buffs[buff_attr]["buff_type"] == "new":
+                        setattr(target, buff_attr, self.buffs[buff_attr]["buff_val"])
+                    print(player_colour+" player's "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
         elif isinstance(target, Player):
             player_colour = target.colour
+            print("Adding card buffs for "+player_colour+" player...")
+            for buff_attr in self.buffs:
+                #Check that the token has the attribute associated with the buff
+                current_attr_val = getattr(self.game, buff_attr, None)
+                if current_attr_val[target] is not None:
+                    print("For "+player_colour+" player, adding a buff to their "+buff_attr)
+                    #Apply the buff
+                    current_attr_val[target] = self.buffs[buff_attr]
+#                    setattr(self.game, buff_attr, current_attr_val)
+                    print(player_colour+" player's "+buff_attr+" now has value "+str(getattr(self.game, buff_attr, None)[target]))
         else:
             player_colour = "Anonymous"
-        print("Adding card buffs for "+player_colour+" player...")
-        for buff_attr in self.buffs:
-            #Check that the token has the attribute associated with the buff
-            current_attr_val = getattr(target, buff_attr, None) 
-            if current_attr_val is not None:
-                print("For "+player_colour+" player, adding a buff to their "+buff_attr)
-                #Apply the buff
-                if self.buffs[buff_attr]["buff_type"] == "boost":
-                    setattr(target, buff_attr, current_attr_val + self.buffs[buff_attr]["buff_val"])
-                elif self.buffs[buff_attr]["buff_type"] == "new":
-                    setattr(target, buff_attr, self.buffs[buff_attr]["buff_val"])
-                print(player_colour+" player's "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
+        
     
     def remove_buffs(self, target):
         '''Reverts rule changes for the Adventurer/Agent that come from this card
         '''
         if isinstance(target, Token):
             player_colour = target.player.colour
+            print("Removing card buffs for "+player_colour+" player...")
+            for buff_attr in self.buffs:
+                #Check that the token has the attribute associated with the buff
+                current_attr_val = getattr(target, buff_attr, None) 
+                if current_attr_val is not None:
+                    #Remove the buff
+                    if self.buffs[buff_attr]["buff_type"] == "boost":
+                        setattr(target, buff_attr, current_attr_val - self.buffs[buff_attr]["buff_val"])
+                    elif self.buffs[buff_attr]["buff_type"] == "new":
+                        #@TODO if a buff has been doubled up then it shouldn't be lost
+                        setattr(target, buff_attr, getattr(self.game, buff_attr))
+                    print(player_colour+" player's "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
         elif isinstance(target, Player):
             player_colour = target.colour
         else:
             player_colour = "Anonymous"
-        print("Removing card buffs for "+player_colour+" player...")
-        for buff_attr in self.buffs:
-            #Check that the token has the attribute associated with the buff
-            current_attr_val = getattr(target, buff_attr, None) 
-            if current_attr_val is not None:
-                #Remove the buff
-                if self.buffs[buff_attr]["buff_type"] == "boost":
-                    setattr(target, buff_attr, current_attr_val - self.buffs[buff_attr]["buff_val"])
-                elif self.buffs[buff_attr]["buff_type"] == "new":
-                    #@TODO if a buff has been doubled up then it shouldn't be lost
-                    setattr(target, buff_attr, getattr(self.game, buff_attr))
-                print(player_colour+" player's "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
-
+        
 class AdventurerAdvanced(AdventurerRegular):
     '''Extends to allow a set of map tiles to be carried by each Adventurer in their chest and placed instead of a random one
     '''
@@ -64,25 +75,29 @@ class AdventurerAdvanced(AdventurerRegular):
         super().__init__(game, player, starting_city)
         
         #Bring in game variables that might be altered by company/character stats
+        #First those specific to Adventurers
         self.defence_rounds = game.defence_rounds
         self.agent_on_existing = game.agent_on_existing
         self.rest_after_placing = game.rest_after_placing
         self.transfers_to_agents = game.transfers_to_agents
         self.attacks_abandon = game.attacks_abandon
+        #Also player-specific characteristics
+        self.rest_with_adventurers = game.rest_with_adventurers[player]
+        self.pool_maps = game.pool_maps[player]
         #Prepare to hold cards
         self.character_card = None
         self.discovery_cards = []
         #Randomly draw a Character card
         #let the player choose between multiple character cards if the game visual is already started
-#        character_cards = self.game.character_cards
-#        self.character_card = character_cards.pop(random.randint(0, len(character_cards)-1))
         if self.game.game_started:
             self.choose_character()
-        #Take on the changes to rules based on the Company card
-#        self.company_card = self.game.company_cards[self.player]
-#        self.company_card.apply_buffs(self)
-#        #Be ready to receive further buffs from Discovery cards
-#        self.discovery_cards = []
+        #Take on any changes to rules based on the Company card
+#        game.assigned_cadres[player].apply_buffs(self)
+        #If the pool maps buff has been applied then the chest maps will be shared with other Adventurers
+        if self.pool_maps:
+            peers = game.adventurers[player]
+            self.chest_tiles = peers[0].chest_tiles
+            self.num_chest_tiles = game.num_chest_tiles * len(peers)
     
     def choose_character(self):
         '''Lets the player choose a character card from a random subset
@@ -101,6 +116,31 @@ class AdventurerAdvanced(AdventurerRegular):
         print(self.player.colour+" player's Adventurer has received the card of type "+card.card_type)
         self.discovery_cards.append(card)
         card.apply_buffs(self)
+    
+    def can_rest(self, token):
+        '''checks whether the Adventurer can rest with an Agent on this tile'''
+        if super().can_rest(token):
+            return True
+        # can the adventurer rest with an adventurer instead?
+        tile = self.current_tile
+        if self.rest_with_adventurers and not self.pirate_token and tile.adventurers:
+            if token == self:
+                return False
+            elif token.player == self.player or self.wealth >= self.game.cost_agent_rest:
+                return True    
+        else:
+            return False
+        
+    def rest(self, token):
+        '''Extends Regular to allow for resting with Adventurers in some circumstances
+        
+        Arguments:
+            token accepts a Cartolan Token
+        '''
+        #Make sure that the adventurer is equipped with the right method
+        if self.rest_with_adventurers and not callable(getattr(token, "give_rest", None)):
+            token.give_rest = AgentAdvanced.give_rest
+        return token.give_rest(self)
     
     def attack(self, token):
         '''Extends Regular mode to allow stealing of Chest Tiles
@@ -184,14 +224,37 @@ class AdventurerAdvanced(AdventurerRegular):
                     and not self == adventurer):
                     if self.player.check_attack_adventurer(self, adventurer):
                         self.attack(adventurer)
+        if self.current_tile.agent is not None:
+            if self.current_tile.agent.agents_arrest and self.pirate_token:
+                AdventurerRegular.arrest(self.current_tile.agent, self) #The arrest function should only use common features of the common parent Token class
 
 class AgentAdvanced(AgentRegular):
     '''Extends Regular mode to allow Agents' rules to be changed by cards
     '''
+    def __init__(self, game, player, tile):
+        super().__init__(game, player, tile)
+        #Inherit player-specific characteristics that have been buffed
+        self.rest_with_adventurers = game.rest_with_adventurers[player] 
+        self.transfer_agent_earnings = game.transfer_agent_earnings[player] 
+        self.agents_arrest = game.agents_arrest[player] 
+        self.resting_refurnishes = game.resting_refurnishes[player]
+        self.rechoose_at_agents = game.rechoose_at_agents[player]
+    
     def give_rest(self, adventurer):
         '''Extends Regular mode to replenish Chest Tiles ...now done in Regular mode
         '''
-        return super().give_rest(adventurer)
+        if super().give_rest(adventurer):
+            if self.resting_refurnishes and adventurer.pirate_token:
+                adventurer.pirate_token = False
+            if self.transfer_agent_earnings and self.wealth > 0:
+                self.game.vault_wealth[self.player] += self.wealth
+                self.wealth = 0
+            if adventurer.wealth > self.game.cost_refresh_maps:
+                if adventurer.player.check_buy_maps(adventurer):
+                    adventurer.rechoose_chest_tiles()
+            return True
+        else:
+            return False
 
 class CityTileAdvanced(CityTileRegular):
     '''Extends to replenish Chest Tiles, and offer purchase of refreshed chest tiles

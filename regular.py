@@ -272,13 +272,13 @@ class AdventurerRegular(AdventurerBeginner):
         
         return super().trade(tile)
     
-    def rest(self):
+    def can_rest(self, token):
         '''Expands on AdventurerBeginner by preventing pirates resting with others' Agents
         '''
         #check whether this is a pirate and refuse them rest, unless they belong to the same player
-        if self.pirate_token and not self.player == self.current_tile.agent.player:
+        if self.pirate_token and not self.player == token.player:
             return False
-        return super().rest()
+        return super().can_rest(token)
     
     def attack(self, token):
         import random
@@ -299,9 +299,7 @@ class AdventurerRegular(AdventurerBeginner):
             if adventurer.pirate_token:
                 # arrest them
                 if success:
-                    print(self.player.colour+" player successfully arrested "+token.player.colour+" player's Adventurer.")
-                    self.wealth += self.value_arrest # get a reward
-                    adventurer.end_expedition()
+                    self.arrest(adventurer)
             else: # rob them
                 self.pirate_token = True #just trying will make them a pirate
                 if success:
@@ -337,6 +335,13 @@ class AdventurerRegular(AdventurerBeginner):
             attack_history = self.player.attack_history[self.game] = []
         attack_history.append([self.current_tile, success])
         return success
+    
+    def arrest(self, pirate):
+        '''Sends pirates back to their last city and claims a reward.
+        '''
+        print(self.player.colour+" player successfully arrested "+pirate.player.colour+" player's Adventurer.")
+        self.wealth += self.value_arrest # get a reward
+        pirate.end_expedition()
     
     def end_expedition(self, city=None):
         '''Extends to deal with piracy
@@ -424,7 +429,7 @@ class AgentRegular(AgentBeginner):
             return False
         else:
             adventurer.replenish_chest_tiles()
-            super().give_rest(adventurer)
+            return super().give_rest(adventurer)
         
     def manage_trade(self, adventurer):
         if self.is_dispossessed:

@@ -2,8 +2,8 @@
 Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
-from base import Player, CityTile
-from game import GameRegular
+from base import Player, Agent, CityTile
+from game import GameRegular, GameAdvanced
 from regular import AdventurerRegular
 from advanced import AdventurerAdvanced
 
@@ -288,6 +288,9 @@ class PlayerHuman(Player):
         game_vis.get_input_coords(adventurer)
         game_vis.clear_prompt()
         
+        if isinstance(game, GameAdvanced):
+            if game.assigned_cadres.get(self) is None:
+                game.choose_cadre(self)
         if isinstance(adventurer, AdventurerAdvanced):
             if adventurer.character_card is None:
                 adventurer.choose_character()
@@ -416,30 +419,31 @@ class PlayerHuman(Player):
     def check_collect_wealth(self, agent):
         return True
     
-    def check_rest(self, adventurer, agent):
+    def check_rest(self, adventurer, token):
         game  = adventurer.game
         actions = {}
-        if agent in adventurer.agents_rested:
-            return False
+        if isinstance(token, Agent):
+            token_description = " the Agent "
+        elif isinstance(token, AdventurerAdvanced):
+            token_description = token.player.colour.initialize()+" player's Adventurer #"+str(game.adventurers[token.player].index(adventurer)+1)+" "
         else:
-            if agent.player == self:
-                action_type = "rest"
-                actions[action_type] = [[adventurer.current_tile.tile_position.longitude
-                            , adventurer.current_tile.tile_position.latitude]]
-                prompt = ("If you want "+str(self.colour)+" Adventurer #" 
-                                               +str(game.adventurers[self].index(adventurer)+1) 
-                                               +" to rest then click their tile, otherwise click elsewhere.")
-            elif adventurer.wealth >= adventurer.game.cost_agent_exploring:
-                action_type = "buy"
-                actions[action_type] = [[adventurer.current_tile.tile_position.longitude
-                            , adventurer.current_tile.tile_position.latitude]]
-                prompt = ("If you want "+str(self.colour)+" Adventurer #" 
-                                               +str(game.adventurers[self].index(adventurer)+1) 
-                                               +" to rest for "
-                                               +str(game.cost_agent_rest)+
-                                               " treasure then click their tile, otherwise click elsewhere.")
-            else:
-                return False
+            return False
+        if token.player == self:
+            action_type = "rest"
+            actions[action_type] = [[adventurer.current_tile.tile_position.longitude
+                        , adventurer.current_tile.tile_position.latitude]]
+            prompt = ("If you want "+str(self.colour)+" Adventurer #" 
+                                           +str(game.adventurers[self].index(adventurer)+1) 
+                                           +" to rest with "+token_description+" then click their tile, otherwise click elsewhere.")
+        else:
+            action_type = "buy"
+            actions[action_type] = [[adventurer.current_tile.tile_position.longitude
+                        , adventurer.current_tile.tile_position.latitude]]
+            prompt = ("If you want "+str(self.colour)+" Adventurer #" 
+                                           +str(game.adventurers[self].index(adventurer)+1) 
+                                           +" to rest for "
+                                           +str(game.cost_agent_rest)+
+                                           " treasure then click their tile, otherwise click elsewhere.")
         #Check whether the player wants to go ahead
         if self.check_action(adventurer, action_type, actions, prompt):
             return True
@@ -455,7 +459,7 @@ class PlayerHuman(Player):
                     , adventurer.current_tile.tile_position.latitude]]
         prompt = ("If you want your Adventurer to buy a new set of maps for "
                              +str(adventurer.game.cost_refresh_maps)
-                             +" then click the City, otherwise click elsewhere.")
+                             +" then click their tile, otherwise click elsewhere.")
         if self.check_action(adventurer, action_type, actions, prompt):
             return True
         else:

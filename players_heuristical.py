@@ -4,6 +4,7 @@
 
 from base import Player
 from advanced import AdventurerAdvanced
+from game import GameAdvanced
 import random
 
 class PlayerBeginnerExplorer(Player):    
@@ -219,6 +220,11 @@ class PlayerBeginnerExplorer(Player):
               +adventurer.current_tile.tile_back+ " tile at position " 
               +str(adventurer.current_tile.tile_position.longitude)+ "," 
               +str(adventurer.current_tile.tile_position.latitude))
+        
+        game = adventurer.game
+        if isinstance(game, GameAdvanced):
+            if game.assigned_cadres.get(self) is None:
+                game.choose_cadre(self)
         
         #reset the record of tiles already visited this turn
         self.locations_to_avoid = []

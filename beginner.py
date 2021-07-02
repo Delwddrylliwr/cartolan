@@ -164,8 +164,10 @@ class AdventurerBeginner(Adventurer):
                 if agent.wealth > 0:
                     if self.player.check_collect_wealth(agent):
                         self.collect_wealth()
-            if self.player.check_rest(self, agent):
-                self.rest()
+            if self.can_rest(agent):
+                if self.player.check_rest(self, agent):
+                    if self.rest(agent) and agent not in self.agents_rested:
+                        self.agents_rested.append(agent)
     
     def interact_tile(self):
         #check whether this is a wonder, and if the player wants to trade
@@ -514,7 +516,7 @@ class AdventurerBeginner(Adventurer):
             return False
         
         # check whether there is an Agent on the tile
-        if not tile.agent is None:
+        if tile.agent is not None:
             tile.agent.manage_trade(self)
         
         # collect appropriate wealth into Chest
@@ -572,41 +574,24 @@ class AdventurerBeginner(Adventurer):
 #                 self.upwind_moves = 0
                 return True
         else: return False
-            
     
-    def can_rest(self):
-        '''checks whether the Adventurer can rest with an Agent on this tile'''
+    def can_rest(self, token):
+        '''checks whether the Adventurer can rest on this tile'''
         tile = self.current_tile
-        # check whether there is an agent on the tile
-        if tile.agent is None:
-            return False
-        
-        # can the adventurer afford rest here?
-        if tile.agent.player == self.player or self.wealth > tile.agent.cost_agent_rest:
+        # check whether there is an agent on the tile# can the adventurer afford rest here?
+        if ((tile.agent.player == self.player 
+            or self.wealth > self.game.cost_agent_rest)
+            and token not in self.agents_rested):
             return True
-        else:
-            return False
+        return False
     
-    
-    def rest(self):
+    def rest(self, token):
         '''rests with an Agent if there is one on the tile'''
         #Record the instruction to rest
-        self.rested = True
-        
         tile = self.current_tile
-        # check whether there is an agent on the tile
-        if tile.agent is None:
-            return False
-        
-        # use the agent if there is enough Chest wealth to
-        if tile.agent.player == self.player or self.wealth >= tile.agent.cost_agent_rest:
-            print("Adventurer is resting with the agent on tile " 
+        print("Adventurer is resting on tile " 
                   +str(tile.tile_position.longitude)+ "," +str(tile.tile_position.latitude))
-            tile.agent.give_rest(self)
-            return True
-        else:
-            return False
-
+        return token.give_rest(self)
     
     def can_collect_wealth(self):
         '''checks whether there is wealth with an Agent on the current tile that can be collected'''
@@ -722,7 +707,8 @@ class AgentBeginner(Agent):
         adventurer.land_moves = 0
         
         #remember that this Agent has been used already this turn
-        adventurer.agents_rested.append(self)
+        if self not in adventurer.agents_rested:
+            adventurer.agents_rested.append(self)
         
         return True
     
@@ -737,7 +723,7 @@ class AgentBeginner(Agent):
             print("Agent on tile " +str(self.current_tile.tile_position.longitude)+","
                   +str(self.current_tile.tile_position.longitude)+ " has given monopoly bonus to Adventurer")
             # pay as necessary
-            adventurer.wealth += self.value_agent_trade
+#            adventurer.wealth += self.value_agent_trade
         else:
             # retain wealth if they are a different player
             print("Agent on tile " +str(self.current_tile.tile_position.longitude)+","
