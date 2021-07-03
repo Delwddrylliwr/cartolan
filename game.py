@@ -365,6 +365,9 @@ class GameAdvanced(GameRegular):
         '''
         cadre_cards = self.cadre_cards
         card_options = random.sample(cadre_cards, k=self.num_cadre_choices)
+        print("Offering a selection of Cadre cards:")
+        for card in card_options:
+            print(card.card_type)
         self.assigned_cadres[player] = player.choose_card(self.adventurers[player][0], card_options)
         cadre_cards.remove(self.assigned_cadres[player])
         #Take on the changes to rules based on the Character card

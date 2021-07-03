@@ -316,7 +316,8 @@ class GameVisualisation():
             #Now supplement with the card types that don't have images
             for card_type in self.CARD_TITLES:
                 if not card_type in self.card_image_library.keys():
-                    self.card_image_library[card_type] = self.create_card(card_type)
+                    print("With no card image for type "+card_type+", creating one...")
+                    self.card_image_library[card_type] = [self.create_card(card_type)]
         #adjust the size of the imported images to fit the display size
         self.rescale_graphics()
     
@@ -327,10 +328,11 @@ class GameVisualisation():
         card_width = self.play_area_start
         card_height = self.play_area_start * self.play_area_start // self.card_height
         card = pygame.Surface((card_width, card_height))
+        card.fill(self.CARD_BACKGROUND_COLOUR)
         card_title = self.CARD_TITLES[card_type]
         card_text = self.CARD_TEXTS[card_type]
         #Create the text objects to add to the card
-        rendered_title = self.scores_font.render(card_title, 1, self.PLAIN_TEXT_COLOUR)
+        rendered_title = self.card_font.render(card_title, 1, self.CARD_TEXT_COLOUR)
         rendered_text = self.wrap_text(card_text, card_width, self.card_font, self.CARD_TEXT_COLOUR, self.CARD_BACKGROUND_COLOUR)
         #Work out positions that will centre the title as well as possible and place it on the card
         title_horizontal = (card_width - rendered_title.get_width()) // 2
@@ -1010,18 +1012,25 @@ class GameVisualisation():
         Arguments:
         Adventurer takes a Cartolan Adventurer
         '''
-        #@TODO name the selected player and adventurer
-        #@TODO draw company card
-        
         #Establish the top left coordinate of the stack of cards
         horizontal = 0
 #        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1) 
         vertical = self.scores_rect[1] + self.scores_rect[3]
 #        vertical = self.chest_rect[1] + self.chest_rect[3]
+        #draw the Adventurer's Player's Cadre Card        
+        if self.game.assigned_cadres.get(adventurer.player) is not None:
+            card_title = self.scores_font.render(adventurer.player.colour.capitalize()+" player's Cadre card:", 1, self.PLAIN_TEXT_COLOUR)
+            self.window.blit(card_title, [horizontal, vertical])
+            #Now draw the card itself
+            card = self.game.assigned_cadres.get(adventurer.player)
+            card_image = self.get_card_image(adventurer, card)
+            vertical += self.SCORES_FONT_SCALE * self.height
+            self.window.blit(card_image, [horizontal, vertical])
+            vertical += card_image.get_height()
+        #Procede to draw any other cards
         if adventurer.character_card is not None:
             card_title = self.scores_font.render("Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1)+" cards:", 1, self.PLAIN_TEXT_COLOUR)
             self.window.blit(card_title, [horizontal, vertical])
-        #Draw a box to surround the Chest menu, and remember its coordinates for player input
         vertical += self.SCORES_FONT_SCALE * self.height
 #        stack_size = self.card_height * (1 + self.CARD_HEADER_SHARE * len(adventurer.character_cards))
         stack_size = self.card_height + self.card_height * self.CARD_HEADER_SHARE * len(adventurer.discovery_cards)  #one character card plus all the manuscripts
@@ -1058,9 +1067,6 @@ class GameVisualisation():
                 self.window.blit(card_image, [horizontal, vertical])
                 if adventurer.discovery_cards.index(card) == self.selected_card_num:
                     break
-        
-        
-        #@TODO draw the Adventurer's Player's Company Card
                 
     
     def get_card_image(self, card_holder, card):

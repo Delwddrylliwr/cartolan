@@ -36,12 +36,14 @@ class CardAdvanced(Card):
             for buff_attr in self.buffs:
                 #Check that the token has the attribute associated with the buff
                 current_attr_val = getattr(self.game, buff_attr, None)
-                if current_attr_val[target] is not None:
-                    print("For "+player_colour+" player, adding a buff to their "+buff_attr)
-                    #Apply the buff
-                    current_attr_val[target] = self.buffs[buff_attr]
-#                    setattr(self.game, buff_attr, current_attr_val)
-                    print(player_colour+" player's "+buff_attr+" now has value "+str(getattr(self.game, buff_attr, None)[target]))
+                #@TODO allow for games sharing all attributes with adventurers and agents...
+                if isinstance(current_attr_val, dict):
+                    if current_attr_val[target] is not None:
+                        print("For "+player_colour+" player, adding a buff to their "+buff_attr)
+                        #Apply the buff
+                        current_attr_val[target] = self.buffs[buff_attr]
+            #                    setattr(self.game, buff_attr, current_attr_val)
+                        print(player_colour+" player's "+buff_attr+" now has value "+str(getattr(self.game, buff_attr, None)[target]))
         else:
             player_colour = "Anonymous"
         
