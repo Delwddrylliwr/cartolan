@@ -12,8 +12,6 @@ All the scripts are in the root folder, while assets like visuals are in subfold
 
 The key file through which to run simulations is main_sim.py.
 
-The key file through which to play the game locally or with other developers is main_game.py.
-
 The key files for hosting a web app are web_app.py and cartolan_web/public_html/http_server.py.
 
 See deployment for notes on how to deploy the project on a live system.
@@ -22,29 +20,7 @@ See deployment for notes on how to deploy the project on a live system.
 
 For simulation with stats and visuals, you will need the Matplotlib and Tkinter python packages. The first is available through pip, but the latter has to be [installed independently](https://tkdocs.com/tutorial/install.html)
 
-For virtual play of the game, you will need the pygame and podsixnet python packages. Both are available through pip, but not in many distributions like Anaconda:
-
-If your python 3.x instance is called with the command ```python3``` then you'll need to install these with:
-```
-python3 -m pip install pygame podsixnet
-```
-
 For serving the web application, you will need pygame and SimpleWebSocketServer, both available through pip.
-
-### Installing
-
-OPTIONALLY, to achieve a convenient installation of a desktop app, the pyinstaller package can be used to convert the python source files into an executable for whichever operating system it is run on:
-
-The package can be installed through:
-```
-python3 -m pip install pyinstaller
-```
-It can then be used to create a simple executable (in the "dist" subfolder of the project) through running this command in the project root folder:
-```
-pyinstaller --onefile main.py
-```
-
-End with an example of getting some data out of the system or using it for a little demo
 
 ## Configuring the game
 
@@ -58,9 +34,7 @@ Automated tests have not been implemented yet. Testing can be done through compa
 
 Simulations of the game can be run using the Jupyter notebook from the root directory.
 
-Virtual play of the game over a network will need the main_server.py script to be run first, and a valid IP address specified, before the game executable is run, choosing "network" mode and then giving the same IP.
-
-Internet play of the game will require an accessible server to have both the web_app.py and carolan_web/public_html/http_server.py servers to be running. If this server has an IP address of x.y.z.w, then by default a desktop or mobile web browser can play the game by loading:
+Internet play of the game will require an accessible server to have both the web_app.py and cartolan_web/public_html/http_server.py servers to be running. If this server has an IP address of x.y.z.w, then by default a desktop or mobile web browser can play the game by loading:
 
 ```
 x.y.z.w:9000/index.html
