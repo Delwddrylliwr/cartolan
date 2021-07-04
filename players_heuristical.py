@@ -270,12 +270,12 @@ class PlayerBeginnerExplorer(Player):
             opponent_near_win = False
             for player in adventurer.game.players:
                 if player is not self:
-                    if player.vault_wealth > wealthiest_opponent_wealth:
-                        wealthiest_opponent_wealth = player.vault_wealth
+                    if adventurer.game.player_wealths[player] > wealthiest_opponent_wealth:
+                        wealthiest_opponent_wealth = adventurer.game.player_wealths[player]
                     player_chest_wealth = 0
                     for other_adventurer in adventurer.game.adventurers[player]:
                         player_chest_wealth += other_adventurer.wealth
-                    if (player.vault_wealth + player_chest_wealth 
+                    if (adventurer.game.player_wealths[player] + player_chest_wealth 
                         > adventurer.game.game_winning_difference + self.vault_wealth - adventurer.game.cost_adventurer):
                         opponent_near_win = True
             #Don't hire if player has won compared to wealthiest opponent 
@@ -354,13 +354,13 @@ class PlayerBeginnerTrader(PlayerBeginnerExplorer):
     def check_rest(self, adventurer, agent):
         adventurers = adventurer.game.adventurers[self]
         agents = adventurer.game.agents[self]
-        #if there is an agent then always rest
-        adventurer.rest()
         #if this was the target agent for movement then start looking for the next one
         if self.next_agent_num[adventurers.index(adventurer)] < len(agents):
             if agent == agents[self.next_agent_num[adventurers.index(adventurer)]]:
                 #start targetting the next agent
                 self.next_agent_num[adventurers.index(adventurer)] += 1
+        #if there is an agent then always rest
+        return True        
 
     def check_bank_wealth(self, adventurer, report="Player is being asked whether to bank"):
         adventurers = adventurer.game.adventurers[self]
@@ -641,12 +641,12 @@ class PlayerAdvancedExplorer(PlayerRegularExplorer):
             opponent_near_win = False
             for player in adventurer.game.players:
                 if player is not self:
-                    if player.vault_wealth > wealthiest_opponent_wealth:
-                        wealthiest_opponent_wealth = player.vault_wealth
+                    if adventurer.game.player_wealths[player] > wealthiest_opponent_wealth:
+                        wealthiest_opponent_wealth = adventurer.game.player_wealths[player]
                     player_chest_wealth = 0
                     for other_adventurer in adventurer.game.adventurers[player]:
                         player_chest_wealth += other_adventurer.wealth
-                    if (player.vault_wealth + player_chest_wealth 
+                    if (adventurer.game.player_wealths[player] + player_chest_wealth 
                         > adventurer.game.game_winning_difference + self.vault_wealth - adventurer.game.cost_tech):
                         opponent_near_win = True
             #Don't buy if player has won compared to wealthiest opponent 

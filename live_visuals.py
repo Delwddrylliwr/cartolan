@@ -858,7 +858,7 @@ class GameVisualisation():
             colour = pygame.Color(player.colour)
             horizontal = self.SCORES_POSITION[0] * self.width #reset the scores position before going through other rows below
             vertical += self.SCORES_FONT_SCALE * self.height #increment the vertical position to a new row
-            score_value = self.scores_font.render(str(player.vault_wealth), 1, colour)
+            score_value = self.scores_font.render(str(self.game.player_wealths[player]), 1, colour)
             self.window.blit(score_value, [horizontal, vertical])
             #Record this space for click detection
             self.score_rects.append([(horizontal, vertical, self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width, self.SCORES_FONT_SCALE * self.height), player])

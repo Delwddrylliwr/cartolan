@@ -236,14 +236,17 @@ class AdventurerRegular(AdventurerBeginner):
                     if agent.wealth > 0:
                         if self.player.check_collect_wealth(agent):
                             self.collect_wealth()
-                    if self.player.check_rest(self, agent):
-                        self.rest()
-                if agent.player != self.player and agent.wealth + self.value_dispossess_agent > 0:
-                    if not self.pirate_token:
+                    if self.can_rest(agent):
                         if self.player.check_rest(self, agent):
-                            self.rest()
-                    if self.player.check_attack_agent(self, agent):
-                        self.attack(agent)
+                            self.rest(agent)
+                if agent.player != self.player:
+                    if not self.pirate_token:
+                        if self.can_rest(agent):
+                            if self.player.check_rest(self, agent):
+                                self.rest(agent)
+                    if agent.wealth + self.value_dispossess_agent > 0:
+                        if self.player.check_attack_agent(self, agent):
+                            self.attack(agent)
             else:
                 if (agent.player == self.player 
                     and self.wealth >= self.cost_agent_restore):
@@ -409,9 +412,9 @@ class CityTileRegular(CityTileBeginner):
             return
         
         #Offer the chance to pay and completely swap out chest tiles
-        if (adventurer.player.vault_wealth >= self.game.cost_refresh_maps 
+        if (adventurer.game.player_wealths[adventurer.player] >= self.game.cost_refresh_maps 
             and adventurer.player.check_buy_maps(adventurer)):
-            adventurer.player.vault_wealth -= self.game.cost_refresh_maps
+            adventurer.game.player_wealths[adventurer.player] -= self.game.cost_refresh_maps
             adventurer.rechoose_chest_tiles()
                 
 
