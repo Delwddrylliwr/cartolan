@@ -573,12 +573,12 @@ class AdventurerBeginner(Adventurer):
     
     def can_rest(self, token):
         '''checks whether the Adventurer can rest on this tile'''
-        tile = self.current_tile
         # check whether there is an agent on the tile# can the adventurer afford rest here?
-        if ((tile.agent.player == self.player 
-            or self.wealth > self.game.cost_agent_rest)
-            and token not in self.agents_rested):
-            return True
+        if isinstance(token, Agent):
+            if ((token.player == self.player 
+                or self.wealth > self.game.cost_agent_rest)
+                and token not in self.agents_rested):
+                return True
         return False
     
     def rest(self, token):

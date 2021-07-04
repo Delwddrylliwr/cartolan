@@ -432,7 +432,7 @@ class AgentRegular(AgentBeginner):
             return False
         else:
             adventurer.replenish_chest_tiles()
-            return super().give_rest(adventurer)
+            return AgentBeginner.give_rest(self, adventurer)
         
     def manage_trade(self, adventurer):
         if self.is_dispossessed:

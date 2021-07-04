@@ -3,6 +3,7 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
 import random
+from beginner import AgentBeginner
 from regular import AdventurerRegular, AgentRegular, CityTileRegular
 from base import Player, Token, WindDirection, TileEdges, Card
 
@@ -23,13 +24,13 @@ class CardAdvanced(Card):
                 #Check that the token has the attribute associated with the buff
                 current_attr_val = getattr(target, buff_attr, None) 
                 if current_attr_val is not None:
-                    print("For "+player_colour+" player, adding a buff to their "+buff_attr)
+                    print("For "+player_colour+" "+target.__class__.__name__+", adding a buff to their "+buff_attr)
                     #Apply the buff
                     if self.buffs[buff_attr]["buff_type"] == "boost":
                         setattr(target, buff_attr, current_attr_val + self.buffs[buff_attr]["buff_val"])
                     elif self.buffs[buff_attr]["buff_type"] == "new":
                         setattr(target, buff_attr, self.buffs[buff_attr]["buff_val"])
-                    print(player_colour+" player's "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
+                    print(player_colour+" " +target.__class__.__name__+"'s "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
         elif isinstance(target, Player):
             player_colour = target.colour
             print("Adding card buffs for "+player_colour+" player...")
@@ -142,15 +143,19 @@ class AdventurerAdvanced(AdventurerRegular):
     def can_rest(self, token):
         '''checks whether the Adventurer can rest with an Agent on this tile'''
         if super().can_rest(token):
+#            print("Deemed that could rest with Agent")
             return True
         # can the adventurer rest with an adventurer instead?
-        elif (self.rest_with_adventurers and not self.pirate_token
-            and not token == self and self.current_tile == token.current_tile):
-            print("Checking if can rest with an Adventurer")
+        elif (self.rest_with_adventurers 
+              and isinstance(token, AdventurerAdvanced)
+              and token not in self.agents_rested
+              and not token == self):
+#            print("Checking if can rest with an Adventurer")
             if token.player == self.player or self.wealth >= self.game.cost_agent_rest:
-                print("Deemed that resting with an Adventurer is possible.")
+#                print("Deemed that resting with an Adventurer is possible.")
                 return True    
         else:
+#            print("Deemed rest was impossible with "+token.__class__.__name__)
             return False
         
     def trade(self, tile):
@@ -169,10 +174,13 @@ class AdventurerAdvanced(AdventurerRegular):
         Arguments:
             token accepts a Cartolan Token
         '''
-        print("Make sure that the adventurer is equipped with the right method")
+#        print("Make sure that the adventurer is equipped with the right method")
         if self.rest_with_adventurers and not callable(getattr(token, "give_rest", None)):
-            token.give_rest = AgentAdvanced.give_rest
-        return token.give_rest(self)
+            token.cost_agent_rest = token.game.cost_agent_rest
+#            token.give_rest = AgentAdvanced.give_rest
+#            return token.give_rest(self)
+            return AgentBeginner.give_rest(token, self)
+        else: return False
     
     def attack(self, token):
         '''Extends Regular mode to allow stealing of Chest Tiles
@@ -251,15 +259,17 @@ class AdventurerAdvanced(AdventurerRegular):
         super().interact_tokens()
         if self.current_tile.adventurers:
             for adventurer in self.current_tile.adventurers:
+#                print("Checking whether special interactions are possible with "+adventurer.player.colour+" player's Adventurer")
                 if (self.attacks_abandon and adventurer.wealth == 0 #give the option to send the opponent to a city even if they have no wealth 
                     and not self == adventurer):
                     if self.player.check_attack_adventurer(self, adventurer):
                         self.attack(adventurer)
                 if self.rest_with_adventurers and self.can_rest(adventurer):
-                    print("Checking whether player wants one of the adventurers on the current tile to give rest.")
-                    if self.player.check_rest(adventurer):
-                        AgentAdvanced.give_rest(adventurer, self)
+#                    print("Checking whether player wants one of the adventurers on the current tile to give rest.")
+                    if self.player.check_rest(self, adventurer):
+                        self.rest(adventurer)
         if self.current_tile.agent is not None:
+#            print("Checking whether special interactions are possible with "+self.current_tile.agent.player.colour+" player's Agent")
             if self.current_tile.agent.agents_arrest and self.pirate_token:
                 if random.random() < self.game.attack_success_prob:
                     AdventurerAdvanced.arrest(self.current_tile.agent, self) #The arrest function should only use common features of the common parent Token class
@@ -272,6 +282,7 @@ class AdventurerAdvanced(AdventurerRegular):
         if self.confiscate_treasure and self.pirate.wealth > 0:
             self.wealth += pirate.wealth
             pirate.wealth = 0
+        AdventurerRegular.arrest(self, pirate)
 
 class AgentAdvanced(AgentRegular):
     '''Extends Regular mode to allow Agents' rules to be changed by cards
@@ -293,7 +304,7 @@ class AgentAdvanced(AgentRegular):
     def give_rest(self, adventurer):
         '''Extends Regular mode to replenish Chest Tiles ...now done in Regular mode
         '''
-        if super().give_rest(adventurer):
+        if AgentRegular.give_rest(self, adventurer):
             if self.resting_refurnishes and adventurer.pirate_token:
                 adventurer.pirate_token = False
             if self.transfer_agent_earnings and self.wealth > 0:

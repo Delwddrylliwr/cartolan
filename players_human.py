@@ -425,7 +425,7 @@ class PlayerHuman(Player):
         if isinstance(token, Agent):
             token_description = " the Agent "
         elif isinstance(token, AdventurerAdvanced):
-            token_description = token.player.colour.initialize()+" player's Adventurer #"+str(game.adventurers[token.player].index(adventurer)+1)+" "
+            token_description = token.player.colour.capitalize()+" player's Adventurer #"+str(game.adventurers[token.player].index(token)+1)+" "
         else:
             return False
         if token.player == self:
@@ -441,7 +441,7 @@ class PlayerHuman(Player):
                         , adventurer.current_tile.tile_position.latitude]]
             prompt = ("If you want "+str(self.colour)+" Adventurer #" 
                                            +str(game.adventurers[self].index(adventurer)+1) 
-                                           +" to rest for "
+                                           +" to rest with "+token_description+" for "
                                            +str(game.cost_agent_rest)+
                                            " treasure then click their tile, otherwise click elsewhere.")
         #Check whether the player wants to go ahead
@@ -670,7 +670,15 @@ class PlayerHuman(Player):
     def choose_card(self, adventurer, cards):
         '''Responds to option from the game to pick from a list of cards, based on player input
         '''
-        prompt = "Select a card for "+self.colour+" player's Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
+        card_variety = cards[0].card_type[:3]
+        if card_variety == "adv":
+            prompt = "Select a Character card for "+self.colour+" player's Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
+        elif card_variety == "dis":
+            prompt = "Select a Manuscript card for "+self.colour+" player's Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
+        elif card_variety == "com":
+            prompt = "Select a Cadre card for "+self.colour+" player"
+        else:
+            prompt = "Select a card for "+self.colour+" player's Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
         
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]

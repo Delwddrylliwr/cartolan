@@ -374,7 +374,9 @@ class GameAdvanced(GameRegular):
         self.assigned_cadres[player] = player.choose_card(self.adventurers[player][0], card_options)
         cadre_cards.remove(self.assigned_cadres[player])
         #Take on the changes to rules based on the Character card
-        self.assigned_cadres[player].apply_buffs(player)
+        self.assigned_cadres[player].apply_buffs(player) #for all Adventurers and Agents created after this point
+        for adventurer in self.adventurers[player]: #For all existing Adventurers
+            self.assigned_cadres[player].apply_buffs(adventurer)
         
 #    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
 #        super().__init__(players, movement_rules, exploration_rules)
