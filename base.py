@@ -32,6 +32,7 @@ class Game:
         self.adventurers = {}
         self.agents = {}
         for player in players:
+            self.player_wealths[player] = 0
             self.adventurers[player] = []
             self.agents[player] = []
         
@@ -67,8 +68,6 @@ class Player:
     '''
     def __init__(self, colour = "red"):
         self.colour = colour
-        
-        self.vault_wealth = 0
         self.games = {}
     
     def join_game(self, game):

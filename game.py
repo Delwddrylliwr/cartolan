@@ -64,7 +64,6 @@ class GameBeginner(Game):
         self.game_winning_difference = BeginnerConfig.GAME_WINNING_DIFFERENCE
         
         self.value_trade = BeginnerConfig.VALUE_TRADE
-        self.value_agent_trade = BeginnerConfig.VALUE_AGENT_TRADE
         self.value_complete_map = BeginnerConfig.VALUE_COMPLETE_MAP
         self.value_discover_wonder = BeginnerConfig.VALUE_DISCOVER_WONDER
         self.value_fill_map_gap = BeginnerConfig.VALUE_FILL_MAP_GAP
@@ -180,7 +179,7 @@ class GameBeginner(Game):
         for player in self.players:
             #some logging
             print(str(player.colour)+ " player's turn, with " +str(len(self.adventurers[player])) 
-                  +" Adventurers, and " +str(player.vault_wealth)+ " wealth in the Vault")
+                  +" Adventurers, and " +str(self.player_wealths[player])+ " wealth in the Vault")
 #             if not player.adventurers[0] is None:
 #                 adventurer = player.adventurers[0]
 #                 adventurer_tile = adventurer.current_tile
@@ -214,17 +213,17 @@ class GameBeginner(Game):
         self.total_chest_wealth = 0
         self.wealth_difference = 0
         for player in self.players:
-            self.total_vault_wealth += player.vault_wealth
+            self.total_vault_wealth += self.player_wealths[player]
             for adventurer in self.adventurers[player]:
                 self.total_chest_wealth += adventurer.wealth
             # is this player wealthier than the wealthiest player checked so far?
-            if player.vault_wealth > self.max_wealth:
-                self.wealth_difference = player.vault_wealth - self.max_wealth
-                self.max_wealth = player.vault_wealth
+            if self.player_wealths[player] > self.max_wealth:
+                self.wealth_difference = self.player_wealths[player] - self.max_wealth
+                self.max_wealth = self.player_wealths[player]
                 self.winning_player = player
             # if this player is behind in wealth, are they still closer than anyone else?
-            elif self.max_wealth - player.vault_wealth < self.wealth_difference:
-                    self.wealth_difference = self.max_wealth - player.vault_wealth
+            elif self.max_wealth - self.player_wealths[player] < self.wealth_difference:
+                    self.wealth_difference = self.max_wealth - self.player_wealths[player]
         
         if self.wealth_difference > self.game_winning_difference:
             print("won by wealth difference")
@@ -318,12 +317,34 @@ class GameAdvanced(GameRegular):
 
 #    COST_BUY_TECH = 5
     def __init__(self, players, movement_rules='initial', exploration_rules='continuous'):
+        #Get game level config variables
+        self.num_cadre_choices = AdvancedConfig.NUM_CADRE_CHOICES
         #Get player level config variables
         self.num_character_choices = {}
         self.num_discovery_choices = {}
+        self.value_agent_trade = {}
+        self.rest_with_adventurers = {}
+        self.transfer_agent_earnings = {}
+        self.agents_arrest = {}
+        self.confiscate_treasure = {}
+        self.resting_refurnishes = {}
+        self.pool_maps = {}
+        self.rechoose_at_agents = {}
+        #And a placeholder for players to choose a Cadre/Company
+        self.assigned_cadres = {}
         for player in players:
             self.num_character_choices[player] = AdvancedConfig.NUM_CHARACTER_CHOICES
             self.num_discovery_choices[player] = AdvancedConfig.NUM_DISCOVERY_CHOICES
+            self.value_agent_trade[player] = AdvancedConfig.VALUE_AGENT_TRADE
+            self.rest_with_adventurers[player] = AdvancedConfig.REST_WITH_ADVENTURERS 
+            self.transfer_agent_earnings[player] = AdvancedConfig.TRANSFER_AGENT_EARNINGS
+            self.agents_arrest[player] = AdvancedConfig.AGENTS_ARREST
+            self.confiscate_treasure[player] = AdvancedConfig.CONFISCATE_TREASURE
+            self.resting_refurnishes[player] = AdvancedConfig.RESTING_REFURNISHES
+            self.pool_maps[player] = AdvancedConfig.POOL_MAPS
+            self.rechoose_at_agents[player] = AdvancedConfig.RECHOOSE_AT_AGENTS
+            #And a placeholder for players to choose a Cadre/Company
+            self.assigned_cadres[player] = None
         
         #Get config variables to act as masters in case of modification
         self.card_type_buffs = AdvancedConfig.CARD_TYPE_BUFFS
@@ -336,10 +357,26 @@ class GameAdvanced(GameRegular):
         self.transfers_to_agents = AdvancedConfig.TRANSFERS_TO_AGENTS
         
         #Set up the decks of cards
+        self.cadre_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.CADRE_CARDS] #a copy that can be modified independent of the config file
         self.character_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.CHARACTER_CARDS] #a copy that can be modified independent of the config file
-        self.discovery_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.DISCOVERY_CARDS] #a copy that can be modified independent of the config file
+        self.discovery_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.MANUSCRIPT_CARDS] #a copy that can be modified independent of the config file
         
         super().__init__(players, movement_rules='initial', exploration_rules='continuous')
-    
+        
+    def choose_cadre(self, player):
+        '''Lets the player choose a character card from a random subset
+        '''
+        cadre_cards = self.cadre_cards
+        card_options = random.sample(cadre_cards, k=self.num_cadre_choices)
+        print("Offering a selection of Cadre cards:")
+        for card in card_options:
+            print(card.card_type)
+        self.assigned_cadres[player] = player.choose_card(self.adventurers[player][0], card_options)
+        cadre_cards.remove(self.assigned_cadres[player])
+        #Take on the changes to rules based on the Character card
+        self.assigned_cadres[player].apply_buffs(player) #for all Adventurers and Agents created after this point
+        for adventurer in self.adventurers[player]: #For all existing Adventurers
+            self.assigned_cadres[player].apply_buffs(adventurer)
+        
 #    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
 #        super().__init__(players, movement_rules, exploration_rules)

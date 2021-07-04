@@ -164,8 +164,10 @@ class AdventurerBeginner(Adventurer):
                 if agent.wealth > 0:
                     if self.player.check_collect_wealth(agent):
                         self.collect_wealth()
-            if self.player.check_rest(self, agent):
-                self.rest()
+            if self.can_rest(agent):
+                if self.player.check_rest(self, agent):
+                    if self.rest(agent) and agent not in self.agents_rested:
+                        self.agents_rested.append(agent)
     
     def interact_tile(self):
         #check whether this is a wonder, and if the player wants to trade
@@ -446,7 +448,7 @@ class AdventurerBeginner(Adventurer):
                 potential_tile = tile_pile.draw_tile()
             else: #the game is over, and so this exploration and the turn too
                 self.turns_moved += 1
-                self.player.vault_wealth += self.game.value_complete_map
+                self.game.player_wealths[self.player] += self.game.value_complete_map
                 self.game.game_over = True
                 break
 #            print("Have drawn a tile with edges N:" +str(potential_tile.compass_edge_water("n"))
@@ -513,11 +515,7 @@ class AdventurerBeginner(Adventurer):
         if tile in self.wonders_visited:
             return False
         
-        # check whether there is an Agent on the tile
-        if not tile.agent is None:
-            tile.agent.manage_trade(self)
-        
-        # collect appropriate wealth into Chest
+       # collect appropriate wealth into Chest
         print("Adventurer is trading on tile " 
                   +str(tile.tile_position.longitude)+ "," +str(tile.tile_position.latitude))
         self.wealth += self.value_trade
@@ -572,41 +570,24 @@ class AdventurerBeginner(Adventurer):
 #                 self.upwind_moves = 0
                 return True
         else: return False
-            
     
-    def can_rest(self):
-        '''checks whether the Adventurer can rest with an Agent on this tile'''
-        tile = self.current_tile
-        # check whether there is an agent on the tile
-        if tile.agent is None:
-            return False
-        
-        # can the adventurer afford rest here?
-        if tile.agent.player == self.player or self.wealth > tile.agent.cost_agent_rest:
-            return True
-        else:
-            return False
+    def can_rest(self, token):
+        '''checks whether the Adventurer can rest on this tile'''
+        # check whether there is an agent on the tile# can the adventurer afford rest here?
+        if isinstance(token, Agent):
+            if ((token.player == self.player 
+                or self.wealth > self.game.cost_agent_rest)
+                and token not in self.agents_rested):
+                return True
+        return False
     
-    
-    def rest(self):
+    def rest(self, token):
         '''rests with an Agent if there is one on the tile'''
         #Record the instruction to rest
-        self.rested = True
-        
         tile = self.current_tile
-        # check whether there is an agent on the tile
-        if tile.agent is None:
-            return False
-        
-        # use the agent if there is enough Chest wealth to
-        if tile.agent.player == self.player or self.wealth >= tile.agent.cost_agent_rest:
-            print("Adventurer is resting with the agent on tile " 
+        print("Adventurer is resting on tile " 
                   +str(tile.tile_position.longitude)+ "," +str(tile.tile_position.latitude))
-            tile.agent.give_rest(self)
-            return True
-        else:
-            return False
-
+        return token.give_rest(self)
     
     def can_collect_wealth(self):
         '''checks whether there is wealth with an Agent on the current tile that can be collected'''
@@ -722,27 +703,8 @@ class AgentBeginner(Agent):
         adventurer.land_moves = 0
         
         #remember that this Agent has been used already this turn
-        adventurer.agents_rested.append(self)
-        
-        return True
-    
-    def manage_trade(self, adventurer):
-        '''Receives wealth when trade takes place on its tile, either keeping this or giving it to an Adventurer of the same player
-        
-        Arguments:
-        Cartolan.Adventurer the Adventurer making the trade
-        '''
-        #check whether Adventurer trading is from the same player
-        if adventurer.player == self.player:
-            print("Agent on tile " +str(self.current_tile.tile_position.longitude)+","
-                  +str(self.current_tile.tile_position.longitude)+ " has given monopoly bonus to Adventurer")
-            # pay as necessary
-            adventurer.wealth += self.value_agent_trade
-        else:
-            # retain wealth if they are a different player
-            print("Agent on tile " +str(self.current_tile.tile_position.longitude)+","
-                  +str(self.current_tile.tile_position.longitude)+ " has kept monopoly bonus")
-            self.wealth += self.value_agent_trade
+        if self not in adventurer.agents_rested:
+            adventurer.agents_rested.append(self)
         
         return True
 
@@ -760,12 +722,12 @@ class CityTileBeginner(CityTile):
     def move_off_tile(self, token):
         '''Adds a prompt to check how much wealth Adventurers want to take with them
         '''
-        if token.player.vault_wealth > 0:
+        if token.game.player_wealths[token.player] > 0:
             travel_money = None
-            while not travel_money in range(0, token.player.vault_wealth +1):
-                travel_money = token.player.check_travel_money(token, token.player.vault_wealth, 0)
+            while not travel_money in range(0, token.game.player_wealths[token.player] +1):
+                travel_money = token.player.check_travel_money(token, token.game.player_wealths[token.player], 0)
             token.wealth += travel_money
-            token.player.vault_wealth -= travel_money
+            token.game.player_wealths[token.player] -= travel_money
         super().move_off_tile(token)
     
     def visit_city(self, adventurer, abandoned=False):
@@ -803,14 +765,14 @@ class CityTileBeginner(CityTile):
         Cartolan.Adventurer the Adventurer that has arrived at the City
         '''
         #check whether and how much the player wants to bank
-        wealth_to_bank = adventurer.player.check_deposit(adventurer, adventurer.wealth, adventurer.player.vault_wealth)
+        wealth_to_bank = adventurer.player.check_deposit(adventurer, adventurer.wealth, adventurer.game.player_wealths[adventurer.player])
         #record the decision about how much wealth will be banked
         adventurer.banked = wealth_to_bank
         
         #check if wealth is available and move it from the adventurer's Chest to their Vault
         if adventurer.wealth >= wealth_to_bank:
             adventurer.wealth -= wealth_to_bank
-            adventurer.player.vault_wealth += wealth_to_bank
+            adventurer.game.player_wealths[adventurer.player] += wealth_to_bank
             print(adventurer.player.colour+ " player has banked " +str(wealth_to_bank)+ " in their Vault")
             self.game.game_over = self.game.check_win_conditions()
             return True
@@ -828,10 +790,10 @@ class CityTileBeginner(CityTile):
         
         #keep checking whether the player has enough wealth and wants to buy another adventurer until they refuse
         while (len(self.game.adventurers[adventurer.player]) < self.game.MAX_ADVENTURERS 
-                and adventurer.player.vault_wealth >= adventurer.cost_adventurer):
+                and adventurer.game.player_wealths[adventurer.player] >= adventurer.cost_adventurer):
             if adventurer.player.check_buy_adventurer(adventurer):
                 #take payment of wealth from their Vault
-                adventurer.player.vault_wealth -= adventurer.cost_adventurer
+                adventurer.game.player_wealths[adventurer.player] -= adventurer.cost_adventurer
                 #place another Adventurer for this Player on the City tile
 #                 new_adventurer = AdventurerBeginner(adventurer.game, adventurer.player, self)
                 new_adventurer = adventurer.game.ADVENTURER_TYPE(adventurer.game, adventurer.player, self)
@@ -857,7 +819,7 @@ class CityTileBeginner(CityTile):
         adventurer.bought_agent += 1
         
         #keep checking whether the player can afford another Adventurer and wants one until they refuse
-        while adventurer.player.vault_wealth >= adventurer.cost_agent_from_city:
+        while adventurer.game.player_wealths[adventurer.player] >= adventurer.cost_agent_from_city:
             tile = adventurer.player.check_buy_agent(adventurer, report="Do you want to place an agent, and where?") 
 #            if not tile is None:
 ##                @deprecated #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm
@@ -893,7 +855,7 @@ class CityTileBeginner(CityTile):
                     agent = adventurer.game.AGENT_TYPE(adventurer.game, adventurer.player, tile)
                 
                 #take payment from the Player's Vault
-                adventurer.player.vault_wealth -= adventurer.cost_agent_from_city
+                adventurer.game.player_wealths[adventurer.player] -= adventurer.cost_agent_from_city
                 print(adventurer.player.colour+ " player has hired an agent from the city at " 
                   +str(self.tile_position.longitude)+","+str(self.tile_position.latitude)
                      +" and sent them to the tile at "

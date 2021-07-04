@@ -2,8 +2,8 @@
 Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
-from base import Player, CityTile
-from game import GameRegular
+from base import Player, Agent, CityTile
+from game import GameRegular, GameAdvanced
 from regular import AdventurerRegular
 from advanced import AdventurerAdvanced
 
@@ -288,6 +288,9 @@ class PlayerHuman(Player):
         game_vis.get_input_coords(adventurer)
         game_vis.clear_prompt()
         
+        if isinstance(game, GameAdvanced):
+            if game.assigned_cadres.get(self) is None:
+                game.choose_cadre(self)
         if isinstance(adventurer, AdventurerAdvanced):
             if adventurer.character_card is None:
                 adventurer.choose_character()
@@ -366,7 +369,7 @@ class PlayerHuman(Player):
                 actions[move] = moves[move]            
         
         print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
-              +" can act")
+              +" can "+action_type)
         game_vis.draw_move_options(actions)
         game_vis.draw_tokens() #draw tokens on top of highlights
 
@@ -390,7 +393,7 @@ class PlayerHuman(Player):
             player_input = game_vis.get_input_coords(adventurer)
         if player_input.get(action_type) is not None:
             action_coords = player_input.get(action_type)
-            print(self.colour.capitalize()+" player chose the coordinates of the tile where their Adventurer can buy.")
+            print(self.colour.capitalize()+" player chose the coordinates of the tile where their Adventurer can "+action_type)
             action_location = adventurer.game.play_area[action_coords[0]][action_coords[1]]
         elif player_input.get("move") is not None: # If there were movement options, then check whether these were chosen
             move_coords = player_input.get("move")
@@ -398,7 +401,7 @@ class PlayerHuman(Player):
             self.queued_move = move_map[move_coords[0]].get(move_coords[1])
             action_location = None
         else:
-            print(self.colour.capitalize()+" player chose coordinates away from the tile where their Adventurer can buy.")
+            print(self.colour.capitalize()+" player chose coordinates away from the tile where their Adventurer can "+action_type)
             action_location = None
 
         #clean up the highlights
@@ -416,30 +419,31 @@ class PlayerHuman(Player):
     def check_collect_wealth(self, agent):
         return True
     
-    def check_rest(self, adventurer, agent):
+    def check_rest(self, adventurer, token):
         game  = adventurer.game
         actions = {}
-        if agent in adventurer.agents_rested:
-            return False
+        if isinstance(token, Agent):
+            token_description = " the Agent "
+        elif isinstance(token, AdventurerAdvanced):
+            token_description = token.player.colour.capitalize()+" player's Adventurer #"+str(game.adventurers[token.player].index(token)+1)+" "
         else:
-            if agent.player == self:
-                action_type = "rest"
-                actions[action_type] = [[adventurer.current_tile.tile_position.longitude
-                            , adventurer.current_tile.tile_position.latitude]]
-                prompt = ("If you want "+str(self.colour)+" Adventurer #" 
-                                               +str(game.adventurers[self].index(adventurer)+1) 
-                                               +" to rest then click their tile, otherwise click elsewhere.")
-            elif adventurer.wealth >= adventurer.game.cost_agent_exploring:
-                action_type = "buy"
-                actions[action_type] = [[adventurer.current_tile.tile_position.longitude
-                            , adventurer.current_tile.tile_position.latitude]]
-                prompt = ("If you want "+str(self.colour)+" Adventurer #" 
-                                               +str(game.adventurers[self].index(adventurer)+1) 
-                                               +" to rest for "
-                                               +str(game.cost_agent_rest)+
-                                               " treasure then click their tile, otherwise click elsewhere.")
-            else:
-                return False
+            return False
+        if token.player == self:
+            action_type = "rest"
+            actions[action_type] = [[adventurer.current_tile.tile_position.longitude
+                        , adventurer.current_tile.tile_position.latitude]]
+            prompt = ("If you want "+str(self.colour)+" Adventurer #" 
+                                           +str(game.adventurers[self].index(adventurer)+1) 
+                                           +" to rest with "+token_description+" then click their tile, otherwise click elsewhere.")
+        else:
+            action_type = "buy"
+            actions[action_type] = [[adventurer.current_tile.tile_position.longitude
+                        , adventurer.current_tile.tile_position.latitude]]
+            prompt = ("If you want "+str(self.colour)+" Adventurer #" 
+                                           +str(game.adventurers[self].index(adventurer)+1) 
+                                           +" to rest with "+token_description+" for "
+                                           +str(game.cost_agent_rest)+
+                                           " treasure then click their tile, otherwise click elsewhere.")
         #Check whether the player wants to go ahead
         if self.check_action(adventurer, action_type, actions, prompt):
             return True
@@ -455,7 +459,7 @@ class PlayerHuman(Player):
                     , adventurer.current_tile.tile_position.latitude]]
         prompt = ("If you want your Adventurer to buy a new set of maps for "
                              +str(adventurer.game.cost_refresh_maps)
-                             +" then click the City, otherwise click elsewhere.")
+                             +" then click their tile, otherwise click elsewhere.")
         if self.check_action(adventurer, action_type, actions, prompt):
             return True
         else:
@@ -666,7 +670,15 @@ class PlayerHuman(Player):
     def choose_card(self, adventurer, cards):
         '''Responds to option from the game to pick from a list of cards, based on player input
         '''
-        prompt = "Select a card for "+self.colour+" player's Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
+        card_variety = cards[0].card_type[:3]
+        if card_variety == "adv":
+            prompt = "Select a Character card for "+self.colour+" player's Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
+        elif card_variety == "dis":
+            prompt = "Select a Manuscript card for "+self.colour+" player's Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
+        elif card_variety == "com":
+            prompt = "Select a Cadre card for "+self.colour+" player"
+        else:
+            prompt = "Select a card for "+self.colour+" player's Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
         
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]

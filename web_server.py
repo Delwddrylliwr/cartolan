@@ -29,7 +29,7 @@ DEFAULT_WIDTH = int(0.8*1366)
 DEFAULT_HEIGHT = int(0.8*768)
 DIMENSION_INCREMENT = 2
 
-GAME_MODES = { 'Beginner':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeginnerExplorer
+GAME_MODES = { 'Basic':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeginnerExplorer
                                                                    , "red":PlayerBeginnerTrader
                                                                    , "yellow":PlayerBeginnerRouter
 #                                                                    , "green":PlayerBeginnerGenetic

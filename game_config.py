@@ -22,7 +22,6 @@ class BeginnerConfig:
     
     VALUE_DISCOVER_WONDER = {"water":1}
     VALUE_TRADE = 1
-    VALUE_AGENT_TRADE = 0
     VALUE_FILL_MAP_GAP = [[2 * land_edges + 2 * water_edges for land_edges in range(0,5)] for water_edges in range(0,5)] # These are the rewards for filling a gap with, 0,1,2,3, and 4 adjacent water tiles respectively, for each number of adjacent land tiles
     VALUE_COMPLETE_MAP = 10
     
@@ -53,14 +52,23 @@ class RegularConfig:
 class AdvancedConfig:
     COST_TECH = 3
     
+    NUM_CADRE_CHOICES = 2
     NUM_CHARACTER_CHOICES = 2
     NUM_DISCOVERY_CHOICES = 2
     
+    VALUE_AGENT_TRADE = 0
     ATTACKS_ABANDON = False
-    
     AGENT_ON_EXISTING = False
     REST_AFTER_PLACING = False
     TRANSFERS_TO_AGENTS = False
+    
+    REST_WITH_ADVENTURERS = False
+    TRANSFER_AGENT_EARNINGS = False
+    AGENTS_ARREST = False
+    CONFISCATE_TREASURE = False
+    RESTING_REFURNISHES = False
+    POOL_MAPS = False
+    RECHOOSE_AT_AGENTS = False
     
     CARD_TYPE_BUFFS = {"+agents":{"agent_on_existing":{"buff_type":"new", "buff_val":True}
                                         , "rest_after_placing":{"buff_type":"new", "buff_val":True}}
@@ -72,13 +80,20 @@ class AdvancedConfig:
                         , "+upwind":{"max_upwind_moves":{"buff_type":"boost", "buff_val":1}
                                             ,"max_land_moves":{"buff_type":"boost", "buff_val":1}}
                         , "+maps":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}}
-                        #@TODO, broaden cards to affect Agents
-#                        , "com+rests":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}
-#                        , "com+transfers"
-#                        , "com+earning"
-#                        , "com+arrest"
-#                        , "com+refurnish"
-#                        , "com+pool"
+                        , "+rests":{"rest_with_adventurers":{"buff_type":"new", "buff_val":True}
+                                            , "num_character_choices":{"buff_type":"new", "buff_val":3}}
+                        , "+transfers":{"transfer_agent_earnings":{"buff_type":"new", "buff_val":True}
+                                            , "num_discovery_choices":{"buff_type":"new", "buff_val":3}}
+                        , "+earning":{"value_agent_trade":{"buff_type":"new", "buff_val":1}
+                                            , "num_discovery_choices":{"buff_type":"new", "buff_val":3}}
+                        , "+arrest":{"agents_arrest":{"buff_type":"new", "buff_val":True}
+                                            , "confiscate_stolen":{"buff_type":"new", "buff_val":True}
+                                            , "num_character_choices":{"buff_type":"new", "buff_val":3}}
+                        , "+refurnish":{"resting_refurnishes":{"buff_type":"new", "buff_val":True}
+                                            , "num_character_choices":{"buff_type":"new", "buff_val":3}}
+                        , "+pool":{"pool_maps":{"buff_type":"new", "buff_val":True}
+                                            , "rechoose_at_agents":{"buff_type":"new", "buff_val":True}
+                                            , "num_discovery_choices":{"buff_type":"new", "buff_val":3}}
                         }
     CHARACTER_CARDS = ["adv+agents"
              , "adv+attack"
@@ -90,7 +105,7 @@ class AdvancedConfig:
              , "adv+maps", "adv+maps"
              ]
     
-    DISCOVERY_CARDS = ["dis+agents"
+    MANUSCRIPT_CARDS = ["dis+agents"
              , "dis+attack"
              , "dis+bank"
              , "dis+damage"
@@ -100,7 +115,7 @@ class AdvancedConfig:
              , "dis+maps", "dis+maps", "dis+maps", "dis+maps"
             ]
     
-    COMPANY_CARDS = ["com+rests"
+    CADRE_CARDS = ["com+rests"
             , "com+transfers"
             , "com+earning"
             , "com+arrest"

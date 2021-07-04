@@ -11,10 +11,11 @@ import time
 import base64
 import random
 import string
+from collections import deque
 #from PodSixNet.Connection import ConnectionListener, connection
 #from time import sleep
-from base import CityTile, TileEdges, WindDirection
-from regular import DisasterTile, AdventurerRegular, AgentRegular, MythicalTileRegular
+from base import CityTile #, TileEdges, WindDirection
+from regular import DisasterTile, AdventurerRegular, AgentRegular #, MythicalTileRegular
 from advanced import AdventurerAdvanced
 from game import GameBeginner, GameRegular, GameAdvanced
 from players_human import PlayerHuman
@@ -39,14 +40,17 @@ class GameVisualisation():
     AGENT_OFFSET = [0.5, 0.5] #the placement of agents on the tile, the same for all players and agents, because there will only be one per tile
     ADVENTURER_OFFSETS = [[0.0, 0.0], [0.1, -0.1], [-0.1, 0.1], [-0.1, -0.1], [0.1, 0.1]] #the offset to differentiate multiple adventurers on the same tile
     DIMENSION_BUFFER = 1 #the number of tiles by which the play area is extended when methods are called
-    BACKGROUND_COLOUR = (38,50,66)
+    BACKGROUND_COLOUR = (38,50,60) #(38,50,66)
     PLAIN_TEXT_COLOUR = (255,255,255)
     WONDER_TEXT_COLOUR = (0,0,0)
+    CARD_TEXT_COLOUR = (0,0,0)
+    CARD_BACKGROUND_COLOUR = (255,255,255)
     CHEST_HIGHLIGHT_COLOUR = (0, 255, 0)
     TOGGLE_TRUE_COLOUR = (0, 255, 0)
     TOGGLE_FALSE_COLOUR = (255, 0, 0)
     TILE_BORDER = 0.02 #the share of grid width/height that is used for border
     CARD_HEADER_SHARE = 0.15 # the share of card images that is the header, visually summarising the buffs of the card with colour and a logo
+    CARD_BODY_START = 0.7 # the share of the card before text starts
     LEFT_MENU_SCALE = 0.13
     MENU_TILE_COLS = 2
     RIGHT_MENU_SCALE = 0.13
@@ -60,6 +64,7 @@ class GameVisualisation():
     SCORES_POSITION = [0.0, 0.0]
     SCORES_FONT_SCALE = 0.05 #relative to window size
     SCORES_SPACING = 1.5 #the multiple of the score pixel scale to leave for each number
+    CARD_FONT_SCALE = 0.03
     MOVE_COUNT_POSITION = [0.8, 0.0]
     PROMPT_SHARE = 0 #@TODO move prompt into the bottom right corner, with multi-line
     PROMPT_POSITION = [0.0, 0.95]
@@ -82,6 +87,36 @@ class GameVisualisation():
                   , "agent_transfer":'./images/option_buy.png'
                   }
     TOGGLE_HIGHLIGHTS = ["buy", "attack", "rest"]
+    CARD_TITLES = {"com+rests":"The Inrepid Academy"
+            , "com+transfers":"The Great Company"
+            , "com+earning":"The Merchants' Guild"
+            , "com+arrest":"The Harbour Authority"
+            , "com+refurnish":"The Privateer Brethren"
+            , "com+pool":"Order of the Lightbrary"
+            }
+    CARD_TEXTS = {"adv+agents":"Place and immediately rest with Agents on existing tiles, for 3 treasure."
+             , "adv+attack":"Need only win or draw Rock-Paper-Scissors to be successful when attacking."
+             , "adv+bank":"Treasure can be moved at any time to any Agent."
+             , "adv+damage":"Losing opponents are returned to the last city visited, and Agents are fully removed."
+             , "adv+defence":"When defending, opponents have to win Rock-Paper-Scissors twice to succeed."
+             , "adv+downwind":"Up to six moves each turn and after resting."
+             , "adv+upwind":"The first three moves can be in any direction, each turn or after resting."
+             , "adv+maps":"Carry up to three map tiles in Chest."
+             , "dis+agents":"Place and immediately rest with Agents on existing tiles, for 3 treasure."
+             , "dis+attack":"Need only win or draw Rock-Paper-Scissors to be successful when attacking."
+             , "dis+bank":"Treasure can be moved at any time to any Agent."
+             , "dis+damage":"Losing opponents are returned to the last city visited, and Agents are fully removed."
+             , "dis+defence":"When defending, opponents have to win an extra round of Rock-Paper-Scissors to succeed."
+             , "dis+downwind":"Two more moves each turn and after resting."
+             , "dis+upwind":"One more move can be in any direction, each turn and after resting."
+             , "dis+maps":"Carry an extra map tile in their chest."
+             , "com+rests":"Adventurers can rest with Adventurers. Draw 3 Adventurers."
+            , "com+transfers":"Treasure earned by Agents goes to the Vault. Draw 3 Manuscript cards."
+            , "com+earning":"Agents earn 1 treasure when opponents trade on their tile. Draw 3 Manuscript cards."
+            , "com+arrest":"Agents try to arrest pirates landing on their tile. Arresting takes the Pirate’s treasure as well as the reward. Draw 3 Adventurers."
+            , "com+refurnish":"The pirate token can be lost by resting. Draw 3 Adventureres."
+            , "com+pool":"Map tiles are pooled across all Adventurers. Maps can be swapped at Agents for 1 treasure. Draw 3 Manuscript cards."
+            }
     
     def __init__(self, game, dimensions, origin):
         #Retain game data
@@ -111,15 +146,6 @@ class GameVisualisation():
         if isinstance(self.game, GameAdvanced):
             self.selected_card_num = None
             self.card_images = {}
-#            self.held_cards = {} #Keep track of card images assigned to each adventurer/player
-#            self.drawn_cards = {} #Keep track of which have been drawn already
-#            for player in self.players:
-#                #Allow cards to be held against players and adventurers separately
-#                self.held_cards[player] = {}
-#                self.drawn_cards[player] = {}
-#                for adventurer in self.game.adventurers[player]:
-#                    self.held_cards[adventurer] = {}
-#                    self.drawn_cards[adventurer] = {}
         self.init_GUI()
         
     def init_GUI(self):
@@ -152,6 +178,7 @@ class GameVisualisation():
         self.outline_width = math.ceil(self.TOKEN_OUTLINE_SCALE * self.token_size)
         self.token_font = pygame.font.SysFont(None, round(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
         self.scores_font = pygame.font.SysFont(None, round(self.height * self.SCORES_FONT_SCALE)) #the font size for scores will be proportionate to the window size
+        self.card_font = pygame.font.SysFont(None, round(self.height * self.CARD_FONT_SCALE)) #the font size for scores will be proportionate to the window size
         self.prompt_font = pygame.font.SysFont(None, round(self.height * self.PROMPT_FONT_SCALE)) #the font size for prompt will be proportionate to the window size
         self.prompt_position = [self.play_area_start + self.PROMPT_POSITION[0]*self.width
                                 , self.PROMPT_POSITION[1]*self.height]
@@ -274,16 +301,122 @@ class GameVisualisation():
                 new_width = self.play_area_start
                 new_height = int(card_image.get_height() * new_width / card_image.get_width())
                 self.card_height = new_height
+                self.card_width = new_width
                 card_type_set = self.card_image_library.get(card_type)
                 if card_type_set is None:
-                    self.card_image_library[card_type] = [pygame.transform.scale(card_image, [new_width, new_height])]
+                    scaled_image = pygame.transform.scale(card_image, [new_width, new_height])
+                    self.update_card_text(scaled_image, card_type)
+                    self.card_image_library[card_type] = [scaled_image]
                     #just in case the images available don't provide enough unique versions of each card type for what the game allocates
 #                    self.used_card_images[card_type] = []
                 else:
-                    card_type_set.append(pygame.transform.scale(card_image, [new_width, new_height]))
+                    scaled_image = pygame.transform.scale(card_image, [new_width, new_height])
+                    self.update_card_text(scaled_image, card_type)
+                    card_type_set.append(scaled_image)
+            #Now supplement with the card types that don't have images
+            for card_type in self.CARD_TITLES:
+                if not card_type in self.card_image_library.keys():
+                    print("With no card image for type "+card_type+", creating one...")
+                    self.card_image_library[card_type] = [self.create_card(card_type)]
         #adjust the size of the imported images to fit the display size
         self.rescale_graphics()
+    
+    def create_card(self, card_type):
+        '''For cards with no image, creates a placeholder.
+        '''
+        #@TODO differentiate Cadre vs Character/Manuscript cards, to determine orientation
+        card_width = self.play_area_start
+        card_height = self.play_area_start * self.play_area_start // self.card_height
+        card = pygame.Surface((card_width, card_height))
+        card.fill(self.CARD_BACKGROUND_COLOUR)
+        card_title = self.CARD_TITLES[card_type]
+        card_text = self.CARD_TEXTS[card_type]
+        #Create the text objects to add to the card
+        rendered_title = self.card_font.render(card_title, 1, self.CARD_TEXT_COLOUR)
+        rendered_text = self.wrap_text(card_text, card_width, self.card_font, self.CARD_TEXT_COLOUR, self.CARD_BACKGROUND_COLOUR)
+        #Work out positions that will centre the title as well as possible and place it on the card
+        title_horizontal = (card_width - rendered_title.get_width()) // 2
+        title_vertical = 0
+        card.blit(rendered_title, [title_horizontal, title_vertical])
+        #Work out positions that will centre the text as well as possible and place it on the card
+        if card_width - rendered_text.get_width() > 0:
+            text_horizontal = (card_width - rendered_text.get_width()) // 2
+        else:
+            text_horizontal = 0
+        if card_height - rendered_text.get_height():
+            text_vertical = rendered_title.get_height() + (card_height - rendered_title.get_height() - rendered_text.get_height()) // 2
+        else:
+            text_vertical = rendered_title.get_height()
+        card.blit(rendered_text, [text_horizontal, text_vertical])
+        return card
 
+    def update_card_text(self, card_image, card_type, orientation="vertical"):
+        '''Writes text over the top of that already on a card image
+        '''
+        card_text = self.CARD_TEXTS[card_type]
+        rendered_text = self.wrap_text(card_text, card_image.get_width()
+                            , self.card_font, self.CARD_TEXT_COLOUR, self.CARD_BACKGROUND_COLOUR)
+        card_image.blit(rendered_text
+                  , [(card_image.get_width() - rendered_text.get_width())//2
+                     , self.CARD_BODY_START*card_image.get_height()])
+        return card_image
+    
+    def wrap_text(self, text, width, font, text_colour, background_colour):
+        '''Given a particular width, introduces line breaks and returns a text surface.
+        
+        Arguments:
+        text takes a string to be rendered
+        width takes an int maximum width in pixels for the rendered image
+        '''
+        text_fits = False
+        last_line_fits = False
+        lines = [deque(text.split())]
+        line_num = 0
+        max_line_width = 0
+        max_line_height = 0
+        while not text_fits:
+#            print("Text has structure...")
+#            for line in lines:
+#                print(len(line))
+#                if len(line)==0:
+#                    print("Empty line of text when wrapping "+text)
+#                    exit()
+            while not last_line_fits:
+                #Check whether the current line of text will fit within the speicfied width when rendered
+                line_width, line_height = font.size(" ".join(lines[line_num]))
+                if line_width < width:
+                    last_line_fits = True
+                    line_num += 1
+                    #Before proceeding, check whether this line was any higher than others
+                    if line_width > max_line_width:
+#                        print("Updating line width to "+str(line_width))
+                        max_line_width = line_width
+                    if line_height > max_line_height:
+#                        print("Updating line height to "+str(line_height))
+                        max_line_height = line_height
+                else:
+                    #Try moving the last word of the current line to the next line
+                    last_word = lines[line_num].pop()
+                    if line_num+1 < len(lines):
+                        lines[line_num+1].appendleft(last_word)
+                    else:
+                        lines.append(deque([last_word]))
+            #Check whether there are any more lines to render
+            if line_num >= len(lines):
+                text_fits = True
+            else:
+                last_line_fits = False
+        paragraph = pygame.Surface((max_line_width, max_line_height * len(lines)))
+        paragraph.fill(background_colour)
+        line_vertical = 0
+        for line in lines:
+            rendered_line = font.render(" ".join(line), 1, pygame.Color(text_colour))
+            line_horizontal = (paragraph.get_width() - rendered_line.get_width()) // 2
+#            print("Adding line to paragraph with position: "+str(line_horizontal)+", "+str(line_vertical))
+            paragraph.blit(rendered_line, (line_horizontal, line_vertical))
+            line_vertical += max_line_height
+        return paragraph
+    
     def rescale_graphics(self):
         '''Rescales images in response to updated dimensions for the play grid
         '''
@@ -725,7 +858,7 @@ class GameVisualisation():
             colour = pygame.Color(player.colour)
             horizontal = self.SCORES_POSITION[0] * self.width #reset the scores position before going through other rows below
             vertical += self.SCORES_FONT_SCALE * self.height #increment the vertical position to a new row
-            score_value = self.scores_font.render(str(player.vault_wealth), 1, colour)
+            score_value = self.scores_font.render(str(self.game.player_wealths[player]), 1, colour)
             self.window.blit(score_value, [horizontal, vertical])
             #Record this space for click detection
             self.score_rects.append([(horizontal, vertical, self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width, self.SCORES_FONT_SCALE * self.height), player])
@@ -733,13 +866,27 @@ class GameVisualisation():
                 horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width #Shift to a new column
                 score_value = self.scores_font.render(str(adventurer.wealth), 1, colour)
                 self.window.blit(score_value, [horizontal, vertical])
+                #If this is the moving Adventurer, then highlight their score
+                if (player.colour == self.current_player_colour 
+                    and game.adventurers[player].index(adventurer) == self.current_adventurer_number):
+                    pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
+                                 , (horizontal
+                                    , vertical + score_value.get_height()
+                                    , score_value.get_width()
+                                    , 0)
+                                 , self.chest_highlight_thickness)
                 #Record this space for click detection
                 self.score_rects.append([(horizontal, vertical, self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width, self.SCORES_FONT_SCALE * self.height), adventurer])
+        #State the current player and Adventurer
+        vertical += self.SCORES_FONT_SCALE * self.height
+        horizontal = self.SCORES_POSITION[0] * self.width
+        active_prompt = self.scores_font.render(self.current_player_colour.capitalize()+" Adventurer "+str(self.current_adventurer_number+1)+"'s turn", 1, pygame.Color(self.current_player_colour))
+        self.window.blit(active_prompt, [horizontal, vertical])
         #Finish recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
         self.scores_rect = (self.scores_rect[0]
             , self.scores_rect[1]
             , self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width * (max_num_adventurers + 1)
-            , self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1))
+            , vertical + self.SCORES_FONT_SCALE * self.height - self.scores_rect[1])
         
     def draw_tile_piles(self):
         '''Draw the numbers of tiles in each pile
@@ -865,18 +1012,25 @@ class GameVisualisation():
         Arguments:
         Adventurer takes a Cartolan Adventurer
         '''
-        #@TODO name the selected player and adventurer
-        #@TODO draw company card
-        
         #Establish the top left coordinate of the stack of cards
         horizontal = 0
 #        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1) 
         vertical = self.scores_rect[1] + self.scores_rect[3]
 #        vertical = self.chest_rect[1] + self.chest_rect[3]
+        #draw the Adventurer's Player's Cadre Card        
+        if self.game.assigned_cadres.get(adventurer.player) is not None:
+            card_title = self.scores_font.render(adventurer.player.colour.capitalize()+" player's Cadre card:", 1, self.PLAIN_TEXT_COLOUR)
+            self.window.blit(card_title, [horizontal, vertical])
+            #Now draw the card itself
+            card = self.game.assigned_cadres.get(adventurer.player)
+            card_image = self.get_card_image(adventurer, card)
+            vertical += self.SCORES_FONT_SCALE * self.height
+            self.window.blit(card_image, [horizontal, vertical])
+            vertical += card_image.get_height()
+        #Procede to draw any other cards
         if adventurer.character_card is not None:
             card_title = self.scores_font.render("Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1)+" cards:", 1, self.PLAIN_TEXT_COLOUR)
             self.window.blit(card_title, [horizontal, vertical])
-        #Draw a box to surround the Chest menu, and remember its coordinates for player input
         vertical += self.SCORES_FONT_SCALE * self.height
 #        stack_size = self.card_height * (1 + self.CARD_HEADER_SHARE * len(adventurer.character_cards))
         stack_size = self.card_height + self.card_height * self.CARD_HEADER_SHARE * len(adventurer.discovery_cards)  #one character card plus all the manuscripts
@@ -913,14 +1067,7 @@ class GameVisualisation():
                 self.window.blit(card_image, [horizontal, vertical])
                 if adventurer.discovery_cards.index(card) == self.selected_card_num:
                     break
-        
-        
-        #@TODO draw the Adventurer's Player's Company Card
-        
-        #Return any drawn card images to their holder for next time
-        self.restore_card_images(adventurer)
-#        self.restore_card_images(player)
-        
+                
     
     def get_card_image(self, card_holder, card):
         '''Draws a Character or Discovery card
@@ -936,76 +1083,7 @@ class GameVisualisation():
 #            self.used_card_images[card.card_type].append(card_image)
             available_cards.insert(0, card_image) #Prepend this image back into the library so that it won't get used again unless other images run out
         return card_image   
-#             #DEPRECATED in favour of hashable cards
-#        #To save reallocating cards to all on each visualisation, keep track of how they have been allocated
-#        holders_cards = self.held_cards.get(card_holder)
-#        card_type = card.card_type
-#        if holders_cards is None: #If this Adventurer has only just appeared in the game then start assigning cards
-#            self.held_cards[card_holder] = {}
-#            holders_cards = self.held_cards[card_holder] 
-#        holders_drawn = self.drawn_cards.get(card_holder)
-#        if holders_drawn is None:
-#            self.drawn_cards[card_holder] = {}
-#            holders_drawn = self.drawn_cards[card_holder]
-#        if holders_cards.get(card_type) is None:
-#            holders_cards[card_type] = [] #This will be needed in future but won't have anything in it until returned from the drawn pile
-#        if len(holders_cards[card_type]) == 0:
-#            #choose a card image from those of this type and remember it for this player
-#            
-#        else:
-#            #recover the previously assigned card_image
-#            card_image = holders_cards[card_type].pop()
-#        #if there are multiple discovery cards of the same type, then each image must be used only once, probably by cycling them to another list
-#        already_drawn_cards = holders_drawn.get(card_type)
-#        if already_drawn_cards is None: #If this Adventurer hasn't previously appeared
-#            holders_drawn[card_type] = []
-#            already_drawn_cards = holders_drawn[card_type]
-#        already_drawn_cards.append(card_image)
-#        return card_image
-    
-    def restore_card_images(self, card_holder):
-        '''After keeping track of which card images have been used for a particular player/adventurer, make them available for drawing again
-        '''
-#        holders_undrawn_cards = self.held_cards.get(card_holder)
-#        already_drawn_cards = self.drawn_cards.get(card_holder)
-#        if not holders_undrawn_cards or not already_drawn_cards:
-#            return False
-#        for card_type in already_drawn_cards:
-#            drawn_card_images = already_drawn_cards[card_type]
-#            #Put each card image back in the list available to draw
-#            while drawn_card_images:
-#                holders_undrawn_cards[card_type].append(drawn_card_images.pop())
-    
-#    def draw_offers(self, offers, offer_type="card"):
-#        '''Prominently displays an array of cards from which the player can choose
-#        
-#        Arguments:
-#        offers takes a list of Cartolan Cards or Tiles
-#        offer_type takes a string identifying the offers as either "card" or "tile"
-#        '''
-#        self.offer_images = [] #reset the record of card images in use
-#        self.offer_rects = [] #reset the record of card positions for selection
-#        #Cycle through the offered Cards, drawing them
-#        horizontal_increment = self.width // (len(offers) + 1)
-#        horizontal = horizontal_increment
-#        vertical = (self.height - self.offer_image_sizes[offer_type]) // 2 #Centre the cards vertically
-#        for offer in offers:
-#            if offer_type = "card":
-#                offer_image = self.get_offer_image[offer_type]
-#            
-#            print("Drawing a card of type "+card.card_type)
-#            card_type = card.card_type
-#            available_cards = self.card_image_library[card_type]
-#            if available_cards:
-#                card_image =  available_cards[0] #Choose the first image available
-#            else:
-#                card_image = self.used_card_images[card_type][0]
-#            adjusted_horizontal = card_horizontal - card_image.get_width() // 2
-#            self.window.blit(card_image, [adjusted_horizontal, card_vertical])
-#            card_horizontal += horizontal_increment
-#            self.offer_images.append(card_image)
-#            self.offer_rects.append((adjusted_horizontal, card_vertical, card_image.get_width(), card_image.get_height()))
-    
+
     def draw_card_offers(self, cards):
         '''Prominently displays an array of cards from which the player can choose
         
@@ -1064,7 +1142,7 @@ class GameVisualisation():
             tile_horizontal += horizontal_increment
             self.offer_images.append(tile_image)
             self.offer_rects.append((adjusted_horizontal, tile_vertical, self.offer_tile_size, self.offer_tile_size))
-            
+    
     def draw_prompt(self):
         '''Prints a prompt on what moves/actions are available to the current player
         '''        
@@ -1191,697 +1269,6 @@ class GameVisualisation():
             pygame.display.flip()
 
 
-#class ClientGameVisualisation(GameVisualisation, ConnectionListener):
-#    '''A pygame-based interactive visualisation that is client to a remote game.
-#    
-#    Because the client games act as master during a local player's turn, this 
-#    visualisation needs to act as both a receiver and broadcaster of game state.
-#    
-#    
-#    Methods:
-#    Network_update
-#    draw_move_options
-#    draw_tokens
-#    draw_play_area
-#    draw_wealth_scores
-#    '''
-##    GAME_TYPES = {"Beginner":GameBeginner, "Regular":GameRegular, "Advanced":GameAdvanced}
-#    GAME_MODES = { 'Beginner':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeginnerExplorer
-#                                                                   , "red":PlayerBeginnerTrader
-#                                                                   , "yellow":PlayerBeginnerRouter
-##                                                                    , "green":PlayerBeginnerGenetic
-#                                                                   , "orange":PlayerBeginnerExplorer
-#                                                                      }}
-#              , 'Regular':{'game_type':GameRegular, 'player_set':{
-#                                                                  "orange":PlayerRegularPirate
-#                                                                    , "blue":PlayerRegularExplorer
-#                                                                   , "red":PlayerRegularTrader
-#                                                                   , "yellow":PlayerRegularRouter
-##                                                                    , "green":PlayerRegularGenetic
-#                                                                  }}
-#              , 'Advanced':{'game_type':GameAdvanced, 'player_set':{
-#                                                                  "orange":PlayerAdvancedPirate
-#                                                                    , "blue":PlayerAdvancedExplorer
-#                                                                   , "red":PlayerAdvancedTrader
-#                                                                   , "yellow":PlayerAdvancedRouter
-##                                                                    , "green":PlayerRegularGenetic
-#                                                                  }}
-#        }
-#    UPDATE_DELAY = 0.01 #the time in seconds to wait between checking for messages from the server
-#    SERVER_PROMPT = "Hit enter to join the Fry Super Adventurers' Club Server, or type the address of another: "
-#    DEFAULT_SERVER = "51.38.83.99", 8000
-#    
-#    def __init__(self):
-#        #Network state data:
-#        self.local_player_turn = False # Keep track of whether to wait on local player input for updates to visuals, 
-#        self.local_win = False
-#        self.running = False
-#        self.shared_play_area = {}
-#        self.shared_tokens = {"adventurers":{}, "agents":{}}
-#        self.shared_scores = {}
-#        self.shared_move_count = None
-#        self.moves_since_rest = None
-#        #@TODO provide a simple window for exchanges with the server
-#        
-#        #Establish connection to the server
-#        address = input(self.SERVER_PROMPT)
-#        try:
-#            if not address:
-#                host, port = self.DEFAULT_SERVER
-#            else:
-#                host, port = address.split(":")
-#            self.Connect((host, int(port)))
-#        except:
-#            print("Error Connecting to Server")
-#            print("Usage:", "host:port")
-#            print ("e.g.", "localhost:31425")
-#            exit()
-#        print("Cartolan client started")
-#        #Keep the connection live until the game is activated
-#        while not self.running:
-#            self.Pump()
-#            connection.Pump()
-#            sleep(self.UPDATE_DELAY)
-#    
-#    def Network_handshake(self, data):
-#        '''Confirms to the server that this is a Cartolan client, not a random ping.
-#        '''
-#        #@TODO add version information into handshake, to allow compatibility check
-#        self.Send({"action":"handshake", "handshake":"handshake"})
-#    
-#    def update(self):
-#        '''Redraws visuals and seeks player input, passing it to the server to pass to the server-side Player
-#        '''
-#        #Process any messages from the server
-#        connection.Pump()
-#        self.Pump()
-#        #clear the window and redraw everything (using super methods to avoid trying to update the server when it was the one to pass info)
-#        self.window.fill(self.BACKGROUND_COLOUR)
-#        super().draw_play_area()
-#        super().draw_tokens()
-#        self.draw_routes()
-#        super().draw_scores()
-#        self.draw_prompt()
-#        self.draw_move_options(moves_since_rest=self.moves_since_rest)
-#        #If the game has ended then stop player input and refreshing
-#        if self.game.game_over:
-#            self.game_vis.give_prompt(self.game.winning_player.colour+" player won the game (click to close)")
-#            self.get_input_coords()
-#            self.close()
-#        #Check whether the player has decided to quit while waiting
-#        events = pygame.event.get()
-#        event_types = [event.type for event in events]
-#        if pygame.QUIT in event_types:
-#            self.close()
-#        if pygame.VIDEORESIZE in event_types:
-#            for event in reversed(events):
-#                if event.type == pygame.VIDEORESIZE:
-#                    self.window_resize(event)
-#
-#        #Update the display
-#        pygame.display.flip()
-#    
-#    def Network_input(self, data):
-#        '''Responds to requests from the server for input.
-#        '''
-#        print("Received request for simple input from server")
-#        response = ''
-#        while response not in data["valid_options"]:
-#            response = input(data["input_prompt"])
-#            print("Responding to the server: '"+response+"'")
-#        self.Send({"action":"input", "input":response})
-#        
-#    
-#    #Now for a set of methods that will use PodSixNet to respond to messages from the server to progress the game
-#    def Network_start_game(self, data):
-#        '''Initiates network game based on data following an {"action":"start_game"} message from the server
-#        '''
-#        self.local_player_colours = data["local_player_colours"]
-#        print("Setting up the local version of the game:")
-#        print(data)
-#        game_type = self.GAME_MODES[data["game_type"]]["game_type"] #needed to identify the class of other elements like Adventurers and Agents
-#        self.players = [] #to capture order of play
-#        self.player_colours = {} #to access Player objects quickly based on colour
-#        self.virtual_players = data["virtual_players"]
-#        for player_colour in data["player_colours"]:
-#            if player_colour in self.virtual_players:
-#                player = self.GAME_MODES[data["game_type"]]["player_set"][player_colour](player_colour)
-#            else:
-#                player = PlayerHuman(player_colour)
-#            self.players.append(player)
-#            self.player_colours[player_colour] = player 
-#        
-#        game = game_type(self.players)
-#        self.game = game
-#        #Informing players of this game visualisation
-#        for player in self.players:
-#            player.games[game.game_id]["game_vis"] = self
-#            self.shared_tokens["adventurers"][player.colour] = []
-#            self.shared_tokens["agents"][player.colour] = []
-#            self.shared_scores[player.colour] = 0
-#        print("Building the tile piles")
-#        game.setup_tile_pile("water")
-#        if isinstance(game, GameRegular):
-#            game.setup_tile_pile("land")
-#            game.tile_piles["land"].tiles.append(MythicalTileRegular(game))
-#        print("Placing the initial tiles and adventurers")
-#        self.Network_place_tiles({"tiles":data["initial_tiles"]})
-#        #@TODO adapt to use the Network_move_tokens method
-#        initial_adventurers = data["initial_adventurers"] #expects a dict of colours and list of 2-tuples giving the placement(s) of initial Adventurers for each player
-#        if not len(self.players) == len(initial_adventurers):
-#            raise Exception("Player attributes from Host have different lengths")
-#        for player in self.players:
-#            for adventurer_location in initial_adventurers[player.colour]:
-#                longitude = game.play_area.get(int(adventurer_location[0]))
-#                if longitude:
-#                    adventurer_tile = longitude.get(int(adventurer_location[1]))
-#                    if adventurer_tile:
-#                        adventurer = game_type.ADVENTURER_TYPE(game, player, adventurer_tile)
-#                    else:
-#                        raise Exception("Server tried to place on Adventurer where there was no tile")
-#        
-#        print("With proxy game and players set up, continuing the startup of a normal visual")
-#        min_longitude, max_longitude = 0, 0
-#        min_latitude, max_latitude = 0, 0
-#        for longitude in self.game.play_area:
-#            if longitude < min_longitude:
-#                min_longitude = longitude
-#            elif longitude > max_longitude:
-#                max_longitude = longitude
-#            for latitude in self.game.play_area[longitude]:
-#                if latitude < min_latitude:
-#                    min_latitude = latitude
-#                elif latitude > max_latitude:
-#                    max_latitude = latitude
-#        origin = [-min_longitude + self.DIMENSION_BUFFER
-#                  , -min_latitude + self.DIMENSION_BUFFER
-#                  ]
-#        dimensions = [max_longitude + origin[0] + self.DIMENSION_BUFFER
-#                      , max_latitude + origin[1] + self.DIMENSION_BUFFER
-#                      ]
-#        super().__init__(game, dimensions, origin)
-#        
-#        #keep track of whether the game is active or waiting for the server to collect enough players
-#        self.running = True
-#        self.game.turn = 1
-#        self.current_player_colour = data["current_player_colour"]
-#        if self.current_player_colour in self.local_player_colours:
-#            self.local_player_turn = True
-#        else:
-#            self.local_player_turn = False
-#        
-#        print("Waiting and watching for it to be a local player's turn, before switching to local control and execution of the game")
-#        self.game.game_over = False
-#        while not self.game.game_over:
-#            #distinguish between local and remote play and hand control of the game to the remote player's computer as needed, through the server    
-#            while not self.local_player_turn:
-#                self.update()
-#                sleep(self.UPDATE_DELAY)
-#            
-#            print("Switching to local execution of the game, now it is a local player's turn")
-#            current_player = self.player_colours[self.current_player_colour]
-#            adventurers = self.game.adventurers[current_player]
-#            for adventurer in adventurers:
-#                print("Starting the turn for " +current_player.colour+ " Adventurer #" +str(adventurers.index(adventurer) + 1))
-#                self.Send({"action":"prompt", "prompt_text":self.current_player_colour +" player is moving their Adventurer #" +str(adventurers.index(adventurer)+1)})
-#                if adventurer.turns_moved < self.game.turn:
-#                    current_player.continue_turn(adventurer)
-#                    print() #to help log readability
-#                    
-#                    #check whether this adventurer's turn has won them the game
-#                    if self.game.check_win_conditions():
-#                        self.game.game_over = True
-#                        break
-#            #Make sure visuals are up to date and all changes have been shared to the server
-#            self.draw_play_area()
-#            #for virtual players, share their route
-#            if current_player.colour in self.virtual_players:
-#                for adventurer in adventurers:
-#                    for tile in adventurer.route:
-#                        adventurers_routes = [{} for i in range(len(adventurers))] #this adventurer#s moves are shared by their position in a list
-#                        adventurers_routes[adventurers.index(adventurer)] = {"longitude":tile.tile_position.longitude, "latitude":tile.tile_position.latitude}
-#                        self.Send({"action":"move_tokens", "changes":{"adventurers":{current_player.colour:adventurers_routes}, "agents":{}}})
-#            self.draw_routes()
-#            self.draw_tokens()
-#            self.draw_scores()
-#            if self.game.game_over:
-#                self.Send({"action":"declare_win", "winning_player_colour":self.game.winning_player.colour})
-#                connection.Pump()
-#                self.Pump()
-#                self.Network_declare_win({"winning_player_colour":self.game.winning_player.colour})
-#            print("Passing play to the next player")
-#            if self.players.index(current_player) < len(self.players) - 1:
-#                current_player = self.players[self.players.index(current_player) + 1]
-#                self.current_player_colour = current_player.colour
-#            else:
-#                #If this was the last player in the play order then the turn increases by 1
-#                current_player = self.players[0]
-#                self.game.turn += 1
-#                self.current_player_colour = current_player.colour
-#            if self.current_player_colour not in self.local_player_colours:
-#                #Reset the route to be visualised for this non-local player
-#                for adventurer in self.game.adventurers[current_player]:
-#                    adventurer.route = [adventurer.current_tile]
-#                self.local_player_turn = False
-#            if self.current_player_colour in self.virtual_players:
-#                #Reset the route to be visualised for this virtual player
-#                for adventurer in self.game.adventurers[current_player]:
-#                    adventurer.route = [adventurer.current_tile]
-#            self.clear_prompt()
-#            self.Send({"action":"new_turn", "turn":self.game.turn, "current_player_colour":self.current_player_colour})
-#    
-#    def Network_close(self, data):
-#        '''Allows remote closing of game through an {"action":"close"} message from the server
-#        '''
-#        super().close()
-#        
-#    def close(self):
-#        '''Elegantly closes the application down.
-#        '''
-#        self.Send({"action":"close", "data":""})
-#        super().close()
-#    
-#    def Network_new_turn(self, data):
-#        '''Informs local player(s) which player is currently expected to be moving
-#        '''
-##        self.local_player_turn = data["local_player_turn"]
-#        self.game.turn = data["turn"]
-#        self.current_player_colour = data["current_player_colour"]
-#        print("Server has relayed that it is now the "+self.current_player_colour+" player's turn "+str(self.game.turn))
-#        if self.current_player_colour in self.local_player_colours:
-#            self.local_player_turn = True
-#            if self.current_player_colour in self.virtual_players:
-#                #Reset the route to be visualised for this virtual player
-#                current_player = self.player_colours[self.current_player_colour]
-#                for adventurer in self.game.adventurers[current_player]:
-#                    adventurer.route = [adventurer.current_tile]
-#        else:
-#            #Reset the route to be visualised for this non-local player
-#            current_player = self.player_colours[self.current_player_colour]
-#            for adventurer in self.game.adventurers[current_player]:
-#                adventurer.route = [adventurer.current_tile]
-#            self.local_player_turn = False
-#
-#    
-#    def Network_place_tiles(self, data):
-#        '''Places tiles based on data following an {"action":"place_tile"} message from the server
-#        '''
-#        for tile_data in data["tiles"]:
-#            #read location to place at
-#            longitude = int(tile_data["longitude"])
-#            latitude = int(tile_data["latitude"])
-#            #Check whether this space is already occupied
-#            if self.game.play_area.get(longitude):
-#                if self.game.play_area[longitude].get(latitude):
-#                    raise Exception("Server tried to place a tile on top of another")   
-#            #read tile characteristics to visualise
-#            tile_type = tile_data["tile_type"]
-#            tile_back = tile_data["tile_back"]
-#            tile_edges_data = tile_data["tile_edges"]
-#            tile_edges = TileEdges(bool(tile_edges_data["upwind_clock"])
-#                    , bool(tile_edges_data["upwind_anti"])
-#                    , bool(tile_edges_data["downwind_clock"])
-#                    , bool(tile_edges_data["downwind_anti"])
-#                    )
-#            wind_direction_data = tile_data["wind_direction"]
-#            wind_direction = WindDirection(bool(wind_direction_data["north"])
-#                    , bool(wind_direction_data["east"])
-#                    )
-#            #Place the tile in the play area
-#            placed_tile = self.game.TILE_TYPES[tile_type](self.game, tile_back, wind_direction, tile_edges)
-#            placed_tile.place_tile(longitude, latitude)
-#            #Remember that this is already synched with the server
-#            if not self.shared_play_area.get(longitude):
-#                self.shared_play_area[longitude] = {}
-#            self.shared_play_area[longitude][latitude] = placed_tile    
-#            #remove a matching tile from the tile pile, once the game is running
-#            if self.running:
-#                tile_removed = False
-#                tile_pile = self.game.tile_piles[tile_back]
-#                for tile in tile_pile.tiles:
-#                    if isinstance(placed_tile, MythicalTileRegular) and isinstance(tile, MythicalTileRegular):
-#                        print("arrived")
-#                    if placed_tile.compare(tile): 
-#                        if tile.compare(placed_tile):
-#                            tile_pile.tiles.remove(tile)
-#                            tile_removed = True
-#                            break
-#                if not tile_removed:
-#                    raise Exception("Server placed a tile that was not in the Tile Pile")
-#    
-#    #@TODO update the record of shared changes so that remote changes are not re-shared
-#    def Network_move_tokens(self, data):
-#        '''Moves an Adventurer or Agent based on data following an {"action":"move_token"} message from the server
-#        '''
-#        changes = data["changes"]
-#        for player_colour in self.player_colours:
-#            player = self.player_colours[player_colour]
-#            adventurers_data = changes["adventurers"].get(player_colour)
-#            if adventurers_data:
-#                for adventurer_num in range(len(adventurers_data)):
-#                    adventurer_data = adventurers_data[adventurer_num]
-#                    #check if this is a new token and add them if so
-#                    if len(self.game.adventurers[player]) < adventurer_num + 1:
-#                        adventurer = self.game.ADVENTURER_TYPE(self.game, player, self.game.play_area[0][0])
-#                    else:
-#                        adventurer = self.game.adventurers[player][adventurer_num]
-#                    #read location to move to
-#                    longitude = adventurer_data.get("longitude")
-#                    latitude = adventurer_data.get("latitude")
-#                    #Check that the tile exists before moving the token there
-#                    if longitude is not None and latitude is not None:
-#                        longitude = int(longitude)
-#                        latitude = int(latitude)
-#                        if self.game.play_area.get(longitude):
-#                            tile = self.game.play_area.get(longitude).get(latitude)
-#                            if not tile:
-#                                raise Exception("Server has tried to place a token on a tile that doesn't exist")
-#                        else:
-#                            raise Exception("Server has tried to place a token on a tile that doesn't exist")
-#                        #Place the token on the tile at the coordinates
-#                        tile.move_onto_tile(adventurer)
-#                    #check whether wealth has also changed
-#                    wealth = adventurer_data.get("wealth")
-#                    if not wealth is None:
-#                        adventurer.wealth = int(wealth)
-#                    #check whether turns moved has also changed
-#                    turns_moved = adventurer_data.get("turns_moved")
-#                    if not turns_moved is None:
-#                        adventurer.turns_moved = int(turns_moved)
-#                    #check whether pirate token has also changed
-#                    pirate_token = adventurer_data.get("pirate_token")
-#                    if pirate_token is not None and isinstance(self.game, GameRegular):
-#                        adventurer.pirate_token = bool(pirate_token)
-#            agents_data = changes["agents"].get(player_colour)
-#            if agents_data:
-#                #This is hacky, but if an Agent has been lost, after being displaced and replaced by opponents, then the indexing will have changed and the whole Agents vector will be replaced
-#                if len(agents_data) < len(self.game.agents[player]):
-#                    for agent in self.game.agents[player]:
-#                        agent.current_tile.move_off_tile(agent)
-#                        self.game.agents[player].remove(agent)
-#                for agent_num in range(len(agents_data)):
-#                    agent_data = agents_data[agent_num]
-#                    #read location to move to
-#                    longitude = agent_data.get("longitude")
-#                    latitude = agent_data.get("latitude")
-#                    #Check that the tile exists before moving the agent there
-#                    if longitude is not None and latitude is not None:
-#                        longitude = int(longitude)
-#                        latitude = int(latitude)
-#                        if self.game.play_area.get(longitude):
-#                            tile = self.game.play_area[longitude].get(latitude)
-#                            if not tile:
-#                                raise Exception("Server has tried to place a agent on a tile that doesn't exist")
-#                        else:
-#                            raise Exception("Server has tried to place a agent on a tile that doesn't exist")
-#                        #Place the agent on the tile at the coordinates
-#                        #check if this is a new token and add them if so
-#                        if len(self.game.agents[player]) < agent_num + 1:
-#                            agent = self.game.AGENT_TYPE(self.game, player, tile)
-#                        else:
-#                            agent = self.game.agents[player][agent_num]
-#                            tile.move_onto_tile(agent)
-#                    else:
-#                        agent = self.game.agents[player][agent_num]
-#                    #check whether wealth has also changed
-#                    wealth = agent_data.get("wealth")
-#                    if not wealth is None:
-#                        agent.wealth = int(wealth)
-#                    #check whether dispossession has also changed
-#                    is_dispossessed = agent_data.get("is_dispossessed")
-#                    if is_dispossessed is not None and isinstance(self.game, GameRegular):
-#                        agent.is_dispossessed = bool(is_dispossessed)
-#    
-#    def Network_prompt(self, data):
-#        '''Receives prompt information from the server.
-#        '''
-#        self.prompt_text = data["prompt_text"]
-#    
-#    def Network_update_move_count(self, data):
-#        '''Receives updates to the move count of the active remote player
-#        '''
-#        self.moves_since_rest = data["move_count"]
-#    
-#    def Network_update_scores(self, data):
-#        '''Recieves updates to the players' Vault wealth from remote players, via the server
-#        '''
-#        changes = data["changes"]
-#        for player_colour in changes:
-#            player = self.player_colours[player_colour]
-#            player.vault_wealth = changes[player_colour]
-#            #Remember that this has already been synched with the remote players
-#            self.shared_scores[player] = player.vault_wealth
-#     
-#    def Network_declare_win(self, data):
-#        '''Notifies player who won the game based on data following an {"action":"end_game"} message from the server
-#        '''
-#        self.current_player_colour = data["winning_player_colour"]
-#        self.give_prompt(self.current_player_colour+" won the game")
-#        self.window.fill(self.BACKGROUND_COLOUR)
-#        super().draw_play_area()
-#        self.draw_routes()
-#        super().draw_tokens()
-#        super().draw_scores()
-#        self.draw_prompt()
-#        pygame.display.flip()
-#        #Wait for click to close
-#        self.get_input_coords(self.game.adventurers[self.player_colours[self.current_player_colour]][0])
-#        self.close()
-#    
-#    def play_area_difference(self, play_area_new, play_area_old):
-#        '''Compares two given nested Dicts of Cartolan.Tiles to see which Tiles are present in only one
-#        
-#        Arguments:
-#        Dict of Dict of Cartolan.Tiles, both indexed with Ints, giving the Tiles at different coordinates for the play area of interest
-#        Dict of Dict of Cartolan.Tiles, both indexed with Ints, giving the Tiles at different coordinates for the play area with tiles to disregard
-#        '''
-#        difference = { longitude : play_area_new[longitude].copy() for longitude in set(play_area_new) - set(play_area_old) }
-#        for longitude in play_area_old:
-#            if longitude in play_area_new:
-#                longitude_difference = { latitude : play_area_new[longitude][latitude] 
-#                                                for latitude in set(play_area_new[longitude])
-#                                                - set(play_area_old[longitude]) }
-#                if longitude_difference:
-#                    if difference.get(longitude):
-#                        difference[longitude].update(longitude_difference)
-#                    else:
-#                        difference[longitude] = longitude_difference
-#        return difference
-#    
-#    def draw_play_area(self):
-#        '''Shares with the server the new tiles that have been added since last updating
-#        '''
-#        #Determine change in play area and share this with the server
-#        play_area_update = self.play_area_difference(self.game.play_area, self.shared_play_area)
-#        tiles_json = []
-#        for longitude in play_area_update:
-#            for latitude in play_area_update[longitude]:
-#                tile = play_area_update[longitude][latitude]
-#                tile_type = "plain"
-#                if tile.is_wonder:
-#                    tile_type = "wonder"
-#                elif isinstance(tile, DisasterTile):
-#                    tile_type = "disaster"                    
-#                elif isinstance(tile, CityTile):
-#                    if tile.is_capital:
-#                        tile_type = "capital"
-#                    else:
-#                        tile_type = "mythical"
-#
-#                #record all the tile information in a json form that can be shared with other players via the server
-#                tile_data = {"longitude":longitude
-#                             , "latitude":latitude
-#                             , "tile_type":tile_type 
-#                             , "tile_back":tile.tile_back
-#                             }
-#                #serialise and add the tile edge and wind direction information 
-#                tile_edges_data = {"upwind_clock":tile.tile_edges.upwind_clock_water
-#                                   , "upwind_anti":tile.tile_edges.upwind_anti_water
-#                                   , "downwind_clock":tile.tile_edges.downwind_clock_water
-#                                   , "downwind_anti":tile.tile_edges.downwind_anti_water
-#                                   }
-#                tile_data["tile_edges"] = tile_edges_data
-#                wind_direction_data = {"north":tile.wind_direction.north
-#                                       , "east":tile.wind_direction.east
-#                                       }
-#                tile_data["wind_direction"] = wind_direction_data
-#                tiles_json.append(tile_data)
-#                #remember that this tile has been serialised (and will be shared)
-#                if not self.shared_play_area.get(longitude):
-#                    self.shared_play_area[longitude] = {}
-#                self.shared_play_area[longitude][latitude] = tile_data         
-#        if play_area_update:    
-#            self.Send({"action":"place_tiles", "tiles":tiles_json})
-#            print("Drawing the play area, with " +str(len(self.game.play_area))+" columns of tiles")
-#        else:
-#            print("No changes to play area, so nothing updating local or server")
-#        #Process any messages to the server
-#        connection.Pump()
-#        self.Pump()
-#        #Now continue with displaying locally
-#        super().draw_play_area()
-#    
-#    def draw_tokens(self):
-#        '''Identifies which tokens have changed position/status and passing them to the server
-#        '''
-#        #print(Comparing two different states of Agents and Adventurers, and returns only those that differ)
-#        player_tokens_json = {"adventurers":{}, "agents":{}}
-#        player_tokens_changes_json = {"adventurers":{}, "agents":{}}
-#        exist_changes = False
-#        for player in self.game.adventurers:
-#            adventurers = self.game.adventurers[player]
-#            adventurers_json = []
-#            adventurers_changes_json = []
-#            exist_token_changes = False
-#            for adventurer in adventurers:
-#                #make sure that the turns moved are shared for new adventurers
-#                #serialise the current data for record and comparison
-#                new_longitude = adventurer.current_tile.tile_position.longitude
-#                new_latitude = adventurer.current_tile.tile_position.latitude
-#                new_wealth = adventurer.wealth
-#                new_turns_moved = adventurer.turns_moved
-#                if not isinstance(self.game, GameRegular):
-#                    new_pirate_token = False
-#                else:
-#                    new_pirate_token = adventurer.pirate_token
-#                adventurer_data = {"longitude":new_longitude
-#                                   , "latitude":new_latitude
-#                                   , "wealth":new_wealth
-#                                   , "turns_moved":new_turns_moved
-#                                   , "pirate_token":new_pirate_token
-#                                   }
-#                adventurers_json.append(adventurer_data)                    
-#                #identify the old serialisation of this adventurer's data and compare to the adventurer's data and share where it differs
-#                adventurer_index = adventurers.index(adventurer)
-#                old_adventurers_data = self.shared_tokens["adventurers"][player.colour]
-#                if adventurer_index < len(old_adventurers_data):
-#                    adventurer_changes_data = {}
-#                    old_adventurer_data = old_adventurers_data[adventurer_index]
-#                    old_longitude = int(old_adventurer_data["longitude"])
-#                    old_latitude = int(old_adventurer_data["latitude"])
-#                    if not (new_longitude == old_longitude 
-#                            and new_latitude == old_latitude):
-#                        adventurer_changes_data["longitude"] = new_longitude
-#                        adventurer_changes_data["latitude"] = new_latitude
-#                        exist_token_changes = True
-#                    old_wealth = int(old_adventurer_data["wealth"])
-#                    if not (new_wealth == old_wealth):
-#                        adventurer_changes_data["wealth"] = new_wealth
-#                        exist_token_changes = True
-#                    old_turns_moved = int(old_adventurer_data["turns_moved"])
-#                    if not (new_turns_moved == old_turns_moved):
-#                        adventurer_changes_data["turns_moved"] = new_turns_moved
-#                        exist_token_changes = True
-#                    old_pirate_token = int(old_adventurer_data["pirate_token"])
-#                    if not (new_pirate_token == old_pirate_token):
-#                        adventurer_changes_data["pirate_token"] = new_pirate_token
-#                        exist_token_changes = True
-#                    adventurers_changes_json.append(adventurer_changes_data)
-#                else:
-#                    adventurers_changes_json.append(adventurer_data)
-#                    exist_token_changes = True
-#            player_tokens_json["adventurers"][player.colour] = adventurers_json
-#            if exist_token_changes:
-#                player_tokens_changes_json["adventurers"][player.colour] = adventurers_changes_json
-#                exist_changes = True
-#        #repeat for Agents
-#        for player in self.game.agents:
-#            agents = self.game.agents[player]
-#            agents_json = []
-#            agents_changes_json = []
-#            exist_token_changes = False
-#            for agent in agents:
-#                agent_changes_data = {}
-#                #serialise the adventurer's data for comparison now and in future
-#                new_longitude = agent.current_tile.tile_position.longitude
-#                new_latitude = agent.current_tile.tile_position.latitude
-#                new_wealth = agent.wealth
-#                if not isinstance(self.game, GameRegular):
-#                    new_is_dispossessed = False
-#                else:
-#                    new_is_dispossessed = agent.is_dispossessed
-#                agent_data = {"longitude":new_longitude
-#                                   , "latitude":new_latitude
-#                                   , "wealth":new_wealth
-#                                   , "is_dispossessed":new_is_dispossessed
-#                                   }
-#                agents_json.append(agent_data)
-#                #identify the old serialisation of this adventurer's data
-#                agent_index = agents.index(agent)
-#                old_agents_data = self.shared_tokens["agents"][player.colour]
-#                if agent_index < len(old_agents_data):
-#                    old_agent_data = old_agents_data[agent_index]
-#                    old_longitude = int(old_agent_data["longitude"])
-#                    old_latitude = int(old_agent_data["latitude"])
-#                    if not (new_longitude == old_longitude 
-#                            and new_latitude == old_latitude):
-#                        agent_changes_data["longitude"] = new_longitude
-#                        agent_changes_data["latitude"] = new_latitude
-#                        exist_token_changes = True
-#                    old_wealth = int(old_agent_data["wealth"])
-#                    if not (new_wealth == old_wealth):
-#                        agent_changes_data["wealth"] = new_wealth
-#                        exist_token_changes = True
-#                    old_is_dispossessed = old_agent_data["is_dispossessed"]
-#                    if not (new_is_dispossessed == old_is_dispossessed):
-#                        agent_changes_data["is_dispossessed"] = new_is_dispossessed
-#                        exist_token_changes = True
-#                    agents_changes_json.append(agent_changes_data)
-#                else:
-#                    agents_changes_json.append(agent_data)
-#                    exist_token_changes = True
-#            player_tokens_json["agents"][player.colour] = agents_json
-#            if exist_token_changes:
-#                player_tokens_changes_json["agents"][player.colour] = agents_changes_json
-#                exist_changes = True
-##        if player_token_changes_json["adventurers"] or player_token_changes_json["adventurers"] and self.running:
-#        if exist_changes and self.running:
-#            print("Having found changes to the tokens, sharing these with other players via the server")
-#            self.Send({"action":"move_tokens", "changes":player_tokens_changes_json})
-#            self.shared_tokens = player_tokens_json
-#        #Process any messages to the server
-#        connection.Pump()
-#        self.Pump()
-#        #Now continue with displaying locally
-#        super().draw_tokens()
-#    
-#    def draw_move_options(self, moves_since_rest=None, highlight_coords = {}):
-#        '''Passes changes in the number of remaining moves to the server
-#        '''
-#        #print("Comparing the last reported move count with the current move count")
-#        if not moves_since_rest == self.shared_move_count:
-#            self.Send({"action":"update_move_count", "move_count":moves_since_rest})
-#            self.shared_move_count = moves_since_rest
-#        #Process any messages to the server
-#        connection.Pump()
-#        self.Pump()
-#        #Now continue with displaying locally
-#        super().draw_move_options(moves_since_rest, highlight_coords)
-#        
-#    
-#    def draw_scores(self):
-#        '''Passes changed scores to the server, before drawing a table locally
-#        '''        
-#        #print("Comparing local scores to what has previously been shared, and updating the server accordingly")
-#        player_wealths_json = {}
-#        player_wealth_changes_json = {}
-#        exist_changes = False
-#        for player in self.players:
-#            #serialise the players' Vault wealths and compare to historic
-#            if not self.shared_scores[player.colour] == player.vault_wealth:
-#                player_wealth_changes_json[player.colour] = player.vault_wealth
-#                exist_changes = True
-#            player_wealths_json[player.colour] = player.vault_wealth
-#        if exist_changes and self.running:
-#            self.Send({"action":"update_scores", "changes":player_wealth_changes_json})
-#            self.shared_scores = player_wealths_json
-#        #Process any messages to the server
-#        connection.Pump()
-#        self.Pump()
-#        #Now continue with displaying locally
-#        super().draw_scores()
-
-
 class WebServerVisualisation(GameVisualisation):
     '''For a server-side game played in browser, shares image of play area and receives coords
     
@@ -1926,6 +1313,7 @@ class WebServerVisualisation(GameVisualisation):
         self.outline_width = math.ceil(self.TOKEN_OUTLINE_SCALE * self.token_size)
         self.token_font = pygame.font.SysFont(None, round(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
         self.scores_font = pygame.font.SysFont(None, round(self.height * self.SCORES_FONT_SCALE)) #the font size for scores will be proportionate to the window size
+        self.card_font = pygame.font.SysFont(None, round(self.height * self.CARD_FONT_SCALE)) #the font size for scores will be proportionate to the window size
         self.prompt_font = pygame.font.SysFont(None, round(self.height * self.PROMPT_FONT_SCALE)) #the font size for prompt will be proportionate to the window size
         self.prompt_position = [self.play_area_start + self.PROMPT_POSITION[0]*self.width
                                 , self.PROMPT_POSITION[1]*self.height]
@@ -2017,6 +1405,7 @@ class WebServerVisualisation(GameVisualisation):
                     game_vis.draw_discard_pile()
                     #Prompt the player
                     game_vis.current_player_colour = adventurer.player.colour
+                    game_vis.current_adventurer_number = self.game.adventurers[adventurer.player].index(adventurer)
                     game_vis.give_prompt(adventurer.player.colour+" player's is moving their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
                     
                 game_vis.update_web_display()
@@ -2136,6 +1525,7 @@ class WebServerVisualisation(GameVisualisation):
                     game_vis.draw_discard_pile()
                     #Prompt the player
                     game_vis.current_player_colour = adventurer.player.colour
+                    game_vis.current_adventurer_number = self.game.adventurers[adventurer.player].index(adventurer)
                     game_vis.give_prompt(adventurer.player.colour+" player is choosing a card for their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
                     
                 game_vis.update_web_display()

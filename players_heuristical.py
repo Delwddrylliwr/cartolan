@@ -4,6 +4,7 @@
 
 from base import Player
 from advanced import AdventurerAdvanced
+from game import GameAdvanced
 import random
 
 class PlayerBeginnerExplorer(Player):    
@@ -220,6 +221,11 @@ class PlayerBeginnerExplorer(Player):
               +str(adventurer.current_tile.tile_position.longitude)+ "," 
               +str(adventurer.current_tile.tile_position.latitude))
         
+        game = adventurer.game
+        if isinstance(game, GameAdvanced):
+            if game.assigned_cadres.get(self) is None:
+                game.choose_cadre(self)
+        
         #reset the record of tiles already visited this turn
         self.locations_to_avoid = []
         
@@ -257,23 +263,23 @@ class PlayerBeginnerExplorer(Player):
         if random.random() < self.p_deviate:
             return False
         
-        if self.vault_wealth > adventurer.game.cost_adventurer:
+        if adventurer.game.player_wealths[adventurer.player] > adventurer.game.cost_adventurer:
             #Check whether player has won compared to wealthiest opponent 
             wealthiest_opponent_wealth = 0
             #Check whether any opponent is in a position to win based just on their incoming wealth, if an Adventurer were hired
             opponent_near_win = False
             for player in adventurer.game.players:
                 if player is not self:
-                    if player.vault_wealth > wealthiest_opponent_wealth:
-                        wealthiest_opponent_wealth = player.vault_wealth
+                    if adventurer.game.player_wealths[player] > wealthiest_opponent_wealth:
+                        wealthiest_opponent_wealth = adventurer.game.player_wealths[player]
                     player_chest_wealth = 0
                     for other_adventurer in adventurer.game.adventurers[player]:
                         player_chest_wealth += other_adventurer.wealth
-                    if (player.vault_wealth + player_chest_wealth 
-                        > adventurer.game.game_winning_difference + self.vault_wealth - adventurer.game.cost_adventurer):
+                    if (adventurer.game.player_wealths[player] + player_chest_wealth 
+                        > adventurer.game.game_winning_difference + adventurer.game.player_wealths[adventurer.player] - adventurer.game.cost_adventurer):
                         opponent_near_win = True
             #Don't hire if player has won compared to wealthiest opponent 
-            if self.vault_wealth > wealthiest_opponent_wealth + adventurer.game.game_winning_difference:
+            if adventurer.game.player_wealths[adventurer.player] > wealthiest_opponent_wealth + adventurer.game.game_winning_difference:
                 return False
             #Hire if no opponent can then win based on their incoming wealth
             if not opponent_near_win:
@@ -348,13 +354,13 @@ class PlayerBeginnerTrader(PlayerBeginnerExplorer):
     def check_rest(self, adventurer, agent):
         adventurers = adventurer.game.adventurers[self]
         agents = adventurer.game.agents[self]
-        #if there is an agent then always rest
-        adventurer.rest()
         #if this was the target agent for movement then start looking for the next one
         if self.next_agent_num[adventurers.index(adventurer)] < len(agents):
             if agent == agents[self.next_agent_num[adventurers.index(adventurer)]]:
                 #start targetting the next agent
                 self.next_agent_num[adventurers.index(adventurer)] += 1
+        #if there is an agent then always rest
+        return True        
 
     def check_bank_wealth(self, adventurer, report="Player is being asked whether to bank"):
         adventurers = adventurer.game.adventurers[self]
@@ -628,23 +634,23 @@ class PlayerAdvancedExplorer(PlayerRegularExplorer):
         if random.random() < self.p_deviate:
             return False
         
-        if self.vault_wealth > adventurer.game.cost_tech:
+        if adventurer.game.player_wealths[adventurer.player] > adventurer.game.cost_tech:
             #Check whether player has won compared to wealthiest opponent 
             wealthiest_opponent_wealth = 0
             #Check whether any opponent is in a position to win based just on their incoming wealth, if an Adventurer were hired
             opponent_near_win = False
             for player in adventurer.game.players:
                 if player is not self:
-                    if player.vault_wealth > wealthiest_opponent_wealth:
-                        wealthiest_opponent_wealth = player.vault_wealth
+                    if adventurer.game.player_wealths[player] > wealthiest_opponent_wealth:
+                        wealthiest_opponent_wealth = adventurer.game.player_wealths[player]
                     player_chest_wealth = 0
                     for other_adventurer in adventurer.game.adventurers[player]:
                         player_chest_wealth += other_adventurer.wealth
-                    if (player.vault_wealth + player_chest_wealth 
-                        > adventurer.game.game_winning_difference + self.vault_wealth - adventurer.game.cost_tech):
+                    if (adventurer.game.player_wealths[player] + player_chest_wealth 
+                        > adventurer.game.game_winning_difference + adventurer.game.player_wealths[adventurer.player] - adventurer.game.cost_tech):
                         opponent_near_win = True
             #Don't buy if player has won compared to wealthiest opponent 
-            if self.vault_wealth > wealthiest_opponent_wealth + adventurer.game.game_winning_difference:
+            if adventurer.game.player_wealths[adventurer.player] > wealthiest_opponent_wealth + adventurer.game.game_winning_difference:
                 return False
             #Hire if no opponent can then win based on their incoming wealth
             if not opponent_near_win:
