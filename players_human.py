@@ -369,7 +369,7 @@ class PlayerHuman(Player):
                 actions[move] = moves[move]            
         
         print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
-              +" can act")
+              +" can "+action_type)
         game_vis.draw_move_options(actions)
         game_vis.draw_tokens() #draw tokens on top of highlights
 
@@ -393,7 +393,7 @@ class PlayerHuman(Player):
             player_input = game_vis.get_input_coords(adventurer)
         if player_input.get(action_type) is not None:
             action_coords = player_input.get(action_type)
-            print(self.colour.capitalize()+" player chose the coordinates of the tile where their Adventurer can buy.")
+            print(self.colour.capitalize()+" player chose the coordinates of the tile where their Adventurer can "+action_type)
             action_location = adventurer.game.play_area[action_coords[0]][action_coords[1]]
         elif player_input.get("move") is not None: # If there were movement options, then check whether these were chosen
             move_coords = player_input.get("move")
@@ -401,7 +401,7 @@ class PlayerHuman(Player):
             self.queued_move = move_map[move_coords[0]].get(move_coords[1])
             action_location = None
         else:
-            print(self.colour.capitalize()+" player chose coordinates away from the tile where their Adventurer can buy.")
+            print(self.colour.capitalize()+" player chose coordinates away from the tile where their Adventurer can "+action_type)
             action_location = None
 
         #clean up the highlights

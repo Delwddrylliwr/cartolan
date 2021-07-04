@@ -326,6 +326,7 @@ class GameAdvanced(GameRegular):
         self.rest_with_adventurers = {}
         self.transfer_agent_earnings = {}
         self.agents_arrest = {}
+        self.confiscate_treasure = {}
         self.resting_refurnishes = {}
         self.pool_maps = {}
         self.rechoose_at_agents = {}
@@ -338,6 +339,7 @@ class GameAdvanced(GameRegular):
             self.rest_with_adventurers[player] = AdvancedConfig.REST_WITH_ADVENTURERS 
             self.transfer_agent_earnings[player] = AdvancedConfig.TRANSFER_AGENT_EARNINGS
             self.agents_arrest[player] = AdvancedConfig.AGENTS_ARREST
+            self.confiscate_treasure[player] = AdvancedConfig.CONFISCATE_TREASURE
             self.resting_refurnishes[player] = AdvancedConfig.RESTING_REFURNISHES
             self.pool_maps[player] = AdvancedConfig.POOL_MAPS
             self.rechoose_at_agents[player] = AdvancedConfig.RECHOOSE_AT_AGENTS

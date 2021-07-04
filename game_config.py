@@ -65,6 +65,7 @@ class AdvancedConfig:
     REST_WITH_ADVENTURERS = False
     TRANSFER_AGENT_EARNINGS = False
     AGENTS_ARREST = False
+    CONFISCATE_TREASURE = False
     RESTING_REFURNISHES = False
     POOL_MAPS = False
     RECHOOSE_AT_AGENTS = False
@@ -86,6 +87,7 @@ class AdvancedConfig:
                         , "+earning":{"value_agent_trade":{"buff_type":"new", "buff_val":1}
                                             , "num_discovery_choices":{"buff_type":"new", "buff_val":3}}
                         , "+arrest":{"agents_arrest":{"buff_type":"new", "buff_val":True}
+                                            , "confiscate_stolen":{"buff_type":"new", "buff_val":True}
                                             , "num_character_choices":{"buff_type":"new", "buff_val":3}}
                         , "+refurnish":{"resting_refurnishes":{"buff_type":"new", "buff_val":True}
                                             , "num_character_choices":{"buff_type":"new", "buff_val":3}}

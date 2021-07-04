@@ -85,6 +85,7 @@ class AdventurerAdvanced(AdventurerRegular):
         self.attacks_abandon = game.attacks_abandon
         #Also player-specific characteristics
         self.rest_with_adventurers = game.rest_with_adventurers[player]
+        self.confiscate_treasure = game.confiscate_treasure[player]
         self.pool_maps = game.pool_maps[player]
         #Prepare to hold cards
         self.character_card = None
@@ -143,8 +144,9 @@ class AdventurerAdvanced(AdventurerRegular):
         if super().can_rest(token):
             return True
         # can the adventurer rest with an adventurer instead?
-        if (self.rest_with_adventurers and not self.pirate_token
+        elif (self.rest_with_adventurers and not self.pirate_token
             and not token == self and self.current_tile == token.current_tile):
+            print("Checking if can rest with an Adventurer")
             if token.player == self.player or self.wealth >= self.game.cost_agent_rest:
                 print("Deemed that resting with an Adventurer is possible.")
                 return True    
@@ -249,12 +251,12 @@ class AdventurerAdvanced(AdventurerRegular):
         super().interact_tokens()
         if self.current_tile.adventurers:
             for adventurer in self.current_tile.adventurers:
-                if (self.attacks_abandon and adventurer.wealth == 0 
+                if (self.attacks_abandon and adventurer.wealth == 0 #give the option to send the opponent to a city even if they have no wealth 
                     and not self == adventurer):
                     if self.player.check_attack_adventurer(self, adventurer):
                         self.attack(adventurer)
                 if self.rest_with_adventurers and self.can_rest(adventurer):
-                    print("Checking whether one of the adventurers on the current tile can give rest.")
+                    print("Checking whether player wants one of the adventurers on the current tile to give rest.")
                     if self.player.check_rest(adventurer):
                         AgentAdvanced.give_rest(adventurer, self)
         if self.current_tile.agent is not None:
@@ -263,6 +265,13 @@ class AdventurerAdvanced(AdventurerRegular):
                     AdventurerAdvanced.arrest(self.current_tile.agent, self) #The arrest function should only use common features of the common parent Token class
 #                   self.current_tile.agent.arrest(self) #The arrest function should only use common features of the common parent Token class
                     self.end_turn()
+    
+    def arrest(self, pirate):
+        '''Extends regular behaviour to allow capture of wealth for particular buffs.
+        '''
+        if self.confiscate_treasure and self.pirate.wealth > 0:
+            self.wealth += pirate.wealth
+            pirate.wealth = 0
 
 class AgentAdvanced(AgentRegular):
     '''Extends Regular mode to allow Agents' rules to be changed by cards
@@ -272,7 +281,8 @@ class AgentAdvanced(AgentRegular):
         #Inherit player-specific characteristics that have been buffed
         self.value_agent_trade = game.value_agent_trade[player]
         self.transfer_agent_earnings = game.transfer_agent_earnings[player] 
-        self.agents_arrest = game.agents_arrest[player] 
+        self.agents_arrest = game.agents_arrest[player]
+        self.confiscate_treasure = game.confiscate_treasure[player]
         self.resting_refurnishes = game.resting_refurnishes[player]
         self.rechoose_at_agents = game.rechoose_at_agents[player]
         if self.agents_arrest:
