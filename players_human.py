@@ -427,6 +427,7 @@ class PlayerHuman(Player):
         elif isinstance(token, AdventurerAdvanced):
             token_description = token.player.colour.capitalize()+" player's Adventurer #"+str(game.adventurers[token.player].index(token)+1)+" "
         else:
+            print("Skipping asking player about rest because the token offered can't provide it.")
             return False
         if token.player == self:
             action_type = "rest"

@@ -174,13 +174,16 @@ class AdventurerAdvanced(AdventurerRegular):
         Arguments:
             token accepts a Cartolan Token
         '''
+        if isinstance(token, AgentAdvanced):
+            return token.give_rest(self)
 #        print("Make sure that the adventurer is equipped with the right method")
-        if self.rest_with_adventurers and not callable(getattr(token, "give_rest", None)):
+        elif self.rest_with_adventurers and not callable(getattr(token, "give_rest", None)):
             token.cost_agent_rest = token.game.cost_agent_rest
 #            token.give_rest = AgentAdvanced.give_rest
 #            return token.give_rest(self)
             return AgentBeginner.give_rest(token, self)
-        else: return False
+        else: 
+            return False
     
     def attack(self, token):
         '''Extends Regular mode to allow stealing of Chest Tiles
@@ -270,7 +273,8 @@ class AdventurerAdvanced(AdventurerRegular):
                         self.rest(adventurer)
         if self.current_tile.agent is not None:
 #            print("Checking whether special interactions are possible with "+self.current_tile.agent.player.colour+" player's Agent")
-            if self.current_tile.agent.agents_arrest and self.pirate_token:
+            agent = self.current_tile.agent
+            if not agent.is_dispossessed and agent.agents_arrest and self.pirate_token:
                 if random.random() < self.game.attack_success_prob:
                     AdventurerAdvanced.arrest(self.current_tile.agent, self) #The arrest function should only use common features of the common parent Token class
 #                   self.current_tile.agent.arrest(self) #The arrest function should only use common features of the common parent Token class
