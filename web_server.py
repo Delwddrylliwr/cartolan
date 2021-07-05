@@ -35,14 +35,14 @@ GAME_MODES = { 'Basic':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeg
 #                                                                    , "green":PlayerBeginnerGenetic
                                                                    , "orange":PlayerBeginnerExplorer
                                                                       }}
-              , 'Regular':{'game_type':GameRegular, 'player_set':{
+              , 'Even':{'game_type':GameRegular, 'player_set':{
                                                                   "orange":PlayerRegularPirate
                                                                     , "blue":PlayerRegularExplorer
                                                                    , "red":PlayerRegularTrader
                                                                    , "yellow":PlayerRegularRouter
 #                                                                    , "green":PlayerRegularGenetic
                                                                   }}
-              , 'Advanced':{'game_type':GameAdvanced, 'player_set':{
+              , 'Rich':{'game_type':GameAdvanced, 'player_set':{
                                                                   "orange":PlayerAdvancedPirate
                                                                     , "blue":PlayerAdvancedExplorer
                                                                    , "red":PlayerAdvancedTrader

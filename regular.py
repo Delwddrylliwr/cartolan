@@ -171,16 +171,21 @@ class AdventurerRegular(AdventurerBeginner):
                 else: return False
         else: raise Exception("Invalid movement rules specified")
     
-    def move(self, compass_point):
-        '''Extends Beginnner movement to rotate Chest tiles after movement (for more comfortable visualisation)
+#    def move(self, compass_point):
+#        '''Extends Beginnner movement to rotate Chest tiles after movement (for more comfortable visualisation)
+#        '''
+#        moved = super().move(compass_point)
+#        if moved:
+#            self.match_chest_directions()
+#        return moved
+    
+    def match_chest_directions(self):
+        '''Rotates all chest tiles to match the current tile's wind direction, for visualisation only.
         '''
-        moved = super().move(compass_point)
-        if moved:
-            for chest_tile in self.chest_tiles:
-                while not (chest_tile.wind_direction.north == self.current_tile.wind_direction.north and 
-                           chest_tile.wind_direction.east == self.current_tile.wind_direction.east):
-                    chest_tile.rotate_tile_clock()
-        return moved
+        for chest_tile in self.chest_tiles:
+            while not (chest_tile.wind_direction.north == self.current_tile.wind_direction.north and 
+                       chest_tile.wind_direction.east == self.current_tile.wind_direction.east):
+                chest_tile.rotate_tile_clock()
     
     def explore(self, tile_pile, discard_pile, longitude, latitude, compass_point_moving):
         '''Extends exploration to allow tiles to be used from the Adventurer's Chest
