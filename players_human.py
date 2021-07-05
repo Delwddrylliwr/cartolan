@@ -182,6 +182,7 @@ class PlayerHuman(Player):
         game_vis.draw_move_count(moves_since_rest, max_moves=adventurer.max_downwind_moves)
         game_vis.draw_toggle_menu(self.fixed_responses)
         if isinstance(adventurer, AdventurerRegular):
+            adventurer.match_chest_directions()
             game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
         game_vis.draw_tile_piles()
         game_vis.draw_discard_pile()
@@ -358,6 +359,7 @@ class PlayerHuman(Player):
         game_vis.draw_move_count(moves_since_rest, max_moves=adventurer.max_downwind_moves)
         game_vis.draw_toggle_menu(self.fixed_responses)
         if isinstance(adventurer, AdventurerRegular):
+            adventurer.match_chest_directions()
             game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
         game_vis.draw_tile_piles()
         game_vis.draw_discard_pile()
@@ -690,7 +692,7 @@ class PlayerHuman(Player):
         game_vis.draw_tokens()
         game_vis.draw_scores()
         game_vis.draw_move_count()
-        if isinstance(adventurer, AdventurerRegular):
+        if isinstance(adventurer, AdventurerRegular) and card_variety not in ["com", "adv"]:
             game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
         if isinstance(adventurer, AdventurerAdvanced):
             game_vis.draw_cards(adventurer)

@@ -1385,7 +1385,10 @@ class WebServerVisualisation(GameVisualisation):
                 game_vis = player.games[self.game.game_id]["game_vis"]
                 if not self.client == game_vis.client:
 #                    print("Recognised that this player is using a different client: "+str(game_vis.client.address))
-                    
+                    #Make sure that remote visuals know which player is moving
+                    game_vis.current_player_colour = adventurer.player.colour
+                    game_vis.current_adventurer_number = self.game.adventurers[adventurer.player].index(adventurer)
+                    #Update visuals to keep them informed of action
                     game_vis.draw_play_area()
                     game_vis.draw_tokens()
                     game_vis.draw_routes()
@@ -1404,9 +1407,7 @@ class WebServerVisualisation(GameVisualisation):
                     game_vis.draw_tile_piles()
                     game_vis.draw_discard_pile()
                     #Prompt the player
-                    game_vis.current_player_colour = adventurer.player.colour
-                    game_vis.current_adventurer_number = self.game.adventurers[adventurer.player].index(adventurer)
-                    game_vis.give_prompt(adventurer.player.colour+" player's is moving their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
+                    game_vis.give_prompt(adventurer.player.colour.capitalize()+" player's is moving their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
                     
                 game_vis.update_web_display()
         
@@ -1503,6 +1504,10 @@ class WebServerVisualisation(GameVisualisation):
                 game_vis = player.games[self.game.game_id]["game_vis"]
                 if not self.client == game_vis.client:
 #                    print("Recognised that this player is using a different client: "+str(game_vis.client.address))
+                    #Make sure that remote visuals know which player is moving
+                    game_vis.current_player_colour = adventurer.player.colour
+                    game_vis.current_adventurer_number = self.game.adventurers[adventurer.player].index(adventurer)
+                    #Update visuals to keep them informed of action
                     game_vis.draw_play_area()
                     game_vis.draw_tokens()
                     game_vis.draw_routes()
@@ -1517,16 +1522,15 @@ class WebServerVisualisation(GameVisualisation):
                     #Draw the right menu items
                     game_vis.draw_move_count()
                     if isinstance(adventurer, AdventurerRegular):
-                        chest_tiles = adventurer.chest_tiles
-                        preferred_tile_num = adventurer.preferred_tile_num
-                        num_chest_tiles = adventurer.num_chest_tiles
-                        game_vis.draw_chest_tiles(chest_tiles, preferred_tile_num, num_chest_tiles)
+                        if offer_type =="card" and not cards[0].card_type[:3] in ["com", "dis"]: #Don't draw the chest tiles when the players are first picking companies and adventurers 
+                            chest_tiles = adventurer.chest_tiles
+                            preferred_tile_num = adventurer.preferred_tile_num
+                            num_chest_tiles = adventurer.num_chest_tiles
+                            game_vis.draw_chest_tiles(chest_tiles, preferred_tile_num, num_chest_tiles)
                     game_vis.draw_tile_piles()
                     game_vis.draw_discard_pile()
                     #Prompt the player
-                    game_vis.current_player_colour = adventurer.player.colour
-                    game_vis.current_adventurer_number = self.game.adventurers[adventurer.player].index(adventurer)
-                    game_vis.give_prompt(adventurer.player.colour+" player is choosing a card for their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
+                    game_vis.give_prompt(adventurer.player.colour.capitalize()+" player is choosing a card for their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
                     
                 game_vis.update_web_display()
         
