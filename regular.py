@@ -239,11 +239,10 @@ class AdventurerRegular(AdventurerBeginner):
                     if self.can_rest(agent):
                         if self.player.check_rest(self, agent):
                             self.rest(agent)
-                if agent.player != self.player:
-                    if not self.pirate_token:
-                        if self.can_rest(agent):
-                            if self.player.check_rest(self, agent):
-                                self.rest(agent)
+                else:
+                    if self.can_rest(agent):
+                        if self.player.check_rest(self, agent):
+                            self.rest(agent)
                     if agent.wealth + self.value_dispossess_agent > 0:
                         if self.player.check_attack_agent(self, agent):
                             self.attack(agent)

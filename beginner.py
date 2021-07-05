@@ -576,7 +576,7 @@ class AdventurerBeginner(Adventurer):
         # check whether there is an agent on the tile# can the adventurer afford rest here?
         if isinstance(token, Agent):
             if ((token.player == self.player 
-                or self.wealth > self.game.cost_agent_rest)
+                or self.wealth >= token.cost_agent_rest)
                 and token not in self.agents_rested):
                 return True
         return False
@@ -678,7 +678,6 @@ class AgentBeginner(Agent):
         super().__init__(game, player, tile)
         
         #Mirror game variables, mostly for individial agent modification in Advanced mode
-        self.value_agent_trade = game.value_agent_trade
         self.cost_agent_rest = game.cost_agent_rest
     
     def give_rest(self, adventurer):
