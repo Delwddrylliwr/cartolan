@@ -250,6 +250,7 @@ class AdventurerBeginner(Adventurer):
                     if not isinstance(self.current_tile, CityTile): 
                         self.interact_tile()
                         self.interact_tokens()
+                    moved = False
             else:
                 #place the Adventurer on the next existing Tile
                 self.current_tile.move_off_tile(self)
