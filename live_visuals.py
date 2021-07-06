@@ -1352,7 +1352,7 @@ class WebServerVisualisation(GameVisualisation):
         prompt takes a string
         '''
         print("Prompting client at " +str(self.client.address)+ " with: " +prompt_text)
-        self.client.sendMessage("TEXT[00100]"+prompt_text)
+        self.client.sendMessage("PROMPT[00100]"+prompt_text)
         input_value = None
         while not input_value:
             input_value = self.client.get_text()
@@ -1362,7 +1362,7 @@ class WebServerVisualisation(GameVisualisation):
 #                    print("Checking that "+input_value+" is between 0 and "+str(maximum))
                     if int(input_value) in range(minimum, maximum+1):
                         return int(input_value)
-                    self.client.sendMessage("TEXT[00100]"+prompt_text)
+                    self.client.sendMessage("PROMPT[00100]"+prompt_text)
                     input_value = None
                 except:
 #                    print("Decided it wasn't a number so interpretting as nothing")

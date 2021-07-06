@@ -284,7 +284,7 @@ class PlayerHuman(Player):
         game_vis.draw_scores()
         #Have the player acknowledge that it is their turn
 #        game_vis.clear_prompt()
-        game_vis.give_prompt(self.colour+" player's turn for Adventurer #"+str(adventurers.index(adventurer)+1)+". click to continue.")
+        game_vis.give_prompt(self.colour.capitalize()+" player's turn for Adventurer #"+str(adventurers.index(adventurer)+1)+". click to continue.")
 #        game_vis.draw_move_options()
         game_vis.get_input_coords(adventurer)
         game_vis.clear_prompt()
@@ -368,7 +368,13 @@ class PlayerHuman(Player):
         if not isinstance(adventurer.current_tile, CityTile): #If this is a buying action from the city then the turn is about to end, even with spare moves
             moves, move_map = self.establish_moves(adventurer)
             for move in moves:
-                actions[move] = moves[move]            
+                #first prevent the fast forward move from blocking actions
+                for action in actions:
+                    for coords in actions[action]:
+                        if coords in moves[move]:
+                            moves[move].remove(coords)
+                #Add these moves to the fast forward options
+                actions[move] = moves[move]        
         
         print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
               +" can "+action_type)

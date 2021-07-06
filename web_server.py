@@ -432,8 +432,9 @@ class ClientSocket(WebSocket):
 #           msg = ('%sSPLIT%s' % (ident, mdata))
 ##           self.socket.send(str(msg))
         elif protocode == ("COORDS"):
-#           print("COORDS... "+msg)
            input_coords = msg.split("[66666]")
+           print("Click coordinate Input received from client... "+", ".join(input_coords))
+           print(time.strftime('%Y-%m-%d %H:%M %Z', time.gmtime(time.time()))) #timestamp
            try:
                if len(input_coords) == 2:
                    self.coords_buffer = []
