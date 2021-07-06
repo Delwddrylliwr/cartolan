@@ -157,7 +157,7 @@ class ClientSocket(WebSocket):
                         prompt_text += "."
                 prompt_text += " (Hit enter for default "+DEFAULT_GAME_MODE+")"
                 print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                self.sendMessage("TEXT[00100]"+prompt_text)
+                self.sendMessage("PROMPT[00100]"+prompt_text)
                 while not new_game_type in valid_options:
                     new_game_type = self.get_text()
                     if new_game_type:
@@ -166,7 +166,7 @@ class ClientSocket(WebSocket):
                             new_game_type = DEFAULT_GAME_MODE
                         elif not new_game_type in valid_options:
                             new_game_type = None
-                            self.sendMessage("TEXT[00100]"+prompt_text)
+                            self.sendMessage("PROMPT[00100]"+prompt_text)
                     time.sleep(self.INPUT_DELAY)
                 new_game_types[game_id] = new_game_type
                 min_players = GAME_MODES[new_game_type]["game_type"].MIN_PLAYERS
@@ -177,7 +177,7 @@ class ClientSocket(WebSocket):
                 prompt_text += " (Hit enter for default "+str(DEFAULT_LOCAL_PLAYERS)+")"
                 num_client_players = None
                 print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                self.sendMessage("TEXT[00100]"+prompt_text)
+                self.sendMessage("PROMPT[00100]"+prompt_text)
                 while not str(num_client_players) in valid_options:
                     received_input = self.get_text()
                     if received_input:
@@ -185,7 +185,7 @@ class ClientSocket(WebSocket):
                             num_client_players = int(received_input)
                             if not str(num_client_players) in valid_options:
                                 num_client_players = None
-                                self.sendMessage("TEXT[00100]"+prompt_text)
+                                self.sendMessage("PROMPT[00100]"+prompt_text)
                         else:
                             #For any input besides a number, assume the default
                             num_client_players = DEFAULT_LOCAL_PLAYERS
@@ -198,7 +198,7 @@ class ClientSocket(WebSocket):
                     prompt_text = ("Please specify how many computer-controlled players will play, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
                     prompt_text += " (Hit enter for default "+str(DEFAULT_VIRTUAL_PLAYERS)+")"
                     print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                    self.sendMessage("TEXT[00100]"+prompt_text)
+                    self.sendMessage("PROMPT[00100]"+prompt_text)
                     num_virtual_players = None
                     while not str(num_virtual_players) in valid_options:
                         received_input = self.get_text()
@@ -207,7 +207,7 @@ class ClientSocket(WebSocket):
                                 num_virtual_players = int(received_input)
                                 if not str(num_virtual_players) in valid_options:
                                     num_virtual_players = None
-                                    self.sendMessage("TEXT[00100]"+prompt_text)
+                                    self.sendMessage("PROMPT[00100]"+prompt_text)
                             else:
                                 #For any input besides a number, assume the default
                                 num_virtual_players = DEFAULT_VIRTUAL_PLAYERS
@@ -221,7 +221,7 @@ class ClientSocket(WebSocket):
                     prompt_text = ("Please specify how many players from other computers will play, between "+str(valid_options[0])+" and " +str(valid_options[-1])+ "?")
                     prompt_text += " (Hit enter for default "+str(DEFAULT_REMOTE_PLAYERS)+")"
                     print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                    self.sendMessage("TEXT[00100]"+prompt_text)
+                    self.sendMessage("PROMPT[00100]"+prompt_text)
                     num_players = None
                     while not num_players in range(min_players, max_players + 1):
                         received_input = self.get_text()
@@ -230,7 +230,7 @@ class ClientSocket(WebSocket):
                                 num_players = num_client_players + num_virtual_players + int(received_input)
                                 if not num_players in range(min_players, max_players + 1):
                                     num_players = None
-                                    self.sendMessage("TEXT[00100]"+prompt_text)
+                                    self.sendMessage("PROMPT[00100]"+prompt_text)
                             else:
                                 #For any input besides a number, assume the default
                                 num_players = num_client_players + num_virtual_players + DEFAULT_REMOTE_PLAYERS
@@ -250,6 +250,9 @@ class ClientSocket(WebSocket):
                     player = GAME_MODES[new_game_type]["player_set"][player_colour](player_colour)
                     client_players[self].append(player)
                     new_game_players[game_id].append(player)
+                #Notify the player that they are in the queue and how many more players are awaited
+                print("QUEUE[00100]"+str(len(new_game_players[game_id]))+"/"+str(num_players))
+                self.sendMessage("QUEUE[00100]"+str(len(new_game_players[game_id]))+"/"+str(num_players))
                 in_queue = True
             else:
                 print("Trying to join this client to an existing game")
@@ -272,7 +275,7 @@ class ClientSocket(WebSocket):
                 prompt_text += " (Hit enter for default "+str(DEFAULT_JOINING_PLAYERS)+")"
                 num_client_players = None
                 print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                self.sendMessage("TEXT[00100]"+prompt_text)
+                self.sendMessage("PROMPT[00100]"+prompt_text)
                 while not num_client_players in range(1, max_players + 1):
                     received_input = self.get_text()
                     if received_input:
@@ -280,7 +283,7 @@ class ClientSocket(WebSocket):
                             num_client_players = int(received_input)
                             if not num_client_players in range(1, max_players + 1):
                                 num_client_players = None
-                                self.sendMessage("TEXT[00100]"+prompt_text)
+                                self.sendMessage("PROMPT[00100]"+prompt_text)
                         else:
                             #For any input besides a number, assume the default
                             num_client_players = DEFAULT_JOINING_PLAYERS
@@ -302,6 +305,10 @@ class ClientSocket(WebSocket):
                     player = PlayerHuman(player_colour)
                     client_players[self].append(player)
                     new_game_players[game_id].append(player)
+                #Notify the player that they are in the queue and how many more players are awaited
+                print("QUEUE[00100]"+str(num_existing_players + num_client_players)+"/"+str(num_players))
+                for client in new_game_queues[game_id]:
+                    client.sendMessage("QUEUE[00100]"+str(num_existing_players + num_client_players)+"/"+str(num_players))
                 in_queue = True
             
             #If this client's game is now full then start it off

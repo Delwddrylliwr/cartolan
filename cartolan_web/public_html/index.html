@@ -95,13 +95,28 @@
                 }
 
                 function onMessage(evt) {
-                    decomposed = evt.data.split("[00100]")
-                    console.log("Data received of type: "+evt.data.type)
+                    decomposed = evt.data.split("[00100]");
+                    console.log("Data received of type: "+evt.data.type);
                     if (decomposed[0] === 'PING') { // this is a heartbeat message
                         this.send("PONG[00100]");
-                    }
-                    else if (decomposed[0] === 'TEXT') { // accept only text
-                        console.log("Text prompt received: "+decomposed[1])
+                    } else if (decomposed[0] === 'QUEUE') { // accept only text
+                        console.log("Player numbers in queue received: "+decomposed[1]);
+                        // @TODO update the queue notifcation with the numbers just reveived
+                        if(!this.startGame.detectMob()){
+                           document.fonts.load('24pt Calibri').then(this.startGame.drawSplash); 
+                        }
+                        //Print a message informing the user that something is happening
+                        context.font = "36px Arial";
+                        var text = "Configuring game and waiting for everyone to join... (has "+decomposed[1]+" players)";
+    //                    context.fillText(text, x, y);
+                        var maxwidth = Math.round(this.canvas.width * heightShare);
+                        var lineHeight = 25;
+                        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                        var x = this.canvas.width/2;
+                        var y = this.canvas.height/2;
+                        this.startGame.wrapText(context, text, x, y, maxwidth, lineHeight);
+                    } else if (decomposed[0] === 'PROMPT') { // accept only text
+                        console.log("Text prompt received: "+decomposed[1]);
                         var input = prompt(decomposed[1]);
                         if (input === "") {input = "BLANK"};
                         console.log("input: " + input);
@@ -123,7 +138,7 @@
                         };
 //                        img.src = "data:image/png;base64, "+btoa(decomposed[1]);
                         imageString = decomposed[1].toString().substring(1).replace(/'/g, "");
-                        console.log(imageString);
+//                        console.log(imageString);
                         img.src = "data:image/png;base64, "+imageString;
                     } else {
                         console.log("Received message couldn't be processed.");
@@ -137,7 +152,7 @@
             
                
             function send(message) {
-                console.log("Trying to send message: "+message)
+                console.log("Trying to send message: "+message);
                 waitForConnection(function () {
                     websocket.send(message);
                 }, 1000);
@@ -145,7 +160,7 @@
 
             function waitForConnection(callback, interval) {
                 if (websocket.readyState === 1) {
-                    console.log("Web socket found open.")
+                    console.log("Web socket found open.");
                     callback();
                 }
             };
@@ -156,8 +171,9 @@
                 //Function to check for mobiles, to tailor content to smaller displays
                 context = myGameArea.context;
                 function detectMob() {
-                    return ( ( window.innerWidth <= 800 ) && ( window.innerHeight <= 600 ) )
-                  }
+                    return ( ( window.innerWidth <= 800 ) && ( window.innerHeight <= 600 ) );
+                };
+                startGame.detectMob = detectMob; //make this available externally
                 //Create a function to wrap text for this display size
                 function wrapText(context, text, x, y, maxWidth, lineHeight) {
                     var words = text.split(' ');
@@ -177,7 +193,8 @@
                       }
                     }
                     context.fillText(line, x, y);
-                  }
+                 };
+                startGame.wrapText = wrapText;  //make this available externally 
                 //Populate the splash screen with some introductory information
                 context.fillStyle = "white";
                 context.textAlign = "center";
@@ -187,11 +204,12 @@
                     var y = canvas.height/2;
                     //Display cover image
                     var img = new Image();
-                    img.src = "./img/splash_screen.jpg"
+                    img.src = "./img/splash_screen.jpg";
 //                    var img = document.getElementById("icon");
                     img.onload = function () {
                         context.drawImage(img, x - img.width/2,0); 
                     };
+                    startGame.drawSplash = drawSplash;  //make this available externally
                     //Now print the game title
                     y = y + 120;
                     text = 'Cartolan - Trade Winds';
@@ -206,7 +224,7 @@
                     wrapText(context, text, x, y, maxwidth, lineHeight);
 //                    context.fillText(text, x, y)
                 }
-                var maxwidth = Math.round(this.canvas.width * heightShare)
+                var maxwidth = Math.round(this.canvas.width * heightShare);
                 var lineHeight = 25;
                 this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 if(!detectMob()){
@@ -215,7 +233,7 @@
                 }
                 //Prompt user to click before connecting to game server and launching popups
                 context.font = "36px Arial";
-                var text = "Click to Create/Join next game"
+                var text = "Click to Create/Join next game";
                 var x = canvas.width/2;
                 var y = canvas.height/2;
                 wrapText(context, text, x, y, maxwidth, lineHeight);
@@ -223,7 +241,7 @@
                 function waiting(){
 
                     if(myGameArea.clicked){
-                        console.log("Click detected. Proceeding with prompts...")
+                        console.log("Click detected. Proceeding with prompts...");
                         myGameArea.clicked = false;
                         //Redraw the splash screen
                         var x = canvas.width/2;
@@ -234,7 +252,7 @@
                         }
                         //Print a message informing the user that something is happening
                         context.font = "36px Arial";
-                        var text = "Configuring game and waiting for everyone to join..."
+                        var text = "Configuring game and waiting for everyone to join...";
     //                    context.fillText(text, x, y);
                         wrapText(context, text, x, y, maxwidth, lineHeight);
                         //Regularly refresh visuals
@@ -242,7 +260,7 @@
                         //set up the websocket connection to the game server
                         openWS();
                     } else {
-                        console.log("No click detected. Waiting further for input...")
+                        console.log("No click detected. Waiting further for input...");
                         setTimeout(waiting, 300);
                     }
                 }
@@ -260,7 +278,7 @@
                     context = this.context;
                     document.body.insertBefore(this.canvas, document.body.childNodes[0]);
                     //@TODO allow queueing of moves to be configured
-                    context.queueMoves = true;
+                    context.queueMoves = false;
                     window.addEventListener('pointerdown', function (e) {
                         myGameArea.clicked = true;
                         myGameArea.x = Math.round(e.pageX);

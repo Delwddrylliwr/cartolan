@@ -231,14 +231,7 @@ class AdventurerAdvanced(AdventurerRegular):
             and len(self.game.agents[self.player]) > 0 
             and self.wealth > 0):
             #Offer the opportunity to move wealth around between Agents
-            transfer_agent = self.player.check_transfer_agent(self)
-            while isinstance(transfer_agent, AgentAdvanced):
-                #Check the amount to transfer and move it
-                transfer_amount = self.player.check_deposit(self, self.wealth, -transfer_agent.wealth)
-                self.wealth -= transfer_amount
-                transfer_agent.wealth += transfer_amount
-                #See if another transfer is desired
-                transfer_agent = self.player.check_transfer_agent(self)
+            self.transfer_to_agent()
     
 #    def place_agent(self):
 #        '''Extends standard behaviour to allow a buff with same-turn resting
@@ -247,6 +240,29 @@ class AdventurerAdvanced(AdventurerRegular):
 #            self.agents_rested.remove(self.current_tile.agent)
 #            return True
 #        else: return False
+    
+    def discover(self, tile):
+        '''Extends standard behaviour to allow transfers to Agents even after exploration.
+        '''
+        super().discover(tile)
+        if (self.transfers_to_agents 
+            and len(self.game.agents[self.player]) > 0 
+            and self.wealth > 0):
+            #Offer the opportunity to move wealth around between Agents
+            self.transfer_to_agent()
+        return True
+    
+    def transfer_to_agent(self):
+        '''Offers the opporutnity to transfer current wealth to any of the player's Agents
+        '''
+        transfer_agent = self.player.check_transfer_agent(self)
+        while isinstance(transfer_agent, AgentAdvanced):
+            #Check the amount to transfer and move it
+            transfer_amount = self.player.check_deposit(self, self.wealth, -transfer_agent.wealth)
+            self.wealth -= transfer_amount
+            transfer_agent.wealth += transfer_amount
+            #See if another transfer is desired
+            transfer_agent = self.player.check_transfer_agent(self)
     
     def restore_agent(self, agent):
         '''Extends standard behaviour to allow a buff with same-turn resting
