@@ -5,6 +5,7 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 import http.server
 import socketserver
 import sys
+import time
 #import ssl
 
 DEFAULT_PORT = 9000
@@ -28,4 +29,5 @@ if __name__ == "__main__":
     
     # Start the server
     print("Starting the HTTP server at port: "+str(port))
+    print(time.strftime('%Y-%m-%d %H:%M %Z', time.gmtime(time.time()))) #timestamp
     my_server.serve_forever()
