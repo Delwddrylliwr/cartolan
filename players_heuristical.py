@@ -623,6 +623,9 @@ class PlayerAdvancedExplorer(PlayerRegularExplorer):
         self.return_city_attr = "cost_tech"
     
     def continue_turn(self, adventurer):
+        if isinstance(adventurer.game, GameAdvanced):
+            if adventurer.game.assigned_cadres.get(self) is None:
+                adventurer.game.choose_cadre(self)
         if isinstance(adventurer, AdventurerAdvanced):
             if adventurer.character_card is None:
                 adventurer.choose_character()

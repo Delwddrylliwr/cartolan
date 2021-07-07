@@ -82,15 +82,15 @@ class PlayerHuman(Player):
                 game_vis.draw_toggle_menu(self.fixed_responses)
             if isinstance(adventurer, AdventurerRegular):
                 preferred_tile = gui_input.get("preferred_tile")
-                print("Player received menu input, choosing a chest tile, with a value of "+str(preferred_tile))
                 if isinstance(preferred_tile, int):
+                    print("Player received menu input, choosing chest tile #"+str(preferred_tile+1))
                     if adventurer.preferred_tile_num == preferred_tile:
                         adventurer.preferred_tile_num = None
                     elif preferred_tile < len(adventurer.chest_tiles):
                         adventurer.preferred_tile_num = preferred_tile
                     game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
             if isinstance(adventurer, AdventurerAdvanced):
-                game_vis.draw_cards(adventurer)
+                game_vis.draw_cards()
     
     def move_to_tile(self, adventurer, tile):
         '''Establishes the direction for movement to an adjacent tile.'''
@@ -176,7 +176,7 @@ class PlayerHuman(Player):
         #Draw the left menu items
         game_vis.draw_scores()
         if isinstance(adventurer, AdventurerAdvanced):
-            game_vis.draw_cards(adventurer)
+            game_vis.draw_cards()
         #Draw the right menu items
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
         game_vis.draw_move_count(moves_since_rest, max_moves=adventurer.max_downwind_moves)
@@ -232,6 +232,27 @@ class PlayerHuman(Player):
                     player_input = game_vis.get_input_coords(adventurer)
             else:
                 self.respond_menu_choices(adventurer, player_input)
+                #Redraw everything in case the adventurer of focus was changed
+                game_vis.draw_play_area()
+                game_vis.draw_routes()
+                #Draw the left menu items
+                game_vis.draw_scores()
+                if isinstance(adventurer, AdventurerAdvanced):
+                    game_vis.draw_cards()
+                #Draw the right menu items
+                moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
+                game_vis.draw_move_count(moves_since_rest, max_moves=adventurer.max_downwind_moves)
+                game_vis.draw_toggle_menu(self.fixed_responses)
+                if isinstance(adventurer, AdventurerRegular):
+                    adventurer.match_chest_directions()
+                    game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+                game_vis.draw_tile_piles()
+                game_vis.draw_discard_pile()
+                
+                game_vis.draw_move_options(moves)
+                game_vis.draw_tokens() #draw them on top of highlights
+                game_vis.give_prompt(prompt)
+                #Seek input again
                 player_input = game_vis.get_input_coords(adventurer)
         
         if player_input.get("move") is not None:
@@ -274,10 +295,11 @@ class PlayerHuman(Player):
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
         adventurers = game.adventurers[self]
+        adventurer_number = adventurers.index(adventurer)
 #        #Clear the previously drawn route for this adventurer, before drawing a new one
 #        adventurer.route = [adventurer.current_tile]
         #Update the play area after other player's movements, such as virtual players
-        game_vis.start_turn(self.colour)
+        game_vis.start_turn(self.colour, adventurer_number)
         game_vis.draw_play_area()
         game_vis.draw_routes()
         game_vis.draw_tokens()
@@ -353,7 +375,7 @@ class PlayerHuman(Player):
         #Draw the left menu items
         game_vis.draw_scores()
         if isinstance(adventurer, AdventurerAdvanced):
-            game_vis.draw_cards(adventurer)
+            game_vis.draw_cards()
         #Draw the right menu items
         moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
         game_vis.draw_move_count(moves_since_rest, max_moves=adventurer.max_downwind_moves)
@@ -398,6 +420,27 @@ class PlayerHuman(Player):
                and player_input.get("move") is None
                and player_input.get("Nothing") is None):
             self.respond_menu_choices(adventurer, player_input)
+            #Redraw everything in case the adventurer of focus was changed
+            #make sure that tiles and token positions are up to date
+            game_vis.draw_play_area()
+            game_vis.draw_routes()
+            #Draw the left menu items
+            game_vis.draw_scores()
+            if isinstance(adventurer, AdventurerAdvanced):
+                game_vis.draw_cards()
+            #Draw the right menu items
+            moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
+            game_vis.draw_move_count(moves_since_rest, max_moves=adventurer.max_downwind_moves)
+            game_vis.draw_toggle_menu(self.fixed_responses)
+            if isinstance(adventurer, AdventurerRegular):
+                adventurer.match_chest_directions()
+                game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+            game_vis.draw_tile_piles()
+            game_vis.draw_discard_pile()
+            game_vis.draw_move_options(actions)
+            game_vis.draw_tokens() #draw tokens on top of highlights
+            game_vis.give_prompt(prompt)
+            #Seek input again
             player_input = game_vis.get_input_coords(adventurer)
         if player_input.get(action_type) is not None:
             action_coords = player_input.get(action_type)
@@ -607,7 +650,7 @@ class PlayerHuman(Player):
         if isinstance(adventurer.current_tile, CityTile): #As there is a separate check to withdraw treasure before a turn, assume they will always bank everything
             return adventurer.wealth
         else:
-            deposit_amount = game_vis.get_input_value("How much treasure will your Adventurer move to this Agent, from "+str(minimum)+" to "+str(maximum)+"?", maximum, minimum)
+            deposit_amount = game_vis.get_input_value(adventurer, "How much treasure will your Adventurer move to this Agent, from "+str(minimum)+" to "+str(maximum)+"?", maximum, minimum)
             if deposit_amount is not None:
                 return deposit_amount
             else:
@@ -620,7 +663,7 @@ class PlayerHuman(Player):
         game_vis = self.games[game.game_id]["game_vis"]
         
         #Ask the visual for an amount, so that it can either prompt the player or default
-        travel_money = game_vis.get_input_value("How much treasure will your Adventurer take with them, up to "+str(maximum)+"?", maximum)
+        travel_money = game_vis.get_input_value(adventurer, "How much treasure will your Adventurer take with them, up to "+str(maximum)+"?", maximum)
         if travel_money in range(0, maximum+1):
             return travel_money
         else:
@@ -632,7 +675,7 @@ class PlayerHuman(Player):
         game_vis = self.games[game.game_id]["game_vis"]
         
         #Ask the visual for an amount, so that it can either prompt the player or default
-        steal_amount = game_vis.get_input_value("Your Adventurer's piracy succeeded. How much treasure will they take, up to "+str(maximum)+"?", maximum)
+        steal_amount = game_vis.get_input_value(adventurer, "Your Adventurer's piracy succeeded. How much treasure will they take, up to "+str(maximum)+"?", maximum)
         if steal_amount in range(0, maximum+1):
             return steal_amount
         else:
@@ -701,7 +744,7 @@ class PlayerHuman(Player):
         if isinstance(adventurer, AdventurerRegular) and card_variety not in ["com", "adv"]:
             game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
         if isinstance(adventurer, AdventurerAdvanced):
-            game_vis.draw_cards(adventurer)
+            game_vis.draw_cards()
         
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
@@ -731,7 +774,7 @@ class PlayerHuman(Player):
         if isinstance(adventurer, AdventurerRegular):
             game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
         if isinstance(adventurer, AdventurerAdvanced):
-            game_vis.draw_cards(adventurer)
+            game_vis.draw_cards()
         
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
