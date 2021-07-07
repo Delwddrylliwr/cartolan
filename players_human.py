@@ -88,7 +88,7 @@ class PlayerHuman(Player):
                         adventurer.preferred_tile_num = None
                     elif preferred_tile < len(adventurer.chest_tiles):
                         adventurer.preferred_tile_num = preferred_tile
-                    game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+                    game_vis.draw_chest_tiles()
             if isinstance(adventurer, AdventurerAdvanced):
                 game_vis.draw_cards()
     
@@ -143,6 +143,10 @@ class PlayerHuman(Player):
         
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
+        
+        #Bring focus back to the moving adventurer
+        game_vis.viewed_player_colour = adventurer.player.colour
+        game_vis.viewed_adventurer_number = game.adventurers[adventurer.player].index(adventurer)
                         
         moves, move_map = self.establish_moves(adventurer)
         #Include waiting in the current location among move options
@@ -178,12 +182,11 @@ class PlayerHuman(Player):
         if isinstance(adventurer, AdventurerAdvanced):
             game_vis.draw_cards()
         #Draw the right menu items
-        moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-        game_vis.draw_move_count(moves_since_rest, max_moves=adventurer.max_downwind_moves)
+        game_vis.draw_move_count()
         game_vis.draw_toggle_menu(self.fixed_responses)
         if isinstance(adventurer, AdventurerRegular):
             adventurer.match_chest_directions()
-            game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+            game_vis.draw_chest_tiles()
         game_vis.draw_tile_piles()
         game_vis.draw_discard_pile()
         
@@ -240,12 +243,11 @@ class PlayerHuman(Player):
                 if isinstance(adventurer, AdventurerAdvanced):
                     game_vis.draw_cards()
                 #Draw the right menu items
-                moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-                game_vis.draw_move_count(moves_since_rest, max_moves=adventurer.max_downwind_moves)
+                game_vis.draw_move_count()
                 game_vis.draw_toggle_menu(self.fixed_responses)
                 if isinstance(adventurer, AdventurerRegular):
                     adventurer.match_chest_directions()
-                    game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+                    game_vis.draw_chest_tiles()
                 game_vis.draw_tile_piles()
                 game_vis.draw_discard_pile()
                 
@@ -299,14 +301,14 @@ class PlayerHuman(Player):
 #        #Clear the previously drawn route for this adventurer, before drawing a new one
 #        adventurer.route = [adventurer.current_tile]
         #Update the play area after other player's movements, such as virtual players
-        game_vis.start_turn(self.colour, adventurer_number)
+        game_vis.start_turn(adventurer)
         game_vis.draw_play_area()
         game_vis.draw_routes()
         game_vis.draw_tokens()
         game_vis.draw_scores()
         #Have the player acknowledge that it is their turn
 #        game_vis.clear_prompt()
-        game_vis.give_prompt(self.colour.capitalize()+" player's turn for Adventurer #"+str(adventurers.index(adventurer)+1)+". click to continue.")
+        game_vis.give_prompt(self.colour.capitalize()+" player's turn for Adventurer #"+str(adventurer_number+1)+". click to continue.")
 #        game_vis.draw_move_options()
         game_vis.get_input_coords(adventurer)
         game_vis.clear_prompt()
@@ -377,12 +379,11 @@ class PlayerHuman(Player):
         if isinstance(adventurer, AdventurerAdvanced):
             game_vis.draw_cards()
         #Draw the right menu items
-        moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-        game_vis.draw_move_count(moves_since_rest, max_moves=adventurer.max_downwind_moves)
+        game_vis.draw_move_count()
         game_vis.draw_toggle_menu(self.fixed_responses)
         if isinstance(adventurer, AdventurerRegular):
             adventurer.match_chest_directions()
-            game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+            game_vis.draw_chest_tiles()
         game_vis.draw_tile_piles()
         game_vis.draw_discard_pile()
         
@@ -429,12 +430,11 @@ class PlayerHuman(Player):
             if isinstance(adventurer, AdventurerAdvanced):
                 game_vis.draw_cards()
             #Draw the right menu items
-            moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-            game_vis.draw_move_count(moves_since_rest, max_moves=adventurer.max_downwind_moves)
+            game_vis.draw_move_count()
             game_vis.draw_toggle_menu(self.fixed_responses)
             if isinstance(adventurer, AdventurerRegular):
                 adventurer.match_chest_directions()
-                game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+                game_vis.draw_chest_tiles()
             game_vis.draw_tile_piles()
             game_vis.draw_discard_pile()
             game_vis.draw_move_options(actions)
