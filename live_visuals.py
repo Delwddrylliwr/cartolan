@@ -118,20 +118,23 @@ class GameVisualisation():
             , "com+pool":"Map tiles are pooled across all Adventurers. Maps can be swapped at Agents for 1 treasure. Draw 3 Manuscript cards."
             }
     
-    def __init__(self, game, dimensions, origin):
+    def __init__(self, game, dimensions, origin, peer_visuals):
         #Retain game data
         self.players = game.players
         self.game = game
         self.dimensions = dimensions.copy()
         self.origin = origin.copy()
+        self.peer_visuals = peer_visuals
         
         print("Initialising state variables")
 #        self.clock = pygame.time.Clock()
         self.move_timer = self.MOVE_TIME_LIMIT
         self.current_player_colour = "black"
         self.current_adventurer_number = 0
+        self.current_adventurer = None
         self.viewed_player_colour = "black"
         self.viewed_adventurer_number = 0
+        self.viewed_adventurer = None
         self.highlights = {highlight_type:[] for highlight_type in self.HIGHLIGHT_PATHS}
         self.highlight_rects = []
         self.drawn_routes = []
@@ -640,16 +643,22 @@ class GameVisualisation():
                     #remember where this highlight was drawn, to detect input later
                     self.highlight_rects[highlight_type].append((horizontal, vertical, highlight_image.get_width(), highlight_image.get_height()))
         
-    def draw_move_count(self, moves_since_rest=None, max_moves=None):
-        '''eport the number of moves that have been used so far:
+    def draw_move_count(self):
+        '''report the number of moves that have been used so far:
         '''
+        moves_since_rest = self.current_adventurer.downwind_moves + self.current_adventurer.upwind_moves + self.current_adventurer.land_moves
         horizontal = self.MOVE_COUNT_POSITION[0] * self.width
 #            vertical = self.MOVE_COUNT_POSITION[1] * self.height + len(self.game.tile_piles) * self.SCORES_FONT_SCALE * self.height
         vertical = 0
-        if moves_since_rest:
-            move_count = self.scores_font.render(str(moves_since_rest)+" of "+str(max_moves)+" moves since rest", 1, self.PLAIN_TEXT_COLOUR)
+        if self.current_adventurer == self.viewed_adventurer:
+            if moves_since_rest != 0:
+                move_count = self.scores_font.render(str(moves_since_rest)+" of "+str(self.current_adventurer.max_downwind_moves)+" moves since rest", 1, self.PLAIN_TEXT_COLOUR)
+            else:
+                report = "No moves since rest"
+                move_count = self.scores_font.render(report, 1, self.PLAIN_TEXT_COLOUR)
         else:
-            move_count = self.scores_font.render("No moves since rest", 1, self.PLAIN_TEXT_COLOUR)
+            report = "Not "+self.viewed_player_colour+" Adventurer's turn"
+            move_count = self.scores_font.render(report, 1, self.viewed_player_colour)
         if move_count.get_width() > self.right_text_start:
             self.right_text_start = move_count.get_width() #permanently adjust the text margin on this setup if it doesn't fit
         self.window.blit(move_count, [horizontal, vertical])
@@ -922,11 +931,7 @@ class GameVisualisation():
             , vertical - self.piles_rect[1])   
     
     def draw_toggle_menu(self, fixed_responses):
-        '''Visualises a set of tiles in the Adventurer's Chest, and highlights one if it is selected for use
-        
-        Arguments:
-        chest_tiles takes a list of Cartolan tiles
-        preferred_tile_num takes an integer index for that list
+        '''Visualises a set of highlights for action prompts that can have a fixed True/False response set for them 
         '''
         self.toggle_rects = [] #Reset the record of where the toggle menu buttons have been drawn
         #Establish the top left coordinate below the table of treasure scores
@@ -965,22 +970,24 @@ class GameVisualisation():
             self.toggle_rects.append([(horizontal, vertical, self.menu_highlight_size, self.menu_highlight_size), highlight_type])
             horizontal += self.menu_highlight_size #increment the horizontal placement before the next toggle is drawn
                 
-    def draw_chest_tiles(self, chest_tiles, preferred_tile_num, max_chest_tiles):
+    def draw_chest_tiles(self):
         '''Visualises a set of tiles in the Adventurer's Chest, and highlights one if it is selected for use
-        
-        Arguments:
-        chest_tiles takes a list of Cartolan tiles
-        preferred_tile_num takes an integer index for that list
         '''
+        #Get the information from the viewed adventurer
+        if self.viewed_adventurer is None:
+            return
+        chest_tiles = self.viewed_adventurer.chest_tiles
+        preferred_tile_num = self.viewed_adventurer.preferred_tile_num
+        max_chest_tiles = self.viewed_adventurer.num_chest_tiles
         #Establish the top left coordinate of the column of tiles to choose from, below the table of treasure scores
 #        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1)
-        horizontal = self.right_menu_start
+        horizontal = self.right_text_start
 #        vertical = (len(self.game.players) + 1) * self.SCORES_FONT_SCALE * self.height
         vertical = self.toggles_rect[1] + self.toggles_rect[3] 
-        chest_title = self.scores_font.render("Chest maps:", 1, self.PLAIN_TEXT_COLOUR)
+        title_text = "Adventurer #"+str(self.viewed_adventurer_number+1)+"'s chest maps:"
+        chest_title = self.scores_font.render(title_text, 1, self.viewed_player_colour)
         self.window.blit(chest_title, (horizontal, vertical))
         #Draw a box to surround the Chest menu, and remember its coordinates for player input
-        #@TODO allow the Chest tiles menu to vary in size depending on Adventurer
         horizontal = self.right_menu_start
         vertical += self.SCORES_FONT_SCALE * self.height
         menu_size = self.menu_tile_size * math.ceil(max_chest_tiles / self.MENU_TILE_COLS)
@@ -1168,14 +1175,19 @@ class GameVisualisation():
         prompt = self.prompt_font.render(self.prompt_text, 1, pygame.Color(self.current_player_colour))
         self.window.blit(prompt, self.prompt_position)
     
-    def start_turn(self, player_colour, adventurer_number):
+    def start_turn(self, adventurer):
         '''Identifies the current player by their colour, affecting prompts
         '''
-        self.current_player_colour = player_colour
-        self.current_adventurer_number = adventurer_number
-        #Also reset which adventurer's cards are being viewed
-        self.viewed_player_colour = player_colour
-        self.viewed_adventurer_number = adventurer_number
+        player_colour = adventurer.player.colour
+        adventurer_number = self.game.adventurers[adventurer.player].index(adventurer)
+        for game_vis in self.peer_visuals:
+            game_vis.current_player_colour = player_colour
+            game_vis.current_adventurer_number = adventurer_number
+            game_vis.current_adventurer = adventurer
+            #Also reset which adventurer's cards are being viewed
+            game_vis.viewed_player_colour = player_colour
+            game_vis.viewed_adventurer_number = adventurer_number
+            game_vis.viewed_adventurer = adventurer
     
     def give_prompt(self, prompt_text):
         '''Pushes text to the prompt buffer for the visual
@@ -1301,11 +1313,12 @@ class WebServerVisualisation(GameVisualisation):
     TEMP_FILE_EXTENSION = ".png"
     INPUT_DELAY = 0.1 #delay time between checking for input, in seconds
     
-    def __init__(self, game, dimensions, origin, client, width, height):
+    def __init__(self, game, dimensions, origin, peer_visuals, client, width, height):
+        self.peer_visuals = peer_visuals
         self.client = client
         self.width, self.height = width, height
         self.client_players = []
-        super().__init__(game, dimensions, origin)
+        super().__init__(game, dimensions, origin, peer_visuals)
     
     def init_GUI(self):
         print("Initialising the pygame window and GUI")
@@ -1352,7 +1365,7 @@ class WebServerVisualisation(GameVisualisation):
         #Import images
         self.init_graphics()
     
-    #@TODO other clients are likely not updating because they are getting none of the visual updates prompted by their opponents' moves
+    #other clients are likely not updating because they are getting none of the visual updates prompted by their opponents' moves
     def update_web_display(self):
         '''For this client visualisation in particular, send out an image of the play area.
         '''
@@ -1402,106 +1415,112 @@ class WebServerVisualisation(GameVisualisation):
         '''Cycles through clients to the same game, besides the active player, updating their visuals
         '''
         #print("Updating the display for all the other human players, whose visuals won't have been consulted.")
-        for player in self.game.players:
-            if isinstance(player, PlayerHuman):
-#                print("Updating visuals for player "+str(self.game.players.index(player)+1)+" with visual "+str(player.games[self.game.game_id]["game_vis"]))
-                game_vis = player.games[self.game.game_id]["game_vis"]
-                if not self.client == game_vis.client:
-#                    print("Recognised that this player is using a different client: "+str(game_vis.client.address))
-                    #Make sure that remote visuals know which player is moving
-                    game_vis.current_player_colour = adventurer.player.colour
-                    game_vis.current_adventurer_number = self.game.adventurers[adventurer.player].index(adventurer)
-                    #Update visuals to keep them informed of action
-                    game_vis.draw_play_area()
-                    game_vis.draw_tokens()
-                    game_vis.draw_routes()
-                    #Draw the right menu items
-                    moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-                    game_vis.draw_move_count(moves_since_rest, max_moves=adventurer.max_downwind_moves)
-                    if isinstance(adventurer, AdventurerRegular):
-                        if input_type[:6] =="choose" and not input_type == "choose_tile": #Don't draw the chest tiles when the players are first picking companies and adventurers 
-                            chest_tiles = adventurer.chest_tiles
-                            preferred_tile_num = adventurer.preferred_tile_num
-                            num_chest_tiles = adventurer.num_chest_tiles
-                            game_vis.draw_chest_tiles(chest_tiles, preferred_tile_num, num_chest_tiles)
-                    game_vis.draw_tile_piles()
-                    game_vis.draw_discard_pile()
-                    #Draw the left menu items and any offers over the top
-                    game_vis.draw_scores()
-                    if isinstance(adventurer, AdventurerAdvanced):
-                        game_vis.draw_cards()
-                        #If offers are being made then draw these on top of everything else
-                        if choices is not None:
-                            if input_type=="choose_tile":
-                                game_vis.draw_tile_offers(choices)
-                            else:
-                                game_vis.draw_card_offers(choices)
-                    #Prompt the player
-                    if input_type == "move":
-                        prompt = adventurer.player.colour.capitalize()+" player's is moving their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1)
-                    elif input_type == "text":
-                        prompt = adventurer.player.colour.capitalize()+" player's is choosing a treasure amount for their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1)
-                    elif input_type == "choose_tile":
-                        prompt = adventurer.player.colour.capitalize()+" player is choosing a tile for their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1)
-                    elif input_type == "choose_discovery":
-                        prompt = adventurer.player.colour.capitalize()+" player is choosing a Manuscript card for their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1)
-                    elif input_type == "choose_company":
-                        prompt = adventurer.player.colour.capitalize()+" player is choosing their Cadre card"
-                    else:
-                        prompt = adventurer.player.colour.capitalize()+" player is choosing a Character card for their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1)
-                    game_vis.give_prompt(prompt)
-                    
-                game_vis.update_web_display()
+        refreshed_visuals = []
+        for game_vis in self.peer_visuals:
+            if not self.client == game_vis.client and game_vis not in refreshed_visuals:
+                refreshed_visuals.append(game_vis)
+                game_vis.refresh_visual(choices, input_type)
+                
+            game_vis.update_web_display()
     
+    def refresh_visual(self, choices=None, input_type="move"):
+        '''Updates all elements of this visual, as required when not the active player
+        '''
+        #Update visuals to keep them informed of action
+        self.draw_play_area()
+        self.draw_tokens()
+        self.draw_routes()
+        #Draw the right menu items
+        if not input_type in ["choose_company", "choose_character"]:
+            self.draw_move_count()
+            if isinstance(self.current_adventurer, AdventurerRegular):
+                if not input_type == "choose_tile": #Don't draw the chest tiles when the players are first picking companies and adventurers 
+                    self.draw_chest_tiles()
+            self.draw_tile_piles()
+            self.draw_discard_pile()
+        #Draw the left menu items and any offers over the top
+        self.draw_scores()
+        if isinstance(self.current_adventurer, AdventurerAdvanced):
+            self.draw_cards()
+            #If offers are being made then draw these on top of everything else
+            if choices is not None:
+                if input_type=="choose_tile":
+                    self.draw_tile_offers(choices)
+                else:
+                    self.draw_card_offers(choices)
+        #Prompt the player
+        if input_type == "move":
+            prompt = self.current_player_colour.capitalize()+" player's is moving their Adventurer #"+str(self.current_adventurer_number+1)
+        elif input_type == "text":
+            prompt = self.current_player_colour.capitalize()+" player's is choosing a treasure amount for their Adventurer #"+str(self.current_adventurer_number+1)
+        elif input_type == "choose_tile":
+            prompt = self.current_player_colour.capitalize()+" player is choosing a tile for their Adventurer #"+str(self.current_adventurer_number+1)
+        elif input_type == "choose_discovery":
+            prompt = self.current_player_colour.capitalize()+" player is choosing a Manuscript card for their Adventurer #"+str(self.current_adventurer_number+1)
+        elif input_type == "choose_company":
+            prompt = self.current_player_colour.capitalize()+" player is choosing their Cadre card"
+        else:
+            prompt = self.current_player_colour.capitalize()+" player is choosing a Character card for their Adventurer #"+str(self.current_adventurer_number+1)
+        self.give_prompt(prompt)
     
     def check_peer_input(self):
         '''Cycles through remote players besides the active one, checking whether clicks have been registered and updating their private visuals accordingly
         '''
+        checked_visuals = []
+        for game_vis in self.peer_visuals:
+            if not self.client == game_vis.client and game_vis not in checked_visuals:
+                checked_visuals.append(game_vis)
+                coords = game_vis.client.get_coords()
+                if coords is not None:
+                    horizontal, vertical = coords
+                    if game_vis.check_update_focus(horizontal, vertical):
+                        game_vis.refresh_visual()
+                        game_vis.update_web_display()
     
-    def check_update_focus(self, horizontal, vertical, visual=None):
+    def check_update_focus(self, horizontal, vertical):
         '''Checks whether click coordinates were within the superficial visual elements that need no game response but should revise the client's visuals
         '''
-        if visual is None:
-            visual = self
-        if (horizontal in range(int(visual.scores_rect[0]), int(visual.scores_rect[0] + visual.scores_rect[2]))
-            and vertical in range(int(visual.scores_rect[1]), int(visual.scores_rect[1] + visual.scores_rect[3]))):
+        if (horizontal in range(int(self.scores_rect[0]), int(self.scores_rect[0] + self.scores_rect[2]))
+            and vertical in range(int(self.scores_rect[1]), int(self.scores_rect[1] + self.scores_rect[3]))):
             print("Player chose coordinates within the scores table, with vertical: "+str(vertical))
-            for score in visual.score_rects:
+            for score in self.score_rects:
                 score_rect = score[0]
                 if (horizontal in range(int(score_rect[0]), int(score_rect[0] + score_rect[2]))
                     and vertical in range(int(score_rect[1]), int(score_rect[1] + score_rect[3]))):
                     #Having found the click within a particular player/adventurer's score, need to update the focus of the card stacks
                     if isinstance(score[1], Player):
                         #just choose the first adventurer if it was the player's vault wealth selected
-                        visual.viewed_player_colour = score[1].colour
-                        visual.viewed_adventurer_number = 0
+                        self.viewed_player_colour = score[1].colour
+                        self.viewed_adventurer_number = 0
+                        self.viewed_adventurer = self.game.adventurers[score[1]][0]
                     else:
-                        visual.viewed_player_colour = score[1].player.colour
-                        visual.viewed_adventurer_number = visual.game.adventurers[score[1].player].index(score[1])
-                    print("Updated focus for card visuals to "+visual.viewed_player_colour+" player's Adventurer #"+str(visual.viewed_adventurer_number+1))
+                        self.viewed_player_colour = score[1].player.colour
+                        self.viewed_adventurer_number = self.game.adventurers[score[1].player].index(score[1])
+                        self.viewed_adventurer = score[1]
+                    print("Updated focus for card visuals to "+self.viewed_player_colour+" player's Adventurer #"+str(self.viewed_adventurer_number+1))
             return True
         #Check whether the click was within the card stack, and update the index of the selected card
-        elif (horizontal in range(int(visual.stack_rect[0]), int(visual.stack_rect[0] + visual.stack_rect[2]))
-            and vertical in range(int(visual.stack_rect[1]), int(visual.stack_rect[1] + visual.stack_rect[3]))):
+        elif (horizontal in range(int(self.stack_rect[0]), int(self.stack_rect[0] + self.stack_rect[2]))
+            and vertical in range(int(self.stack_rect[1]), int(self.stack_rect[1] + self.stack_rect[3]))):
             print("Player chose coordinates within the card stack, with vertical: "+str(vertical))
-            if visual.selected_card_num is None: #The Character card at the bottom will be on top
-#                print("Stack top is "+str(int(visual.stack_rect[1] + visual.stack_rect[3])))
-#                print("Card height is "+str(visual.card_height))
-                if vertical < int(visual.stack_rect[1] + visual.stack_rect[3]) - visual.card_height:
-                    visual.selected_card_num = int(vertical - visual.stack_rect[1]) // int(visual.card_height * visual.CARD_HEADER_SHARE)
-                    print("Updated the selected card to number "+str(visual.selected_card_num))
+            if self.selected_card_num is None: #The Character card at the bottom will be on top
+#                print("Stack top is "+str(int(self.stack_rect[1] + self.stack_rect[3])))
+#                print("Card height is "+str(self.card_height))
+                if vertical < int(self.stack_rect[1] + self.stack_rect[3]) - self.card_height:
+                    self.selected_card_num = int(vertical - self.stack_rect[1]) // int(self.card_height * self.CARD_HEADER_SHARE)
+                    print("Updated the selected card to number "+str(self.selected_card_num))
             else:
-                selected_card_top = int(visual.stack_rect[1] + (visual.selected_card_num - 1) * visual.card_height * visual.CARD_HEADER_SHARE)
-                selected_card_bottom = selected_card_top + visual.card_height
-                if vertical > int(visual.stack_rect[1] + visual.stack_rect[3]) - visual.card_height * visual.CARD_HEADER_SHARE:
-                    visual.selected_card_num = None                            
+                selected_card_top = int(self.stack_rect[1] + (self.selected_card_num - 1) * self.card_height * self.CARD_HEADER_SHARE)
+                selected_card_bottom = selected_card_top + self.card_height
+                if vertical > int(self.stack_rect[1] + self.stack_rect[3]) - self.card_height * self.CARD_HEADER_SHARE:
+                    self.selected_card_num = None                            
                 elif selected_card_top < vertical < selected_card_bottom:
-                    visual.selected_card_num = None #clicking on the selected card de-selects it
+                    self.selected_card_num = None #clicking on the selected card de-selects it
                 elif vertical < selected_card_top:
-                    visual.selected_card_num = (vertical - int(visual.stack_rect[1])) // int(visual.card_height * visual.CARD_HEADER_SHARE)
+                    self.selected_card_num = (vertical - int(self.stack_rect[1])) // int(self.card_height * self.CARD_HEADER_SHARE)
                 elif vertical > selected_card_bottom:
-                    visual.selected_card_num += (vertical - selected_card_bottom) // int(visual.card_height * visual.CARD_HEADER_SHARE)
-#                        print("Updated the selected card to number "+str(visual.selected_card_num))
+                    self.selected_card_num += (vertical - selected_card_bottom) // int(self.card_height * self.CARD_HEADER_SHARE)
+#                        print("Updated the selected card to number "+str(self.selected_card_num))
             return True
         else:
             return False
@@ -1512,38 +1531,9 @@ class WebServerVisualisation(GameVisualisation):
         Arguments
         adventurer takes a Cartolan.Adventurer
         '''
-#        #print("Updating the display for all the other human players, whose visuals won't have been consulted.")
-#        for player in self.game.players:
-#            if isinstance(player, PlayerHuman):
-##                print("Updating visuals for player "+str(self.game.players.index(player)+1)+" with visual "+str(player.games[self.game.game_id]["game_vis"]))
-#                game_vis = player.games[self.game.game_id]["game_vis"]
-#                if not self.client == game_vis.client:
-##                    print("Recognised that this player is using a different client: "+str(game_vis.client.address))
-#                    #Make sure that remote visuals know which player is moving
-#                    game_vis.current_player_colour = adventurer.player.colour
-#                    game_vis.current_adventurer_number = self.game.adventurers[adventurer.player].index(adventurer)
-#                    #Update visuals to keep them informed of action
-#                    game_vis.draw_play_area()
-#                    game_vis.draw_tokens()
-#                    game_vis.draw_routes()
-#                    #Draw the left menu items
-#                    game_vis.draw_scores()
-#                    if isinstance(adventurer, AdventurerAdvanced):
-#                        game_vis.draw_cards()
-#                    #Draw the right menu items
-#                    moves_since_rest = adventurer.downwind_moves + adventurer.upwind_moves + adventurer.land_moves
-#                    game_vis.draw_move_count(moves_since_rest, max_moves=adventurer.max_downwind_moves)
-#                    if isinstance(adventurer, AdventurerRegular):
-#                        chest_tiles = adventurer.chest_tiles
-#                        preferred_tile_num = adventurer.preferred_tile_num
-#                        num_chest_tiles = adventurer.num_chest_tiles
-#                        game_vis.draw_chest_tiles(chest_tiles, preferred_tile_num, num_chest_tiles)
-#                    game_vis.draw_tile_piles()
-#                    game_vis.draw_discard_pile()
-#                    #Prompt the player
-#                    game_vis.give_prompt(adventurer.player.colour.capitalize()+" player's is moving their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
-#                    
-#                game_vis.update_web_display()
+        #Make sure that the current adventurer is up to date
+        if self.current_adventurer is None:
+            self.start_turn(adventurer)
         #Update the visuals for the remote players who aren't active
         self.refresh_peers(adventurer)
         
@@ -1562,48 +1552,8 @@ class WebServerVisualisation(GameVisualisation):
                     menu_column = (horizontal - int(self.chest_rect[0])) // self.menu_tile_size
                     return {"preferred_tile":self.MENU_TILE_COLS * menu_row + menu_column}
                 #Check whether the click was irrelevant to gameplay but changes the focus of the active player's visuals
-                elif self.check_update_focus(horizontal, vertical, self):
+                elif self.check_update_focus(horizontal, vertical):
                     return {"update_cards":None}
-#                #Check whether the click was within the scores menu and update the adventurer whose cards are being viewed
-#                elif (horizontal in range(int(self.scores_rect[0]), int(self.scores_rect[0] + self.scores_rect[2]))
-#                    and vertical in range(int(self.scores_rect[1]), int(self.scores_rect[1] + self.scores_rect[3]))):
-##                    print("Player chose coordinates within the scores table, with vertical: "+str(vertical))
-#                    for score in self.score_rects:
-#                        score_rect = score[0]
-#                        if (horizontal in range(int(self.score_rect[0]), int(self.score_rect[0] + self.score_rect[2]))
-#                            and vertical in range(int(self.score_rect[1]), int(self.score_rect[1] + self.score_rect[3]))):
-#                            #Having found the click within a particular player/adventurer's score, need to update the focus of the card stacks
-#                            if isinstance(score_rect[1], Player):
-#                                #just choose the first adventurer if it was the player's vault wealth selected
-#                                self.viewed_player_colour = score_rect[1].colour
-#                                self.viewed_adventurer_number = 0
-#                            else:
-#                                self.viewed_player_colour = score_rect[1].player.colour
-#                                self.viewed_adventurer_number = self.game.adventurers[score_rect[1].player].index(score_rect[1])
-#                    return {"update_cards":None}
-#                #Check whether the click was within the card stack, and update the index of the selected card
-#                elif (horizontal in range(int(self.stack_rect[0]), int(self.stack_rect[0] + self.stack_rect[2]))
-#                    and vertical in range(int(self.stack_rect[1]), int(self.stack_rect[1] + self.stack_rect[3]))):
-##                    print("Player chose coordinates within the card stack, with vertical: "+str(vertical))
-#                    if self.selected_card_num is None: #The Character card at the bottom will be on top
-##                        print("Stack top is "+str(int(self.stack_rect[1] + self.stack_rect[3])))
-##                        print("Card height is "+str(self.card_height))
-#                        if vertical < int(self.stack_rect[1] + self.stack_rect[3]) - self.card_height:
-#                            self.selected_card_num = int(vertical - self.stack_rect[1]) // int(self.card_height * self.CARD_HEADER_SHARE)
-##                            print("Updated the selected card to number "+str(self.selected_card_num))
-#                    else:
-#                        selected_card_top = int(self.stack_rect[1] + (self.selected_card_num - 1) * self.card_height * self.CARD_HEADER_SHARE)
-#                        selected_card_bottom = selected_card_top + self.card_height
-#                        if vertical > int(self.stack_rect[1] + self.stack_rect[3]) - self.card_height * self.CARD_HEADER_SHARE:
-#                            self.selected_card_num = None                            
-#                        elif selected_card_top < vertical < selected_card_bottom:
-#                            self.selected_card_num = None #clicking on the selected card de-selects it
-#                        elif vertical < selected_card_top:
-#                            self.selected_card_num = (vertical - int(self.stack_rect[1])) // int(self.card_height * self.CARD_HEADER_SHARE)
-#                        elif vertical > selected_card_bottom:
-#                            self.selected_card_num += (vertical - selected_card_bottom) // int(self.card_height * self.CARD_HEADER_SHARE)
-##                        print("Updated the selected card to number "+str(self.selected_card_num))
-#                    return {"update_cards":None}
                 #Check whether the click was within the toggle menu, and update the index of the selected card
                 elif (horizontal in range(int(self.toggles_rect[0]), int(self.toggles_rect[0] + self.toggles_rect[2]))
                     and vertical in range(int(self.toggles_rect[1]), int(self.toggles_rect[1] + self.toggles_rect[3]))):
@@ -1641,7 +1591,8 @@ class WebServerVisualisation(GameVisualisation):
 #                                print("Identified coordinates on a route of length "+str(len(route[1])))
                                 return {"route":route[1], "destination":[longitude, latitude]}
 #                coords = None
-            #@TODO check for input from the other clients to their visuals and update their view
+            #Check for input from the other clients to their visuals and update their view
+            self.check_peer_input()
             #Wait before checking again            
             time.sleep(self.INPUT_DELAY)
         
@@ -1654,42 +1605,9 @@ class WebServerVisualisation(GameVisualisation):
         adventurer takes a Cartolan.adventurer
         cards takes a list of Cartolan.card
         '''
-#        #print("Updating the display for all the other human players, whose visuals won't have been consulted.")
-#        for player in self.game.players:
-#            if isinstance(player, PlayerHuman):
-##                print("Updating visuals for player "+str(self.game.players.index(player)+1)+" with visual "+str(player.games[self.game.game_id]["game_vis"]))
-#                game_vis = player.games[self.game.game_id]["game_vis"]
-#                if not self.client == game_vis.client:
-##                    print("Recognised that this player is using a different client: "+str(game_vis.client.address))
-#                    #Make sure that remote visuals know which player is moving
-#                    game_vis.current_player_colour = adventurer.player.colour
-#                    game_vis.current_adventurer_number = self.game.adventurers[adventurer.player].index(adventurer)
-#                    #Update visuals to keep them informed of action
-#                    game_vis.draw_play_area()
-#                    game_vis.draw_tokens()
-#                    game_vis.draw_routes()
-#                    #Draw the left menu items
-#                    game_vis.draw_scores()
-#                    if isinstance(adventurer, AdventurerAdvanced):
-#                        game_vis.draw_cards()
-#                        if offer_type=="tile":
-#                            game_vis.draw_tile_offers(cards)
-#                        else:
-#                            game_vis.draw_card_offers(cards)
-#                    #Draw the right menu items
-#                    game_vis.draw_move_count()
-#                    if isinstance(adventurer, AdventurerRegular):
-#                        if offer_type =="card" and not cards[0].card_type[:3] in ["com", "dis"]: #Don't draw the chest tiles when the players are first picking companies and adventurers 
-#                            chest_tiles = adventurer.chest_tiles
-#                            preferred_tile_num = adventurer.preferred_tile_num
-#                            num_chest_tiles = adventurer.num_chest_tiles
-#                            game_vis.draw_chest_tiles(chest_tiles, preferred_tile_num, num_chest_tiles)
-#                    game_vis.draw_tile_piles()
-#                    game_vis.draw_discard_pile()
-#                    #Prompt the player
-#                    game_vis.give_prompt(adventurer.player.colour.capitalize()+" player is choosing a card for their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1))
-#                    
-#                game_vis.update_web_display()
+        #Make sure that the current adventurer is up to date
+        if self.current_adventurer is None:
+            self.start_turn(adventurer)
         #Update the visuals for the remote players who aren't active
         if offer_type == "card":
             if cards[0].card_type[:3] == "com":
@@ -1715,52 +1633,10 @@ class WebServerVisualisation(GameVisualisation):
                             , int(offer_rect[1]) + int(offer_rect[3]))):
 #                        print("Player chose coordinates within a card")
                         selected_index = self.offer_rects.index(offer_rect)
-#                        card = cards[selected_index]
-#                        if offer_type == "card":
-#                            #Now remember the image that the player chose and return the index of the card to the game
-#                            #@TODO this has potential for conflicts and the card tyoes corresponding to offered images should be kept with them rather than being resubmitted
-#                            card = cards[selected_index]
-##                            #Make sure that all computers involved use the same card image
-##                            updated_visuals = []
-##                            for player in self.game.players:
-##                                if isinstance(player, PlayerHuman):
-##                                    game_vis = player.games[self.game.game_id]["game_vis"]
-##                                    if game_vis in updated_visuals:
-##                                        continue #This visual has already reserved the image, and will cause errors if it tries to reserve it again
-##                                    if game_vis.held_cards.get(adventurer) is None:
-##                                        game_vis.held_cards[adventurer] = {card.card_type:[]}
-##                                    if game_vis.held_cards[adventurer].get(card.card_type) is None:
-##                                        existing_images = game_vis.held_cards[adventurer][card.card_type] = []
-##                                    else:
-##                                        existing_images = game_vis.held_cards[adventurer][card.card_type]
-##                                    selected_card_image = game_vis.offer_images[selected_index]
-##                                    existing_images.append(selected_card_image)
-##                                    game_vis.card_image_library[card.card_type].remove(selected_card_image)
-##                                    game_vis.used_card_images[card.card_type].append(selected_card_image)
-##                                    updated_visuals.append(game_vis)
                         return selected_index
                 coords = None #Let them try again
-                #@TODO check for input from the other clients to their visuals and update their view
+            #Check for input from the other clients to their visuals and update their view
+            self.check_peer_input()
             time.sleep(self.INPUT_DELAY)
         
         return False
-
-#class GameMenu():
-#    '''Generates a standalone menu window for parametrising games.
-#    '''
-#    MENU_SHAPE = 0.5
-#    
-#    def __init__(self):
-#        pygame.init()
-#        self.window = pygame.display.set_mode((0, 0), pygame.RESIZABLE)
-#        pygame.display.set_caption("Setting up Cartolan - Trade Winds")
-#        self.width, self.height = pygame.display.get_surface().get_size()
-##        splash_image = pygame.image.load(self.GENERAL_TILE_PATH +'splash_screen.png')
-##        if splash_image.width < self.width:
-##            new_width = self.width
-##            new_height = self.width * splash_image.height / splash_image.width
-##            splash_image = pygame.transform.scale(splash_image, [new_width, new_height])
-#                
-#        self.menu = pygame_menu.Menu(self.MENU_SHAPE * self.width
-#                                     , self.MENU_SHAPE * self.height, 'Configure game'
-#                                     , theme=pygame_menu.themes.THEME_BLUE)
