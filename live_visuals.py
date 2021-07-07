@@ -1431,10 +1431,11 @@ class WebServerVisualisation(GameVisualisation):
                     if isinstance(adventurer, AdventurerAdvanced):
                         game_vis.draw_cards()
                         #If offers are being made then draw these on top of everything else
-                        if input_type=="choose_tile" and choices is not None:
-                            game_vis.draw_tile_offers(choices)
-                        else:
-                            game_vis.draw_card_offers(choices)
+                        if choices is not None:
+                            if input_type=="choose_tile":
+                                game_vis.draw_tile_offers(choices)
+                            else:
+                                game_vis.draw_card_offers(choices)
                     #Prompt the player
                     if input_type == "move":
                         prompt = adventurer.player.colour.capitalize()+" player's is moving their Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1)
