@@ -148,6 +148,8 @@ class GameVisualisation():
         self.toggles_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
         self.toggle_rects = []
         self.piles_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
+        self.adventurer_centres = []
+        self.agent_rects = []
         if isinstance(self.game, GameAdvanced):
             self.selected_card_num = None
             self.card_images = {}
@@ -748,11 +750,15 @@ class GameVisualisation():
                 # we want it to be coloured differently for each player
 #                print("Drawing the filled circle at " +str(location[0])+ ", " +str(location[1])+ " with radius " +str(self.token_size))
                 pygame.draw.circle(self.window, colour, location, self.token_size)
+                self.adventurer_centres.append([(location[0], location[1]), adventurer])
                 if isinstance(adventurer, AdventurerRegular):
                     if adventurer.pirate_token:
                         # we'll outline pirates in black
 #                        print("Drawing an outline")
                         pygame.draw.circle(self.window, (0, 0, 0), location, self.token_size, self.outline_width)
+#                if adventurer in (self.viewed_adventurer, self.current_adventurer):
+                if adventurer == self.viewed_adventurer:
+                    pygame.draw.circle(self.window, self.PLAIN_TEXT_COLOUR, location, self.token_size+self.outline_width, self.outline_width)
                 #For the text label we'll change the indent
                 token_label = self.token_font.render(str(adventurers.index(adventurer)+1), 1, token_label_colour)
                 location[0] -= self.token_size // 2
@@ -769,6 +775,8 @@ class GameVisualisation():
                 #Agents will be differentiated by colour, but they will always have the same position because there will only be one per tile
                 agent_shape = pygame.Rect(location[0], location[1]
                   , self.AGENT_SCALE*self.token_size, self.AGENT_SCALE*self.token_size)
+                self.agent_rects.append([(location[0], location[1]
+                  , self.AGENT_SCALE*self.token_size, self.AGENT_SCALE*self.token_size), agent.player])
                 # we'll only outline the Agents that are dispossessed
                 if isinstance(agent, AgentRegular) and agent.is_dispossessed:
                         pygame.draw.rect(self.window, colour, agent_shape, self.outline_width)
@@ -1523,6 +1531,22 @@ class WebServerVisualisation(GameVisualisation):
 #                        print("Updated the selected card to number "+str(self.selected_card_num))
             return True
         else:
+            #Check the various Adventurer and Agent shapes for a click and use this to select the Adventurer to focus on
+            for centre in self.adventurer_centres:
+                if (horizontal - centre[0][0])**2 + (vertical - centre[0][1])**2 < self.token_size**2:
+                    print("Click detected within one of the Adventurers' areas, with centre: "+str(centre[0]))
+                    self.viewed_player_colour = centre[1].player.colour
+                    self.viewed_adventurer_number = self.game.adventurers[centre[1].player].index(centre[1])
+                    self.viewed_adventurer = centre[1]
+                    return True
+            for rect in self.agent_rects:
+                if (horizontal in range(int(rect[0][0]), int(rect[0][0] + rect[0][2]))
+                    and vertical in range(int(rect[0][1]), int(rect[0][1] + rect[0][3]))):
+                    print("Click detected within one of the Agents' areas for "+rect[1].colour+" player.")
+                    self.viewed_player_colour = rect[1].colour
+                    self.viewed_adventurer_number = 0
+                    self.viewed_adventurer = self.game.adventurers[rect[1]][0]
+                    return True
             return False
     
     def get_input_coords(self, adventurer):
