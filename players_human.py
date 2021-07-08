@@ -145,6 +145,7 @@ class PlayerHuman(Player):
         game_vis = self.games[game.game_id]["game_vis"]
         
         #Bring focus back to the moving adventurer
+        game_vis.viewed_adventurer = adventurer
         game_vis.viewed_player_colour = adventurer.player.colour
         game_vis.viewed_adventurer_number = game.adventurers[adventurer.player].index(adventurer)
                         
@@ -742,7 +743,7 @@ class PlayerHuman(Player):
         game_vis.draw_scores()
         game_vis.draw_move_count()
         if isinstance(adventurer, AdventurerRegular) and card_variety not in ["com", "adv"]:
-            game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+            game_vis.draw_chest_tiles()
         if isinstance(adventurer, AdventurerAdvanced):
             game_vis.draw_cards()
         
@@ -772,7 +773,7 @@ class PlayerHuman(Player):
         game_vis.draw_scores()
         game_vis.draw_move_count()
         if isinstance(adventurer, AdventurerRegular):
-            game_vis.draw_chest_tiles(adventurer.chest_tiles, adventurer.preferred_tile_num, adventurer.num_chest_tiles)
+            game_vis.draw_chest_tiles()
         if isinstance(adventurer, AdventurerAdvanced):
             game_vis.draw_cards()
         

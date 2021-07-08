@@ -732,6 +732,9 @@ class GameVisualisation():
 #        print("Cycling through the players, drawing the adventurers and agents as markers")
         game = self.game
         players = self.players
+        #Reset the records of where Agents and Adventurers have been
+        self.adventurer_centres = []
+        self.agent_rects = []
         for player in players:
             #We'll want to differentiate players by colour and the offset from the tile location
             colour = pygame.Color(player.colour)
@@ -797,7 +800,7 @@ class GameVisualisation():
         '''
 #        print("Drawing a series of lines to mark out the route travelled by players since the last move")
         players = self.game.players
-        self.drawn_routes = []
+        self.drawn_routes = [] #Clear out old routes
         for player in players:
             player_offset = self.PLAYER_OFFSETS[players.index(player)]
             adventurers = self.game.adventurers[player]
