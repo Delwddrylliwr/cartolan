@@ -290,9 +290,10 @@ class AdventurerAdvanced(AdventurerRegular):
         if self.current_tile.agent is not None:
 #            print("Checking whether special interactions are possible with "+self.current_tile.agent.player.colour+" player's Agent")
             agent = self.current_tile.agent
-            if not agent.is_dispossessed and agent.agents_arrest and self.pirate_token:
+            if (agent.agents_arrest and not agent.is_dispossessed 
+                and self.pirate_token and not agent.player == self.player):
                 if random.random() < self.game.attack_success_prob:
-                    AdventurerAdvanced.arrest(self.current_tile.agent, self) #The arrest function should only use common features of the common parent Token class
+                    AdventurerAdvanced.arrest(agent, self) #The arrest function should only use common features of the common parent Token class
 #                   self.current_tile.agent.arrest(self) #The arrest function should only use common features of the common parent Token class
                     self.end_turn()
     
