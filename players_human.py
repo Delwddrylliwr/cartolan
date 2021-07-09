@@ -230,7 +230,7 @@ class PlayerHuman(Player):
                     #Remove the route up until the current tile
                     while not self.follow_route[0] == adventurer.current_tile:
                             self.follow_route.pop(0)
-                    print("Trimmed route to curren tile, with length "+str(len(self.follow_route)))
+                    print("Trimmed route to current tile, with length "+str(len(self.follow_route)))
                     return self.continue_move(adventurer)
                 else:
                     player_input = game_vis.get_input_coords(adventurer)
@@ -267,7 +267,11 @@ class PlayerHuman(Player):
 #                print("moved = "+str(moved))
             else:
                 game_vis.clear_move_options()
-                moved = adventurer.move(move_map[move_coords[0]].get(move_coords[1]))
+                compass_point = move_map[move_coords[0]].get(move_coords[1])
+                if compass_point in ["n", "e", "s", "w"]:
+                    moved = adventurer.move(compass_point)
+                else:
+                    moved = adventurer.wait()
                 #check whether the turn is over despite movement failing, e.g. it failed because exploration failed
                 if adventurer.turns_moved == adventurer.game.turn:
                     moved = True
@@ -506,6 +510,7 @@ class PlayerHuman(Player):
     #if offered by a city, then give the player the option to pay and refresh their chest maps
     def check_buy_maps(self, adventurer, report="Player is being asked whether to pay to refresh their chest maps"):
         print(report)
+        self.clear_fixed_response() #Make sure that auto-actions to buy doesn't apply
         actions = {}
         action_type = "buy"
         actions[action_type] = [[adventurer.current_tile.tile_position.longitude
@@ -521,6 +526,7 @@ class PlayerHuman(Player):
     #if offered by a city, then give the player the option to buy a discovery card 
     def check_buy_tech(self, adventurer, report="Player is being asked whether to buy a Discovery card"):
         print(report)
+        self.clear_fixed_response() #Make sure that auto-actions to buy doesn't apply
         actions = {}
         action_type = "buy"
         actions[action_type] = [[adventurer.current_tile.tile_position.longitude
@@ -537,6 +543,7 @@ class PlayerHuman(Player):
     #if offered by a city, then give the player the option to buy an Adventurer 
     def check_buy_adventurer(self, adventurer, report="Player is being asked whether to buy an Adventurer"):
         print(report)
+        self.clear_fixed_response() #Make sure that auto-actions to buy doesn't apply
         actions = {}
         action_type = "buy"
         actions[action_type] = [[adventurer.current_tile.tile_position.longitude
@@ -552,6 +559,7 @@ class PlayerHuman(Player):
     # Let the player choose whether to place an agent when offered
     def check_place_agent(self, adventurer):
         actions = {}
+        self.clear_fixed_response() #Make sure that auto-actions to buy doesn't apply
         action_type = "buy"
         actions[action_type] = [[adventurer.current_tile.tile_position.longitude
                     , adventurer.current_tile.tile_position.latitude]]
@@ -565,6 +573,7 @@ class PlayerHuman(Player):
     # When offered, give the player the option to buy on any tile that doesn't have an active Agent 
     def check_buy_agent(self, adventurer, report="Player has been offered to buy an agent by a city"):
         print(report)
+        self.clear_fixed_response() #Make sure that auto-actions to buy doesn't apply
         actions = {}
         action_type = "buy"
         #Establish a list of all tiles without an active Agent, to offer the player
