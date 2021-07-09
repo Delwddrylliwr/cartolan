@@ -75,7 +75,7 @@ client_games = {} #referenced by ClientSocket
 #player_clients = {} #refernced by players
 #player_games = {} #refereced by players
 #Track new games as they're being initiated, based on sequential game IDs
-new_game_queues = {} #referenced by game ID
+new_game_clients = {} #referenced by game ID
 new_game_types = {} #referenced by game ID
 new_game_colours = {} #referenced by game ID
 new_game_players = {} #referenced by game ID, return the colour assigned to them
@@ -133,345 +133,267 @@ class ClientSocket(WebSocket):
 #        self.width = "0"
 #        self.height = "0"
     
-    def join_game(self):
+    def setup_client_players(self, num_client_players):
+        '''Seeks remote input to determine the names of 
+        '''
+        global client_players
+        client_players[self] = []
+        for player_num in range(num_client_players):
+            #Get the player to submit a name
+            prompt_text = ("What is the name of the "+ORDINALS[player_num]+" player on this computer? (hit enter for random)")
+            player_name = None
+            self.sendMessage("PROMPT[00100]"+prompt_text)
+            print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+            while player_name is None:
+                player_name = self.get_text()
+                if player_name is not None:
+                    if len(player_name) > MAX_NAME_CHARS:
+                        prompt_text = (player_name.capitalize()+" is too long. Pick a new name for the "+ORDINALS[player_num]+" player on this computer? (fewer than "+str(MAX_NAME_CHARS)+" letters)")
+                        player_name = None
+                    elif player_name in players.keys():
+                        prompt_text = (player_name.capitalize()+" is taken. Pick a new name for the "+ORDINALS[player_num]+" player on this computer?")
+                        player_name = None
+                    elif player_name == "BLANK":
+                        player_name = NAMES[random.randint(0,len(NAMES)-1)]
+                        print("Assigning a random name: "+player_name)
+                        while player_name in players.keys():
+                            player_name += str(random.randint(0,MAX_NAME_USES))
+                            print("Random name wasn't unique so appending a number: "+player_name)
+                        break
+                    else:
+                        break
+                    self.sendMessage("PROMPT[00100]"+prompt_text)
+                    print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+                else:
+                    time.sleep(self.INPUT_DELAY)
+            player = PlayerHuman(player_name)
+            players[player_name] = player
+            client_players[self].append(player)
+    
+    def create_game(self, new_game_type="", num_client_players=None, num_virtual_players=0, num_players=None):
+        '''Seeks remote input to specify and set up a game that can then be joined by players.
+        '''
+        global next_game_id, client_players
+        global new_game_clients, new_game_types, new_game_colours, new_game_players
+        game_id = next_game_id
+        next_game_id += 1
+        new_game_clients[game_id] = [self]
+        print("Seeking game specification from newly joined client")
+        prompt_text = "Please specify which mode of Cartolan you would like to host: "
+        valid_options = []
+        for game_type in GAME_MODES:
+            prompt_text += "'"+game_type+"'"
+            valid_options.append(game_type)
+            if len(valid_options) < len(GAME_MODES):
+                prompt_text += ", or "
+            else:
+                prompt_text += "."
+        if new_game_type not in valid_options:
+            prompt_text += " (Hit enter for default "+DEFAULT_GAME_MODE+")"
+            print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+            self.sendMessage("PROMPT[00100]"+prompt_text)
+        while not new_game_type in valid_options:
+            new_game_type = self.get_text()
+            if new_game_type:
+                if new_game_type == "BLANK":
+                    print("Game type prompt was left blank, so assuming default mode of "+DEFAULT_GAME_MODE)
+                    new_game_type = DEFAULT_GAME_MODE
+                elif not new_game_type in valid_options:
+                    new_game_type = None
+                    self.sendMessage("PROMPT[00100]"+prompt_text)
+            time.sleep(self.INPUT_DELAY)
+        new_game_types[game_id] = new_game_type
+        min_players = GAME_MODES[new_game_type]["game_type"].MIN_PLAYERS
+        max_players = GAME_MODES[new_game_type]["game_type"].MAX_PLAYERS
+        available_colours = random.sample(GAME_MODES[new_game_type]["player_set"].keys(), max_players)
+        new_game_colours[game_id] = []
+        #Get remote user input about how many players they have at their end
+        valid_options = [str(i) for i in range(1, max_players + 1)]
+        if str(num_client_players) not in valid_options:
+            prompt_text = ("Please specify how many players will play from this computer, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
+            prompt_text += " (Hit enter for default "+str(DEFAULT_LOCAL_PLAYERS)+")"
+            num_client_players = None
+            print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+            self.sendMessage("PROMPT[00100]"+prompt_text)
+        while not str(num_client_players) in valid_options:
+            received_input = self.get_text()
+            if received_input:
+                if received_input.isnumeric():
+                    num_client_players = int(received_input)
+                    if not str(num_client_players) in valid_options:
+                        num_client_players = None
+                        self.sendMessage("PROMPT[00100]"+prompt_text)
+                else:
+                    #For any input besides a number, assume the default
+                    num_client_players = DEFAULT_LOCAL_PLAYERS
+            else:
+                time.sleep(self.INPUT_DELAY)
+        #Name and set up these host human players
+        if (client_players.get(self) is None 
+            or not len(client_players[self]) == num_client_players):
+            #Name and set up these host human players
+            self.setup_client_players(num_client_players)
+        #Assign colours to these local players
+        new_game_players[game_id] = {}
+        for player in client_players[self]:
+            player_colour =  available_colours.pop(random.randint(0,len(available_colours)-1))
+            new_game_colours[game_id].append(player_colour)
+            new_game_players[game_id][player] = player_colour
+        #Get remote user input about how many computer players the game will have
+        if num_client_players < max_players:
+            valid_options = [str(i) for i in range(0, max_players - num_client_players + 1)]
+            prompt_text = ("Please specify how many computer-controlled players will play, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
+            prompt_text += " (Hit enter for default "+str(DEFAULT_VIRTUAL_PLAYERS)+")"
+            print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+            self.sendMessage("PROMPT[00100]"+prompt_text)
+            num_virtual_players = None
+            while not str(num_virtual_players) in valid_options:
+                received_input = self.get_text()
+                if received_input:
+                    if received_input.isnumeric():
+                        num_virtual_players = int(received_input)
+                        if not str(num_virtual_players) in valid_options:
+                            num_virtual_players = None
+                            self.sendMessage("PROMPT[00100]"+prompt_text)
+                    else:
+                        #For any input besides a number, assume the default
+                        num_virtual_players = DEFAULT_VIRTUAL_PLAYERS
+                else:
+                    time.sleep(self.INPUT_DELAY)
+        #Assign random names and colours to these CPU players
+        for player_num in range(num_virtual_players):
+            player_colour =  available_colours.pop(random.randint(0,len(available_colours)-1))
+            new_game_colours[game_id].append(player_colour)
+            player_name = "AI:"+NAMES[random.randint(0,len(NAMES)-1)]
+            while player_name in players.keys():
+                player_name += str(random.randint(0,MAX_NAME_USES))
+            player = GAME_MODES[new_game_type]["player_set"][player_colour](player_name)
+            players[player_name] = player
+            client_players[self].append(player)
+            new_game_players[game_id][player] = player_colour
+        #Get remote user input about how many other players they want in their game
+        if num_players is None:
+            num_players = num_client_players + num_virtual_players
+        #If there are still spaces available then allow for remote players
+        if num_players < max_players:
+            valid_options = [str(i) for i in range(max(min_players - num_players, 0), max_players - num_players + 1)]
+            prompt_text = ("Please specify how many players from other computers will play, between "+str(valid_options[0])+" and " +str(valid_options[-1])+ "?")
+            prompt_text += " (Hit enter for default "+str(DEFAULT_REMOTE_PLAYERS)+")"
+            print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+            self.sendMessage("PROMPT[00100]"+prompt_text)
+            num_players = None
+            while not num_players in range(min_players, max_players + 1):
+                received_input = self.get_text()
+                if received_input:
+                    if received_input.isnumeric():
+                        num_players = num_client_players + num_virtual_players + int(received_input)
+                        if not num_players in range(min_players, max_players + 1):
+                            num_players = None
+                            self.sendMessage("PROMPT[00100]"+prompt_text)
+                    else:
+                        #For any input besides a number, assume the default
+                        num_players = num_client_players + num_virtual_players + DEFAULT_REMOTE_PLAYERS
+                else:
+                    time.sleep(self.INPUT_DELAY)
+            new_game_colours[game_id] = random.sample(available_colours, num_players - len(new_game_colours[game_id]))
+        return game_id
+    
+    def join_game(self, game_id, num_client_players=None):
+        '''Attempts to join a specific game, and otherwise joins the game queue
+        '''
+        global client_players
+        global new_game_clients, new_game_types, new_game_colours, new_game_players
+        new_game_type = new_game_types[game_id]
+        num_existing_clients = len(new_game_clients[game_id])
+        #Seek input about how many players there are using this client
+        client_players[game_id] = []
+#        min_players = GAME_MODES[new_game_type]["game_type"].MIN_PLAYERS
+        max_players = GAME_MODES[new_game_type]["game_type"].MAX_PLAYERS
+        if num_client_players not in range(1, max_players + 1):
+            num_existing_players = len(new_game_players[game_id])
+            num_spaces = len(new_game_colours[game_id])
+            num_players = num_existing_players + num_spaces
+            print("The existing game has "+str(num_existing_clients)+" other clients connected")
+    #        valid_options = [str(i) for i in range(1, num_spaces + 1)]
+            prompt_text = ("The current game has " +str(num_existing_players) +"/"
+                           +str(num_players)+" players. Please specify how many players will play from this computer, between 1 and " 
+                           +str(num_spaces)+ "?")
+            prompt_text += " (Hit enter for default "+str(DEFAULT_JOINING_PLAYERS)+")"
+            print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+            self.sendMessage("PROMPT[00100]"+prompt_text)
+            while not num_client_players in range(1, max_players + 1):
+                received_input = self.get_text()
+                if received_input:
+                    if received_input.isnumeric():
+                        num_client_players = int(received_input)
+                        if not num_client_players in range(1, max_players + 1):
+                            num_client_players = None
+                            self.sendMessage("PROMPT[00100]"+prompt_text)
+                    else:
+                        #For any input besides a number, assume the default
+                        num_client_players = DEFAULT_JOINING_PLAYERS
+                else:
+                    time.sleep(self.INPUT_DELAY)
+        #Check whether the players have been set up for this client
+        if (client_players.get(self) is None 
+            or not len(client_players[self]) == num_client_players):
+            #Name and set up these host human players
+            self.setup_client_players(num_client_players)
+        #No blocking is done, check whether the number of spaces for this game has changed and start again if so
+        num_spaces = len(new_game_colours[game_id])
+        num_existing_players = len(new_game_players[game_id])
+        num_players = num_existing_players + num_spaces
+        if len(client_players[self]) > num_spaces:
+            prompt_text = ("This game filled up while you were responding. Enter any response to continue and wait for another.")
+            print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+            response = None
+            while response is None:
+                response = self.get_text()
+            game_id = None
+            return False
+        #Assign colours to each new player
+        for player in client_players[self]:
+            player_colour =  new_game_colours[game_id].pop(random.randint(0,len(new_game_colours[game_id])-1))
+            new_game_players[game_id][player] = player_colour
+        return True
+    
+    def join_queue(self):
         '''Adds players to a queue, the first specifies setup, the last hosts in their thread.
         '''
-        global next_game_id, clients, client_visuals, client_players, games, players
-        global client_games
-        global new_game_queues, new_game_types, new_game_colours, new_game_players
-        game_id = None
-        num_client_players = None
+        global new_game_clients, new_game_types, new_game_colours, new_game_players
+        def report_queue(client):
+            num_existing_players = len(new_game_players[game_id])
+            num_players = len(new_game_colours[game_id]) + num_existing_players
+            report = str(num_existing_players)+"/"+str(num_players)
+            client.sendMessage("QUEUE[00100]"+report)
+        #If no game is specified then create or join the next game in the queue
         in_queue = False
-        #@TODO return to creating a new game if there are none available after the user returns input
+        tried_games = []
         while not in_queue:
-            if len(new_game_types) == 0:
+            if len(new_game_types) == 0 or len(tried_games) == len(new_game_types):
                 print("With no games queued up, configuring a new game.")
-                game_id = next_game_id
-                next_game_id += 1
-                new_game_queues[game_id] = [self]
-                print("Seeking game specification from newly joined client")
-                prompt_text = "Please specify which mode of Cartolan you would like to host: "
-                valid_options = []
-                new_game_type = ""
-                for game_type in GAME_MODES:
-                    prompt_text += "'"+game_type+"'"
-                    valid_options.append(game_type)
-                    if len(valid_options) < len(GAME_MODES):
-                        prompt_text += ", or "
-                    else:
-                        prompt_text += "."
-                prompt_text += " (Hit enter for default "+DEFAULT_GAME_MODE+")"
-                print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                self.sendMessage("PROMPT[00100]"+prompt_text)
-                while not new_game_type in valid_options:
-                    new_game_type = self.get_text()
-                    if new_game_type:
-                        if new_game_type == "BLANK":
-                            print("Game type prompt was left blank, so assuming default mode of "+DEFAULT_GAME_MODE)
-                            new_game_type = DEFAULT_GAME_MODE
-                        elif not new_game_type in valid_options:
-                            new_game_type = None
-                            self.sendMessage("PROMPT[00100]"+prompt_text)
-                    time.sleep(self.INPUT_DELAY)
-                new_game_types[game_id] = new_game_type
-                min_players = GAME_MODES[new_game_type]["game_type"].MIN_PLAYERS
-                max_players = GAME_MODES[new_game_type]["game_type"].MAX_PLAYERS
-                available_colours = random.sample(GAME_MODES[new_game_type]["player_set"].keys(), max_players)
-                new_game_colours[game_id] = []
-                #Get remote user input about how many players they have at their end
-                valid_options = [str(i) for i in range(1, max_players + 1)]
-                prompt_text = ("Please specify how many players will play from this computer, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
-                prompt_text += " (Hit enter for default "+str(DEFAULT_LOCAL_PLAYERS)+")"
-                num_client_players = None
-                print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                self.sendMessage("PROMPT[00100]"+prompt_text)
-                while not str(num_client_players) in valid_options:
-                    received_input = self.get_text()
-                    if received_input:
-                        if received_input.isnumeric():
-                            num_client_players = int(received_input)
-                            if not str(num_client_players) in valid_options:
-                                num_client_players = None
-                                self.sendMessage("PROMPT[00100]"+prompt_text)
-                        else:
-                            #For any input besides a number, assume the default
-                            num_client_players = DEFAULT_LOCAL_PLAYERS
-                    else:
-                        time.sleep(self.INPUT_DELAY)
-                #Name and set up these host human players
-                client_players[self] = []
-                new_game_players[game_id] = {}
-                for player_num in range(num_client_players):
-                    player_colour =  available_colours.pop(random.randint(0,len(available_colours)-1))
-                    new_game_colours[game_id].append(player_colour)
-                    #Get the player to submit a name
-                    prompt_text = ("What is the name of the "+ORDINALS[player_num]+" player on this computer? (hit enter for random)")
-                    player_name = None
-                    self.sendMessage("PROMPT[00100]"+prompt_text)
-                    print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                    while player_name is None:
-                        player_name = self.get_text()
-                        if player_name is not None:
-                            if len(player_name) > MAX_NAME_CHARS:
-                                prompt_text = (player_name.capitalize()+" is too long. Pick a new name for the "+ORDINALS[player_num]+" player on this computer? (fewer than "+str(MAX_NAME_CHARS)+" letters)")
-                                player_name = None
-                            elif player_name in players.keys():
-                                prompt_text = (player_name.capitalize()+" is taken. Pick a new name for the "+ORDINALS[player_num]+" player on this computer?")
-                                player_name = None
-                            elif player_name == "BLANK":
-                                player_name = NAMES[random.randint(0,len(NAMES)-1)]
-                                print("Assigning a random name: "+player_name)
-                                while player_name in players.keys():
-                                    player_name += str(random.randint(0,MAX_NAME_USES))
-                                    print("Random name wasn't unique so appending a number: "+player_name)
-                                break
-                            else:
-                                break
-                            self.sendMessage("PROMPT[00100]"+prompt_text)
-                            print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                        else:
-                            time.sleep(self.INPUT_DELAY)
-                    player = PlayerHuman(player_name)
-                    players[player_name] = player
-                    client_players[self].append(player)
-                    new_game_players[game_id][player] = player_colour
-                #Get remote user input about how many computer players the game will have
-                num_virtual_players = 0
-                if num_client_players < max_players:
-                    valid_options = [str(i) for i in range(0, max_players - num_client_players + 1)]
-                    prompt_text = ("Please specify how many computer-controlled players will play, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
-                    prompt_text += " (Hit enter for default "+str(DEFAULT_VIRTUAL_PLAYERS)+")"
-                    print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                    self.sendMessage("PROMPT[00100]"+prompt_text)
-                    num_virtual_players = None
-                    while not str(num_virtual_players) in valid_options:
-                        received_input = self.get_text()
-                        if received_input:
-                            if received_input.isnumeric():
-                                num_virtual_players = int(received_input)
-                                if not str(num_virtual_players) in valid_options:
-                                    num_virtual_players = None
-                                    self.sendMessage("PROMPT[00100]"+prompt_text)
-                            else:
-                                #For any input besides a number, assume the default
-                                num_virtual_players = DEFAULT_VIRTUAL_PLAYERS
-                        else:
-                            time.sleep(self.INPUT_DELAY)
-                #Assign random names and colours to these CPU players
-                for player_num in range(num_virtual_players):
-                    player_colour =  available_colours.pop(random.randint(0,len(available_colours)-1))
-                    new_game_colours[game_id].append(player_colour)
-                    player_name = "AI:"+NAMES[random.randint(0,len(NAMES)-1)]
-                    while player_name in players.keys():
-                        player_name += str(random.randint(0,MAX_NAME_USES))
-                    player = GAME_MODES[new_game_type]["player_set"][player_colour](player_name)
-                    players[player_name] = player
-                    client_players[self].append(player)
-                    new_game_players[game_id][player] = player_colour
-                #Get remote user input about how many other players they want in their game
-                num_players = num_client_players + num_virtual_players
-                #If there are still spaces available then allow for remote players
-                if num_players < max_players:
-                    valid_options = [str(i) for i in range(max(min_players - num_players, 0), max_players - num_players + 1)]
-                    prompt_text = ("Please specify how many players from other computers will play, between "+str(valid_options[0])+" and " +str(valid_options[-1])+ "?")
-                    prompt_text += " (Hit enter for default "+str(DEFAULT_REMOTE_PLAYERS)+")"
-                    print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                    self.sendMessage("PROMPT[00100]"+prompt_text)
-                    num_players = None
-                    while not num_players in range(min_players, max_players + 1):
-                        received_input = self.get_text()
-                        if received_input:
-                            if received_input.isnumeric():
-                                num_players = num_client_players + num_virtual_players + int(received_input)
-                                if not num_players in range(min_players, max_players + 1):
-                                    num_players = None
-                                    self.sendMessage("PROMPT[00100]"+prompt_text)
-                            else:
-                                #For any input besides a number, assume the default
-                                num_players = num_client_players + num_virtual_players + DEFAULT_REMOTE_PLAYERS
-                        else:
-                            time.sleep(self.INPUT_DELAY)
-                    new_game_colours[game_id] += random.sample(available_colours, num_players - len(new_game_colours[game_id]))
+                game_id = self.create_game()
                 #Notify the player that they are in the queue and how many more players are awaited
-                print("QUEUE[00100]"+str(len(new_game_players[game_id]))+"/"+str(num_players))
-                self.sendMessage("QUEUE[00100]"+str(len(new_game_players[game_id]))+"/"+str(num_players))
+                report_queue(self)
                 in_queue = True
             else:
-                print("Trying to join this client to an existing game")
+                print("Trying to join this client to a random existing game from the queue")
                 #Try adding this client to an existing game, but then try another if that fills up while user is inputting
                 #Select a (semi-)random game to join
-                game_id = list(new_game_types.keys())[0]
-                new_game_type = new_game_types[game_id]
-                num_existing_clients = len(new_game_queues[game_id])
-                #Seek input about how many players there are using this client
-                min_players = GAME_MODES[new_game_type]["game_type"].MIN_PLAYERS
-                max_players = GAME_MODES[new_game_type]["game_type"].MAX_PLAYERS
-                num_players = len(new_game_colours[game_id])
-                num_existing_players = len(new_game_players[game_id])
-                num_spaces = num_players - num_existing_players
-                print("The existing game has "+str(num_existing_clients)+" other clients connected")
-                valid_options = [str(i) for i in range(1, num_spaces + 1)]
-                prompt_text = ("The current game has " +str(num_existing_players) +"/"
-                               +str(num_players)+" players. Please specify how many players will play from this computer, between 1 and " 
-                               +str(num_spaces)+ "?")
-                prompt_text += " (Hit enter for default "+str(DEFAULT_JOINING_PLAYERS)+")"
-                num_client_players = None
-                print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                self.sendMessage("PROMPT[00100]"+prompt_text)
-                while not num_client_players in range(1, max_players + 1):
-                    received_input = self.get_text()
-                    if received_input:
-                        if received_input.isnumeric():
-                            num_client_players = int(received_input)
-                            if not num_client_players in range(1, max_players + 1):
-                                num_client_players = None
-                                self.sendMessage("PROMPT[00100]"+prompt_text)
-                        else:
-                            #For any input besides a number, assume the default
-                            num_client_players = DEFAULT_JOINING_PLAYERS
-                    else:
-                        time.sleep(self.INPUT_DELAY)
-                #Name and set up these host human players
-                client_players[self] = []
-                for player_num in range(num_existing_players, num_existing_players + num_client_players):
-                    #Get the player to submit a name
-                    prompt_text = ("What is the name of the "+ORDINALS[player_num]+" player in this game, on this computer? (hit enter for random)")
-                    player_name = None
-                    print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                    self.sendMessage("PROMPT[00100]"+prompt_text)
-                    while player_name is None:
-                        player_name = self.get_text()
-                        if player_name is not None:
-                            if len(player_name) > MAX_NAME_CHARS:
-                                prompt_text = (player_name.capitalize()+" is too long. Pick a new name for the "+ORDINALS[player_num]+" player in this game? (fewer than "+str(MAX_NAME_CHARS)+" letters)")
-                                player_name = None
-                            elif player_name in players.keys():
-                                prompt_text = (player_name.capitalize()+" is taken. Pick a new name for the "+ORDINALS[player_num]+" player in this game?")
-                                player_name = None
-                            elif player_name == "BLANK":
-                                player_name = NAMES[random.randint(0,len(NAMES)-1)]
-                                print("Assigning a random name: "+player_name)
-                                while player_name in players.keys():
-                                    player_name += str(random.randint(0,MAX_NAME_USES))
-                                    print("Random name wasn't unique so appending a number: "+player_name)
-                                break
-                            else:
-                                break
-                            print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                            self.sendMessage("PROMPT[00100]"+prompt_text)
-                        else:
-                            time.sleep(self.INPUT_DELAY)
-                    player = PlayerHuman(player_name)
-                    players[player_name] = player
-                    client_players[self].append(player)
+                game_id = list(new_game_types.keys())[random.randint(0, len(new_game_types)-1)]
+                
                 #Now blocking is done, try to reserve a place in this game
-                #Check whether the number of spaces for this game has changed and start again if so
-                num_players = len(new_game_colours[game_id])
-                num_existing_players = len(new_game_players[game_id])
-                num_spaces = num_players - num_existing_players
-                if num_client_players > num_spaces:
-                    prompt_text = ("This game filled up while you were responding. Enter any response to continue and wait for another.")
-                    print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-                    response = None
-                    while response is None:
-                        response = self.get_text()
-                    continue
-                #Assign colours to each player
-                for player in client_players[self]:
-                    player_colour =  new_game_colours[game_id][player_num]
-                    new_game_players[game_id][player] = player_colour
-                #Notify the client that they are in the queue and how many more players are awaited
-                new_game_queues[game_id].append(self)
-                print("QUEUE[00100]"+str(num_existing_players + num_client_players)+"/"+str(num_players))
-                for client in new_game_queues[game_id]:
-                    client.sendMessage("QUEUE[00100]"+str(num_existing_players + num_client_players)+"/"+str(num_players))
-                in_queue = True
-            
-            #If this client's game is now full then start it off
-            num_players = len(new_game_colours[game_id])
-            num_existing_players = len(new_game_players[game_id])
-            if num_existing_players == num_players:
-                print("Enough players have joined, so STARTING GAME #"+str(game_id))
-                game_players = list(new_game_players[game_id].keys())
-                random.shuffle(game_players)
-                self.game = setup_simulation(game_players
-                                     , GAME_MODES[new_game_type]["game_type"]
-                                     , MOVEMENT_RULES
-                                     , EXPLORATION_RULES
-                                     , MYTHICAL_CITY)
-                
-                #Move the game's lookups into the active list and clean up
-                games[game_id] = {"player_colours":new_game_colours.pop(game_id)
-                                    , "players":new_game_players.pop(game_id)
-                                    , "game_type":new_game_types.pop(game_id)
-                                    , "clients":new_game_queues.pop(game_id)
-                                    }                    
-                
-                #Establish dimensions for the play area, based on the setup
-                #@TODO this code is repeated several times in different places, functionalise it
-#                min_longitude, max_longitude = 0, 0
-#                min_latitude, max_latitude = 0, 0
-#                for longitude in self.game.play_area:
-#                    if longitude < min_longitude:
-#                        min_longitude = longitude
-#                    elif longitude > max_longitude:
-#                        max_longitude = longitude
-#                    for latitude in self.game.play_area[longitude]:
-#                        if latitude < min_latitude:
-#                            min_latitude = latitude
-#                        elif latitude > max_latitude:
-#                            max_latitude = latitude
-#                origin = [-min_longitude + DIMENSION_INCREMENT
-#                          , -min_latitude + DIMENSION_INCREMENT
-#                          ]
-#                dimensions = [max_longitude + origin[0] + DIMENSION_INCREMENT
-#                              , max_latitude + origin[1] + DIMENSION_INCREMENT
-#                              ]
-                origin = [1,1]
-                dimensions = [3,3]
-                clients = games[game_id]["clients"]
-                visuals = []
-                for client in clients:
-                    #create game visualisation corresponding to each client's window resolution
-                    game_vis = WebServerVisualisation(self.game, dimensions, origin, visuals, games[game_id]["players"], client, client.width, client.height)
-                    print("Visual created for client at "+ str(client.address)+ " with dimensions: "+str(client.width)+"x"+str(client.height))
-                    client_visuals[client] = game_vis
-                    visuals.append(game_vis)
-                    for player in client_players[client]:
-                        player.connect_gui(game_vis)
-                
-                #start game in this thread including all the client visuals (so that the players created here are available to just one thread)
-                self.game.game_started = True
-                self.game.turn = 0
-                self.game.game_over = False
-                while not self.game.game_over:
-                    self.game.turn += 1
-                    self.game.game_over = self.game.play_round()
-                
-                #Inform all clients that the game has ended
-                win_message = self.game.winning_player.name+" won the game"
-                if self.game.wealth_difference >= self.game.game_winning_difference:
-                    win_message += " by buying a global monopoly with their extra wealth"
+                if self.join_game(game_id):
+                    #Notify the client that they are in the queue and how many more players are awaited
+                    new_game_clients[game_id].append(self)
+                    for client in new_game_clients[game_id]:
+                        report_queue(client)
+                    in_queue = True
                 else:
-                    win_message += " as the richest when the world map was completed"
-                win_message +=  " (refresh to play again)"
-                for client in games[game_id]["clients"]:
-                    print("Closing game for client: "+str(client.address))
-                    game_vis = client_visuals[client]
-                    game_vis.draw_play_area()
-                    game_vis.draw_scores()
-                    game_vis.draw_tokens()
-                    game_vis.current_player_name = self.game.winning_player.name
-                    game_vis.give_prompt(win_message)
-                    game_vis.update_web_display()
-                game_vis.close()
-                
-                #Tidy up and indicate that a game was joined and completed, and allow the thread to terminate
-#                    for player in games[game_id]["players"]:
-#                        player_clients.pop(player)
-                games.pop(game_id)
-                return True
-            #keep connection alive until a game is joined
+                    tried_games.append(game_id)
+        #If this client's game is now full then try to start it off
+        if not self.start_game(game_id): #testing the negative because otherwise it will take until game conclusion to return
+            #Otherwise keep connection alive until a game is joined
             connection_alive = True
             self.connection_confirmed = False
             self.sendMessage("PING[00100]")
@@ -481,7 +403,76 @@ class ClientSocket(WebSocket):
                 self.sendMessage("PING[00100]")
                 time.sleep(self.TIMEOUT_DELAY)
             print(self.address, " timed out")
+        else:
+            return True
             
+    def start_game(self, game_id):
+        '''Checks whether a game is full and launches it, then runs it in this thread until completion
+        
+        Arguments:
+        game_id takes an integer unique reference for a Cartolan game in the global games list
+        '''
+        global clients, client_visuals, client_players, games
+        global new_game_clients, new_game_types, new_game_colours, new_game_players
+        num_spaces = len(new_game_colours[game_id])
+        if not num_spaces == 0:
+            return False
+        else:
+            print("Enough players have joined, so STARTING GAME #"+str(game_id))
+        game_players = list(new_game_players[game_id].keys())
+        random.shuffle(game_players)
+        self.game = setup_simulation(game_players
+                             , GAME_MODES[new_game_types[game_id]]["game_type"]
+                             , MOVEMENT_RULES
+                             , EXPLORATION_RULES
+                             , MYTHICAL_CITY)
+        
+        #Move the game's lookups into the active list and clean up
+        games[game_id] = {"player_colours":new_game_colours.pop(game_id)
+                            , "players":new_game_players.pop(game_id)
+                            , "game_type":new_game_types.pop(game_id)
+                            , "clients":new_game_clients.pop(game_id)
+                            }                    
+        #Set up a visual tailored to each client's screen
+        clients = games[game_id]["clients"]
+        visuals = []
+        for client in clients:
+            #create game visualisation corresponding to each client's window resolution
+            game_vis = WebServerVisualisation(self.game, visuals, games[game_id]["players"], client, client.width, client.height)
+            print("Visual created for client at "+ str(client.address)+ " with dimensions: "+str(client.width)+"x"+str(client.height))
+            client_visuals[client] = game_vis
+            visuals.append(game_vis)
+            for player in client_players[client]:
+                player.connect_gui(game_vis)
+        
+        #start game in this thread including all the client visuals (so that the players created here are available to just one thread)
+        self.game.game_started = True
+        self.game.turn = 0
+        self.game.game_over = False
+        while not self.game.game_over:
+            self.game.turn += 1
+            self.game.game_over = self.game.play_round()
+        
+        #Inform all clients that the game has ended
+        win_message = self.game.winning_player.name+" won the game"
+        if self.game.wealth_difference >= self.game.game_winning_difference:
+            win_message += " by buying a global monopoly with their extra wealth"
+        else:
+            win_message += " as the richest when the world map was completed"
+        win_message +=  " (refresh to play again)"
+        for client in games[game_id]["clients"]:
+            print("Closing game for client: "+str(client.address))
+            game_vis = client_visuals[client]
+            game_vis.draw_play_area()
+            game_vis.draw_scores()
+            game_vis.draw_tokens()
+            game_vis.current_player_name = self.game.winning_player.name
+            game_vis.give_prompt(win_message)
+            game_vis.update_web_display()
+        game_vis.close()
+        #Tidy up and indicate that a game was joined and completed, and allow the thread to terminate
+        games.pop(game_id)
+        return True
     
     #@TODO decide whether to collect input from this socket via recv or the below
     def handleMessage(self):
@@ -498,7 +489,7 @@ class ClientSocket(WebSocket):
 #           #@TODO join specifically the game that has been asked for
            self.width, self.height = [int(coord) for coord in msg.split("[55555]")]
            print("Received width: ", self.width," and height: ", self.height)
-           Thread(target=self.join_game).start()
+           Thread(target=self.join_queue).start()
         elif protocode == ("PONG"):
             print("Client responded to ping")
             self.connection_confirmed = True

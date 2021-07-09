@@ -118,13 +118,13 @@ class GameVisualisation():
             , "com+pool":"Map tiles are pooled across all Adventurers. Maps can be swapped at Agents for 1 treasure. Draw 3 Manuscript cards."
             }
     
-    def __init__(self, game, dimensions, origin, peer_visuals, player_colours):
+    def __init__(self, game, peer_visuals, player_colours):
         #Retain game data
         self.players = game.players
         self.player_colours = player_colours
         self.game = game
-        self.dimensions = dimensions.copy()
-        self.origin = origin.copy()
+        self.dimensions = [len(game.play_area), max([len(game.play_area[longitude]) for longitude in game.play_area])]
+        self.origin = [dimension // 2 for dimension in self.dimensions]
         self.peer_visuals = peer_visuals
         
         print("Initialising state variables")
@@ -1327,12 +1327,12 @@ class WebServerVisualisation(GameVisualisation):
     TEMP_FILE_EXTENSION = ".png"
     INPUT_DELAY = 0.1 #delay time between checking for input, in seconds
     
-    def __init__(self, game, dimensions, origin, peer_visuals, player_colours, client, width, height):
+    def __init__(self, game, peer_visuals, player_colours, client, width, height):
         self.peer_visuals = peer_visuals
         self.client = client
         self.width, self.height = width, height
         self.client_players = []
-        super().__init__(game, dimensions, origin, peer_visuals, player_colours)
+        super().__init__(game, peer_visuals, player_colours)
     
     def init_GUI(self):
         print("Initialising the pygame window and GUI")
