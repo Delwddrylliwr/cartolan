@@ -61,14 +61,28 @@ class Player:
     '''A template for actual Players responding to play in a Game of Cartolan.
     
     Methods:
-    __init__ taking a colour string that should correspond to a pyplot colour
+    __init__ taking a name string
     
     Interfaces:
     continue_turn; continue_move 
     '''
-    def __init__(self, colour = "red"):
-        self.colour = colour
+    def __init__(self, name = "red"):
+        self.name = name
         self.games = {}
+        self.player_id = name+str(random.random())
+        
+    def __hash__(self):
+        return hash(self.player_id)
+    
+    def __eq__(self, other):
+        if isinstance(other, Player):
+            return self.player_id == other.player_id
+        else: return False
+        
+    def __ne__(self, other):
+        if isinstance(other, Player):
+            return not self.player_id == other.player_id
+        else: return True
     
     def join_game(self, game):
         '''Establishes dict to retain strategic info for each game
@@ -383,7 +397,7 @@ class Tile:
                 self.dropped_wealth = 0
                 
             if isinstance(token, Adventurer):
-                print("Moving adventurer for " +str(token.player.colour)+ " player onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
+                print("Moving adventurer for " +str(token.player.name)+ " onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                 if token.current_tile:
                     if token in token.current_tile.adventurers:
                         token.current_tile.adventurers.remove(token)
@@ -395,7 +409,7 @@ class Tile:
                 if token.__dict__.get("is_dispossessed"):
                     token.is_dispossessed = False                 
                 if self.agent is None or self.agent == token:
-                    print("Moving agent for " +str(token.player.colour)+ " player onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
+                    print("Moving agent for " +str(token.player.name)+ " onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                     if token.current_tile:
                         token.current_tile.agent = None
                     token.current_tile = self
@@ -403,11 +417,11 @@ class Tile:
                     token.route.append(self) 
                 elif self.agent.__dict__.get("is_dispossessed"):
                     self.agent.dismiss()
-                    print("Moving agent for " +str(token.player.colour)+ " player onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
+                    print("Moving agent for " +str(token.player.name)+ " onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                     self.agent = token
                     self.agent.current_tile = self
                     token.route.append(self) # relevant only in Regular and Advanced mode
-                else: raise Exception("Tried to add multiple Agents to a tile: adding and agent of " +token.player.colour+ " player where there was an existing agent of " +self.agent.player.colour)
+                else: raise Exception("Tried to add multiple Agents to a tile: adding and agent of " +token.player.name+ " where there was an existing agent of " +self.agent.player.name)
             else: raise Exception("Didn't know how to handle this kind of token")
         else: raise Exception("Tried to move something other than a token onto a tile")
     

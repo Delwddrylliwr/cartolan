@@ -310,7 +310,7 @@ class AdventurerRegular(AdventurerBeginner):
             else: # rob them
                 self.pirate_token = True #just trying will make them a pirate
                 if success:
-                    print(self.player.colour+" player successfully attacked "+token.player.colour+" player's Adventurer.")
+                    print(self.player.name+" successfully attacked "+token.player.name+"'s Adventurer.")
                     default_steal = adventurer.wealth//2 + adventurer.wealth%2
                     chosen_steal = None
                     while not chosen_steal in range(0, adventurer.wealth + 1):
@@ -329,7 +329,7 @@ class AdventurerRegular(AdventurerBeginner):
             if not token.is_dispossessed:
                 self.pirate_token = True #just trying will make them a pirate
                 if success:
-                    print(self.player.colour+" player successfully attacked "+token.player.colour+" player's Agent.")
+                    print(self.player.name+" successfully attacked "+token.player.name+"'s Agent.")
                     agent = token
                     self.wealth += agent.wealth + self.value_dispossess_agent
                     agent.is_dispossessed = True
@@ -346,7 +346,7 @@ class AdventurerRegular(AdventurerBeginner):
     def arrest(self, pirate):
         '''Sends pirates back to their last city and claims a reward.
         '''
-        print(self.player.colour+" player successfully arrested "+pirate.player.colour+" player's Adventurer.")
+        print(self.player.name+" successfully arrested "+pirate.player.name+"'s Adventurer.")
         self.wealth += self.value_arrest # get a reward
         pirate.end_expedition()
     
@@ -380,7 +380,7 @@ class AdventurerRegular(AdventurerBeginner):
         if agent.is_dispossessed:
             if self.cost_agent_restore <= self.wealth:
                 print("Paying " +str(self.cost_agent_restore)+ " to restore " 
-                      +agent.player.colour+"'s Agent at position " 
+                      +agent.player.name+"'s Agent at position " 
                       +str(agent.current_tile.tile_position.longitude)
                      +","+ str(agent.current_tile.tile_position.latitude))
                 self.wealth -= self.cost_agent_restore

@@ -67,7 +67,7 @@ def setup_adventurers(players, game_mode, movement_rules, exploration_rules, myt
     
     for player in players:
 #         exec("Adventurer" +game_mode+ "(game, player, game.cities[0])") #this should probably work, because it doesn't need to create a local
-        print("adding an adventurer for " +str(player.colour)+ " player, who already has " +str(len(game.adventurers[player]))+ " adventurers")
+        print("adding an adventurer for " +str(player.name)+ ", who already has " +str(len(game.adventurers[player]))+ " adventurers")
 #         AdventurerBeginner(game, player, game.cities[0])
         game.ADVENTURER_TYPE(game, player, game.cities[0])
     
@@ -88,7 +88,7 @@ def setup_simulation(players, game_mode, movement_rules, exploration_rules, myth
       
     #turn order has been handled by the parent setup
 #     game.players = random.shuffle(game.players)
-    print("Randomly chose " +str(players[0].colour)+ " player to start")
+    print("Randomly chose " +str(players[0].name)+ " to start")
     return game
 
 
@@ -205,7 +205,7 @@ class InteractiveGame:
 #                 for adventurer in player.adventurers:
 #                     adventurer.route = []
                 
-        self.game_vis.give_prompt(self.game.winning_player.colour+" player won the game (click to close)")
+        self.game_vis.give_prompt(self.game.winning_player.name+" won the game (click to close)")
 #         pyplot.waitforbuttonpress() #Delay until the player has read the message
         self.game_vis.get_input_coords(self.game.adventurers[self.game.winning_player][0])
         self.game_vis.close()

@@ -178,7 +178,7 @@ class GameBeginner(Game):
              +" and a max wealth of " +str(self.max_wealth))
         for player in self.players:
             #some logging
-            print(str(player.colour)+ " player's turn, with " +str(len(self.adventurers[player])) 
+            print(str(player.name)+ " player's turn, with " +str(len(self.adventurers[player])) 
                   +" Adventurers, and " +str(self.player_wealths[player])+ " wealth in the Vault")
 #             if not player.adventurers[0] is None:
 #                 adventurer = player.adventurers[0]

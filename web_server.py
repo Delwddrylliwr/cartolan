@@ -55,6 +55,10 @@ DEFAULT_LOCAL_PLAYERS = 1
 DEFAULT_VIRTUAL_PLAYERS = 0
 DEFAULT_REMOTE_PLAYERS = 2
 DEFAULT_JOINING_PLAYERS = 1
+MAX_NAME_CHARS = 5
+ORDINALS = ["first", "second", "third", "fourth"]
+NAMES = ["Ron", "Ali", "Jim", "Jon", "Bill", "Sam", "Nic", "Mel", "Su", "Mo", "Don", "Hal", "Sal", "Cat"]
+MAX_NAME_USES = 100 #Allow names to be extended by up to two digits
 #@TODO the below should be moved to the config file for all simulation and game versions
 MOVEMENT_RULES = "initial"
 EXPLORATION_RULES = "continuous"
@@ -66,6 +70,7 @@ clients = []
 client_visuals = {}
 client_players = {}
 games = {} #referenced by game IDs
+players = {} #referenced by names, which must be unique on the server
 client_games = {} #referenced by ClientSocket
 #player_clients = {} #refernced by players
 #player_games = {} #refereced by players
@@ -73,7 +78,7 @@ client_games = {} #referenced by ClientSocket
 new_game_queues = {} #referenced by game ID
 new_game_types = {} #referenced by game ID
 new_game_colours = {} #referenced by game ID
-new_game_players = {} #referenced by game ID
+new_game_players = {} #referenced by game ID, return the colour assigned to them
 
 def id_generator(size=10, chars=string.ascii_uppercase + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
@@ -131,7 +136,7 @@ class ClientSocket(WebSocket):
     def join_game(self):
         '''Adds players to a queue, the first specifies setup, the last hosts in their thread.
         '''
-        global next_game_id, clients, client_visuals, client_players, games
+        global next_game_id, clients, client_visuals, client_players, games, players
         global client_games
         global new_game_queues, new_game_types, new_game_colours, new_game_players
         game_id = None
@@ -171,6 +176,8 @@ class ClientSocket(WebSocket):
                 new_game_types[game_id] = new_game_type
                 min_players = GAME_MODES[new_game_type]["game_type"].MIN_PLAYERS
                 max_players = GAME_MODES[new_game_type]["game_type"].MAX_PLAYERS
+                available_colours = random.sample(GAME_MODES[new_game_type]["player_set"].keys(), max_players)
+                new_game_colours[game_id] = []
                 #Get remote user input about how many players they have at their end
                 valid_options = [str(i) for i in range(1, max_players + 1)]
                 prompt_text = ("Please specify how many players will play from this computer, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
@@ -191,6 +198,43 @@ class ClientSocket(WebSocket):
                             num_client_players = DEFAULT_LOCAL_PLAYERS
                     else:
                         time.sleep(self.INPUT_DELAY)
+                #Name and set up these host human players
+                client_players[self] = []
+                new_game_players[game_id] = {}
+                for player_num in range(num_client_players):
+                    player_colour =  available_colours.pop(random.randint(0,len(available_colours)-1))
+                    new_game_colours[game_id].append(player_colour)
+                    #Get the player to submit a name
+                    prompt_text = ("What is the name of the "+ORDINALS[player_num]+" player on this computer? (hit enter for random)")
+                    player_name = None
+                    self.sendMessage("PROMPT[00100]"+prompt_text)
+                    print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+                    while player_name is None:
+                        player_name = self.get_text()
+                        if player_name is not None:
+                            if len(player_name) > MAX_NAME_CHARS:
+                                prompt_text = (player_name.capitalize()+" is too long. Pick a new name for the "+ORDINALS[player_num]+" player on this computer? (fewer than "+str(MAX_NAME_CHARS)+" letters)")
+                                player_name = None
+                            elif player_name in players.keys():
+                                prompt_text = (player_name.capitalize()+" is taken. Pick a new name for the "+ORDINALS[player_num]+" player on this computer?")
+                                player_name = None
+                            elif player_name == "BLANK":
+                                player_name = NAMES[random.randint(0,len(NAMES)-1)]
+                                print("Assigning a random name: "+player_name)
+                                while player_name in players.keys():
+                                    player_name += str(random.randint(0,MAX_NAME_USES))
+                                    print("Random name wasn't unique so appending a number: "+player_name)
+                                break
+                            else:
+                                break
+                            self.sendMessage("PROMPT[00100]"+prompt_text)
+                            print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+                        else:
+                            time.sleep(self.INPUT_DELAY)
+                    player = PlayerHuman(player_name)
+                    players[player_name] = player
+                    client_players[self].append(player)
+                    new_game_players[game_id][player] = player_colour
                 #Get remote user input about how many computer players the game will have
                 num_virtual_players = 0
                 if num_client_players < max_players:
@@ -213,6 +257,17 @@ class ClientSocket(WebSocket):
                                 num_virtual_players = DEFAULT_VIRTUAL_PLAYERS
                         else:
                             time.sleep(self.INPUT_DELAY)
+                #Assign random names and colours to these CPU players
+                for player_num in range(num_virtual_players):
+                    player_colour =  available_colours.pop(random.randint(0,len(available_colours)-1))
+                    new_game_colours[game_id].append(player_colour)
+                    player_name = "AI:"+NAMES[random.randint(0,len(NAMES)-1)]
+                    while player_name in players.keys():
+                        player_name += str(random.randint(0,MAX_NAME_USES))
+                    player = GAME_MODES[new_game_type]["player_set"][player_colour](player_name)
+                    players[player_name] = player
+                    client_players[self].append(player)
+                    new_game_players[game_id][player] = player_colour
                 #Get remote user input about how many other players they want in their game
                 num_players = num_client_players + num_virtual_players
                 #If there are still spaces available then allow for remote players
@@ -236,20 +291,7 @@ class ClientSocket(WebSocket):
                                 num_players = num_client_players + num_virtual_players + DEFAULT_REMOTE_PLAYERS
                         else:
                             time.sleep(self.INPUT_DELAY)
-                #randomly choose/order the player colours to fit this number, then assign a suitable number to this channel
-                new_game_colours[game_id] = random.sample(GAME_MODES[new_game_type]["player_set"].keys(), num_players)
-                client_players[self] = []
-                new_game_players[game_id] = []
-                for player_num in range(num_client_players):
-                    player_colour = new_game_colours[game_id][player_num]
-                    player = PlayerHuman(player_colour)
-                    client_players[self].append(player)
-                    new_game_players[game_id].append(player)
-                for player_num in range(num_virtual_players):
-                    player_colour = new_game_colours[game_id][num_client_players + player_num]
-                    player = GAME_MODES[new_game_type]["player_set"][player_colour](player_colour)
-                    client_players[self].append(player)
-                    new_game_players[game_id].append(player)
+                    new_game_colours[game_id] += random.sample(available_colours, num_players - len(new_game_colours[game_id]))
                 #Notify the player that they are in the queue and how many more players are awaited
                 print("QUEUE[00100]"+str(len(new_game_players[game_id]))+"/"+str(num_players))
                 self.sendMessage("QUEUE[00100]"+str(len(new_game_players[game_id]))+"/"+str(num_players))
@@ -289,23 +331,57 @@ class ClientSocket(WebSocket):
                             num_client_players = DEFAULT_JOINING_PLAYERS
                     else:
                         time.sleep(self.INPUT_DELAY)
+                #Name and set up these host human players
+                client_players[self] = []
+                for player_num in range(num_existing_players, num_existing_players + num_client_players):
+                    #Get the player to submit a name
+                    prompt_text = ("What is the name of the "+ORDINALS[player_num]+" player in this game, on this computer? (hit enter for random)")
+                    player_name = None
+                    print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+                    self.sendMessage("PROMPT[00100]"+prompt_text)
+                    while player_name is None:
+                        player_name = self.get_text()
+                        if player_name is not None:
+                            if len(player_name) > MAX_NAME_CHARS:
+                                prompt_text = (player_name.capitalize()+" is too long. Pick a new name for the "+ORDINALS[player_num]+" player in this game? (fewer than "+str(MAX_NAME_CHARS)+" letters)")
+                                player_name = None
+                            elif player_name in players.keys():
+                                prompt_text = (player_name.capitalize()+" is taken. Pick a new name for the "+ORDINALS[player_num]+" player in this game?")
+                                player_name = None
+                            elif player_name == "BLANK":
+                                player_name = NAMES[random.randint(0,len(NAMES)-1)]
+                                print("Assigning a random name: "+player_name)
+                                while player_name in players.keys():
+                                    player_name += str(random.randint(0,MAX_NAME_USES))
+                                    print("Random name wasn't unique so appending a number: "+player_name)
+                                break
+                            else:
+                                break
+                            print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+                            self.sendMessage("PROMPT[00100]"+prompt_text)
+                        else:
+                            time.sleep(self.INPUT_DELAY)
+                    player = PlayerHuman(player_name)
+                    players[player_name] = player
+                    client_players[self].append(player)
                 #Now blocking is done, try to reserve a place in this game
                 #Check whether the number of spaces for this game has changed and start again if so
                 num_players = len(new_game_colours[game_id])
                 num_existing_players = len(new_game_players[game_id])
                 num_spaces = num_players - num_existing_players
                 if num_client_players > num_spaces:
+                    prompt_text = ("This game filled up while you were responding. Enter any response to continue and wait for another.")
+                    print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+                    response = None
+                    while response is None:
+                        response = self.get_text()
                     continue
+                #Assign colours to each player
+                for player in client_players[self]:
+                    player_colour =  new_game_colours[game_id][player_num]
+                    new_game_players[game_id][player] = player_colour
+                #Notify the client that they are in the queue and how many more players are awaited
                 new_game_queues[game_id].append(self)
-                
-                #Assign colours to the newly joined players
-                client_players[self] = []
-                for player_num in range(num_existing_players, num_existing_players + num_client_players):
-                    player_colour = new_game_colours[game_id][player_num]
-                    player = PlayerHuman(player_colour)
-                    client_players[self].append(player)
-                    new_game_players[game_id].append(player)
-                #Notify the player that they are in the queue and how many more players are awaited
                 print("QUEUE[00100]"+str(num_existing_players + num_client_players)+"/"+str(num_players))
                 for client in new_game_queues[game_id]:
                     client.sendMessage("QUEUE[00100]"+str(num_existing_players + num_client_players)+"/"+str(num_players))
@@ -316,8 +392,9 @@ class ClientSocket(WebSocket):
             num_existing_players = len(new_game_players[game_id])
             if num_existing_players == num_players:
                 print("Enough players have joined, so STARTING GAME #"+str(game_id))
-                random.shuffle(new_game_players[game_id])
-                self.game = setup_simulation(new_game_players[game_id]
+                game_players = list(new_game_players[game_id].keys())
+                random.shuffle(game_players)
+                self.game = setup_simulation(game_players
                                      , GAME_MODES[new_game_type]["game_type"]
                                      , MOVEMENT_RULES
                                      , EXPLORATION_RULES
@@ -356,7 +433,7 @@ class ClientSocket(WebSocket):
                 visuals = []
                 for client in clients:
                     #create game visualisation corresponding to each client's window resolution
-                    game_vis = WebServerVisualisation(self.game, dimensions, origin, visuals, client, client.width, client.height)
+                    game_vis = WebServerVisualisation(self.game, dimensions, origin, visuals, games[game_id]["players"], client, client.width, client.height)
                     print("Visual created for client at "+ str(client.address)+ " with dimensions: "+str(client.width)+"x"+str(client.height))
                     client_visuals[client] = game_vis
                     visuals.append(game_vis)
@@ -372,7 +449,7 @@ class ClientSocket(WebSocket):
                     self.game.game_over = self.game.play_round()
                 
                 #Inform all clients that the game has ended
-                win_message = self.game.winning_player.colour+" player won the game"
+                win_message = self.game.winning_player.name+" won the game"
                 if self.game.wealth_difference >= self.game.game_winning_difference:
                     win_message += " by buying a global monopoly with their extra wealth"
                 else:
@@ -384,7 +461,7 @@ class ClientSocket(WebSocket):
                     game_vis.draw_play_area()
                     game_vis.draw_scores()
                     game_vis.draw_tokens()
-                    game_vis.current_player_colour = self.game.winning_player.colour
+                    game_vis.current_player_name = self.game.winning_player.name
                     game_vis.give_prompt(win_message)
                     game_vis.update_web_display()
                 game_vis.close()
@@ -426,7 +503,7 @@ class ClientSocket(WebSocket):
             print("Client responded to ping")
             self.connection_confirmed = True
         elif protocode == ("TEXT"):
-#           print("TEXT... "+msg)
+           print("TEXT... "+msg)
            if not msg == "":
                self.text_buffer = msg
 #           msg = str(msg)

@@ -27,8 +27,8 @@ class PlayerBeginnerExplorer(Player):
     check_buy_agent takes a Cartolan.Adventurer
     check_move_agent takes a Cartolan.Adventurer
     '''
-    def __init__(self, colour):
-        super().__init__(colour)
+    def __init__(self, name):
+        super().__init__(name)
         self.p_deviate = 0.1 #some randomness for artificial player behaviour to avoid rutts
         self.return_city_attr = "cost_adventurer"
     
@@ -46,7 +46,7 @@ class PlayerBeginnerExplorer(Player):
     def explore_best_space(self, adventurer):
         '''A heuristic for Adventurer movement that selects the adjacent gap in the map with the highest prospective score from adjoining edges, preferring downwind and right when this is tied'''
         #check downwind clockwise first, then downwind anti, then upwind clock, then upwind anti
-        print(str(adventurer.player.colour) +": trying heuristic that prefers the adjacent gap in the map with the highest prospective score from adjoining edges, preferring downwind and right when this is tied")
+        print(str(adventurer.player.name) +": trying heuristic that prefers the adjacent gap in the map with the highest prospective score from adjoining edges, preferring downwind and right when this is tied")
         if adventurer.current_tile.wind_direction.east:
             if adventurer.current_tile.wind_direction.north:
                 potential_moves = ['e', 'n', 'w', 's']
@@ -78,7 +78,7 @@ class PlayerBeginnerExplorer(Player):
                     if potential_score > preferred_score:
                         preferred_move = compass_point
                         preferred_score = potential_score
-        print(self.colour +" player's Adventurer has "+str(exploration_moves)+" exploration options.")
+        print(self.name +"'s Adventurer has "+str(exploration_moves)+" exploration options.")
         if preferred_move is not None:
             if adventurer.move(preferred_move):
                 return True
@@ -97,7 +97,7 @@ class PlayerBeginnerExplorer(Player):
                     
     def move_away_from_tile(self, adventurer, tile):
         '''A heuristic that moves the Adventurer in the direction that increases the distance from a given tile, but by the minimum'''
-        print(str(adventurer.player.colour) +": trying heuristic that prefers moves away from the tile at " +str(tile.tile_position.longitude)+ ", " +str(tile.tile_position.longitude))
+        print(str(adventurer.player.name) +": trying heuristic that prefers moves away from the tile at " +str(tile.tile_position.longitude)+ ", " +str(tile.tile_position.longitude))
         #establish directions to the tile, as preferring to increase the distance in the lesser dimension first, between latitude and longitude
         if (abs(adventurer.current_tile.tile_position.longitude - tile.tile_position.longitude) 
             > abs(adventurer.current_tile.tile_position.latitude - tile.tile_position.latitude)):
@@ -149,7 +149,7 @@ class PlayerBeginnerExplorer(Player):
             
     def move_towards_tile(self, adventurer, tile):
         '''A heuristic that moves the Adventurer in the direction that decreases the distance from a given tile, by the maximum, but if unable waits in place'''
-        print(str(adventurer.player.colour) +": trying heuristic that prefers moves towards the tile at " +str(tile.tile_position.longitude)+ ", " +str(tile.tile_position.longitude))
+        print(str(adventurer.player.name) +": trying heuristic that prefers moves towards the tile at " +str(tile.tile_position.longitude)+ ", " +str(tile.tile_position.longitude))
         #establish directions to the tile, as preferring to decrease the distance in the greater dimension first, between latitude and longitude
         if (abs(adventurer.current_tile.tile_position.longitude - tile.tile_position.longitude) 
             < abs(adventurer.current_tile.tile_position.latitude - tile.tile_position.latitude)):
@@ -202,7 +202,7 @@ class PlayerBeginnerExplorer(Player):
     def continue_move(self, adventurer):
         #with some probability, move in a random direction, to break out of degenerate situations
         if random.random() < self.p_deviate:
-            print(str(adventurer.player.colour)+ " is making a random movement, rather than following a heuristic")
+            print(str(adventurer.player.name)+ " is making a random movement, rather than following a heuristic")
             adventurer.move(random.choice(['n','e','s','w']))
 #        #move towards a city while banking will put the player ahead, and explore otherwise
 #        elif(adventurer.wealth > adventurer.game.wealth_difference):
@@ -215,7 +215,7 @@ class PlayerBeginnerExplorer(Player):
         return True
     
     def continue_turn(self, adventurer):
-        print(str(adventurer.player.colour)+ " player is moving an Adventurer, which has " 
+        print(str(adventurer.player.name)+ " is moving an Adventurer, which has " 
               +str(adventurer.wealth)+ " wealth, and is on the "
               +adventurer.current_tile.tile_back+ " tile at position " 
               +str(adventurer.current_tile.tile_position.longitude)+ "," 
@@ -323,8 +323,8 @@ class PlayerBeginnerTrader(PlayerBeginnerExplorer):
     check_place_agent takes a Cartolan.Adventurer
     check_move_agent takes a Cartolan.Adventurer
     '''
-    def __init__(self, colour):
-        super().__init__(colour)
+    def __init__(self, name):
+        super().__init__(name)
         self.next_agent_num = [0] # this won't work for multiple adventurers
     
     def continue_move(self, adventurer):
@@ -453,13 +453,13 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
     check_attack_agent takes a Cartolan.Adventurer and a Carolan.Agent
     check_restore_agent takes a Cartolan.Adventurer and a Carolan.Agent
     '''
-    def __init__(self, colour):
+    def __init__(self, name):
         self.attack_history = {} #to keep track of when this player has attacked, for reference
-        super().__init__(colour)
+        super().__init__(name)
     
     
     def continue_turn(self, adventurer):
-        print(str(adventurer.player.colour)+ " player is moving an Adventurer, which has " 
+        print(str(adventurer.player.name)+ " is moving an Adventurer, which has " 
               +str(adventurer.wealth)+ " wealth, and is on the "
               +adventurer.current_tile.tile_back+ " tile at position " 
               +str(adventurer.current_tile.tile_position.longitude)+ "," 
@@ -473,8 +473,8 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
         #check whether already on a tile with an adventurer, and wait here in order to attack/arrest
         for other_adventurer in adventurer.current_tile.adventurers:
             if self.check_attack_adventurer(adventurer, other_adventurer):
-                print(self.colour+ " player's adventurer is waiting on their current tile to attack an adventurer belonging to " 
-                      +other_adventurer.player.colour)
+                print(self.name+ "'s adventurer is waiting on their current tile to attack an adventurer belonging to " 
+                      +other_adventurer.player.name)
                 adventurer.wait()   
         
         while adventurer.turns_moved < adventurer.game.turn:
@@ -519,15 +519,15 @@ class PlayerRegularTrader(PlayerBeginnerTrader, PlayerRegularExplorer):
     '''A virtual player for Regular Cartolan that favours maximising trade value
     
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
-    def __init__(self, colour):
-        super().__init__(colour)
+    def __init__(self, name):
+        super().__init__(name)
 
 class PlayerRegularRouter(PlayerBeginnerRouter, PlayerRegularExplorer):    
     '''A virtual player for Regular Cartolan that favours building trade routes
     
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
-    def __init__(self, colour):
-        super().__init__(colour)
+    def __init__(self, name):
+        super().__init__(name)
 
 class PlayerRegularPirate(PlayerRegularExplorer):    
     '''A virtual player for Regular Cartolan that favour attacking other players' tokens
@@ -551,8 +551,8 @@ class PlayerRegularPirate(PlayerRegularExplorer):
         #check whether already on a tile with an adventurer, and wait here in order to attack/arrest
         for other_adventurer in adventurer.current_tile.adventurers:
             if self.check_attack_adventurer(adventurer, other_adventurer):
-                print(self.colour+ " player's adventurer is waiting on their current tile to attack an adventurer belonging to " 
-                      +other_adventurer.player.colour)
+                print(self.name+ "'s adventurer is waiting on their current tile to attack an adventurer belonging to " 
+                      +other_adventurer.player.name)
                 adventurer.wait()
         
         #with some probability, move in a random direction, to break out of degenerate situations
@@ -567,8 +567,8 @@ class PlayerRegularPirate(PlayerRegularExplorer):
             #update awareness of disaster tiles, to avoid them
             for other_adventurer in adventurer.current_tile.adventurers:
                 if self.check_attack_adventurer(adventurer, other_adventurer):
-                    print(self.colour+ " player's adventurer is waiting on their current tile to attack an adventurer belonging to " 
-                          +other_adventurer.player.colour)
+                    print(self.name+ "'s adventurer is waiting on their current tile to attack an adventurer belonging to " 
+                          +other_adventurer.player.name)
                     adventurer.wait()
             
             # check all other players' adventurers and agents and tiles for the most lucrative
@@ -618,8 +618,8 @@ class PlayerRegularPirate(PlayerRegularExplorer):
 class PlayerAdvancedExplorer(PlayerRegularExplorer):
     '''Extends Regular to incorporate buying cards.
     '''
-    def __init__(self, colour):
-        super().__init__(colour)
+    def __init__(self, name):
+        super().__init__(name)
         self.return_city_attr = "cost_tech"
     
     def continue_turn(self, adventurer):
@@ -670,22 +670,22 @@ class PlayerAdvancedTrader(PlayerRegularTrader, PlayerAdvancedExplorer):
     '''A virtual player for Regular Cartolan that favours maximising trade value
     
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
-    def __init__(self, colour):
-        super().__init__(colour)
+    def __init__(self, name):
+        super().__init__(name)
         self.return_city_attr = "cost_tech"
 
 class PlayerAdvancedRouter(PlayerRegularRouter, PlayerAdvancedExplorer):    
     '''A virtual player for Regular Cartolan that favours maximising trade value
     
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
-    def __init__(self, colour):
-        super().__init__(colour)
+    def __init__(self, name):
+        super().__init__(name)
         self.return_city_attr = "cost_tech"
         
 class PlayerAdvancedPirate(PlayerRegularPirate, PlayerAdvancedExplorer):    
     '''A virtual player for Regular Cartolan that favours maximising trade value
     
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
-    def __init__(self, colour):
-        super().__init__(colour)
+    def __init__(self, name):
+        super().__init__(name)
         self.return_city_attr = "cost_tech"

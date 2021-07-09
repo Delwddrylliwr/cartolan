@@ -10,8 +10,8 @@ from advanced import AdventurerAdvanced
 class PlayerHuman(Player):
     '''A pyplot-based interface for a human players to make decisions in live play.
     '''
-    def __init__(self, colour):
-        super().__init__(colour)
+    def __init__(self, name):
+        super().__init__(name)
         self.attack_history = {} #to keep track of when this player has attacked, for reference
         
         #Allow for fixed responses to checks on particular actions, to speed up GUI
@@ -94,7 +94,7 @@ class PlayerHuman(Player):
     
     def move_to_tile(self, adventurer, tile):
         '''Establishes the direction for movement to an adjacent tile.'''
-        print(str(adventurer.player.colour) +": trying a move from the tile at "+str(adventurer.current_tile.tile_position.longitude)+ ", " +str(adventurer.current_tile.tile_position.latitude)+" onto the tile at " +str(tile.tile_position.longitude)+ ", " +str(tile.tile_position.latitude))
+        print(str(adventurer.player.name) +": trying a move from the tile at "+str(adventurer.current_tile.tile_position.longitude)+ ", " +str(adventurer.current_tile.tile_position.latitude)+" onto the tile at " +str(tile.tile_position.longitude)+ ", " +str(tile.tile_position.latitude))
         #check that the tile is adjacent to the current one
         if abs(adventurer.current_tile.tile_position.longitude - tile.tile_position.longitude) + abs(adventurer.current_tile.tile_position.latitude - tile.tile_position.latitude) > 1:
             print("Next tile in route was further away than a single move!?")
@@ -146,7 +146,7 @@ class PlayerHuman(Player):
         
         #Bring focus back to the moving adventurer
         game_vis.viewed_adventurer = adventurer
-        game_vis.viewed_player_colour = adventurer.player.colour
+        game_vis.viewed_player_name = adventurer.player.name
         game_vis.viewed_adventurer_number = game.adventurers[adventurer.player].index(adventurer)
                         
         moves, move_map = self.establish_moves(adventurer)
@@ -173,7 +173,7 @@ class PlayerHuman(Player):
                 moves["abandon"].append([city_longitude, city_latitude])
         
         #highlight the tiles
-#        print("Highlighting the available moves for the "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1))
+#        print("Highlighting the available moves for the "+self.name+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1))
         #redraw all the tokens and scores
         #make sure that tiles and token positions are up to date
         game_vis.draw_play_area()
@@ -195,14 +195,14 @@ class PlayerHuman(Player):
         game_vis.draw_tokens() #draw them on top of highlights
             
         #prompt the player to choose a tile to move on to
-        print("Prompting the "+self.colour+" player for input")
+        print("Prompting the "+self.name+" for input")
 #        game_vis.clear_prompt()
-        prompt = ("Click which tile you would like "+str(self.colour)+" Adventurer #" 
+        prompt = ("Click which tile you would like "+str(self.name)+"'s Adventurer #" 
                                        +str(game.adventurers[self].index(adventurer)+1) 
                                        +" to move to?")
         if game_vis.drawn_routes:
             prompt += " Or select a route to follow."
-        game_vis.current_player_colour = adventurer.player.colour
+        game_vis.current_player_name = adventurer.player.name
         game_vis.give_prompt(prompt)
         
         #Carry out the player's chosen move
@@ -260,7 +260,7 @@ class PlayerHuman(Player):
         
         if player_input.get("move") is not None:
             move_coords = player_input["move"]
-#            print(self.colour+" player chose valid coordinates to move to.")
+#            print(self.name+" player chose valid coordinates to move to.")
             if move_map[move_coords[0]].get(move_coords[1]) == "wait":
                 game_vis.clear_move_options()
                 moved = adventurer.wait()
@@ -309,7 +309,7 @@ class PlayerHuman(Player):
         game_vis.draw_scores()
         #Have the player acknowledge that it is their turn
 #        game_vis.clear_prompt()
-        game_vis.give_prompt(self.colour.capitalize()+" player's turn for Adventurer #"+str(adventurer_number+1)+". click to continue.")
+        game_vis.give_prompt(self.name.capitalize()+"'s turn for Adventurer #"+str(adventurer_number+1)+". click to continue.")
 #        game_vis.draw_move_options()
         game_vis.get_input_coords(adventurer)
         game_vis.clear_prompt()
@@ -323,7 +323,7 @@ class PlayerHuman(Player):
         
         #Move while moves are still available
         while adventurer.turns_moved < adventurer.game.turn:
-            print(self.colour.capitalize()+" player's Adventurer #"+str(adventurers.index(adventurer)+1)+" is still able to move.")
+            print(self.name.capitalize()+"'s Adventurer #"+str(adventurers.index(adventurer)+1)+" is still able to move.")
             self.continue_move(adventurer)
         self.follow_route = [] #Break the route-following behaviour at the end of the turn
         self.destination = None
@@ -400,15 +400,15 @@ class PlayerHuman(Player):
                 #Add these moves to the fast forward options
                 actions[move] = moves[move]        
         
-        print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
+        print("Highlighting the tile where "+self.name+"'s Adventurer #"+str(game.adventurers[self].index(adventurer)+1)
               +" can "+action_type)
         game_vis.draw_move_options(actions)
         game_vis.draw_tokens() #draw tokens on top of highlights
 
         #prompt the player to input
-        print("Prompting the "+self.colour+" player for input")
+        print("Prompting the "+self.name+" player for input")
 #            game_vis.clear_prompt()
-        game_vis.current_player_colour = adventurer.player.colour
+        game_vis.current_player_name = adventurer.player.name
         game_vis.give_prompt(prompt)
         
         action_location = None
@@ -445,7 +445,7 @@ class PlayerHuman(Player):
             player_input = game_vis.get_input_coords(adventurer)
         if player_input.get(action_type) is not None:
             action_coords = player_input.get(action_type)
-            print(self.colour.capitalize()+" player chose the coordinates of the tile where their Adventurer can "+action_type)
+            print(self.name.capitalize()+" chose the coordinates of the tile where their Adventurer can "+action_type)
             action_location = adventurer.game.play_area[action_coords[0]][action_coords[1]]
         elif player_input.get("move") is not None: # If there were movement options, then check whether these were chosen
             move_coords = player_input.get("move")
@@ -453,7 +453,7 @@ class PlayerHuman(Player):
             self.queued_move = move_map[move_coords[0]].get(move_coords[1])
             action_location = None
         else:
-            print(self.colour.capitalize()+" player chose coordinates away from the tile where their Adventurer can "+action_type)
+            print(self.name.capitalize()+" chose coordinates away from the tile where their Adventurer can "+action_type)
             action_location = None
 
         #clean up the highlights
@@ -477,7 +477,7 @@ class PlayerHuman(Player):
         if isinstance(token, Agent):
             token_description = " the Agent "
         elif isinstance(token, AdventurerAdvanced):
-            token_description = token.player.colour.capitalize()+" player's Adventurer #"+str(game.adventurers[token.player].index(token)+1)+" "
+            token_description = token.player.name.capitalize()+"'s Adventurer #"+str(game.adventurers[token.player].index(token)+1)+" "
         else:
             print("Skipping asking player about rest because the token offered can't provide it.")
             return False
@@ -485,14 +485,14 @@ class PlayerHuman(Player):
             action_type = "rest"
             actions[action_type] = [[adventurer.current_tile.tile_position.longitude
                         , adventurer.current_tile.tile_position.latitude]]
-            prompt = ("If you want "+str(self.colour)+" Adventurer #" 
+            prompt = ("If you want "+str(self.name)+"'s Adventurer #" 
                                            +str(game.adventurers[self].index(adventurer)+1) 
                                            +" to rest with "+token_description+" then click their tile, otherwise click elsewhere.")
         else:
             action_type = "buy"
             actions[action_type] = [[adventurer.current_tile.tile_position.longitude
                         , adventurer.current_tile.tile_position.latitude]]
-            prompt = ("If you want "+str(self.colour)+" Adventurer #" 
+            prompt = ("If you want "+str(self.name)+"'s Adventurer #" 
                                            +str(game.adventurers[self].index(adventurer)+1) 
                                            +" to rest with "+token_description+" for "
                                            +str(game.cost_agent_rest)+
@@ -599,7 +599,7 @@ class PlayerHuman(Player):
         actions = {action_type:[]}
         for agent in adventurer.game.agents[self]:
             actions[action_type].append([agent.current_tile.tile_position.longitude, agent.current_tile.tile_position.latitude])
-        prompt = ("You will need to move an existing " +str(self.colour)+ " Agent, click to choose one"
+        prompt = ("You will need to move an existing Agent of " +str(self.name)+ ", click to choose one"
                                        +", otherwise click elsewhere to cancel buying an Agent.")
         selected_tile = self.check_action(adventurer, action_type, actions, prompt)
         if selected_tile is not None:
@@ -613,7 +613,7 @@ class PlayerHuman(Player):
         for agent in adventurer.game.agents[self]:
             if not agent.current_tile == adventurer.current_tile: #Avoid trying to transfer treasure to the current tile
                 actions[action_type].append([agent.current_tile.tile_position.longitude, agent.current_tile.tile_position.latitude])
-        prompt = ("Select an Agent If you want " +str(self.colour)+ " Adventurer to move treasure there "
+        prompt = ("Select an Agent If you want " +str(self.name)+ "'s Adventurer to move treasure there "
                                        +", otherwise click elsewhere.")
         selected_tile = self.check_action(adventurer, action_type, actions, prompt)
         if selected_tile is not None:
@@ -627,9 +627,9 @@ class PlayerHuman(Player):
         action_type = "attack"
         actions = {action_type:[[adventurer.current_tile.tile_position.longitude
                     , adventurer.current_tile.tile_position.latitude]]}
-        prompt = ("If you want "+str(self.colour)+" Adventurer #" 
+        prompt = ("If you want "+str(self.name)+"'s Adventurer #" 
                            +str(adventurer.game.adventurers[self].index(adventurer)+1) 
-                           +" to attack "+ other_adventurer.player.colour+" player's Adventurer, then click their tile. "
+                           +" to attack "+ other_adventurer.player.name+"'s Adventurer, then click their tile. "
                                       +" Otherwise, click elsewhere.")
         if self.check_action(adventurer, action_type, actions, prompt):
             return True
@@ -687,9 +687,9 @@ class PlayerHuman(Player):
         action_type = "attack"
         actions = {action_type:[[adventurer.current_tile.tile_position.longitude
                         , adventurer.current_tile.tile_position.latitude]]}
-        prompt = ("If you want "+str(self.colour)+" Adventurer #" 
+        prompt = ("If you want "+str(self.name)+"'s Adventurer #" 
                            +str(adventurer.game.adventurers[self].index(adventurer)+1) 
-                           +" to attack "+ agent.player.colour+" player's Agent, then click their tile. "
+                           +" to attack "+ agent.player.name+"'s player's Agent, then click their tile. "
                                       +" Otherwise, click elsewhere.")    
         if self.check_action(adventurer, action_type, actions, prompt):
             return True
@@ -725,13 +725,13 @@ class PlayerHuman(Player):
         '''
         card_variety = cards[0].card_type[:3]
         if card_variety == "adv":
-            prompt = "Select a Character card for "+self.colour+" player's Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
+            prompt = "Select a Character card for "+self.name+"'s Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
         elif card_variety == "dis":
-            prompt = "Select a Manuscript card for "+self.colour+" player's Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
+            prompt = "Select a Manuscript card for "+self.name+"'s Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
         elif card_variety == "com":
-            prompt = "Select a Cadre card for "+self.colour+" player"
+            prompt = "Select a Cadre card for "+self.name
         else:
-            prompt = "Select a card for "+self.colour+" player's Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
+            prompt = "Select a card for "+self.name+"'s Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
         
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
@@ -748,7 +748,7 @@ class PlayerHuman(Player):
             game_vis.draw_cards()
         
         #prompt the player to input
-        print("Prompting the "+self.colour+" player for input")
+        print("Prompting "+self.name+" for input")
 #            game_vis.clear_prompt()
         game_vis.give_prompt(prompt)
         game_vis.draw_card_offers(cards)
@@ -761,7 +761,7 @@ class PlayerHuman(Player):
     def choose_tile(self, adventurer, tiles):
         '''Responds to option from the game to pick from a list of tiles, based on player input
         '''
-        prompt = "Select a tile for "+self.colour+" player's Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
+        prompt = "Select a tile for "+self.name+"'s Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
         
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
@@ -778,7 +778,7 @@ class PlayerHuman(Player):
             game_vis.draw_cards()
         
         #prompt the player to input
-        print("Prompting the "+self.colour+" player for input")
+        print("Prompting "+self.name+" for input")
 #            game_vis.clear_prompt()
         game_vis.give_prompt(prompt)
         game_vis.draw_tile_offers(tiles)

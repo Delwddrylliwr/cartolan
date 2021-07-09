@@ -118,9 +118,10 @@ class GameVisualisation():
             , "com+pool":"Map tiles are pooled across all Adventurers. Maps can be swapped at Agents for 1 treasure. Draw 3 Manuscript cards."
             }
     
-    def __init__(self, game, dimensions, origin, peer_visuals):
+    def __init__(self, game, dimensions, origin, peer_visuals, player_colours):
         #Retain game data
         self.players = game.players
+        self.player_colours = player_colours
         self.game = game
         self.dimensions = dimensions.copy()
         self.origin = origin.copy()
@@ -659,7 +660,7 @@ class GameVisualisation():
                 report = "No moves since rest"
                 move_count = self.scores_font.render(report, 1, self.PLAIN_TEXT_COLOUR)
         else:
-            report = "Not "+self.viewed_player_colour+" Adventurer's turn"
+            report = "Not "+self.current_adventurer.player.name+"'s Adventurer's turn"
             move_count = self.scores_font.render(report, 1, self.viewed_player_colour)
         if move_count.get_width() > self.right_text_start:
             self.right_text_start = move_count.get_width() #permanently adjust the text margin on this setup if it doesn't fit
@@ -737,11 +738,11 @@ class GameVisualisation():
         self.agent_rects = []
         for player in players:
             #We'll want to differentiate players by colour and the offset from the tile location
-            colour = pygame.Color(player.colour)
+            colour = pygame.Color(self.player_colours[player])
             player_offset = self.PLAYER_OFFSETS[players.index(player)]
             token_label_colour = self.PLAIN_TEXT_COLOUR
-            if self.TOKEN_FONT_COLOURS.get(player.colour) is not None:
-                token_label_colour = self.TOKEN_FONT_COLOURS[player.colour]
+            if self.TOKEN_FONT_COLOURS.get(self.player_colours[player]) is not None:
+                token_label_colour = self.TOKEN_FONT_COLOURS[self.player_colours[player]]
             #Each player may have multiple Adventurers to draw
             adventurers = self.game.adventurers[player]
             for adventurer in adventurers:
@@ -804,7 +805,7 @@ class GameVisualisation():
         for player in players:
             player_offset = self.PLAYER_OFFSETS[players.index(player)]
             adventurers = self.game.adventurers[player]
-            colour = pygame.Color(player.colour)
+            colour = pygame.Color(self.player_colours[player])
             for adventurer in adventurers:
                 if adventurer.route:
                     adventurer_offset = self.ADVENTURER_OFFSETS[adventurers.index(adventurer)]
@@ -834,7 +835,7 @@ class GameVisualisation():
                     if (drawn_route[-1][2] > self.tile_size and drawn_route[-1][3] > self.tile_size):
                         route_to_follow.pop()
                     if len(drawn_route) > 1:
-#                        print("Recording route of "+adventurer.player.colour+" player, for fast travel.")
+#                        print("Recording route of "+self.player_colours[adventurer.player]+" player, for fast travel.")
 #                        print("Route length: "+str(len(drawn_route)))
                         self.drawn_routes.append([drawn_route, route_to_follow])
             
@@ -842,14 +843,14 @@ class GameVisualisation():
 #                for attack in player.attack_history: 
 #                    # we want to draw a cross anywhere that an attack happened, the attack_history is full of pairs with a tile and a bool for the attack's success
 #                    if attack[1]:
-#                        face_colour = player.colour
+#                        face_colour = self.player_colours[player]
 #                    else:
 #                        face_colour = "none"
 #                    tile = attack[0]
 #                    location = [self.origin[0] + tile.tile_position.longitude + player_offset[0]
 #                                , self.origin[1] + tile.tile_position.latitude + player_offset[1]]
 #                    routeax.scatter([location[0]],[location[1]]
-#                                  , linewidth=1, edgecolors=player.colour, facecolor=face_colour, marker="X", s=self.token_width)
+#                                  , linewidth=1, edgecolors=self.player_colours[player], facecolor=face_colour, marker="X", s=self.token_width)
     
     def draw_scores(self):
         '''Prints a table of current wealth scores in players' Vaults and Adventurers' Chests
@@ -862,6 +863,7 @@ class GameVisualisation():
         score_title = self.scores_font.render("Treasure in...", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(score_title, [horizontal, vertical])
         vertical += score_title.get_height()
+        horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width // 2
         score_title = self.scores_font.render("Vault", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(score_title, [horizontal, vertical])
         #Start recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
@@ -877,10 +879,13 @@ class GameVisualisation():
                 horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width
                 self.window.blit(score_title, [horizontal, vertical])
         for player in self.players:
-            colour = pygame.Color(player.colour)
+            colour = pygame.Color(self.player_colours[player])
             horizontal = self.SCORES_POSITION[0] * self.width #reset the scores position before going through other rows below
             vertical += self.SCORES_FONT_SCALE * self.height #increment the vertical position to a new row
+            score_value = self.scores_font.render(player.name, 1, colour)
+            self.window.blit(score_value, [horizontal, vertical])
             score_value = self.scores_font.render(str(self.game.player_wealths[player]), 1, colour)
+            horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width - score_value.get_width()
             self.window.blit(score_value, [horizontal, vertical])
             #Record this space for click detection
 #            self.score_rects.append([(horizontal, vertical, self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width, self.SCORES_FONT_SCALE * self.height), player])
@@ -890,8 +895,7 @@ class GameVisualisation():
                 score_value = self.scores_font.render(str(adventurer.wealth), 1, colour)
                 self.window.blit(score_value, [horizontal, vertical])
                 #If this is the moving Adventurer, then highlight their score
-                if (player.colour == self.current_player_colour 
-                    and game.adventurers[player].index(adventurer) == self.current_adventurer_number):
+                if adventurer == self.current_adventurer:
                     pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
                                  , (horizontal
                                     , vertical + score_value.get_height()
@@ -899,8 +903,7 @@ class GameVisualisation():
                                     , 0)
                                  , self.chest_highlight_thickness)
                 #If this is the Adventurer whose cards are being viewed then mark with a dot underneath
-                if (player.colour == self.viewed_player_colour 
-                    and game.adventurers[player].index(adventurer) == self.viewed_adventurer_number):
+                if adventurer == self.viewed_adventurer:
                     pygame.draw.circle(self.window, self.PLAIN_TEXT_COLOUR
                                  , (horizontal + score_value.get_width()//2
                                     , vertical + score_value.get_height())
@@ -911,7 +914,7 @@ class GameVisualisation():
         #State the current player and Adventurer
         vertical += self.SCORES_FONT_SCALE * self.height
         horizontal = self.SCORES_POSITION[0] * self.width
-        active_prompt = self.scores_font.render(self.current_player_colour.capitalize()+" Adventurer "+str(self.current_adventurer_number+1)+"'s turn", 1, pygame.Color(self.current_player_colour))
+        active_prompt = self.scores_font.render(self.current_adventurer.player.name+"'s Adventurer #"+str(self.current_adventurer_number+1)+"'s turn", 1, pygame.Color(self.current_player_colour))
         self.window.blit(active_prompt, [horizontal, vertical])
         #Finish recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
         self.scores_rect = (self.scores_rect[0]
@@ -1044,7 +1047,7 @@ class GameVisualisation():
         #Identify the adventurer that has been selected to focus on in this visual
         game = self.game
         for player in game.players:
-            if player.colour == self.viewed_player_colour:
+            if player == self.viewed_adventurer.player:
                 break
         adventurer = game.adventurers[player][self.viewed_adventurer_number]
         #Establish the top left coordinate of the stack of cards
@@ -1054,7 +1057,7 @@ class GameVisualisation():
 #        vertical = self.chest_rect[1] + self.chest_rect[3]
         #draw the Adventurer's Player's Cadre Card        
         if self.game.assigned_cadres.get(adventurer.player) is not None:
-            card_title = self.scores_font.render(adventurer.player.colour.capitalize()+" player's Cadre card:", 1, self.PLAIN_TEXT_COLOUR)
+            card_title = self.scores_font.render(adventurer.player.name+"'s Cadre card:", 1, self.PLAIN_TEXT_COLOUR)
             self.window.blit(card_title, [horizontal, vertical])
             #Now draw the card itself
             card = self.game.assigned_cadres.get(adventurer.player)
@@ -1189,7 +1192,7 @@ class GameVisualisation():
     def start_turn(self, adventurer):
         '''Identifies the current player by their colour, affecting prompts
         '''
-        player_colour = adventurer.player.colour
+        player_colour = self.player_colours[adventurer.player]
         adventurer_number = self.game.adventurers[adventurer.player].index(adventurer)
         for game_vis in self.peer_visuals:
             game_vis.current_player_colour = player_colour
@@ -1324,12 +1327,12 @@ class WebServerVisualisation(GameVisualisation):
     TEMP_FILE_EXTENSION = ".png"
     INPUT_DELAY = 0.1 #delay time between checking for input, in seconds
     
-    def __init__(self, game, dimensions, origin, peer_visuals, client, width, height):
+    def __init__(self, game, dimensions, origin, peer_visuals, player_colours, client, width, height):
         self.peer_visuals = peer_visuals
         self.client = client
         self.width, self.height = width, height
         self.client_players = []
-        super().__init__(game, dimensions, origin, peer_visuals)
+        super().__init__(game, dimensions, origin, peer_visuals, player_colours)
     
     def init_GUI(self):
         print("Initialising the pygame window and GUI")
@@ -1461,17 +1464,17 @@ class WebServerVisualisation(GameVisualisation):
                     self.draw_card_offers(choices)
         #Prompt the player
         if input_type == "move":
-            prompt = self.current_player_colour.capitalize()+" player's is moving their Adventurer #"+str(self.current_adventurer_number+1)
+            prompt = self.current_adventurer.player.name+"'s is moving their Adventurer #"+str(self.current_adventurer_number+1)
         elif input_type == "text":
-            prompt = self.current_player_colour.capitalize()+" player's is choosing a treasure amount for their Adventurer #"+str(self.current_adventurer_number+1)
+            prompt = self.current_adventurer.player.name+"'s is choosing a treasure amount for their Adventurer #"+str(self.current_adventurer_number+1)
         elif input_type == "choose_tile":
-            prompt = self.current_player_colour.capitalize()+" player is choosing a tile for their Adventurer #"+str(self.current_adventurer_number+1)
+            prompt = self.current_adventurer.player.name+" is choosing a tile for their Adventurer #"+str(self.current_adventurer_number+1)
         elif input_type == "choose_discovery":
-            prompt = self.current_player_colour.capitalize()+" player is choosing a Manuscript card for their Adventurer #"+str(self.current_adventurer_number+1)
+            prompt = self.current_adventurer.player.name+" is choosing a Manuscript card for their Adventurer #"+str(self.current_adventurer_number+1)
         elif input_type == "choose_company":
-            prompt = self.current_player_colour.capitalize()+" player is choosing their Cadre card"
+            prompt = self.current_adventurer.player.name+" is choosing their Cadre card"
         else:
-            prompt = self.current_player_colour.capitalize()+" player is choosing a Character card for their Adventurer #"+str(self.current_adventurer_number+1)
+            prompt = self.current_adventurer.player.name+" is choosing a Character card for their Adventurer #"+str(self.current_adventurer_number+1)
         self.give_prompt(prompt)
     
     def check_peer_input(self):
@@ -1501,14 +1504,14 @@ class WebServerVisualisation(GameVisualisation):
                     #Having found the click within a particular player/adventurer's score, need to update the focus of the card stacks
                     if isinstance(score[1], Player):
                         #just choose the first adventurer if it was the player's vault wealth selected
-                        self.viewed_player_colour = score[1].colour
+                        self.viewed_player_colour = self.player_colours[score[1]]
                         self.viewed_adventurer_number = 0
                         self.viewed_adventurer = self.game.adventurers[score[1]][0]
                     else:
-                        self.viewed_player_colour = score[1].player.colour
+                        self.viewed_player_colour = self.player_colours[score[1].player]
                         self.viewed_adventurer_number = self.game.adventurers[score[1].player].index(score[1])
                         self.viewed_adventurer = score[1]
-                    print("Updated focus for card visuals to "+self.viewed_player_colour+" player's Adventurer #"+str(self.viewed_adventurer_number+1))
+                    print("Updated focus for card visuals to "+self.viewed_adventurer.player.name+"'s Adventurer #"+str(self.viewed_adventurer_number+1))
             return True
         #Check whether the click was within the card stack, and update the index of the selected card
         elif (horizontal in range(int(self.stack_rect[0]), int(self.stack_rect[0] + self.stack_rect[2]))
@@ -1538,15 +1541,15 @@ class WebServerVisualisation(GameVisualisation):
             for centre in self.adventurer_centres:
                 if (horizontal - centre[0][0])**2 + (vertical - centre[0][1])**2 < self.token_size**2:
                     print("Click detected within one of the Adventurers' areas, with centre: "+str(centre[0]))
-                    self.viewed_player_colour = centre[1].player.colour
+                    self.viewed_player_colour = self.player_colours[centre[1].player]
                     self.viewed_adventurer_number = self.game.adventurers[centre[1].player].index(centre[1])
                     self.viewed_adventurer = centre[1]
                     return True
             for rect in self.agent_rects:
                 if (horizontal in range(int(rect[0][0]), int(rect[0][0] + rect[0][2]))
                     and vertical in range(int(rect[0][1]), int(rect[0][1] + rect[0][3]))):
-                    print("Click detected within one of the Agents' areas for "+rect[1].colour+" player.")
-                    self.viewed_player_colour = rect[1].colour
+                    print("Click detected within one of the Agents' areas for "+self.player_colours[rect[1]]+" player.")
+                    self.viewed_player_colour = self.player_colours[rect[1]]
                     self.viewed_adventurer_number = 0
                     self.viewed_adventurer = self.game.adventurers[rect[1]][0]
                     return True
