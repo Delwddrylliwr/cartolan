@@ -428,11 +428,13 @@ class ClientSocket(WebSocket):
                              , MYTHICAL_CITY)
         
         #Move the game's lookups into the active list and clean up
-        games[game_id] = {"player_colours":new_game_colours.pop(game_id)
-                            , "players":new_game_players.pop(game_id)
+        games[game_id] = {"game":self.game
+                             , "player_colours":new_game_players.pop(game_id)
+                            , "players":game_players
                             , "game_type":new_game_types.pop(game_id)
                             , "clients":new_game_clients.pop(game_id)
-                            }                    
+                            } 
+        new_game_colours.pop(game_id)                   
         #Set up a visual tailored to each client's screen
         clients = games[game_id]["clients"]
         visuals = []
@@ -473,6 +475,35 @@ class ClientSocket(WebSocket):
         #Tidy up and indicate that a game was joined and completed, and allow the thread to terminate
         games.pop(game_id)
         return True
+    
+    def swap_player(self, game_id, old_player, new_player):
+        '''Introduces one player in place of another within a game.
+        
+        Arguments:
+        old_player takes a Cartolan player
+        new_player takes a Cartolan player
+        '''
+        game = games[game_id]["game"]
+        #Identify tokens owned by old player and transfer them to the new player
+        #First Adventurers
+        adventurers = game.adventurers.pop(old_player)
+        for adventurer in adventurers:
+            adventurer.player = new_player
+        game.adventurers[new_player] = adventurers
+        #Now Agents
+        agents = game.agents.pop(old_player)
+        for agent in agents:
+            agent.player = new_player
+        game.agents[new_player] = agents
+        
+        #Remove old player from game and introduce the new player instead
+        old_index = game.players.index(old_player)
+        game.players.pop(old_player)
+        game.players.insert(old_index, new_player)
+        
+        #Update the central records
+        old_colour = games[game_id]["players"].pop(old_player)
+        games[game_id]["players"][new_player] = old_colour
     
     #@TODO decide whether to collect input from this socket via recv or the below
     def handleMessage(self):
