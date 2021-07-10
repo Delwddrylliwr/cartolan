@@ -43,6 +43,7 @@ class GameVisualisation():
     BACKGROUND_COLOUR = (38,50,60) #(38,50,66)
     PLAIN_TEXT_COLOUR = (255,255,255)
     WONDER_TEXT_COLOUR = (0,0,0)
+    ACCEPT_UNDO_COLOUR = (255, 0, 0)
     CARD_TEXT_COLOUR = (0,0,0)
     CARD_BACKGROUND_COLOUR = (255,255,255)
     CHEST_HIGHLIGHT_COLOUR = (0, 255, 0)
@@ -148,6 +149,8 @@ class GameVisualisation():
         self.toggles_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
         self.toggle_rects = []
         self.piles_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
+        self.undo_rect = (self.width, self.height, 0, 0)
+        self.undo_agreed = False
         self.adventurer_centres = []
         self.agent_rects = []
         if isinstance(self.game, GameAdvanced):
@@ -983,7 +986,27 @@ class GameVisualisation():
             #Remember the position of this highlight's toggle
             self.toggle_rects.append([(horizontal, vertical, self.menu_highlight_size, self.menu_highlight_size), highlight_type])
             horizontal += self.menu_highlight_size #increment the horizontal placement before the next toggle is drawn
-                
+    
+    def draw_undo_button(self):
+        '''Adds an undo button and a click hit-box that will allow the game to be reset to a preceding state, providing all players agree.
+        '''
+        #Check whether the other clients to the game have proposed/agreed to an undo
+        undo_asked = False
+        for peer in self.peer_visuals:
+            if not peer == self and peer.undo_agreed:
+                undo_asked = True
+                break
+        if self.undo_agreed:
+            undo_button = self.scores_font.render("Reject undo", 1, self.ACCEPT_UNDO_COLOUR)
+        elif undo_asked:
+            undo_button = self.scores_font.render("Accept undo?", 1, self.ACCEPT_UNDO_COLOUR)
+        else:
+            undo_button = self.scores_font.render("Undo turn?", 1, self.PLAIN_TEXT_COLOUR)
+        horizontal = self.width - undo_button.get_width()
+        vertical = self.height - undo_button.get_height()
+        self.window.blit(undo_button, (horizontal, vertical))
+        self.undo_rect = (horizontal, vertical, undo_button.get_width(), undo_button.get_height())
+            
     def draw_chest_tiles(self):
         '''Visualises a set of tiles in the Adventurer's Chest, and highlights one if it is selected for use
         '''
@@ -1186,14 +1209,19 @@ class GameVisualisation():
         '''        
 #        print("Creating a prompt for the current player")
         #Establish the colour (as the current player's)
-        prompt = self.prompt_font.render(self.prompt_text, 1, pygame.Color(self.current_player_colour))
-        self.window.blit(prompt, self.prompt_position)
-    
+#        prompt = self.prompt_font.render(self.prompt_text, 1, pygame.Color(self.current_player_colour))
+        prompt_width = self.width - self.play_area_start - self.right_menu_width
+        prompt = self.wrap_text(self.prompt_text, prompt_width, self.prompt_font, pygame.Color(self.current_player_colour), self.BACKGROUND_COLOUR)
+        self.window.blit(prompt, (self.play_area_start, self.height - prompt.get_height()))
+        
     def start_turn(self, adventurer):
         '''Identifies the current player by their colour, affecting prompts
         '''
         player_colour = adventurer.player.colour
         adventurer_number = self.game.adventurers[adventurer.player].index(adventurer)
+#        #Reset the request for an undo
+#        self.undo_agreed = False
+#        self.undo_asked = False
         for game_vis in self.peer_visuals:
             game_vis.current_player_colour = player_colour
             game_vis.current_adventurer_number = adventurer_number
@@ -1202,6 +1230,8 @@ class GameVisualisation():
             game_vis.viewed_player_colour = player_colour
             game_vis.viewed_adventurer_number = adventurer_number
             game_vis.viewed_adventurer = adventurer
+            #Reset the request for an undo
+            game_vis.undo_agreed = False
     
     def give_prompt(self, prompt_text):
         '''Pushes text to the prompt buffer for the visual
@@ -1379,7 +1409,6 @@ class WebServerVisualisation(GameVisualisation):
         #Import images
         self.init_graphics()
     
-    #other clients are likely not updating because they are getting none of the visual updates prompted by their opponents' moves
     def update_web_display(self):
         '''For this client visualisation in particular, send out an image of the play area.
         '''
@@ -1434,8 +1463,7 @@ class WebServerVisualisation(GameVisualisation):
             if not self.client == game_vis.client and game_vis not in refreshed_visuals:
                 refreshed_visuals.append(game_vis)
                 game_vis.refresh_visual(choices, input_type)
-                
-            game_vis.update_web_display()
+                game_vis.update_web_display()
     
     def refresh_visual(self, choices=None, input_type="move"):
         '''Updates all elements of this visual, as required when not the active player
@@ -1462,6 +1490,7 @@ class WebServerVisualisation(GameVisualisation):
                     self.draw_tile_offers(choices)
                 else:
                     self.draw_card_offers(choices)
+        self.draw_undo_button()
         #Prompt the player
         if input_type == "move":
             prompt = self.current_player_colour.capitalize()+" player's is moving their Adventurer #"+str(self.current_adventurer_number+1)
@@ -1490,6 +1519,41 @@ class WebServerVisualisation(GameVisualisation):
                     if game_vis.check_update_focus(horizontal, vertical):
                         game_vis.refresh_visual()
                         game_vis.update_web_display()
+                    #Check whether this player wants/agrees to an undo
+                    elif game_vis.check_undo(horizontal, vertical):
+                        game_vis.refresh_visual()
+                        game_vis.update_web_display()
+    
+    def check_peers_undo(self):
+        '''Cycles through all clients of the game to see whether they all agree to undo this turn
+        '''
+        #Any one player disagreeing will mean the undo isn't agreed yet
+        for game_vis in self.peer_visuals:
+            if not game_vis.undo_agreed:
+                return False
+        return True
+    
+    def reset_peer_undos(self):
+        '''Cycles through all clients to the game, making sure they don't continue to vote for resetting the turn
+        '''
+        #If all rejected then this will be fed back to the game, but all will need to be reset
+        for game_vis in self.peer_visuals:
+            game_vis.undo_agreed = False
+        return True
+    
+    def check_undo(self, horizontal, vertical):
+        '''Checks whether click coordinates were within the undo button's click-box
+        '''
+        if (horizontal in range(int(self.undo_rect[0]), int(self.undo_rect[0] + self.undo_rect[2]))
+            and vertical in range(int(self.undo_rect[1]), int(self.undo_rect[1] + self.undo_rect[3]))):
+            print("Player chose coordinates within the undo button, with vertical: "+str(vertical))
+            if self.undo_agreed:
+                self.undo_agreed = False
+            else:
+                self.undo_agreed = True
+            return True
+        else:
+            return False
     
     def check_update_focus(self, horizontal, vertical):
         '''Checks whether click coordinates were within the superficial visual elements that need no game response but should revise the client's visuals
@@ -1564,6 +1628,8 @@ class WebServerVisualisation(GameVisualisation):
         #Make sure that the current adventurer is up to date
         if self.current_adventurer is None:
             self.start_turn(adventurer)
+        #Update the visuals to prompt input
+        self.update_web_display()
         #Update the visuals for the remote players who aren't active
         self.refresh_peers(adventurer)
         
@@ -1583,7 +1649,7 @@ class WebServerVisualisation(GameVisualisation):
                     return {"preferred_tile":self.MENU_TILE_COLS * menu_row + menu_column}
                 #Check whether the click was irrelevant to gameplay but changes the focus of the active player's visuals
                 elif self.check_update_focus(horizontal, vertical):
-                    return {"update_cards":None}
+                    return {"update_visuals":"update_visuals"}
                 #Check whether the click was within the toggle menu, and update the index of the selected card
                 elif (horizontal in range(int(self.toggles_rect[0]), int(self.toggles_rect[0] + self.toggles_rect[2]))
                     and vertical in range(int(self.toggles_rect[1]), int(self.toggles_rect[1] + self.toggles_rect[3]))):
@@ -1597,6 +1663,9 @@ class WebServerVisualisation(GameVisualisation):
                                 , int(highlight_rect[1]) + int(highlight_rect[3]))):
 #                            print("Identified coordinates within one of the auto-response toggles.")
                             return {"toggle":highlight[1]}
+                elif self.check_undo(horizontal, vertical):
+                    self.refresh_peers(adventurer) #Update peers' displays to show that the undo request has been made
+                    return {"update_cards":"update_cards"} #Get the player to prompt again and refresh their own visuals              
                 else:
                     #Otherwise check whether the click was within a highlighted cell and return the coordinates
                     for highlight_type in self.highlight_rects:
@@ -1623,6 +1692,9 @@ class WebServerVisualisation(GameVisualisation):
 #                coords = None
             #Check for input from the other clients to their visuals and update their view
             self.check_peer_input()
+            if self.check_peers_undo():
+                print("Confirmed with all clients that turn can be undone.")
+                return {"undo":"undo"}
             #Wait before checking again            
             time.sleep(self.INPUT_DELAY)
         
@@ -1635,6 +1707,8 @@ class WebServerVisualisation(GameVisualisation):
         adventurer takes a Cartolan.adventurer
         cards takes a list of Cartolan.card
         '''
+        #Update the visuals to prompt input
+        self.update_web_display()
         #Make sure that the current adventurer is up to date
         if self.current_adventurer is None:
             self.start_turn(adventurer)
