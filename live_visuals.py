@@ -753,7 +753,6 @@ class GameVisualisation():
                 # we want it to be coloured differently for each player
 #                print("Drawing the filled circle at " +str(location[0])+ ", " +str(location[1])+ " with radius " +str(self.token_size))
                 pygame.draw.circle(self.window, colour, location, self.token_size)
-                self.adventurer_centres.append([(location[0], location[1]), adventurer])
                 if isinstance(adventurer, AdventurerRegular):
                     if adventurer.pirate_token:
                         # we'll outline pirates in black
@@ -762,6 +761,8 @@ class GameVisualisation():
 #                if adventurer in (self.viewed_adventurer, self.current_adventurer):
                 if adventurer == self.viewed_adventurer:
                     pygame.draw.circle(self.window, self.PLAIN_TEXT_COLOUR, location, self.token_size+self.outline_width, self.outline_width)
+                else:
+                    self.adventurer_centres.append([(location[0], location[1]), adventurer]) #We'll retain the centre, to contstruct a hit-box for selecting this Adventurer instead
                 #For the text label we'll change the indent
                 token_label = self.token_font.render(str(adventurers.index(adventurer)+1), 1, token_label_colour)
                 location[0] -= self.token_size // 2
@@ -778,8 +779,10 @@ class GameVisualisation():
                 #Agents will be differentiated by colour, but they will always have the same position because there will only be one per tile
                 agent_shape = pygame.Rect(location[0], location[1]
                   , self.AGENT_SCALE*self.token_size, self.AGENT_SCALE*self.token_size)
-                self.agent_rects.append([(location[0], location[1]
-                  , self.AGENT_SCALE*self.token_size, self.AGENT_SCALE*self.token_size), agent.player])
+                if agent.player != self.viewed_adventurer.player:
+                    self.agent_rects.append([(location[0], location[1]
+                            , self.AGENT_SCALE*self.token_size, self.AGENT_SCALE*self.token_size)
+                        , agent.player])
                 # we'll only outline the Agents that are dispossessed
                 if isinstance(agent, AgentRegular) and agent.is_dispossessed:
                         pygame.draw.rect(self.window, colour, agent_shape, self.outline_width)
