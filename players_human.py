@@ -30,6 +30,8 @@ class PlayerHuman(Player):
                            , "buy":None
                            , "attack":None
                            }
+        self.follow_route = []
+        self.destination = None
     
     def establish_moves(self, adventurer):
         '''Checks the available moves away from their tile for an adventurer and provides suitable highlights, as well as a mapping from coordinates to compass points
@@ -128,7 +130,7 @@ class PlayerHuman(Player):
                 #As about to complete a route to the city, turn off route-following mode
                 self.follow_route = []
                 self.destination = None
-#                self.clear_fixed_response()
+##                self.clear_fixed_response()
             return self.move_to_tile(adventurer, next_tile)
         
         #If Actions were skipped for a queued move, then carry it out and start checking actions with input again
@@ -223,10 +225,8 @@ class PlayerHuman(Player):
                     if play_area.get(destination_coords[0]):
                         self.destination = play_area[destination_coords[0]].get(destination_coords[1])
 #                    print("Setting out on route of length "+str(len(self.follow_route)))
-#                    self.fixed_responses = {"rest":True
-#                               , "buy":None #Break the automatic following and let the player decide
-#                               , "attack":False
-#                               }
+#                    if self.fixed_responses["rest"] is None:
+#                        self.fixed_responses["rest"] = True #
                     #Remove the route up until the current tile
                     while not self.follow_route[0] == adventurer.current_tile:
                             self.follow_route.pop(0)
@@ -456,6 +456,16 @@ class PlayerHuman(Player):
             self.fast_forward = True
             self.queued_move = move_map[move_coords[0]].get(move_coords[1])
             action_location = None
+            #If a move was chosen instead of an Action during route-following, then this means departing from the route
+            self.follow_route = []
+            self.destination = None
+#            longitude = game.play_area.get(move_coords[0])
+#            if longitude is not None:
+#                tile = longitude.get(move_coords[1])
+#                if tile is not None and tile not in self.follow_route:
+#                    #This was a successful departure from the route
+#                    self.follow_route = []
+#                    self.destination = None
         else:
             print(self.colour.capitalize()+" player chose coordinates away from the tile where their Adventurer can "+action_type)
             action_location = None
