@@ -3,6 +3,7 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
 import random
+import copy
 import uuid
 
 class Game:
@@ -51,12 +52,51 @@ class Game:
 #         self.most_lucrative_route_value = 0
 #         self.most_lucrative_route_player = None
 
+    def save(self):
+        '''Backs up the game and tokens' states, so that they can be restored later e.g. to undo a mistake
+        '''
+#        print("Backing up game state")
+        self.backup = None #Avoid recursively backing up deep copies of earlier versions
+        self.backup = copy.deepcopy(self)
+#        memo = {}
+#        try: 
+#            self.backup = copy.deepcopy(self, memo)
+#        except Exception as error:
+#            print(error)
+#            print(memo)
+#            exit()
         
+    def restore(self):
+        '''Restores a previous game state.
+        
+        Thanks to Nithin: https://stackoverflow.com/questions/1216356/is-it-safe-to-replace-a-self-object-by-another-object-of-the-same-type-in-a-meth
+        '''
+        adventurers = self.adventurers
+        self.__dict__.update(self.backup.__dict__)
+        #Now for each adventurer return to the original object reference, but 
+        #swap its attributes for the deep copy's - so that restoring in the 
+        #middle of an Adventurer's move doesn't break references around it
+        for player in adventurers:
+            for adventurer in adventurers[player]:
+                adventurer_num = adventurers[player].index(adventurer)
+                restored_copy = self.adventurers[player][adventurer_num]
+#                print("Restoring attributes of "+str(adventurer)+" from backup "+str(restored_copy)+"but keeping the reference.")
+                adventurer.__dict__.update(restored_copy.__dict__)
+                #Because the adventurers came from the deep-copied game they will have references to the "copy" that has been abandoned
+                adventurer.game = self
+            for agent in self.agents[player]:
+                #Because the agents came from the deep-copied game they will have references to the "copy" that has been abandoned
+                agent.game = self
+        
+#        print("Replacing the new replica of the game's Adventurer's list, "+str(self.adventurers)+", with the original full of original Adventurer references, "+str(adventurers))
+        self.adventurers = adventurers
+        #Now make sure there is a backup still in place for subsequent restores (the backup had no backup iteself)
+        self.save()
+    
 #    def establish_turn_order(self):
 #        '''Randomises the order in which Player objects will be activated'''
 #        random.shuffle(self.players)
 
-#@TODO allow players to join multiple games, through maintaining a game-indexed dict of wealth/adventurers/agents/game-specific stats. This will help allow AI players to learn across multiple games in parallel
 class Player:
     '''A template for actual Players responding to play in a Game of Cartolan.
     
@@ -69,6 +109,11 @@ class Player:
     def __init__(self, colour = "red"):
         self.colour = colour
         self.games = {}
+    
+    def __deepcopy__(self, memo):
+        '''Excludes the player class from deep copies, returning just a reference
+        '''
+        return self
     
     def join_game(self, game):
         '''Establishes dict to retain strategic info for each game
@@ -132,6 +177,11 @@ class Card:
         if isinstance(other, Card):
             return not self.card_id == other.card_id
         else: return True
+        
+    def __deepcopy__(self, memo):
+        '''Excludes creation of new version from deep copying, copying only the reference
+        '''
+        return self
 
 class Adventurer(Token):
     '''A template for actual Adventurer tokens used in different game modes.
@@ -146,7 +196,14 @@ class Adventurer(Token):
         super().__init__(game, player, current_tile)
         game.adventurers[player].append(self)
         
-        self.turns_moved = 0
+        self.turns_moved = 0    
+        
+#    def __deepcopy__(self, memo):
+#        '''Returns a reference instead of a serialisation, so that the same 
+#        object reference can continue to be used when a previous game state is 
+#        restored.
+#        '''
+#        return self
     
     def move(self, compass_point):
         '''placeholder for movement'''
@@ -256,6 +313,11 @@ class Tile:
         if isinstance(other, Tile):
             return not self.tile_id == other.tile_id
         else: return True
+        
+    def __deepcopy__(self, memo):
+        '''Excludes creation of new version from deep copying, copying only the reference
+        '''
+        return self
     
     def place_tile(self, longitude, latitude):
         '''records the location of a Tile object in the PlayArea of a Cartolan game
