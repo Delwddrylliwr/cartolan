@@ -6,6 +6,7 @@ from base import Player, Agent, CityTile
 from game import GameRegular, GameAdvanced
 from regular import AdventurerRegular
 from advanced import AdventurerAdvanced
+#import copy
 
 class PlayerHuman(Player):
     '''A pyplot-based interface for a human players to make decisions in live play.
@@ -338,6 +339,7 @@ class PlayerHuman(Player):
         
         #Backup the game state, in case an undo is needed this turn
         game.save()
+#        backup = copy.deepcopy(adventurer)
         
         #Move while moves are still available
         while adventurer.turns_moved < adventurer.game.turn:
@@ -347,6 +349,10 @@ class PlayerHuman(Player):
             if self.undone:
                 print("Resetting the turn, after agreement from all clients.")
                 adventurer.game.restore()
+                #for the adventurer reference in the while loop above, replace all data with
+#                adventurer.game = backup.game #Make sure that any further use of this Adventurer instance's game will interact with the restored game
+#                game_vis.game = backup.game #Point the visualisation to the backup game instance
+#                game_vis.client.game = backup.game #update the turn-scheduling 
                 #Make sure that resetting does not continue
                 self.undone = False
                 game_vis.reset_peer_undos()

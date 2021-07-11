@@ -5,6 +5,7 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 import random
 import copy
 import uuid
+from utils import replace_references
 
 class Game:
     '''A template for maintaining a record of the game state in different modes of Cartolan.
@@ -71,7 +72,8 @@ class Game:
         
         Thanks to Nithin: https://stackoverflow.com/questions/1216356/is-it-safe-to-replace-a-self-object-by-another-object-of-the-same-type-in-a-meth
         '''
-        adventurers = self.adventurers
+#        replace_references(self.backup, self, self.backup, [], [Game, Token, Card, Tile, TilePile]) #Make sure that all elements within the backup copy of the game refer up to the true game
+        adventurers = self.adventurers #retain the list currently used for adventurers
         self.__dict__.update(self.backup.__dict__)
         #Now for each adventurer return to the original object reference, but 
         #swap its attributes for the deep copy's - so that restoring in the 
@@ -79,17 +81,23 @@ class Game:
         for player in adventurers:
             for adventurer in adventurers[player]:
                 adventurer_num = adventurers[player].index(adventurer)
-                restored_copy = self.adventurers[player][adventurer_num]
-#                print("Restoring attributes of "+str(adventurer)+" from backup "+str(restored_copy)+"but keeping the reference.")
-                adventurer.__dict__.update(restored_copy.__dict__)
-                #Because the adventurers came from the deep-copied game they will have references to the "copy" that has been abandoned
-                adventurer.game = self
+                if len(self.adventurers[player]) > adventurer_num:
+                    restored_copy = self.adventurers[player][adventurer_num]
+    #                print("Restoring attributes of "+str(adventurer)+" from backup "+str(restored_copy)+"but keeping the reference.")
+                    adventurer.__dict__.update(restored_copy.__dict__)
+    #                #Because the adventurers came from the deep-copied game they will have references to the "copy" that has been abandoned
+                    adventurer.game = self
+                    #adventurers are also referenced by tiles, so these will need updating
+    #                replace_references(restored_copy, adventurer, adventurer, [], [Game, Token, Card, TilePile, list, dict])
+                else:
+                    #If this adventurer wasn't in the backup, then discard it
+                    adventurers[player].pop(adventurer)
             for agent in self.agents[player]:
                 #Because the agents came from the deep-copied game they will have references to the "copy" that has been abandoned
-                agent.game = self
-        
+                agent.game = self        
 #        print("Replacing the new replica of the game's Adventurer's list, "+str(self.adventurers)+", with the original full of original Adventurer references, "+str(adventurers))
         self.adventurers = adventurers
+        #Tiles may still have references to the 
         #Now make sure there is a backup still in place for subsequent restores (the backup had no backup iteself)
         self.save()
     
@@ -178,10 +186,10 @@ class Card:
             return not self.card_id == other.card_id
         else: return True
         
-    def __deepcopy__(self, memo):
-        '''Excludes creation of new version from deep copying, copying only the reference
-        '''
-        return self
+#    def __deepcopy__(self, memo):
+#        '''Excludes creation of new version from deep copying, copying only the reference
+#        '''
+#        return self
 
 class Adventurer(Token):
     '''A template for actual Adventurer tokens used in different game modes.
@@ -314,10 +322,10 @@ class Tile:
             return not self.tile_id == other.tile_id
         else: return True
         
-    def __deepcopy__(self, memo):
-        '''Excludes creation of new version from deep copying, copying only the reference
-        '''
-        return self
+#    def __deepcopy__(self, memo):
+#        '''Excludes creation of new version from deep copying, copying only the reference
+#        '''
+#        return self
     
     def place_tile(self, longitude, latitude):
         '''records the location of a Tile object in the PlayArea of a Cartolan game
