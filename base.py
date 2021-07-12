@@ -72,7 +72,11 @@ class Game:
         
         Thanks to Nithin: https://stackoverflow.com/questions/1216356/is-it-safe-to-replace-a-self-object-by-another-object-of-the-same-type-in-a-meth
         '''
-#        replace_references(self.backup, self, self.backup, [], [Game, Token, Card, Tile, TilePile]) #Make sure that all elements within the backup copy of the game refer up to the true game
+        valid_classes = [Game, Token, Card, Tile, TilePile, list, dict]
+        memo = []
+        replace_references(self.backup, self, self.backup, memo, valid_classes) #Make sure that all elements within the backup copy of the game refer up to the true game
+#        print("Investigated objects:")
+#        print(memo)
         adventurers = self.adventurers #retain the list currently used for adventurers
         self.__dict__.update(self.backup.__dict__)
         #Now for each adventurer return to the original object reference, but 
@@ -86,9 +90,12 @@ class Game:
     #                print("Restoring attributes of "+str(adventurer)+" from backup "+str(restored_copy)+"but keeping the reference.")
                     adventurer.__dict__.update(restored_copy.__dict__)
     #                #Because the adventurers came from the deep-copied game they will have references to the "copy" that has been abandoned
-                    adventurer.game = self
+#                    adventurer.game = self
                     #adventurers are also referenced by tiles, so these will need updating
-    #                replace_references(restored_copy, adventurer, adventurer, [], [Game, Token, Card, TilePile, list, dict])
+                    memo = []
+                    replace_references(restored_copy, adventurer, self, memo, valid_classes)
+#                    print("Investigated objects:")
+#                    print(memo)
                 else:
                     #If this adventurer wasn't in the backup, then discard it
                     adventurers[player].pop(adventurer)
