@@ -178,7 +178,8 @@ class AdventurerAdvanced(AdventurerRegular):
             return token.give_rest(self)
 #        print("Make sure that the adventurer is equipped with the right method")
         elif self.rest_with_adventurers and not callable(getattr(token, "give_rest", None)):
-            token.cost_agent_rest = token.game.cost_agent_rest
+            if not self.pirate_token:
+                token.cost_agent_rest = token.game.cost_agent_rest
 #            token.give_rest = AgentAdvanced.give_rest
 #            return token.give_rest(self)
             return AgentBeginner.give_rest(token, self)
