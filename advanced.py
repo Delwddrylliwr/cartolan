@@ -151,7 +151,9 @@ class AdventurerAdvanced(AdventurerRegular):
               and token not in self.agents_rested
               and not token == self):
 #            print("Checking if can rest with an Adventurer")
-            if token.player == self.player or self.wealth >= self.game.cost_agent_rest:
+            if (token.player == self.player 
+                or (self.wealth >= self.game.cost_agent_rest
+                and not self.pirate_token)):
 #                print("Deemed that resting with an Adventurer is possible.")
                 return True    
         else:
