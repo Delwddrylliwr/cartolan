@@ -120,7 +120,6 @@ class GameVisualisation():
     
     def __init__(self, game, peer_visuals, player_colours):
         #Retain game data
-        self.players = game.players
         self.player_colours = player_colours
         self.game = game
         self.dimensions = [len(game.play_area), max([len(game.play_area[longitude]) for longitude in game.play_area])]
@@ -732,7 +731,7 @@ class GameVisualisation():
         '''
 #        print("Cycling through the players, drawing the adventurers and agents as markers")
         game = self.game
-        players = self.players
+        players = self.game.players
         #Reset the records of where Agents and Adventurers have been
         self.adventurer_centres = []
         self.agent_rects = []
@@ -871,14 +870,14 @@ class GameVisualisation():
         self.score_rects = []
         #Work out the maximum number of Adventurers in play, to only draw this many columns
         max_num_adventurers = 1
-        for player in self.players:
+        for player in self.game.players:
             if len(game.adventurers[player]) > max_num_adventurers:
                 max_num_adventurers = len(game.adventurers[player])
         for adventurer_num in range(1, max_num_adventurers + 1):
                 score_title = self.scores_font.render("Chest #"+str(adventurer_num), 1, self.PLAIN_TEXT_COLOUR)
                 horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width
                 self.window.blit(score_title, [horizontal, vertical])
-        for player in self.players:
+        for player in self.game.players:
             colour = pygame.Color(self.player_colours[player])
             horizontal = self.SCORES_POSITION[0] * self.width #reset the scores position before going through other rows below
             vertical += self.SCORES_FONT_SCALE * self.height #increment the vertical position to a new row
@@ -994,7 +993,7 @@ class GameVisualisation():
         preferred_tile_num = self.viewed_adventurer.preferred_tile_num
         max_chest_tiles = self.viewed_adventurer.num_chest_tiles
         #Establish the top left coordinate of the column of tiles to choose from, below the table of treasure scores
-#        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1)
+#        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.game.players) + 1)
         horizontal = self.right_text_start
 #        vertical = (len(self.game.players) + 1) * self.SCORES_FONT_SCALE * self.height
         vertical = self.toggles_rect[1] + self.toggles_rect[3] 
@@ -1052,7 +1051,7 @@ class GameVisualisation():
         adventurer = game.adventurers[player][self.viewed_adventurer_number]
         #Establish the top left coordinate of the stack of cards
         horizontal = 0
-#        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.players) + 1) 
+#        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.game.players) + 1) 
         vertical = self.scores_rect[1] + self.scores_rect[3]
 #        vertical = self.chest_rect[1] + self.chest_rect[3]
         #draw the Adventurer's Player's Cadre Card        

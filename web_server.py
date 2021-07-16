@@ -361,7 +361,7 @@ class ClientSocket(WebSocket):
         '''Adds players to a queue, the first specifies setup, the last hosts in their thread.
         '''
         global new_game_clients, new_game_types, new_game_colours, new_game_players
-        def report_queue(client):
+        def report_queue(client, game_id):
             num_existing_players = len(new_game_players[game_id])
             num_players = len(new_game_colours[game_id]) + num_existing_players
             report = str(num_existing_players)+"/"+str(num_players)
@@ -374,7 +374,7 @@ class ClientSocket(WebSocket):
                 print("With no games queued up, configuring a new game.")
                 game_id = self.create_game()
                 #Notify the player that they are in the queue and how many more players are awaited
-                report_queue(self)
+                report_queue(self, game_id)
                 in_queue = True
             else:
                 print("Trying to join this client to a random existing game from the queue")
@@ -387,7 +387,7 @@ class ClientSocket(WebSocket):
                     #Notify the client that they are in the queue and how many more players are awaited
                     new_game_clients[game_id].append(self)
                     for client in new_game_clients[game_id]:
-                        report_queue(client)
+                        report_queue(client, game_id)
                     in_queue = True
                 else:
                     tried_games.append(game_id)

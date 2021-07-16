@@ -195,6 +195,53 @@
                     context.fillText(line, x, y);
                  };
                 startGame.wrapText = wrapText;  //make this available externally 
+                //A function to draw a table flexibly
+                //Create a function to wrap text for this display size
+                function drawTable(context, tableTexts, x, y, tableWidth, rowHeight, colSpacing) {
+                    //Establish a font size that will fit the table to the specified width
+                    var fontSize = startingFontSize;
+                    var oldFont = context.font;
+                    var tableFits = false;
+                    while (!tableFits){
+                        context.font = toString(fontSize)+'pt Calibri';
+                        var maxColWidths = [].fill(0);
+                        //var maxRowHeight = 0;
+                        var metrics = null;
+                        for(var row = 0; row < tableTexts.length; row++) {
+                            //Check that the widest cell of each column has been found
+                            for(var col = 0; col < tableTexts[row].length; col++){
+                                metrics = context.measureText(tableTexts[row][col]);
+                                if (metrics.width > maxColWidths[col]) {
+                                    maxColWidths[col] = metrics.width;
+                                }
+                            }
+                        }
+                        //check whether the table now fits
+                        var estimatedWidth = 0;
+                        for (var col = 0; col < maxColWidths.length; col++){
+                            estimatedWidth += maxColWidths[col] + colSpacing;
+                        }
+                        if (estimatedWidth <= tableWidth){
+                            tableFits = true;
+                        } else {
+                            //reduce text size
+                            fontSize -= 1;
+                        }
+                    }
+                    //Render the table with the chosen font size
+                    var horizontal = x;
+                    var vertical = y;
+                    for(var row = 0; row < tableTexts.length; row++) {
+                        for(var col = 0; col < tableTexts[row].length; col++){
+                            context.fillText(line, horizontal, vertical);
+                            horizontal += maxColWidths[col] + colSpacing;
+                        }
+                        horizontal = x;
+                        vertical += rowHeight;
+                    }
+                    //Reset the font size for subsequent uses
+                    context.font = oldFont;
+                 };
                 //Populate the splash screen with some introductory information
                 context.fillStyle = "white";
                 context.textAlign = "center";
@@ -233,7 +280,7 @@
                 }
                 //Prompt user to click before connecting to game server and launching popups
                 context.font = "36px Arial";
-                var text = "Click to Create/Join next game";
+                var text = "Click to Create/Join a game";
                 var x = canvas.width/2;
                 var y = canvas.height/2;
                 wrapText(context, text, x, y, maxwidth, lineHeight);
