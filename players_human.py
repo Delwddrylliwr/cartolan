@@ -6,6 +6,7 @@ from base import Player, Agent, CityTile
 from game import GameRegular, GameAdvanced
 from regular import AdventurerRegular
 from advanced import AdventurerAdvanced
+#import copy
 
 class PlayerHuman(Player):
     '''A pyplot-based interface for a human players to make decisions in live play.
@@ -15,18 +16,20 @@ class PlayerHuman(Player):
         self.attack_history = {} #to keep track of when this player has attacked, for reference
         
         #Allow for fixed responses to checks on particular actions, to speed up GUI
-        self.clear_fixed_response()
+        self.clear_auto_actions()
         #Keep track of whether the player has chosen to queue up a move rather than take any Actions
         self.queued_move = None
         self.fast_forward = False
         #Keep track of any routes that the player has chosen to follow
         self.follow_route = None
         self.destination = None
+        #Keep track of whether the turn has been reset mid-move
+        self.undone = False
     
-    def clear_fixed_response(self):
+    def clear_auto_actions(self):
         '''Resets any fixed responses that have been set.
         '''
-        self.fixed_responses = {"rest":None
+        self.auto_actions = {"rest":None
                            , "buy":None
                            , "attack":None
                            }
@@ -75,13 +78,13 @@ class PlayerHuman(Player):
         if isinstance(gui_input, dict):    
             if gui_input.get("toggle"):
                 toggled_action = gui_input["toggle"]
-                if self.fixed_responses[toggled_action] is None:
-                    self.fixed_responses[toggled_action] = True
-                elif self.fixed_responses[toggled_action]:
-                    self.fixed_responses[toggled_action] = False
+                if self.auto_actions[toggled_action] is None:
+                    self.auto_actions[toggled_action] = True
+                elif self.auto_actions[toggled_action]:
+                    self.auto_actions[toggled_action] = False
                 else:
-                    self.fixed_responses[toggled_action] = None
-                game_vis.draw_toggle_menu(self.fixed_responses)
+                    self.auto_actions[toggled_action] = None
+                game_vis.draw_toggle_menu(self.auto_actions)
             if isinstance(adventurer, AdventurerRegular):
                 preferred_tile = gui_input.get("preferred_tile")
                 if isinstance(preferred_tile, int):
@@ -117,6 +120,9 @@ class PlayerHuman(Player):
         Arguments
         adventurer takes a Cartolan.Adventurer
         '''
+        game = adventurer.game
+        game_vis = self.games[game.game_id]["game_vis"]
+        
         #If a route is being followed, then try to proceed to the next tile until hitting a city
         if self.follow_route:
             next_tile = self.follow_route.pop(0)
@@ -130,7 +136,7 @@ class PlayerHuman(Player):
                 #As about to complete a route to the city, turn off route-following mode
                 self.follow_route = []
                 self.destination = None
-##                self.clear_fixed_response()
+##                self.clear_auto_actions()
             return self.move_to_tile(adventurer, next_tile)
         
         #If Actions were skipped for a queued move, then carry it out and start checking actions with input again
@@ -142,9 +148,6 @@ class PlayerHuman(Player):
                 if adventurer.turns_moved == adventurer.game.turn:
                     moved = True
                 return moved
-        
-        game = adventurer.game
-        game_vis = self.games[game.game_id]["game_vis"]
         
         #Bring focus back to the moving adventurer
         game_vis.viewed_adventurer = adventurer
@@ -186,12 +189,13 @@ class PlayerHuman(Player):
             game_vis.draw_cards()
         #Draw the right menu items
         game_vis.draw_move_count()
-        game_vis.draw_toggle_menu(self.fixed_responses)
+        game_vis.draw_toggle_menu(self.auto_actions)
         if isinstance(adventurer, AdventurerRegular):
             adventurer.match_chest_directions()
             game_vis.draw_chest_tiles()
         game_vis.draw_tile_piles()
         game_vis.draw_discard_pile()
+        game_vis.draw_undo_button()
         
         game_vis.draw_move_options(moves)
         game_vis.draw_tokens() #draw them on top of highlights
@@ -216,7 +220,7 @@ class PlayerHuman(Player):
         #Recieve input for menu actions that change player preferences, while no coordinates are received
         while (player_input.get("move") is None 
                and player_input.get("abandon") is None):
-            if player_input.get("route"):
+            if player_input.get("route") is not None:
                 if adventurer.current_tile in player_input["route"]:
                     self.follow_route = player_input["route"][:] #Copy the other player's route rather than referncing the list (which would then mean modifying it and disrupting the visuals)
                     destination_coords = player_input["destination"]
@@ -225,8 +229,8 @@ class PlayerHuman(Player):
                     if play_area.get(destination_coords[0]):
                         self.destination = play_area[destination_coords[0]].get(destination_coords[1])
 #                    print("Setting out on route of length "+str(len(self.follow_route)))
-#                    if self.fixed_responses["rest"] is None:
-#                        self.fixed_responses["rest"] = True #
+#                    if self.auto_actions["rest"] is None:
+#                        self.auto_actions["rest"] = True #
                     #Remove the route up until the current tile
                     while not self.follow_route[0] == adventurer.current_tile:
                             self.follow_route.pop(0)
@@ -234,6 +238,10 @@ class PlayerHuman(Player):
                     return self.continue_move(adventurer)
                 else:
                     player_input = game_vis.get_input_coords(adventurer)
+            elif player_input.get("undo") is not None:
+                print("The Adventurer's turn has been reset and we need to go back to the start of the turn.")
+                self.undone = True
+                return False
             else:
                 self.respond_menu_choices(adventurer, player_input)
                 #Redraw everything in case the adventurer of focus was changed
@@ -245,18 +253,21 @@ class PlayerHuman(Player):
                     game_vis.draw_cards()
                 #Draw the right menu items
                 game_vis.draw_move_count()
-                game_vis.draw_toggle_menu(self.fixed_responses)
+                game_vis.draw_toggle_menu(self.auto_actions)
                 if isinstance(adventurer, AdventurerRegular):
                     adventurer.match_chest_directions()
                     game_vis.draw_chest_tiles()
                 game_vis.draw_tile_piles()
                 game_vis.draw_discard_pile()
+                game_vis.draw_undo_button()
                 
                 game_vis.draw_move_options(moves)
                 game_vis.draw_tokens() #draw them on top of highlights
                 game_vis.give_prompt(prompt)
                 #Seek input again
                 player_input = game_vis.get_input_coords(adventurer)
+                print("Player's input:")
+                print(player_input)
         
         if player_input.get("move") is not None:
             move_coords = player_input["move"]
@@ -303,6 +314,7 @@ class PlayerHuman(Player):
         game_vis = self.games[game.game_id]["game_vis"]
         adventurers = game.adventurers[self]
         adventurer_number = adventurers.index(adventurer)
+        
 #        #Clear the previously drawn route for this adventurer, before drawing a new one
 #        adventurer.route = [adventurer.current_tile]
         #Update the play area after other player's movements, such as virtual players
@@ -325,13 +337,28 @@ class PlayerHuman(Player):
             if adventurer.character_card is None:
                 adventurer.choose_character()
         
+        #Backup the game state, in case an undo is needed this turn
+        game.save()
+#        backup = copy.deepcopy(adventurer)
+        
         #Move while moves are still available
         while adventurer.turns_moved < adventurer.game.turn:
             print(self.colour.capitalize()+" player's Adventurer #"+str(adventurers.index(adventurer)+1)+" is still able to move.")
             self.continue_move(adventurer)
+            #If undo has been invoked then restore the game state from the start of the turn
+            if self.undone:
+                print("Resetting the turn, after agreement from all clients.")
+                adventurer.game.restore()
+                #for the adventurer reference in the while loop above, replace all data with
+#                adventurer.game = backup.game #Make sure that any further use of this Adventurer instance's game will interact with the restored game
+#                game_vis.game = backup.game #Point the visualisation to the backup game instance
+#                game_vis.client.game = backup.game #update the turn-scheduling 
+                #Make sure that resetting does not continue
+                self.undone = False
+                game_vis.reset_peer_undos()
         self.follow_route = [] #Break the route-following behaviour at the end of the turn
         self.destination = None
-#        self.clear_fixed_response()
+#        self.clear_auto_actions()
         
         #If this is not the last adventurer for the player then finish here, otherwise clear the routes for all the non-human players that will play between this and the next human player
         if adventurers.index(adventurer) < len(adventurers) - 1:
@@ -362,14 +389,14 @@ class PlayerHuman(Player):
         prompt takes a string that will be communicated to the human player
         '''
         #Deal with automated player responses, whether fixed responses to certain prompts or ignoring prompts because of a queued move
-        if action_type in self.fixed_responses.keys():
-            if self.fixed_responses[action_type] is not None:
-                return self.fixed_responses[action_type]
+        if action_type in self.auto_actions.keys():
+            if self.auto_actions[action_type] is not None:
+                return self.auto_actions[action_type]
         else:
             print("With no fixed response set, stopping following route.")
             self.follow_route = [] #If there was no fixed response then stop automatically following and return control to the player
             self.destination = None
-#            self.clear_fixed_response()
+#            self.clear_auto_actions()
         if self.fast_forward:
             return None
         
@@ -385,12 +412,13 @@ class PlayerHuman(Player):
             game_vis.draw_cards()
         #Draw the right menu items
         game_vis.draw_move_count()
-        game_vis.draw_toggle_menu(self.fixed_responses)
+        game_vis.draw_toggle_menu(self.auto_actions)
         if isinstance(adventurer, AdventurerRegular):
             adventurer.match_chest_directions()
             game_vis.draw_chest_tiles()
         game_vis.draw_tile_piles()
         game_vis.draw_discard_pile()
+        game_vis.draw_undo_button()
         
         print("Adding movement options that will be available next move, to allow skipping of actions")
         if not isinstance(adventurer.current_tile, CityTile): #If this is a buying action from the city then the turn is about to end, even with spare moves
@@ -425,6 +453,10 @@ class PlayerHuman(Player):
         while (player_input.get(action_type) is None 
                and player_input.get("move") is None
                and player_input.get("Nothing") is None):
+            if player_input.get("undo") is not None:
+                #We'll want to refuse any actions and get to the end of the Adventurer's current move-action cycle in order to reset
+                self.undone = True
+                return False
             self.respond_menu_choices(adventurer, player_input)
             #Redraw everything in case the adventurer of focus was changed
             #make sure that tiles and token positions are up to date
@@ -436,12 +468,13 @@ class PlayerHuman(Player):
                 game_vis.draw_cards()
             #Draw the right menu items
             game_vis.draw_move_count()
-            game_vis.draw_toggle_menu(self.fixed_responses)
+            game_vis.draw_toggle_menu(self.auto_actions)
             if isinstance(adventurer, AdventurerRegular):
                 adventurer.match_chest_directions()
                 game_vis.draw_chest_tiles()
             game_vis.draw_tile_piles()
             game_vis.draw_discard_pile()
+            game_vis.draw_undo_button()
             game_vis.draw_move_options(actions)
             game_vis.draw_tokens() #draw tokens on top of highlights
             game_vis.give_prompt(prompt)
@@ -478,14 +511,22 @@ class PlayerHuman(Player):
         
     #if offered by a Wonder, always trade
     def check_trade(self, adventurer, tile):
+        if self.undone:
+            return False
         return True
     
     #if offered by an agent, always collect wealth
     #@TODO let the player choose how much wealth to collect using input()
     def check_collect_wealth(self, agent):
+        if self.undone: 
+            print("automatically responding false to action")
+            return False
         return True
     
     def check_rest(self, adventurer, token):
+        if self.undone: 
+            print("automatically responding false to action")
+            return False
         game  = adventurer.game
         actions = {}
         if isinstance(token, Agent):
@@ -520,7 +561,10 @@ class PlayerHuman(Player):
     #if offered by a city, then give the player the option to pay and refresh their chest maps
     def check_buy_maps(self, adventurer, report="Player is being asked whether to pay to refresh their chest maps"):
         print(report)
-        self.clear_fixed_response() #Make sure that auto-actions to buy doesn't apply
+        if self.undone: 
+            print("automatically responding false to action")
+            return False
+        self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
         actions = {}
         action_type = "buy"
         actions[action_type] = [[adventurer.current_tile.tile_position.longitude
@@ -536,7 +580,10 @@ class PlayerHuman(Player):
     #if offered by a city, then give the player the option to buy a discovery card 
     def check_buy_tech(self, adventurer, report="Player is being asked whether to buy a Discovery card"):
         print(report)
-        self.clear_fixed_response() #Make sure that auto-actions to buy doesn't apply
+        if self.undone: 
+            print("automatically responding false to action")
+            return False
+        self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
         actions = {}
         action_type = "buy"
         actions[action_type] = [[adventurer.current_tile.tile_position.longitude
@@ -553,7 +600,10 @@ class PlayerHuman(Player):
     #if offered by a city, then give the player the option to buy an Adventurer 
     def check_buy_adventurer(self, adventurer, report="Player is being asked whether to buy an Adventurer"):
         print(report)
-        self.clear_fixed_response() #Make sure that auto-actions to buy doesn't apply
+        if self.undone: 
+            print("automatically responding false to action")
+            return False
+        self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
         actions = {}
         action_type = "buy"
         actions[action_type] = [[adventurer.current_tile.tile_position.longitude
@@ -569,7 +619,10 @@ class PlayerHuman(Player):
     # Let the player choose whether to place an agent when offered
     def check_place_agent(self, adventurer):
         actions = {}
-        self.clear_fixed_response() #Make sure that auto-actions to buy doesn't apply
+        if self.undone: 
+            print("automatically responding false to action")
+            return False
+        self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
         action_type = "buy"
         actions[action_type] = [[adventurer.current_tile.tile_position.longitude
                     , adventurer.current_tile.tile_position.latitude]]
@@ -583,7 +636,10 @@ class PlayerHuman(Player):
     # When offered, give the player the option to buy on any tile that doesn't have an active Agent 
     def check_buy_agent(self, adventurer, report="Player has been offered to buy an agent by a city"):
         print(report)
-        self.clear_fixed_response() #Make sure that auto-actions to buy doesn't apply
+        if self.undone: 
+            print("automatically responding false to action")
+            return False
+        self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
         actions = {}
         action_type = "buy"
         #Establish a list of all tiles without an active Agent, to offer the player
@@ -614,6 +670,9 @@ class PlayerHuman(Player):
         
     # Let the player choose whether to move one of their Agents
     def check_move_agent(self, adventurer):     
+        if self.undone: 
+            print("automatically responding false to action")
+            return None
         action_type = "move_agent"
         actions = {action_type:[]}
         for agent in adventurer.game.agents[self]:
@@ -627,6 +686,9 @@ class PlayerHuman(Player):
             return None
     
     def check_transfer_agent(self, adventurer):
+        if self.undone: 
+            print("automatically responding false to action")
+            return None
         action_type = "agent_transfer"
         actions = {action_type:[]}
         for agent in adventurer.game.agents[self]:
@@ -643,6 +705,9 @@ class PlayerHuman(Player):
     #Give the player the choice to attack
     #@TODO highlight specific tokens to attack
     def check_attack_adventurer(self, adventurer, other_adventurer):
+        if self.undone: 
+            print("automatically responding false to action")
+            return False
         action_type = "attack"
         actions = {action_type:[[adventurer.current_tile.tile_position.longitude
                     , adventurer.current_tile.tile_position.latitude]]}
@@ -658,6 +723,9 @@ class PlayerHuman(Player):
     #if offered by a city then always bank everything
     def check_deposit(self, adventurer, maximum, minimum=0, default=0, report="Player is being asked whether to bank treasure"):
         print(report)
+        if self.undone: 
+            print("automatically responding false to action")
+            return 0
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
         
@@ -679,6 +747,9 @@ class PlayerHuman(Player):
     def check_travel_money(self, adventurer, maximum, default):
         '''Lets the player input a figure for the wealth that will be taken from the Vault before an expedition
         '''
+        if self.undone: 
+            print("automatically responding false to action")
+            return 0
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
         
@@ -691,6 +762,9 @@ class PlayerHuman(Player):
     
     #prompt the player on victory for how much wealth to take using input()
     def check_steal_amount(self, adventurer, maximum, default):
+        if self.undone: 
+            print("automatically responding false to action")
+            return 0
         game = adventurer.game
         game_vis = self.games[game.game_id]["game_vis"]
         
@@ -703,6 +777,9 @@ class PlayerHuman(Player):
     
     #@TODO prompt the player on victory for how much wealth to take 
     def check_attack_agent(self, adventurer, agent):
+        if self.undone: 
+            print("automatically responding false to action")
+            return False
         action_type = "attack"
         actions = {action_type:[[adventurer.current_tile.tile_position.longitude
                         , adventurer.current_tile.tile_position.latitude]]}
@@ -717,6 +794,9 @@ class PlayerHuman(Player):
     
     # Always restor own Agents if it can be afforded
     def check_restore_agent(self, adventurer, agent):
+        if self.undone: 
+            print("automatically responding false to action")
+            return False
         action_type = "buy"
         actions = {action_type:[[adventurer.current_tile.tile_position.longitude
                     , adventurer.current_tile.tile_position.latitude]]}
@@ -729,6 +809,9 @@ class PlayerHuman(Player):
         
     # if half Disaster tile dropped wealth exceeds own wealth then try to collect it
     def check_court_disaster(self, adventurer, disaster_tile):
+        if self.undone: 
+            print("automatically responding false to action")
+            return False
         action_type = "attack"
         actions = {action_type:[[adventurer.current_tile.tile_position.longitude
                     , adventurer.current_tile.tile_position.latitude]]}
