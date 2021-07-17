@@ -662,7 +662,7 @@ class GameVisualisation():
                 report = "No moves since rest"
                 move_count = self.scores_font.render(report, 1, self.PLAIN_TEXT_COLOUR)
         else:
-            report = "Not "+self.current_adventurer.player.name+"'s Adventurer's turn"
+            report = "Not "+self.viewed_adventurer.player.name+"'s Adventurer's turn"
             move_count = self.scores_font.render(report, 1, self.viewed_player_colour)
         if move_count.get_width() > self.right_text_start:
             self.right_text_start = move_count.get_width() #permanently adjust the text margin on this setup if it doesn't fit
@@ -1560,27 +1560,28 @@ class WebServerVisualisation(GameVisualisation):
     def check_update_focus(self, horizontal, vertical):
         '''Checks whether click coordinates were within the superficial visual elements that need no game response but should revise the client's visuals
         '''
-        if (horizontal in range(int(self.scores_rect[0]), int(self.scores_rect[0] + self.scores_rect[2]))
-            and vertical in range(int(self.scores_rect[1]), int(self.scores_rect[1] + self.scores_rect[3]))):
-            print("Player chose coordinates within the scores table, with vertical: "+str(vertical))
-            for score in self.score_rects:
-                score_rect = score[0]
-                if (horizontal in range(int(score_rect[0]), int(score_rect[0] + score_rect[2]))
-                    and vertical in range(int(score_rect[1]), int(score_rect[1] + score_rect[3]))):
-                    #Having found the click within a particular player/adventurer's score, need to update the focus of the card stacks
-                    if isinstance(score[1], Player):
-                        #just choose the first adventurer if it was the player's vault wealth selected
-                        self.viewed_player_colour = self.player_colours[score[1]]
-                        self.viewed_adventurer_number = 0
-                        self.viewed_adventurer = self.game.adventurers[score[1]][0]
-                    else:
-                        self.viewed_player_colour = self.player_colours[score[1].player]
-                        self.viewed_adventurer_number = self.game.adventurers[score[1].player].index(score[1])
-                        self.viewed_adventurer = score[1]
-                    print("Updated focus for card visuals to "+self.viewed_adventurer.player.name+"'s Adventurer #"+str(self.viewed_adventurer_number+1))
-            return True
+#        if (horizontal in range(int(self.scores_rect[0]), int(self.scores_rect[0] + self.scores_rect[2]))
+#            and vertical in range(int(self.scores_rect[1]), int(self.scores_rect[1] + self.scores_rect[3]))):
+#            print("Player chose coordinates within the scores table, with vertical: "+str(vertical))
+        #Check whether the click was on one of the scores in the table (check them individually straight away, to avoid masking clicks on highlights under the scores table)
+        for score in self.score_rects:
+            score_rect = score[0]
+            if (horizontal in range(int(score_rect[0]), int(score_rect[0] + score_rect[2]))
+                and vertical in range(int(score_rect[1]), int(score_rect[1] + score_rect[3]))):
+                print("Having found the click within a particular player/adventurer's score, need to update the focus of the card stacks")
+                if isinstance(score[1], Player):
+                    #just choose the first adventurer if it was the player's vault wealth selected
+                    self.viewed_player_colour = self.player_colours[score[1]]
+                    self.viewed_adventurer_number = 0
+                    self.viewed_adventurer = self.game.adventurers[score[1]][0]
+                else:
+                    self.viewed_player_colour = self.player_colours[score[1].player]
+                    self.viewed_adventurer_number = self.game.adventurers[score[1].player].index(score[1])
+                    self.viewed_adventurer = score[1]
+                print("Updated focus for card visuals to "+self.viewed_adventurer.player.name+"'s Adventurer #"+str(self.viewed_adventurer_number+1))
+                return True
         #Check whether the click was within the card stack, and update the index of the selected card
-        elif (horizontal in range(int(self.stack_rect[0]), int(self.stack_rect[0] + self.stack_rect[2]))
+        if (horizontal in range(int(self.stack_rect[0]), int(self.stack_rect[0] + self.stack_rect[2]))
             and vertical in range(int(self.stack_rect[1]), int(self.stack_rect[1] + self.stack_rect[3]))):
             print("Player chose coordinates within the card stack, with vertical: "+str(vertical))
             if self.selected_card_num is None: #The Character card at the bottom will be on top
