@@ -18,43 +18,43 @@ class CardAdvanced(Card):
         '''Incorporates rule changes for the Adventurer/Agent that come from this cards
         '''
         if isinstance(target, Token):
-            player_colour = target.player.colour
-            print("Adding card buffs for "+player_colour+" player...")
+            player_name = target.player.name
+            print("Adding card buffs for "+player_name+"...")
             for buff_attr in self.buffs:
                 #Check that the token has the attribute associated with the buff
                 current_attr_val = getattr(target, buff_attr, None) 
                 if current_attr_val is not None:
-                    print("For "+player_colour+" "+target.__class__.__name__+", adding a buff to their "+buff_attr)
+                    print("For "+player_name+" "+target.__class__.__name__+", adding a buff to their "+buff_attr)
                     #Apply the buff
                     if self.buffs[buff_attr]["buff_type"] == "boost":
                         setattr(target, buff_attr, current_attr_val + self.buffs[buff_attr]["buff_val"])
                     elif self.buffs[buff_attr]["buff_type"] == "new":
                         setattr(target, buff_attr, self.buffs[buff_attr]["buff_val"])
-                    print(player_colour+" " +target.__class__.__name__+"'s "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
+                    print(player_name+" " +target.__class__.__name__+"'s "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
         elif isinstance(target, Player):
-            player_colour = target.colour
-            print("Adding card buffs for "+player_colour+" player...")
+            player_name = target.name
+            print("Adding card buffs for "+player_name+"...")
             for buff_attr in self.buffs:
                 #Check that the token has the attribute associated with the buff
                 current_attr_val = getattr(self.game, buff_attr, None)
                 #@TODO allow for games sharing all attributes with adventurers and agents...
                 if isinstance(current_attr_val, dict):
                     if current_attr_val[target] is not None:
-                        print("For "+player_colour+" player, adding a buff to their "+buff_attr)
+                        print("For "+player_name+", adding a buff to their "+buff_attr)
                         #Apply the buff
                         current_attr_val[target] = self.buffs[buff_attr]["buff_val"]
             #                    setattr(self.game, buff_attr, current_attr_val)
-                        print(player_colour+" player's "+buff_attr+" now has value "+str(getattr(self.game, buff_attr, None)[target]))
+                        print(player_name+"'s "+buff_attr+" now has value "+str(getattr(self.game, buff_attr, None)[target]))
         else:
-            player_colour = "Anonymous"
+            player_name = "Anonymous"
         
     
     def remove_buffs(self, target):
         '''Reverts rule changes for the Adventurer/Agent that come from this card
         '''
         if isinstance(target, Token):
-            player_colour = target.player.colour
-            print("Removing card buffs for "+player_colour+" player...")
+            player_name = target.player.name
+            print("Removing card buffs for "+player_name+"...")
             for buff_attr in self.buffs:
                 #Check that the token has the attribute associated with the buff
                 current_attr_val = getattr(target, buff_attr, None) 
@@ -65,11 +65,11 @@ class CardAdvanced(Card):
                     elif self.buffs[buff_attr]["buff_type"] == "new":
                         #@TODO if a buff has been doubled up then it shouldn't be lost
                         setattr(target, buff_attr, getattr(self.game, buff_attr))
-                    print(player_colour+" player's "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
+                    print(player_name+"'s "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
         elif isinstance(target, Player):
-            player_colour = target.colour
+            player_name = target.name
         else:
-            player_colour = "Anonymous"
+            player_name = "Anonymous"
         
 class AdventurerAdvanced(AdventurerRegular):
     '''Extends to allow a set of map tiles to be carried by each Adventurer in their chest and placed instead of a random one
@@ -119,7 +119,7 @@ class AdventurerAdvanced(AdventurerRegular):
     def discover_card(self, card):
         '''Adds a Discovery card to the Adventurer, modifying rules according to the card's buffs
         '''
-        print(self.player.colour+" player's Adventurer has received the card of type "+card.card_type)
+        print(self.player.name+"'s Adventurer has received the card of type "+card.card_type)
         self.discovery_cards.append(card)
         card.apply_buffs(self)
         #If maps are pooled then compare to peers
@@ -131,7 +131,7 @@ class AdventurerAdvanced(AdventurerRegular):
     def lose_card(self, card):
         '''Removes a discovery card from the Adventurer, modifying rules according to what buffs were previously being provided
         '''
-        print(self.player.colour+" player's Adventurer has lost a card of type "+card.card_type)
+        print(self.player.name+"'s Adventurer has lost a card of type "+card.card_type)
         self.discovery_cards.remove(card)
         card.remove_buffs(self)
         #If maps are pooled then compare to peers
@@ -280,7 +280,7 @@ class AdventurerAdvanced(AdventurerRegular):
         super().interact_tokens()
         if self.current_tile.adventurers:
             for adventurer in self.current_tile.adventurers:
-#                print("Checking whether special interactions are possible with "+adventurer.player.colour+" player's Adventurer")
+#                print("Checking whether special interactions are possible with "+adventurer.player.name+" player's Adventurer")
                 if (self.attacks_abandon and adventurer.wealth == 0 #give the option to send the opponent to a city even if they have no wealth 
                     and not self == adventurer):
                     if self.player.check_attack_adventurer(self, adventurer):
@@ -290,7 +290,7 @@ class AdventurerAdvanced(AdventurerRegular):
                     if self.player.check_rest(self, adventurer):
                         self.rest(adventurer)
         if self.current_tile.agent is not None:
-#            print("Checking whether special interactions are possible with "+self.current_tile.agent.player.colour+" player's Agent")
+#            print("Checking whether special interactions are possible with "+self.current_tile.agent.player.name+"'s Agent")
             agent = self.current_tile.agent
             if (agent.agents_arrest and not agent.is_dispossessed 
                 and self.pirate_token and not agent.player == self.player):

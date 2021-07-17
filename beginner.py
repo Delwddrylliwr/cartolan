@@ -27,7 +27,7 @@ class AdventurerBeginner(Adventurer):
     def __init__(self, game, player, starting_city):
         super().__init__(game, player, starting_city)
         
-        print("adding an adventurer for " +str(player.colour)+ " player")
+        print("adding an adventurer for " +str(player.name))
         
         #Mirror game variables, mostly in anticipation of Advanced mode and modifying these
         self.max_exploration_attempts = game.max_exploration_attempts
@@ -348,7 +348,7 @@ class AdventurerBeginner(Adventurer):
         
         #Calculate the score this represents
         exploration_value = self.value_fill_map_gap[num_adjacent_water][num_adjacent_land]
-        print(self.player.colour+" the gap in the  map is adjacent to " +str(num_adjacent_water)
+        print(self.player.name+" the gap in the  map is adjacent to " +str(num_adjacent_water)
               + " water tiles and " +str(num_adjacent_land)+ " land tiles, and is worth " 
               +str(exploration_value))
         return exploration_value
@@ -628,7 +628,7 @@ class AdventurerBeginner(Adventurer):
     def end_expedition(self, city=None):
         '''Prematurely returns an Adventurer to the last city they visited and empties their wealth.
         '''
-        print(self.player.colour+ " player's expedition has been ended and they've returned to a city")
+        print(self.player.name+ "'s expedition has been ended and they've returned to a city")
         self.wealth = 0
         self.current_tile.move_off_tile(self)
         if isinstance(city, CityTile):
@@ -773,7 +773,7 @@ class CityTileBeginner(CityTile):
         if adventurer.wealth >= wealth_to_bank:
             adventurer.wealth -= wealth_to_bank
             adventurer.game.player_wealths[adventurer.player] += wealth_to_bank
-            print(adventurer.player.colour+ " player has banked " +str(wealth_to_bank)+ " in their Vault")
+            print(adventurer.player.name+ " has banked " +str(wealth_to_bank)+ " in their Vault")
             self.game.game_over = self.game.check_win_conditions()
             return True
         else:
@@ -802,7 +802,7 @@ class CityTileBeginner(CityTile):
                 #Allow this new Adventurer to move this turn
 #                 new_adventurer.turns_moved = adventurer.game.turn - 1 # This new Adventurer will play immediately
                 new_adventurer.turns_moved = adventurer.game.turn # This new Adventurer will play from the next turn
-                print(adventurer.player.colour+ " player has bought an adventurer from the city at " 
+                print(adventurer.player.name+ " has bought an adventurer from the city at " 
                       +str(self.tile_position.longitude)+","+str(self.tile_position.latitude))
             else:
                 return False
@@ -842,21 +842,21 @@ class CityTileBeginner(CityTile):
                 if len(self.game.agents[adventurer.player]) >= self.game.MAX_AGENTS:
                     agent = adventurer.player.check_move_agent(adventurer)
                     if not agent is None:
-                        print(adventurer.player.colour+ " player is recalling their agent from the tile at " 
+                        print(adventurer.player.name+ " is recalling their agent from the tile at " 
                           +str(agent.current_tile.tile_position.longitude)
                               +","+str(agent.current_tile.tile_position.latitude))
                         agent.current_tile.move_off_tile(agent)
                         #place the Agent on that tile
                         tile.move_onto_tile(agent)
                     else:
-                        print(adventurer.player.colour+ " player did not want to move any existing Agents, so moving on.")
+                        print(adventurer.player.name+ " did not want to move any existing Agents, so moving on.")
                         return False
                 else:
                     agent = adventurer.game.AGENT_TYPE(adventurer.game, adventurer.player, tile)
                 
                 #take payment from the Player's Vault
                 adventurer.game.player_wealths[adventurer.player] -= adventurer.cost_agent_from_city
-                print(adventurer.player.colour+ " player has hired an agent from the city at " 
+                print(adventurer.player.name+ " has hired an agent from the city at " 
                   +str(self.tile_position.longitude)+","+str(self.tile_position.latitude)
                      +" and sent them to the tile at "
                      +str(tile.tile_position.longitude)+","+str(tile.tile_position.latitude))
