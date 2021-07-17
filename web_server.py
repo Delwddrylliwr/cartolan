@@ -440,7 +440,7 @@ class ClientSocket(WebSocket):
         visuals = []
         for client in clients:
             #create game visualisation corresponding to each client's window resolution
-            game_vis = WebServerVisualisation(self.game, visuals, games[game_id]["players"], client, client.width, client.height)
+            game_vis = WebServerVisualisation(self.game, visuals, games[game_id]["player_colours"], client, client.width, client.height)
             print("Visual created for client at "+ str(client.address)+ " with dimensions: "+str(client.width)+"x"+str(client.height))
             client_visuals[client] = game_vis
             visuals.append(game_vis)

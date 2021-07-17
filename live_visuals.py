@@ -1495,9 +1495,9 @@ class WebServerVisualisation(GameVisualisation):
         self.draw_undo_button()
         #Prompt the player
         if input_type == "move":
-            prompt = self.current_adventurer.player.name+"'s is moving their Adventurer #"+str(self.current_adventurer_number+1)
+            prompt = self.current_adventurer.player.name+" is moving their Adventurer #"+str(self.current_adventurer_number+1)
         elif input_type == "text":
-            prompt = self.current_adventurer.player.name+"'s is choosing a treasure amount for their Adventurer #"+str(self.current_adventurer_number+1)
+            prompt = self.current_adventurer.player.name+" is choosing a treasure amount for their Adventurer #"+str(self.current_adventurer_number+1)
         elif input_type == "choose_tile":
             prompt = self.current_adventurer.player.name+" is choosing a tile for their Adventurer #"+str(self.current_adventurer_number+1)
         elif input_type == "choose_discovery":
