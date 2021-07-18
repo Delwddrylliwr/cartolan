@@ -35,7 +35,7 @@ GAME_MODES = { 'Basic':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeg
 #                                                                    , "green":PlayerBeginnerGenetic
                                                                    , "orange":PlayerBeginnerExplorer
                                                                       }}
-              , 'Even':{'game_type':GameRegular, 'player_set':{
+              , 'Regular':{'game_type':GameRegular, 'player_set':{
                                                                   "orange":PlayerRegularPirate
                                                                     , "blue":PlayerRegularExplorer
                                                                    , "red":PlayerRegularTrader
@@ -50,7 +50,7 @@ GAME_MODES = { 'Basic':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeg
 #                                                                    , "green":PlayerRegularGenetic
                                                                   }}
               }
-DEFAULT_GAME_MODE = "Regular"
+DEFAULT_GAME_MODE = "Rich"
 DEFAULT_LOCAL_PLAYERS = 1
 DEFAULT_VIRTUAL_PLAYERS = 0
 DEFAULT_REMOTE_PLAYERS = 2
@@ -237,7 +237,7 @@ class ClientSocket(WebSocket):
         new_game_players[game_id] = {}
         for player in client_players[self]:
             player_colour =  available_colours.pop(random.randint(0,len(available_colours)-1))
-            new_game_colours[game_id].append(player_colour)
+#            new_game_colours[game_id].append(player_colour)
             new_game_players[game_id][player] = player_colour
         #Get remote user input about how many computer players the game will have
         if num_client_players < max_players:
@@ -263,7 +263,7 @@ class ClientSocket(WebSocket):
         #Assign random names and colours to these CPU players
         for player_num in range(num_virtual_players):
             player_colour =  available_colours.pop(random.randint(0,len(available_colours)-1))
-            new_game_colours[game_id].append(player_colour)
+#            new_game_colours[game_id].append(player_colour)
             player_name = "AI:"+NAMES[random.randint(0,len(NAMES)-1)]
             while player_name in players.keys():
                 player_name += str(random.randint(0,MAX_NAME_USES))
@@ -548,6 +548,27 @@ class ClientSocket(WebSocket):
 #           ident, mdata = msg.split("[11111]")
 #           msg = ('%sSPLIT%s' % (ident, mdata))
 ##           self.socket.send(str(msg))
+        elif protocode == ("LOBBY"):
+            print("Client prompted for a refresh of the lobby data, listing queued and active games.")
+            #Share any games being prepared in the queue with this client
+            if len(new_game_types) > 0:
+                self.list_queued_games()
+            #Share any games already in progress with this player, in case they want to watch or replace a CPU player
+            if len(games) > 0:
+                self.list_active_games()
+    
+    def list_queued_games(self):
+        '''Shares with the client a list of the games currently being prepared in the queue
+        '''
+        #Prepare the list asa JSON table, listing the first host player's name, the numbers of total players, joined players, CPU players
+        pass
+    
+    def list_active_games(self):
+        '''Shares with the client a list of the games that are already running
+        '''
+        #Prepare the list asa JSON table, listing the first host player's name, the numbers of total players, joined players, CPU players
+        
+        pass
 
     def handleConnected(self):
         '''On initial connection, establish client details
