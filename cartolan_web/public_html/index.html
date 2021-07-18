@@ -99,7 +99,7 @@
                     console.log("Data received of type: "+evt.data.type);
                     if (decomposed[0] === 'PING') { // this is a heartbeat message
                         this.send("PONG[00100]");
-                    } else if (decomposed[0] === 'QUEUE') { // accept only text
+                    } else if (decomposed[0] === 'PLAYERS') { // accept only text
                         console.log("Player numbers in queue received: "+decomposed[1]);
                         // @TODO update the queue notifcation with the numbers just reveived
                         if(!this.startGame.detectMob()){
