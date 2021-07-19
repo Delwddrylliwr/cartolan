@@ -62,6 +62,7 @@
             var serverAddress = "51.38.83.99:10000";
 //            var serverAddress = "localhost:10000";
             var heightShare = 0.9; //implement a marging below the canvas for a link to the game manual and spotify soundtrack
+            var listRefreshDelay = 3000 //the number of miliseconds between sending requests for updated gane lists
             
             var canvas;
             var context;
@@ -99,9 +100,23 @@
                     console.log("Data received of type: "+evt.data.type);
                     if (decomposed[0] === 'PING') { // this is a heartbeat message
                         this.send("PONG[00100]");
+                    } else if (decomposed[0] === 'QUEUE') { // tabular JSON with a list of games in preparation
+                        games = JSON.parse(decomposed[1])
+                        console.log("List of games in preparation received, with length "+games.length)
+                        game_table = ["ID", "Name", "Mode", "#Spaces", "#AIs"]
+                        games.forEach (game => {
+                            row = [game.game_id
+                                , game.game_name
+                                , game.game_type
+                                , game.existing_players+"/"+game.total_players
+                                , game.cpu_players
+                            ];
+                            game_table.push(row);
+                        })
+                        this.startGame.updateQueue(game_table)
                     } else if (decomposed[0] === 'PLAYERS') { // accept only text
                         console.log("Player numbers in queue received: "+decomposed[1]);
-                        // @TODO update the queue notifcation with the numbers just reveived
+                        // update the queue notifcation with the numbers just reveived
                         if(!this.startGame.detectMob()){
                            document.fonts.load('24pt Calibri').then(this.startGame.drawSplash); 
                         }
@@ -201,6 +216,7 @@
                     //Establish a font size that will fit the table to the specified width
                     var fontSize = startingFontSize;
                     var oldFont = context.font;
+                    var estimatedWidth = 0
                     var tableFits = false;
                     while (!tableFits){
                         context.font = toString(fontSize)+'pt Calibri';
@@ -217,7 +233,7 @@
                             }
                         }
                         //check whether the table now fits
-                        var estimatedWidth = 0;
+                        estimatedWidth = 0;
                         for (var col = 0; col < maxColWidths.length; col++){
                             estimatedWidth += maxColWidths[col] + colSpacing;
                         }
@@ -229,19 +245,30 @@
                         }
                     }
                     //Render the table with the chosen font size
-                    var horizontal = x;
+                    var centredTableStart = x - Math.floor(estimatedWidth / 2);
+                    var horizontal = centredTableStart;
                     var vertical = y;
                     for(var row = 0; row < tableTexts.length; row++) {
                         for(var col = 0; col < tableTexts[row].length; col++){
                             context.fillText(line, horizontal, vertical);
                             horizontal += maxColWidths[col] + colSpacing;
                         }
-                        horizontal = x;
+                        horizontal = centredTableStart;
                         vertical += rowHeight;
                     }
                     //Reset the font size for subsequent uses
                     context.font = oldFont;
                  };
+                //Introduce a function that can be called internally or externally to draw a table of queued games in preparetion
+                function updateQueue(queueTable) {
+                    var x = Math.floor(canvas.width/2);
+                    var y = 0;
+                    tableWidth = Math.floor(canvas.width/3);
+                    rowHeight = 16;
+                    colSpacing = 5;
+                    drawTable(context, queueTable, x, y, tableWidth, rowHeight, colSpacing)
+                }
+                startGame.updateQueue = updateQueue;  //make this available externally  
                 //Populate the splash screen with some introductory information
                 context.fillStyle = "white";
                 context.textAlign = "center";
@@ -297,17 +324,28 @@
                         if(!detectMob()){
                            drawSplash(); 
                         }
-                        //Print a message informing the user that something is happening
-                        context.font = "36px Arial";
-                        var text = "Configuring game and waiting for everyone to join...";
-    //                    context.fillText(text, x, y);
-                        wrapText(context, text, x, y, maxwidth, lineHeight);
+                        //check whether the click was within the button for seeing the game lists and render these
+                        if (myGameArea.x >= listButton[0] && myGameArea.y <= listButton[2]) {
+                            console.log("drawing the table of current games")
+                            updateQueue(["ID", "Name", "Mode", "#Spaces", "#AIs"])
+                            //Print a message prompting interaction with the table(s)
+                            context.font = "36px Arial";
+                            var text = "Please choose a game to join";
+        //                    context.fillText(text, x, y);
+                            wrapText(context, text, x, y, maxwidth, lineHeight);
+                        } else {
+                            //Print a message informing the user that something is happening
+                            context.font = "36px Arial";
+                            var text = "Configuring game and waiting for everyone to join...";
+        //                    context.fillText(text, x, y);
+                            wrapText(context, text, x, y, maxwidth, lineHeight);
+                        }
                         //Regularly refresh visuals
                         this.interval = setInterval(updateGameArea, 20);
                         //set up the websocket connection to the game server
                         openWS();
                     } else {
-                        console.log("No click detected. Waiting further for input...");
+//                        console.log("No click detected. Waiting further for input...");
                         setTimeout(waiting, 300);
                     }
                 }
