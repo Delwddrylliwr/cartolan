@@ -474,7 +474,7 @@ class ClientSocket(WebSocket):
             game_vis.draw_play_area()
             game_vis.draw_scores()
             game_vis.draw_tokens()
-            game_vis.current_player_name = self.game.winning_player.name
+            game_vis.current_player_colour = game_vis.player_colours[self.game.winning_player] #Change the prompt colour to reflect the winning player
             game_vis.give_prompt(win_message)
             game_vis.update_web_display()
         game_vis.close()
