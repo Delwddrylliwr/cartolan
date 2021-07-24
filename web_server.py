@@ -21,6 +21,7 @@ import sys
 import time
 import random
 import string
+import json
 from threading import Thread
 
 DEFAULT_PORT = 10000
@@ -79,6 +80,7 @@ new_game_clients = {} #referenced by game ID
 new_game_types = {} #referenced by game ID
 new_game_colours = {} #referenced by game ID
 new_game_players = {} #referenced by game ID, return the colour assigned to them
+new_game_cpu_players = {} #referenced by game ID, dicts of CPU players and their colours
 
 def id_generator(size=10, chars=string.ascii_uppercase + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
@@ -174,7 +176,7 @@ class ClientSocket(WebSocket):
         '''Seeks remote input to specify and set up a game that can then be joined by players.
         '''
         global next_game_id, client_players
-        global new_game_clients, new_game_types, new_game_colours, new_game_players
+        global new_game_clients, new_game_types, new_game_colours, new_game_players, new_game_cpu_players
         game_id = next_game_id
         next_game_id += 1
         new_game_clients[game_id] = [self]
@@ -262,6 +264,8 @@ class ClientSocket(WebSocket):
                     time.sleep(self.INPUT_DELAY)
         #Assign random names and colours to these CPU players
         for player_num in range(num_virtual_players):
+            if new_game_cpu_players.get(game_id) is None:
+                new_game_cpu_players[game_id] = {}
             player_colour =  available_colours.pop(random.randint(0,len(available_colours)-1))
 #            new_game_colours[game_id].append(player_colour)
             player_name = "AI:"+NAMES[random.randint(0,len(NAMES)-1)]
@@ -271,6 +275,7 @@ class ClientSocket(WebSocket):
             players[player_name] = player
             client_players[self].append(player)
             new_game_players[game_id][player] = player_colour
+            new_game_cpu_players[game_id][player] = player_colour
         #Get remote user input about how many other players they want in their game
         if num_players is None:
             num_players = num_client_players + num_virtual_players
@@ -295,7 +300,7 @@ class ClientSocket(WebSocket):
                         num_players = num_client_players + num_virtual_players + DEFAULT_REMOTE_PLAYERS
                 else:
                     time.sleep(self.INPUT_DELAY)
-            new_game_colours[game_id] = random.sample(available_colours, num_players - len(new_game_colours[game_id]))
+            new_game_colours[game_id] = random.sample(available_colours, num_players - len(new_game_players[game_id]))
         return game_id
     
     def join_game(self, game_id, num_client_players=None):
@@ -365,7 +370,7 @@ class ClientSocket(WebSocket):
             num_existing_players = len(new_game_players[game_id])
             num_players = len(new_game_colours[game_id]) + num_existing_players
             report = str(num_existing_players)+"/"+str(num_players)
-            client.sendMessage("QUEUE[00100]"+report)
+            client.sendMessage("PLAYERS[00100]"+report)
         #If no game is specified then create or join the next game in the queue
         in_queue = False
         tried_games = []
@@ -431,6 +436,7 @@ class ClientSocket(WebSocket):
         games[game_id] = {"game":self.game
                              , "player_colours":new_game_players.pop(game_id)
                             , "players":game_players
+                            , "cpu_players":new_game_cpu_players.pop(game_id)
                             , "game_type":new_game_types.pop(game_id)
                             , "clients":new_game_clients.pop(game_id)
                             } 
@@ -468,7 +474,7 @@ class ClientSocket(WebSocket):
             game_vis.draw_play_area()
             game_vis.draw_scores()
             game_vis.draw_tokens()
-            game_vis.current_player_name = self.game.winning_player.name
+            game_vis.current_player_colour = game_vis.player_colours[self.game.winning_player] #Change the prompt colour to reflect the winning player
             game_vis.give_prompt(win_message)
             game_vis.update_web_display()
         game_vis.close()
@@ -483,6 +489,7 @@ class ClientSocket(WebSocket):
         old_player takes a Cartolan player
         new_player takes a Cartolan player
         '''
+        global games
         game = games[game_id]["game"]
         #Identify tokens owned by old player and transfer them to the new player
         #First Adventurers
@@ -560,15 +567,43 @@ class ClientSocket(WebSocket):
     def list_queued_games(self):
         '''Shares with the client a list of the games currently being prepared in the queue
         '''
+        global new_game_clients, client_players, new_game_types, new_game_colours, new_game_players, new_game_cpu_players
         #Prepare the list asa JSON table, listing the first host player's name, the numbers of total players, joined players, CPU players
-        pass
+        queued_games = []
+        for game_id in new_game_types:
+            queued_game = {}
+            queued_game["game_id"] = str(game_id)
+            queued_game["game_type"] = str(new_game_types[game_id])
+            #Name the game according to the first player of its first client
+            queued_game["game_name"] = str(client_players[new_game_clients[game_id]][0])+"'s game"
+            #Report the player numbers
+            queued_game["existing_players"] = len(new_game_players[game_id])
+            queued_game["empty_slots"] = len(new_game_colours[game_id])
+            queued_game["total_players"] = queued_game["existing_players"] + queued_game["empty_slots"]
+            queued_game["cpu_players"] = len(new_game_cpu_players[game_id])
+            #Add all of this to the growing list
+            queued_games.append(queued_game)
+        self.sendMessage("QUEUE[00100]"+json.dumps(queued_games))            
     
     def list_active_games(self):
         '''Shares with the client a list of the games that are already running
         '''
-        #Prepare the list asa JSON table, listing the first host player's name, the numbers of total players, joined players, CPU players
-        
-        pass
+        global games, client_players
+        #Prepare the list as a JSON table, listing the first host player's name, the numbers of total players, joined players, CPU players
+        active_games = []
+        for game_id in games:
+            game_data = games[game_id]
+            active_game = {}
+            active_game["game_id"] = str(game_id)
+            active_game["game_type"] = str(game_data["game_type"])
+            #Name the game according to the first player of its first client
+            active_game["game_name"] = str(client_players[game_data["clients"]][0])+"'s game"
+            #Report the player numbers
+            active_game["total_players"] = len(game_data["players"])
+            active_game["cpu_players"] = len(game_data["cpu_players"])
+            #Add all of this to the growing list
+            active_games.append(active_game)
+        self.sendMessage("LIST[00100]"+json.dumps(active_games)) 
 
     def handleConnected(self):
         '''On initial connection, establish client details
