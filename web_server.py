@@ -264,7 +264,7 @@ class ClientSocket(WebSocket):
                     time.sleep(self.INPUT_DELAY)
         #Assign random names and colours to these CPU players
         for player_num in range(num_virtual_players):
-            if new_game_cpu_players.get(game_id) is not None:
+            if new_game_cpu_players.get(game_id) is None:
                 new_game_cpu_players[game_id] = {}
             player_colour =  available_colours.pop(random.randint(0,len(available_colours)-1))
 #            new_game_colours[game_id].append(player_colour)
@@ -300,7 +300,7 @@ class ClientSocket(WebSocket):
                         num_players = num_client_players + num_virtual_players + DEFAULT_REMOTE_PLAYERS
                 else:
                     time.sleep(self.INPUT_DELAY)
-            new_game_colours[game_id] = random.sample(available_colours, num_players - len(new_game_colours[game_id]))
+            new_game_colours[game_id] = random.sample(available_colours, num_players - len(new_game_players[game_id]))
         return game_id
     
     def join_game(self, game_id, num_client_players=None):

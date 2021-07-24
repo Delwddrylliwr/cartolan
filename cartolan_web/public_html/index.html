@@ -62,7 +62,8 @@
             var serverAddress = "51.38.83.99:10000";
 //            var serverAddress = "localhost:10000";
             var heightShare = 0.9; //implement a marging below the canvas for a link to the game manual and spotify soundtrack
-            var listRefreshDelay = 3000 //the number of miliseconds between sending requests for updated gane lists
+            var listRefreshDelay = 3000; //the number of miliseconds between sending requests for updated gane lists
+            var startingFontSize = 16;
             
             var canvas;
             var context;
@@ -250,7 +251,7 @@
                     var vertical = y;
                     for(var row = 0; row < tableTexts.length; row++) {
                         for(var col = 0; col < tableTexts[row].length; col++){
-                            context.fillText(line, horizontal, vertical);
+                            context.fillText(tableTexts[row][col], horizontal, vertical);
                             horizontal += maxColWidths[col] + colSpacing;
                         }
                         horizontal = centredTableStart;
@@ -307,10 +308,34 @@
                 }
                 //Prompt user to click before connecting to game server and launching popups
                 context.font = "36px Arial";
-                var text = "Click to Create/Join a game";
+                var text = "Click anywhere to Create/Join a game";
                 var x = canvas.width/2;
                 var y = canvas.height/2;
                 wrapText(context, text, x, y, maxwidth, lineHeight);
+                //@TODO draw a rectangular button to bring up the game queue
+                roundRect = function (context, x, y, w, h, r) { // thanks to Grumdrig: https://stackoverflow.com/questions/1255512/how-to-draw-a-rounded-rectangle-using-html-canvas
+                    if (w < 2 * r) r = w / 2;
+                    if (h < 2 * r) r = h / 2;
+                    context.beginPath();
+                    context.moveTo(x+r, y);
+                    context.arcTo(x+w, y,   x+w, y+h, r);
+                    context.arcTo(x+w, y+h, x,   y+h, r);
+                    context.arcTo(x,   y+h, x,   y,   r);
+                    context.arcTo(x,   y,   x+w, y,   r);
+                    context.closePath();
+                    return context;
+                  }
+                y = y + 40;
+                var buttonText = "Click for game queue";
+                var cornerRadius = 2;
+                context.font = "24px Arial";
+                var buttonSize = context.measureText(buttonText)
+                var buttonWidth = buttonSize.width;
+                var buttonHeight = buttonSize.actualBoundingBoxAscent + buttonSize.actualBoundingBoxDescent;
+                context.strokeStyle = "white";
+//                roundRect(context, x - Math.round(buttonWidth/2), y  - buttonSize.actualBoundingBoxAscent - cornerRadius, buttonWidth, buttonHeight, cornerRadius).stroke();
+//                context.fillText(buttonText, x, y);
+                var listButton = [x - Math.round(buttonWidth/2), y  - buttonSize.actualBoundingBoxAscent - cornerRadius, x + buttonWidth, y + buttonHeight];
                 //Wait for player input
                 function waiting(){
 
@@ -325,7 +350,8 @@
                            drawSplash(); 
                         }
                         //check whether the click was within the button for seeing the game lists and render these
-                        if (myGameArea.x >= listButton[0] && myGameArea.y <= listButton[2]) {
+                        if (myGameArea.x >= listButton[0] && myGameArea.x <= listButton[2]
+                                && myGameArea.y >= listButton[1] && myGameArea.y <= listButton[3]) {
                             console.log("drawing the table of current games")
                             updateQueue(["ID", "Name", "Mode", "#Spaces", "#AIs"])
                             //Print a message prompting interaction with the table(s)
