@@ -263,9 +263,9 @@ class ClientSocket(WebSocket):
                 else:
                     time.sleep(self.INPUT_DELAY)
         #Assign random names and colours to these CPU players
+        if new_game_cpu_players.get(game_id) is None:
+            new_game_cpu_players[game_id] = {}
         for player_num in range(num_virtual_players):
-            if new_game_cpu_players.get(game_id) is None:
-                new_game_cpu_players[game_id] = {}
             player_colour =  available_colours.pop(random.randint(0,len(available_colours)-1))
 #            new_game_colours[game_id].append(player_colour)
             player_name = "AI:"+NAMES[random.randint(0,len(NAMES)-1)]
@@ -512,6 +512,14 @@ class ClientSocket(WebSocket):
         old_colour = games[game_id]["players"].pop(old_player)
         games[game_id]["players"][new_player] = old_colour
     
+    def kick_player(self, game_id, player):
+        '''Remove a player from a live game and replace them with a bot
+        
+        Arguments:
+        player takes a Cartolan player
+        '''
+        #@TODO create a bot with character type based on 
+    
     #@TODO decide whether to collect input from this socket via recv or the below
     def handleMessage(self):
         '''Distinguish whether this message is an initiation or continuation of a game.
@@ -519,7 +527,7 @@ class ClientSocket(WebSocket):
         message = str(self.data)
         protocode, msg = message.split("[00100]")
         if protocode == ("START"):
-           print("START...ing a new game connection")
+           print("START...ing a new connection, and creating/joining the next game")
 #           self.socket.setsockopt(zmq.IDENTITY, str(msg))
 #           self.socket.connect("tcp://LOCALHOST:80")
 #           #Check whether there are enough players in the queue for a game,
