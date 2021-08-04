@@ -93,7 +93,6 @@
                     send("START[00100]" + myGameArea.canvas.width + "[55555]" + myGameArea.canvas.height);
                     //@TODO wait for server response to confirm connection
                     console.log("Connected.");
-                    //@TODO share the dimensions of the client play area with the server so that rescaling of the image can happen serverside before transmission
                 }
 
                 function onMessage(evt) {
@@ -308,7 +307,7 @@
                 }
                 //Prompt user to click before connecting to game server and launching popups
                 context.font = "36px Arial";
-                var text = "Click anywhere to Create/Join a game";
+                var text = "Click anywhere to Create/Join the next game";
                 var x = canvas.width/2;
                 var y = canvas.height/2;
                 wrapText(context, text, x, y, maxwidth, lineHeight);
