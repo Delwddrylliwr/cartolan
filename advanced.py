@@ -229,11 +229,11 @@ class AdventurerAdvanced(AdventurerRegular):
                 if super().place_agent() and self.rest_after_placing:
                     self.agents_rested.remove(self.current_tile.agent)
                 self.cost_agent_exploring = cost_exploring
-        if (self.transfers_to_agents 
-            and len(self.game.agents[self.player]) > 0 
-            and self.wealth > 0):
-            #Offer the opportunity to move wealth around between Agents
-            self.transfer_to_agent()
+        # if (self.transfers_to_agents 
+        #     and len(self.game.agents[self.player]) > 0 
+        #     and self.wealth > 0):
+        #     #Offer the opportunity to move wealth around between Agents
+        #     self.transfer_to_agent()
     
 #    def place_agent(self):
 #        '''Extends standard behaviour to allow a buff with same-turn resting
@@ -243,16 +243,16 @@ class AdventurerAdvanced(AdventurerRegular):
 #            return True
 #        else: return False
     
-    def discover(self, tile):
-        '''Extends standard behaviour to allow transfers to Agents even after exploration.
-        '''
-        super().discover(tile)
-        if (self.transfers_to_agents 
-            and len(self.game.agents[self.player]) > 0 
-            and self.wealth > 0):
-            #Offer the opportunity to move wealth around between Agents
-            self.transfer_to_agent()
-        return True
+    # def discover(self, tile):
+    #     '''Extends standard behaviour to allow transfers to Agents even after exploration.
+    #     '''
+    #     super().discover(tile)
+    #     if (self.transfers_to_agents 
+    #         and len(self.game.agents[self.player]) > 0 
+    #         and self.wealth > 0):
+    #         #Offer the opportunity to move wealth around between Agents
+    #         self.transfer_to_agent()
+    #     return True
     
     def transfer_to_agent(self):
         '''Offers the opporutnity to transfer current wealth to any of the player's Agents
@@ -298,6 +298,11 @@ class AdventurerAdvanced(AdventurerRegular):
                     AdventurerAdvanced.arrest(agent, self) #The arrest function should only use common features of the common parent Token class
 #                   self.current_tile.agent.arrest(self) #The arrest function should only use common features of the common parent Token class
                     self.end_turn()
+            if (self.transfers_to_agents 
+                and len(self.game.agents[self.player]) > 0 
+                and self.wealth > 0):
+                #Offer the opportunity to move wealth around between Agents
+                self.transfer_to_agent()
     
     def arrest(self, pirate):
         '''Extends regular behaviour to allow capture of wealth for particular buffs.
@@ -346,8 +351,11 @@ class AgentAdvanced(AgentRegular):
         Arguments:
         Cartolan.Adventurer the Adventurer making the trade
         '''
+        #check whether dispossessed
+        if self.is_dispossessed:
+            return False
         #check whether Adventurer trading is from the same player
-        if adventurer.player == self.player:
+        elif adventurer.player == self.player:
             print("Agent on tile " +str(self.current_tile.tile_position.longitude)+","
                   +str(self.current_tile.tile_position.longitude)+ " has given monopoly bonus to Adventurer")
             # pay as necessary

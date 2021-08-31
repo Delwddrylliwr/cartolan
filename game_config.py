@@ -87,12 +87,12 @@ class AdvancedConfig:
                         , "+earning":{"value_agent_trade":{"buff_type":"new", "buff_val":1}
                                             , "num_discovery_choices":{"buff_type":"new", "buff_val":3}}
                         , "+arrest":{"agents_arrest":{"buff_type":"new", "buff_val":True}
-                                            , "confiscate_stolen":{"buff_type":"new", "buff_val":True}
+                                            # , "confiscate_stolen":{"buff_type":"new", "buff_val":True}
                                             , "num_character_choices":{"buff_type":"new", "buff_val":3}}
                         , "+refurnish":{"resting_refurnishes":{"buff_type":"new", "buff_val":True}
                                             , "num_character_choices":{"buff_type":"new", "buff_val":3}}
-                        , "+pool":{"pool_maps":{"buff_type":"new", "buff_val":True}
-                                            , "rechoose_at_agents":{"buff_type":"new", "buff_val":True}
+                        , "+pool":{"rechoose_at_agents":{"buff_type":"new", "buff_val":True}
+                                           # , "pool_maps":{"buff_type":"new", "buff_val":True}
                                             , "num_discovery_choices":{"buff_type":"new", "buff_val":3}}
                         }
     CHARACTER_CARDS = ["adv+agents"
