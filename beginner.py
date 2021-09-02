@@ -830,7 +830,7 @@ class CityTileBeginner(CityTile):
 ##                        + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
 ##                        continue
 #            else:
-            if tile is None:
+            if not tile:
                 return False
 
             #check whether the tile already has an active Agent 
