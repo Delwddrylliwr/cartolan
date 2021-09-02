@@ -423,7 +423,7 @@ class GameVisualisation():
             #Check whether the font was too big or the text box size has been exceeded
             if font_too_big or max_line_height * len(lines) > height:
                 #Rescale the font
-                font = pygame.font.SysFont(None, font.get_linesize(" ") - 1) #increment the font size down by one
+                font = pygame.font.SysFont(None, font.get_linesize() - 1) #increment the font size down by one
                 #Reset the text to a single line
                 font_too_big = False
                 lines = [deque(text.split())]
