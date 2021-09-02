@@ -7,6 +7,7 @@ __pycache__/*
 
 #IDE project files
 cartolan_web/nbproject
+cartolan_web/.vs
 
 # Deployment
 logs/*.txt

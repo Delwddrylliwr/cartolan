@@ -18,7 +18,7 @@ from base import Player, CityTile #, TileEdges, WindDirection
 from regular import DisasterTile, AdventurerRegular, AgentRegular #, MythicalTileRegular
 from advanced import AdventurerAdvanced
 from game import GameBeginner, GameRegular, GameAdvanced
-from players_human import PlayerHuman
+# from players_human import PlayerHuman
 #from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
 #from players_heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
 #from players_heuristical import PlayerAdvancedExplorer, PlayerAdvancedTrader, PlayerAdvancedRouter, PlayerAdvancedPirate
@@ -95,28 +95,28 @@ class GameVisualisation():
             , "com+refurnish":"The Privateer Brethren"
             , "com+pool":"Order of the Lightbrary"
             }
-    CARD_TEXTS = {"adv+agents":"Place and immediately rest with Agents on existing tiles, for 3 treasure."
-             , "adv+attack":"Need only win or draw Rock-Paper-Scissors to be successful when attacking."
-             , "adv+bank":"Treasure can be moved at any time to any Agent."
-             , "adv+damage":"Losing opponents are returned to the last city visited, and Agents are fully removed."
-             , "adv+defence":"When defending, opponents have to win Rock-Paper-Scissors twice to succeed."
-             , "adv+downwind":"Up to six moves each turn and after resting."
-             , "adv+upwind":"The first three moves can be in any direction, each turn or after resting."
-             , "adv+maps":"Carry up to three map tiles in Chest."
-             , "dis+agents":"Place and immediately rest with Agents on existing tiles, for 3 treasure."
-             , "dis+attack":"Need only win or draw Rock-Paper-Scissors to be successful when attacking."
-             , "dis+bank":"Treasure can be moved at any time to any Agent."
-             , "dis+damage":"Losing opponents are returned to the last city visited, and Agents are fully removed."
-             , "dis+defence":"When defending, opponents have to win an extra round of Rock-Paper-Scissors to succeed."
-             , "dis+downwind":"Two more moves each turn and after resting."
-             , "dis+upwind":"One more move can be in any direction, each turn and after resting."
-             , "dis+maps":"Carry an extra map tile in their chest."
-             , "com+rests":"Adventurers can rest with Adventurers. Draw 3 Adventurers."
-            , "com+transfers":"Treasure earned by Agents goes to the Vault. Draw 3 Manuscript cards."
-            , "com+earning":"Agents earn 1 treasure when opponents trade on their tile. Draw 3 Manuscript cards."
-            , "com+arrest":"Agents try to arrest pirates landing on their tile. Arresting takes the Pirate’s treasure as well as the reward. Draw 3 Adventurers."
-            , "com+refurnish":"The pirate token can be lost by resting. Draw 3 Adventureres."
-            , "com+pool":"Map tiles are pooled across all Adventurers. Maps can be swapped at Agents for 1 treasure. Draw 3 Manuscript cards."
+    CARD_TEXTS = {"adv+agents":"Can place and immediately rest with Agents on existing tiles, for 3 treasure."
+             , "adv+attack":"Needs only win or draw Rock, Paper, Scissors to attack successfully."
+             , "adv+bank":"Can transfer treasure to your Agents when visiting anyone's Agent."
+             , "adv+damage":"Successfully attacked Adventurers are returned to their last city, and Agents are fully removed."
+             , "adv+defence":"Attacking opponents have to win Rock, Paper, Scissors twice to succeed."
+             , "adv+downwind":"Can move up to four times riding the wind after tiring, each turn and after resting."
+             , "adv+upwind":"Can move three times in any direction before getting tired, then one riding the wind, each turn or after resting."
+             , "adv+maps":"Carries up to three map tiles in Chest."
+             , "dis+agents":"This Adventurer can place Agents on existing tiles and immediately rest with them, for 3 treasure."
+             , "dis+attack":"This Adventurer needs only win or draw Rock, Paper, Scissors to attack successfully."
+             , "dis+bank":"This Adventurer can transfer treasure to your Agents when visiting anyone's Agent."
+             , "dis+damage":"Successfully attacked Adventurers are returned to their last city, and Agents are removed."
+             , "dis+defence":"Attacking opponents have to win an extra round of Rock, Paper, Scissors to succeed."
+             , "dis+downwind":"This Adventurer can move twice more riding the wind after tiring, each turn and after resting."
+             , "dis+upwind":"This Adventurer can move once more before tiring, rather than after, each turn and after resting."
+             , "dis+maps":"This Adventurer carries an extra map tile in their chest."
+             , "com+rests":"Your Adventurers can rest with other Adventurers like Agents. Draw 3 Adventurers."
+            , "com+transfers":"Treasure earned by your Agents goes to your Vault. Draw 3 Manuscript cards."
+            , "com+earning":"Your Agents earn 1 treasure when opponents trade on their tile. Draw 3 Manuscript cards."
+            , "com+arrest":"Your Agents try to arrest pirates landing on their tile. Draw 3 Adventurers."
+            , "com+refurnish":"Your Adventurers can loose the pirate by resting. Draw 3 Adventureres."
+            , "com+pool":"Your Agents can swap any Adventurer's maps for 1 treasure. Draw 3 Manuscript cards."
             }
     
     def __init__(self, game, peer_visuals, player_colours):
@@ -313,6 +313,7 @@ class GameVisualisation():
                 self.card_height = new_height
                 self.card_width = new_width
                 card_type_set = self.card_image_library.get(card_type)
+                print("Adding text to card of type '"+card_type+"'")
                 if card_type_set is None:
                     scaled_image = pygame.transform.scale(card_image, [new_width, new_height])
                     self.update_card_text(scaled_image, card_type)
@@ -343,7 +344,7 @@ class GameVisualisation():
         card_text = self.CARD_TEXTS[card_type]
         #Create the text objects to add to the card
         rendered_title = self.card_font.render(card_title, 1, self.CARD_TEXT_COLOUR)
-        rendered_text = self.wrap_text(card_text, card_width, self.card_font, self.CARD_TEXT_COLOUR, self.CARD_BACKGROUND_COLOUR)
+        rendered_text = self.wrap_text(card_text, card_width, card_height, self.card_font, self.CARD_TEXT_COLOUR, self.CARD_BACKGROUND_COLOUR)
         #Work out positions that will centre the title as well as possible and place it on the card
         title_horizontal = (card_width - rendered_title.get_width()) // 2
         title_vertical = 0
@@ -365,21 +366,25 @@ class GameVisualisation():
         '''
         card_text = self.CARD_TEXTS[card_type]
         rendered_text = self.wrap_text(card_text, card_image.get_width()
+                            , card_image.get_height() - self.CARD_BODY_START*card_image.get_height()
                             , self.card_font, self.CARD_TEXT_COLOUR, self.CARD_BACKGROUND_COLOUR)
         card_image.blit(rendered_text
                   , [(card_image.get_width() - rendered_text.get_width())//2
                      , self.CARD_BODY_START*card_image.get_height()])
         return card_image
     
-    def wrap_text(self, text, width, font, text_colour, background_colour):
+    def wrap_text(self, text, width, height, font, text_colour, background_colour):
         '''Given a particular width, introduces line breaks and returns a text surface.
         
         Arguments:
         text takes a string to be rendered
         width takes an int maximum width in pixels for the rendered image
+        height takes an int maximum height in pixels for the rendered image
+        
         '''
         text_fits = False
         last_line_fits = False
+        font_too_big = False
         lines = [deque(text.split())]
         line_num = 0
         max_line_width = 0
@@ -404,13 +409,28 @@ class GameVisualisation():
                     if line_height > max_line_height:
 #                        print("Updating line height to "+str(line_height))
                         max_line_height = line_height
-                else:
+                elif len(lines[line_num]) > 1:
                     #Try moving the last word of the current line to the next line
                     last_word = lines[line_num].pop()
                     if line_num+1 < len(lines):
                         lines[line_num+1].appendleft(last_word)
                     else:
                         lines.append(deque([last_word]))
+                else:
+                    #This font is too big to render one of the words in a single line
+                    font_too_big = True
+                    break
+            #Check whether the font was too big or the text box size has been exceeded
+            if font_too_big or max_line_height * len(lines) > height:
+                #Rescale the font
+                font = pygame.font.SysFont(None, font.get_linesize() - 1) #increment the font size down by one
+                #Reset the text to a single line
+                font_too_big = False
+                lines = [deque(text.split())]
+                line_num = 0
+                max_line_width = 0
+                max_line_height = 0
+                continue
             #Check whether there are any more lines to render
             if line_num >= len(lines):
                 text_fits = True
@@ -1213,7 +1233,7 @@ class GameVisualisation():
         #Establish the colour (as the current player's)
 #        prompt = self.prompt_font.render(self.prompt_text, 1, pygame.Color(self.current_player_colour))
         prompt_width = self.width - self.play_area_start - self.right_menu_width
-        prompt = self.wrap_text(self.prompt_text, prompt_width, self.prompt_font, pygame.Color(self.current_player_colour), self.BACKGROUND_COLOUR)
+        prompt = self.wrap_text(self.prompt_text, prompt_width, self.height, self.prompt_font, pygame.Color(self.current_player_colour), self.BACKGROUND_COLOUR)
         self.window.blit(prompt, (self.play_area_start, self.height - prompt.get_height()))
         
     def start_turn(self, adventurer):
