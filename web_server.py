@@ -518,7 +518,7 @@ class ClientSocket(WebSocket):
         Arguments:
         player takes a Cartolan player
         '''
-        #@TODO create a bot with character type based on 
+        #@TODO create a bot with character type based on colour
     
     #@TODO decide whether to collect input from this socket via recv or the below
     def handleMessage(self):
@@ -528,6 +528,7 @@ class ClientSocket(WebSocket):
         protocode, msg = message.split("[00100]")
         if protocode == ("START"):
            print("START...ing a new connection, and creating/joining the next game")
+           print(time.strftime('%Y-%m-%d %H:%M %Z', time.gmtime(time.time()))) #timestamp
 #           self.socket.setsockopt(zmq.IDENTITY, str(msg))
 #           self.socket.connect("tcp://LOCALHOST:80")
 #           #Check whether there are enough players in the queue for a game,

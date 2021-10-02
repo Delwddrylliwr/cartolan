@@ -115,7 +115,7 @@ class GameVisualisation():
             , "com+transfers":"Treasure earned by your Agents goes to your Vault. Draw 3 Manuscript cards."
             , "com+earning":"Your Agents earn 1 treasure when opponents trade on their tile. Draw 3 Manuscript cards."
             , "com+arrest":"Your Agents try to arrest pirates landing on their tile. Draw 3 Adventurers."
-            , "com+refurnish":"Your Adventurers can loose the pirate by resting. Draw 3 Adventureres."
+            , "com+refurnish":"Your Adventurers can lose the pirate token by resting. Draw 3 Adventureres."
             , "com+pool":"Your Agents can swap any Adventurer's maps for 1 treasure. Draw 3 Manuscript cards."
             }
     
