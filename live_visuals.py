@@ -828,6 +828,9 @@ class GameVisualisation():
         players = self.game.players
         self.drawn_routes = [] #Clear out old routes
         for player in players:
+            #only draw routes for the current and viewed adventurers' players
+            if player not in [self.current_adventurer.player, self.viewed_adventurer.player]:
+                continue
             player_offset = self.PLAYER_OFFSETS[players.index(player)]
             adventurers = self.game.adventurers[player]
             colour = pygame.Color(self.player_colours[player])
@@ -1248,6 +1251,7 @@ class GameVisualisation():
             game_vis.current_player_colour = player_colour
             game_vis.current_adventurer_number = adventurer_number
             game_vis.current_adventurer = adventurer
+            game_vis.current_adventurer.preferred_tile_num = None #deselect any chest map
             #Also reset which adventurer's cards are being viewed
             game_vis.viewed_player_colour = player_colour
             game_vis.viewed_adventurer_number = adventurer_number
