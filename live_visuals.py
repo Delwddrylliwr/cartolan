@@ -115,7 +115,7 @@ class GameVisualisation():
             , "com+transfers":"Treasure earned by your Agents goes to your Vault. Draw 3 Manuscript cards."
             , "com+earning":"Your Agents earn 1 treasure when opponents trade on their tile. Draw 3 Manuscript cards."
             , "com+arrest":"Your Agents try to arrest pirates landing on their tile. Draw 3 Adventurers."
-            , "com+refurnish":"Your Adventurers can loose the pirate by resting. Draw 3 Adventureres."
+            , "com+refurnish":"Your Adventurers can lose the pirate token by resting. Draw 3 Adventureres."
             , "com+pool":"Your Agents can swap any Adventurer's maps for 1 treasure. Draw 3 Manuscript cards."
             }
     
@@ -828,6 +828,9 @@ class GameVisualisation():
         players = self.game.players
         self.drawn_routes = [] #Clear out old routes
         for player in players:
+            #only draw routes for the current and viewed adventurers' players
+            if player not in [self.current_adventurer.player, self.viewed_adventurer.player]:
+                continue
             player_offset = self.PLAYER_OFFSETS[players.index(player)]
             adventurers = self.game.adventurers[player]
             colour = pygame.Color(self.player_colours[player])
@@ -1248,6 +1251,7 @@ class GameVisualisation():
             game_vis.current_player_colour = player_colour
             game_vis.current_adventurer_number = adventurer_number
             game_vis.current_adventurer = adventurer
+            game_vis.current_adventurer.preferred_tile_num = None #deselect any chest map
             #Also reset which adventurer's cards are being viewed
             game_vis.viewed_player_colour = player_colour
             game_vis.viewed_adventurer_number = adventurer_number

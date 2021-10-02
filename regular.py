@@ -416,7 +416,7 @@ class CityTileRegular(CityTileBeginner):
             return
         
         #Offer the chance to pay and completely swap out chest tiles
-        if (adventurer.game.player_wealths[adventurer.player] >= self.game.cost_refresh_maps 
+        while (adventurer.game.player_wealths[adventurer.player] >= self.game.cost_refresh_maps 
             and adventurer.player.check_buy_maps(adventurer)):
             adventurer.game.player_wealths[adventurer.player] -= self.game.cost_refresh_maps
             adventurer.rechoose_chest_tiles()
