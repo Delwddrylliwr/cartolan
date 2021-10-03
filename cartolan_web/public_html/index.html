@@ -62,8 +62,8 @@
 <body onload="startGame()" style="background-color:rgb(38,50,66)">
 
   <script>
-    var serverAddress = "51.38.83.99:10000";
-    //var serverAddress = "localhost:10000";
+    //var serverAddress = "51.38.83.99:10000";
+    var serverAddress = "localhost:10000";
     var heightShare = 0.9; //implement a marging below the canvas for a link to the game manual and spotify soundtrack
     var listRefreshDelay = 3000; //the number of miliseconds between sending requests for updated gane lists
     var startingFontSize = 16;
@@ -270,7 +270,7 @@
           vertical += rowHeight;
         }
         //Retain the table corners and row height, in order to match clicks with rows
-        startGame.tableCorners = [centredTableStart, y, horizontal, vertical];
+        myGameArea.tableCorners = [centredTableStart, y, horizontal, vertical];
         startGame.tableRowHeight = rowHeight;
         //Reset the font size for subsequent uses
         context.font = oldFont;
@@ -353,8 +353,8 @@
       var buttonWidth = buttonSize.width;
       var buttonHeight = buttonSize.actualBoundingBoxAscent + buttonSize.actualBoundingBoxDescent;
       context.strokeStyle = "white";
-      //roundRect(context, x - Math.round(buttonWidth / 2), y - buttonSize.actualBoundingBoxAscent - cornerRadius, buttonWidth, buttonHeight, cornerRadius).stroke();
-      //context.fillText(buttonText, x, y);
+      roundRect(context, x - Math.round(buttonWidth / 2), y - buttonSize.actualBoundingBoxAscent - cornerRadius, buttonWidth, buttonHeight, cornerRadius).stroke();
+      context.fillText(buttonText, x, y);
       var listButton = [x - Math.round(buttonWidth / 2), y - buttonSize.actualBoundingBoxAscent - cornerRadius, x + buttonWidth, y + buttonHeight];
       //Wait for player input
       function waiting() {
@@ -418,6 +418,7 @@
           myGameArea.clicked = true;
           myGameArea.x = Math.round(e.pageX);
           myGameArea.y = Math.round(e.pageY);
+          myGameArea.tableCorners = [0, 0, 0, 0];
         });
       },
       clear: function () {
@@ -440,8 +441,8 @@
     function updateTable() {
       console.log("Requesting the table of current games");
       //@TODO check whether there has been a click inside one of the table rows
-      if (startGame.tableCorners[0] < myGameArea.x && myGameArea.x < startGame.tableCorners[2]
-        && startGame.tableCorners[1] < myGameArea.y && myGameArea.y < startGame.tableCorners[3]) {
+      if (myGameArea.tableCorners[0] <= myGameArea.x && myGameArea.x <= myGameArea.tableCorners[2]
+        && myGameArea.tableCorners[1] <= myGameArea.y && myGameArea.y <= myGameArea.tableCorners[3]) {
 
         clearInterval(table_interval); //Stop further requests for table refreshes
         //@TODO relay the game joining request to the server
