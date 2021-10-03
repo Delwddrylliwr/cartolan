@@ -30,7 +30,7 @@ class PlayerHuman(Player):
         '''Resets any fixed responses that have been set.
         '''
         self.auto_actions = {"rest":None
-                           , "buy":None
+                           , "buy_rest":None
                            , "attack":None
                            }
         self.follow_route = []
@@ -544,7 +544,7 @@ class PlayerHuman(Player):
                                            +str(game.adventurers[self].index(adventurer)+1) 
                                            +" to rest with "+token_description+" then click their tile, otherwise click elsewhere.")
         else:
-            action_type = "buy"
+            action_type = "buy_rest"
             actions[action_type] = [[adventurer.current_tile.tile_position.longitude
                         , adventurer.current_tile.tile_position.latitude]]
             prompt = ("If you want "+str(self.name)+"'s Adventurer #" 
@@ -564,7 +564,7 @@ class PlayerHuman(Player):
         if self.undone: 
             print("automatically responding false to action")
             return False
-        self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
+        # self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
         actions = {}
         action_type = "buy"
         actions[action_type] = [[adventurer.current_tile.tile_position.longitude
@@ -583,7 +583,7 @@ class PlayerHuman(Player):
         if self.undone: 
             print("automatically responding false to action")
             return False
-        self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
+        # self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
         actions = {}
         action_type = "buy"
         actions[action_type] = [[adventurer.current_tile.tile_position.longitude
@@ -603,7 +603,7 @@ class PlayerHuman(Player):
         if self.undone: 
             print("automatically responding false to action")
             return False
-        self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
+        # self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
         actions = {}
         action_type = "buy"
         actions[action_type] = [[adventurer.current_tile.tile_position.longitude
@@ -622,7 +622,7 @@ class PlayerHuman(Player):
         if self.undone: 
             print("automatically responding false to action")
             return False
-        self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
+        # self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
         action_type = "buy"
         actions[action_type] = [[adventurer.current_tile.tile_position.longitude
                     , adventurer.current_tile.tile_position.latitude]]
@@ -639,7 +639,7 @@ class PlayerHuman(Player):
         if self.undone: 
             print("automatically responding false to action")
             return False
-        self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
+        # self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
         actions = {}
         action_type = "buy"
         #Establish a list of all tiles without an active Agent, to offer the player
