@@ -84,6 +84,7 @@ class GameVisualisation():
                   , "buy":'./images/option_buy.png'
                   , "attack":'./images/option_attack.png'
                   , "rest":'./images/option_rest.png'
+                  , "buy_rest":'./images/option_buy.png'
                   , "move_agent":'./images/option_valid_move.png'
                   , "agent_transfer":'./images/option_buy.png'
                   }
@@ -147,7 +148,7 @@ class GameVisualisation():
         self.move_count_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
         self.chest_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
         self.toggles_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
-        self.toggle_rects = []
+        self.action_rects = []
         self.piles_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
         self.undo_rect = (self.width, self.height, 0, 0)
         self.undo_agreed = False
@@ -156,6 +157,7 @@ class GameVisualisation():
         if isinstance(self.game, GameAdvanced):
             self.selected_card_num = None
             self.card_images = {}
+        self.draw_all_routes = True
         self.init_GUI()
         
     def init_GUI(self):
@@ -181,6 +183,8 @@ class GameVisualisation():
         self.right_menu_start = self.play_area_start + self.play_area_width
         self.right_text_start = self.MOVE_COUNT_POSITION[0] * self.width #All text indicators in the right menu will follow the same indent
         self.menu_highlight_size = round(self.RIGHT_MENU_SCALE * self.width) // len(self.TOGGLE_HIGHLIGHTS)
+        self.menu_route_thickness = self.ROUTE_THICKNESS
+        self.menu_spacing = self.menu_route_thickness
         #Tiles will be scaled to fit the smaller dimension
         if self.play_area_width < self.tile_size * self.dimensions[0]:
             self.tile_size = self.play_area_width // self.dimensions[0]
@@ -829,7 +833,9 @@ class GameVisualisation():
         self.drawn_routes = [] #Clear out old routes
         for player in players:
             #only draw routes for the current and viewed adventurers' players
-            if player not in [self.current_adventurer.player, self.viewed_adventurer.player]:
+            if not (self.draw_all_routes 
+                    or player in [self.current_adventurer.player
+                                  , self.viewed_adventurer.player]):
                 continue
             player_offset = self.PLAYER_OFFSETS[players.index(player)]
             adventurers = self.game.adventurers[player]
@@ -975,7 +981,7 @@ class GameVisualisation():
     def draw_toggle_menu(self, fixed_responses):
         '''Visualises a set of highlights for action prompts that can have a fixed True/False response set for them 
         '''
-        self.toggle_rects = [] #Reset the record of where the toggle menu buttons have been drawn
+        self.action_rects = [] #Reset the record of where the toggle menu buttons have been drawn
         #Establish the top left coordinate below the table of treasure scores
 #        horizontal = self.MOVE_COUNT_POSITION[0] * self.width
 #        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.game.tile_piles) + 1)
@@ -983,17 +989,24 @@ class GameVisualisation():
         vertical = self.move_count_rect[1] + self.move_count_rect[3] 
         toggle_title = self.scores_font.render("Auto-Actions:", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(toggle_title, (horizontal, vertical))
-        #Draw a box to surround the Chest menu, and remember its coordinates for player input
-        #@TODO allow the Chest tiles menu to vary in size depending on Adventurer
+        #Draw a box to surround the toggle menu, and remember its coordinates for player input
         horizontal = self.right_menu_start
         vertical += self.SCORES_FONT_SCALE * self.height
-        self.toggles_rect = (horizontal, vertical, self.play_area_start, self.menu_highlight_size)
+        menu_height = self.menu_highlight_size + self.menu_spacing
+        if self.draw_all_routes:
+            #If all players' routes are to be drawn then there will need to be space for a horizontal line each in the toggle menu
+            menu_height += len(self.player_colours) * self.menu_route_thickness
+        else:
+            menu_height += self.menu_route_thickness
+            if not self.current_adventurer.player == self.viewed_adventurer.player:
+                menu_height += self.menu_route_thickness #two routes will be drawn if the viewed Adventurer is for another player
+        self.toggles_rect = (horizontal, vertical, self.play_area_start, menu_height )
 #        print("Chest map menu corners defined at pixels...")
 #        print(self.chest_rect)
 #        pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
 #                                 , self.chest_rect
 #                                 , self.chest_highlight_thickness)
-        #Cycle through the chest tiles, drawing them
+        #Cycle through the auto-actions, drawing their highlight over the toggle button that will decide their auto-response
         for highlight_type in fixed_responses:
             #If there is a fixed response set for this action type, then give it a colour to indicate True / False
             if fixed_responses[highlight_type]:
@@ -1009,8 +1022,24 @@ class GameVisualisation():
             highlight_image = self.toggle_library[highlight_type]
             self.window.blit(highlight_image, [horizontal, vertical])
             #Remember the position of this highlight's toggle
-            self.toggle_rects.append([(horizontal, vertical, self.menu_highlight_size, self.menu_highlight_size), highlight_type])
+            self.action_rects.append([(horizontal, vertical, self.menu_highlight_size, self.menu_highlight_size), highlight_type])
             horizontal += self.menu_highlight_size #increment the horizontal placement before the next toggle is drawn
+        
+        #Add a toggle below this menu for whether to draw all routes, or just the current and viewed players'
+        horizontal = self.right_menu_start
+        vertical += self.menu_highlight_size + self.menu_spacing #increment down below the highlighht menu with a space
+        for player in self.player_colours:
+            if (self.draw_all_routes 
+                or self.current_adventurer.player == player
+                or self.viewed_adventurer.player == player):
+                colour = self.player_colours[player]
+                pygame.draw.line(self.window, colour
+                                 , [horizontal, vertical]
+                                 , [self.width, vertical]
+                                 , math.ceil(self.menu_route_thickness)
+                                 )
+                vertical += self.menu_route_thickness
+        
     
     def draw_undo_button(self):
         '''Adds an undo button and a click hit-box that will allow the game to be reset to a preceding state, providing all players agree.
@@ -1404,6 +1433,8 @@ class WebServerVisualisation(GameVisualisation):
         self.right_menu_start = self.play_area_start + self.play_area_width
         self.right_text_start = self.MOVE_COUNT_POSITION[0] * self.width #All text indicators in the right menu will follow the same indent
         self.menu_highlight_size = round(self.RIGHT_MENU_SCALE * self.width) // len(self.TOGGLE_HIGHLIGHTS)
+        self.menu_route_thickness = self.ROUTE_THICKNESS
+        self.menu_spacing = self.menu_route_thickness
         self.menu_tile_size = round(self.RIGHT_MENU_SCALE * self.width) // self.MENU_TILE_COLS
         #Before sizing against the horizontal dimension, we'll work out how much space the menus will take away
         self.play_area_width = round(self.width * (1 - self.LEFT_MENU_SCALE - self.RIGHT_MENU_SCALE))
@@ -1682,7 +1713,7 @@ class WebServerVisualisation(GameVisualisation):
                     and vertical in range(int(self.toggles_rect[1]), int(self.toggles_rect[1] + self.toggles_rect[3]))):
 #                    print("Player chose coordinates within the toggle menu, with vertical: "+str(vertical))
                     #Check which highlight was clicked and return it
-                    for highlight in self.toggle_rects:
+                    for highlight in self.action_rects:
                         highlight_rect = highlight[0]
                         if (horizontal in range(int(highlight_rect[0])
                                 , int(highlight_rect[0]) + int(highlight_rect[2]))
@@ -1690,6 +1721,9 @@ class WebServerVisualisation(GameVisualisation):
                                 , int(highlight_rect[1]) + int(highlight_rect[3]))):
 #                            print("Identified coordinates within one of the auto-response toggles.")
                             return {"toggle":highlight[1]}
+                    #If the click wasn't in the rect around one of the highlight options, then assume it was a click to toggle route drawing
+                    self.draw_all_routes = not self.draw_all_routes
+                    return {"update_visuals":"update_visuals"} 
                 elif self.check_undo(horizontal, vertical):
                     self.refresh_peers(adventurer) #Update peers' displays to show that the undo request has been made
                     return {"update_cards":"update_cards"} #Get the player to prompt again and refresh their own visuals              
