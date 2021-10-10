@@ -572,26 +572,33 @@ class ClientSocket(WebSocket):
             #Share any games already in progress with this player, in case they want to watch or replace a CPU player
             if len(games) > 0:
                 self.list_active_games()
+            #@TODO May need some mechanism to keep the connection alive while the table is just being kept up to date and waiting for an input
     
     def list_queued_games(self):
         '''Shares with the client a list of the games currently being prepared in the queue
         '''
         global new_game_clients, client_players, new_game_types, new_game_colours, new_game_players, new_game_cpu_players
-        #Prepare the list asa JSON table, listing the first host player's name, the numbers of total players, joined players, CPU players
+        print("Preparing a list of queued games as a JSON table, listing the first host player's name, the numbers of total players, joined players, CPU players")
         queued_games = []
         for game_id in new_game_types:
             queued_game = {}
+            print(queued_game)
             queued_game["game_id"] = str(game_id)
             queued_game["game_type"] = str(new_game_types[game_id])
+            print(queued_game)
             #Name the game according to the first player of its first client
-            queued_game["game_name"] = str(client_players[new_game_clients[game_id]][0])+"'s game"
+            first_player = client_players[new_game_clients[game_id][0]][0]
+            queued_game["game_name"] = str(first_player.name)+"'s game"
+            print(queued_game)
             #Report the player numbers
             queued_game["existing_players"] = len(new_game_players[game_id])
             queued_game["empty_slots"] = len(new_game_colours[game_id])
             queued_game["total_players"] = queued_game["existing_players"] + queued_game["empty_slots"]
             queued_game["cpu_players"] = len(new_game_cpu_players[game_id])
-            #Add all of this to the growing list
+            print("Adding all of this to the growing list:")
+            print(queued_game)
             queued_games.append(queued_game)
+        print("Sending "+json.dumps(queued_games))
         self.sendMessage("QUEUE[00100]"+json.dumps(queued_games))            
     
     def list_active_games(self):
@@ -612,6 +619,7 @@ class ClientSocket(WebSocket):
             active_game["cpu_players"] = len(game_data["cpu_players"])
             #Add all of this to the growing list
             active_games.append(active_game)
+        print("Sending "+json.dumps(active_games))
         self.sendMessage("LIST[00100]"+json.dumps(active_games)) 
 
     def handleConnected(self):
