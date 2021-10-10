@@ -308,10 +308,12 @@ class ClientSocket(WebSocket):
         '''
         global client_players
         global new_game_clients, new_game_types, new_game_colours, new_game_players
+        #print("Checking that the specified game exists")
+        if new_game_types[game_id] is None:
+            return False
         new_game_type = new_game_types[game_id]
         num_existing_clients = len(new_game_clients[game_id])
         #Seek input about how many players there are using this client
-        client_players[game_id] = []
 #        min_players = GAME_MODES[new_game_type]["game_type"].MIN_PLAYERS
         max_players = GAME_MODES[new_game_type]["game_type"].MAX_PLAYERS
         if num_client_players not in range(1, max_players + 1):
@@ -518,7 +520,7 @@ class ClientSocket(WebSocket):
         Arguments:
         player takes a Cartolan player
         '''
-        #@TODO create a bot with character type based on colour
+        #@TODO create a bot with behaviour based on colour
     
     #@TODO decide whether to collect input from this socket via recv or the below
     def handleMessage(self):
@@ -533,10 +535,13 @@ class ClientSocket(WebSocket):
 #           self.socket.connect("tcp://LOCALHOST:80")
 #           #Check whether there are enough players in the queue for a game,
 #           #start one in a Thread if so
-#           #@TODO join specifically the game that has been asked for
            self.width, self.height = [int(coord) for coord in msg.split("[55555]")]
            print("Received width: ", self.width," and height: ", self.height)
            Thread(target=self.join_queue).start()
+        elif protocode == ("JOIN"):
+            print("JOIN...ing a specific game: "+msg)
+            #Don't know whether this client's websocket on the server has its own thread. So, start a new one for joining the game
+            Thread(target=self.join_game, args=[msg]).start()
         elif protocode == ("PONG"):
             print("Client responded to ping")
             self.connection_confirmed = True
@@ -582,14 +587,11 @@ class ClientSocket(WebSocket):
         queued_games = []
         for game_id in new_game_types:
             queued_game = {}
-            print(queued_game)
             queued_game["game_id"] = str(game_id)
             queued_game["game_type"] = str(new_game_types[game_id])
-            print(queued_game)
             #Name the game according to the first player of its first client
             first_player = client_players[new_game_clients[game_id][0]][0]
             queued_game["game_name"] = str(first_player.name)+"'s game"
-            print(queued_game)
             #Report the player numbers
             queued_game["existing_players"] = len(new_game_players[game_id])
             queued_game["empty_slots"] = len(new_game_colours[game_id])

@@ -470,7 +470,9 @@
         && myGameArea.tableCorners[1] <= myGameArea.y && myGameArea.y <= myGameArea.tableCorners[3]) {
 
         clearInterval(table_interval); //Stop further requests for table refreshes
-        //@TODO relay the game joining request to the server
+        //relay the game joining request to the server
+        game_id = startGame.rowGames[(myGameArea.y - myGameArea.tableCorners[1]) / startGame.rowHeight];
+        send("JOIN[00100]" + game_id);
       } else {
         //Request a refresh of the game table from the server
         send("LOBBY[00100]BLANK");
