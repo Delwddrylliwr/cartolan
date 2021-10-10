@@ -241,7 +241,7 @@
             //Check that the widest cell of each column has been found
             for (var col = 0; col < tableTexts[row].length; col++) {
               metrics = context.measureText(tableTexts[row][col]);
-              if (maxColWidths.length < col + 1 || maxColWidths[col] != null || metrics.width > maxColWidths[col]) {
+              if (maxColWidths.length < col + 1 || maxColWidths[col] == null || metrics.width > maxColWidths[col]) {
                 maxColWidths[col] = metrics.width;
               }
             }
@@ -261,7 +261,7 @@
         //Render the table with the chosen font size
         var centredTableStart = x - Math.floor(estimatedWidth / 2);
         var horizontal = centredTableStart;
-        var vertical = y;
+        var vertical = y + rowHeight;
         var rowGames = new Array(tableTexts.length);
         startGame.rowGames = rowGames
         console.log("Printing table rows...");
@@ -270,8 +270,10 @@
           //Retain this GameID somewhere accessible to the whole page
           rowGames[row] = tableTexts[row][0];
           for (var col = 0; col < tableTexts[row].length; col++) {
+            context.textAlign = "left"
             context.fillText(tableTexts[row][col], horizontal, vertical);
-            horizontal += maxColWidths[col] + colSpacing; 
+            context.textAlign = "center"
+            horizontal += maxColWidths[col] + colSpacing;
           }
           horizontal = centredTableStart;
           vertical += rowHeight;
