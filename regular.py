@@ -75,10 +75,12 @@ class AdventurerRegular(AdventurerBeginner):
         '''For a given number of tiles, select randomly from across the bags / tile_piles
         '''
         for tile_num in range(num_tiles):
-            #Randomly select a tile pile to draw from
-            tile_pile = self.game.tile_piles[random.choice(list(self.game.tile_piles.keys()))]
-            #Randomly choose a tile from the bag / pile and add it to their Chest
-            chosen_tile = tile_pile.tiles.pop(random.randint(0, len(tile_pile.tiles)-1))
+            #Alternate between bags
+            pile_num = tile_num % len(self.game.tile_piles)
+            #Select the tile pile to draw from
+            tile_pile = self.game.tile_piles[list(self.game.tile_piles.keys())[pile_num]] #WARNING - this isn't deterministic, so an undo that somehow changes the dict may get different results
+            #Choose the next tile from the bag / pile and add it to their Chest
+            chosen_tile = tile_pile.tiles.pop()
             self.chest_tiles.append(chosen_tile)
             
     # Whether movement is possible is handled much like the Beginner mode, except that carrying no wealth increases upwind and land moves, and a dice roll can allow upwind movement
@@ -218,7 +220,7 @@ class AdventurerRegular(AdventurerBeginner):
         while self.chest_tiles:
             tile = self.chest_tiles.pop()
             relevant_pile = self.game.tile_piles[tile.tile_back]
-            relevant_pile.tiles.append(tile)
+            relevant_pile.tiles.insert(0, tile)
         #Replenish the empty Chest Tiles
         self.replenish_chest_tiles()
         
