@@ -85,8 +85,9 @@ class AdventurerRegular(AdventurerBeginner):
             while not tile_chosen:
                 if len(tile_pile.tiles) > num_bad_tiles: #check that there are at least some suitable tiles  
                     chosen_tile = tile_pile.tiles.pop()
-                    if (isinstance(chosen_tile, CityTile) 
-                        or isinstance(chosen_tile, DisasterTile)):
+                    if False:
+                    # if (isinstance(chosen_tile, CityTile) 
+                    #     or isinstance(chosen_tile, DisasterTile)):
                         tile_pile.tiles.insert(0, chosen_tile)
                         num_bad_tiles += 1
                     else:
