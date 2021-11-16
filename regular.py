@@ -42,7 +42,7 @@ class AdventurerRegular(AdventurerBeginner):
         
         #Draw some tiles randomly to the Adventurer's Chest
         self.chest_tiles = []
-        self.choose_random_tiles(self.num_chest_tiles)
+        self.choose_tiles(self.num_chest_tiles)
         #Keep track of which of these should be tried for movement
         self.preferred_tile_num = None
     
@@ -71,8 +71,8 @@ class AdventurerRegular(AdventurerBeginner):
             print("Identified the " +discard_pile.tile_back+ " discard pile, which still has " +str(len(discard_pile.tiles)) +" tiles")
             return discard_pile
     
-    def choose_random_tiles(self, num_tiles):
-        '''For a given number of tiles, select randomly from across the bags / tile_piles
+    def choose_tiles(self, num_tiles):
+        '''For a given number of tiles, select regular tiles from across the bags / tile_piles
         '''
         for tile_num in range(num_tiles):
             #Alternate between bags
@@ -80,8 +80,21 @@ class AdventurerRegular(AdventurerBeginner):
             #Select the tile pile to draw from
             tile_pile = self.game.tile_piles[list(self.game.tile_piles.keys())[pile_num]] #WARNING - this isn't deterministic, so an undo that somehow changes the dict may get different results
             #Choose the next tile from the bag / pile and add it to their Chest
-            chosen_tile = tile_pile.tiles.pop()
-            self.chest_tiles.append(chosen_tile)
+            tile_chosen = False
+            num_bad_tiles = 0 #keep track of the number of unsuitable tiles, in case there are no suitable ones
+            while not tile_chosen:
+                if len(tile_pile.tiles) > num_bad_tiles: #check that there are at least some suitable tiles  
+                    chosen_tile = tile_pile.tiles.pop()
+                    if False:
+                    # if (isinstance(chosen_tile, CityTile) 
+                    #     or isinstance(chosen_tile, DisasterTile)):
+                        tile_pile.tiles.insert(0, chosen_tile)
+                        num_bad_tiles += 1
+                    else:
+                        tile_chosen = True
+                        self.chest_tiles.append(chosen_tile)
+                else:
+                    break
             
     # Whether movement is possible is handled much like the Beginner mode, except that carrying no wealth increases upwind and land moves, and a dice roll can allow upwind movement
     def can_move(self, compass_point): 
@@ -211,7 +224,7 @@ class AdventurerRegular(AdventurerBeginner):
         #Count how many tiles they are short of the max chest tiles
         num_tiles_to_choose = self.num_chest_tiles - len(self.chest_tiles)
         #Add this many extra tiles to their chest
-        self.choose_random_tiles(num_tiles_to_choose)
+        self.choose_tiles(num_tiles_to_choose)
     
     def rechoose_chest_tiles(self):
         '''Checks whether the player will pay to replace all an Adventurer's chest tiles
