@@ -1090,13 +1090,14 @@ class GameVisualisation():
                                  , self.chest_highlight_thickness)
         #Cycle through the chest tiles, drawing them
         for tile in chest_tiles:
-            e = tile.tile_edges
-            wonder = str(tile.is_wonder)
-            uc = str(e.upwind_clock_water)
-            ua = str(e.upwind_anti_water)
-            dc = str(e.downwind_clock_water)
-            da = str(e.downwind_anti_water)
-            tile_name = uc + ua + dc + da + wonder
+            # e = tile.tile_edges
+            # wonder = str(tile.is_wonder)
+            # uc = str(e.upwind_clock_water)
+            # ua = str(e.upwind_anti_water)
+            # dc = str(e.downwind_clock_water)
+            # da = str(e.downwind_anti_water)
+            # tile_name = uc + ua + dc + da + wonder
+            tile_name = self.establish_tilename(tile)
             north = str(tile.wind_direction.north)
             east = str(tile.wind_direction.east)
             tile_image = self.menu_tile_library[tile_name + north + east]
