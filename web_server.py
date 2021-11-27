@@ -30,28 +30,28 @@ DEFAULT_WIDTH = int(0.8*1366)
 DEFAULT_HEIGHT = int(0.8*768)
 DIMENSION_INCREMENT = 2
 
-GAME_MODES = { 'Basic':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeginnerExplorer
+GAME_MODES = { 'Exploratory':{'game_type':GameBeginner, 'player_set':{"blueviolet":PlayerBeginnerExplorer
                                                                    , "red":PlayerBeginnerTrader
                                                                    , "yellow":PlayerBeginnerRouter
 #                                                                    , "green":PlayerBeginnerGenetic
                                                                    , "orange":PlayerBeginnerExplorer
                                                                       }}
-              , 'Regular':{'game_type':GameRegular, 'player_set':{
+              , 'Routine':{'game_type':GameRegular, 'player_set':{
                                                                   "orange":PlayerRegularPirate
-                                                                    , "blue":PlayerRegularExplorer
+                                                                    , "blueviolet":PlayerRegularExplorer
                                                                    , "red":PlayerRegularTrader
                                                                    , "yellow":PlayerRegularRouter
 #                                                                    , "green":PlayerRegularGenetic
                                                                   }}
-              , 'Rich':{'game_type':GameAdvanced, 'player_set':{
+              , 'Adventurous':{'game_type':GameAdvanced, 'player_set':{
                                                                   "orange":PlayerAdvancedPirate
-                                                                    , "blue":PlayerAdvancedExplorer
+                                                                    , "blueviolet":PlayerAdvancedExplorer
                                                                    , "red":PlayerAdvancedTrader
                                                                    , "yellow":PlayerAdvancedRouter
 #                                                                    , "green":PlayerRegularGenetic
                                                                   }}
               }
-DEFAULT_GAME_MODE = "Rich"
+DEFAULT_GAME_MODE = "Adventurous"
 DEFAULT_LOCAL_PLAYERS = 1
 DEFAULT_VIRTUAL_PLAYERS = 0
 DEFAULT_REMOTE_PLAYERS = 2
