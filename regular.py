@@ -303,8 +303,8 @@ class AdventurerRegular(AdventurerBeginner):
         return super().can_rest(token)
     
     def attack(self, token):
-        import random
-        
+        '''Introduces the mechanic of Adventurers taking wealth and maps and cards from other tokens.
+        '''
         #Record the decision to attack this move
         self.attacked += 1
         
@@ -369,6 +369,7 @@ class AdventurerRegular(AdventurerBeginner):
         '''Extends to deal with piracy
         '''
         self.pirate_token = False
+        self.replenish_chest_tiles()
         return super().end_expedition(city)
     
     def check_tile_available(self, tile):
@@ -415,6 +416,14 @@ class CityTileRegular(CityTileBeginner):
     '''Extends the CityTileBeginner class to redeem Adventurers from piracy and to replenish Chest Tiles, and offer purchase of refreshed chest tiles
     '''
     
+    # def move_onto_tile(self, adventurer):
+    #     '''Extends CityTileBeginer to replenish chest tiles whenever an Adventurer returns to a city.
+    #     '''
+    #     #Top up any missing chest tiles from the bags
+    #     adventurer.replenish_chest_tiles()
+    #     super().move_onto_tile(adventurer)
+        
+        
     def visit_city(self, adventurer, abandoned=False):
         '''Extends to redeem pirates, replenish Chest Tiles, and offer purchase of refreshed chest tiles
         '''
