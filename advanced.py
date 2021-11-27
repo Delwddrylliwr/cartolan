@@ -88,6 +88,7 @@ class AdventurerAdvanced(AdventurerRegular):
         self.rest_with_adventurers = game.rest_with_adventurers[player]
         self.confiscate_treasure = game.confiscate_treasure[player]
         self.pool_maps = game.pool_maps[player]
+        self.rechoose_at_agents = game.rechoose_at_agents[player]
         #Prepare to hold cards
         self.character_card = None
         self.discovery_cards = []
@@ -323,7 +324,6 @@ class AgentAdvanced(AgentRegular):
         self.agents_arrest = game.agents_arrest[player]
         self.confiscate_treasure = game.confiscate_treasure[player]
         self.resting_refurnishes = game.resting_refurnishes[player]
-        self.rechoose_at_agents = game.rechoose_at_agents[player]
         if self.agents_arrest:
             #Enable arresting
             self.value_arrest = game.value_arrest
@@ -338,7 +338,7 @@ class AgentAdvanced(AgentRegular):
             if self.transfer_agent_earnings and self.wealth > 0:
                 self.game.player_wealths[self.player] += self.wealth
                 self.wealth = 0
-            if self.rechoose_at_agents and adventurer.wealth > self.game.cost_refresh_maps:
+            if adventurer.rechoose_at_agents and adventurer.wealth > self.game.cost_refresh_maps:
                 if adventurer.player.check_buy_maps(adventurer):
                     adventurer.rechoose_chest_tiles()
             return True
