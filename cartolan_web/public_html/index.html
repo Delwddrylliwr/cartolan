@@ -61,19 +61,146 @@
 
 <body onload="startGame()" style="background-color:rgb(38,50,66)">
 
+  <!--<p style="text-align: center;font-size: larger">
+    <img src="./img/cartolan_instructions.gif" width="640" height="360" >
+  </p>-->
+
   <script>
     var serverAddress = "51.38.83.99:10000";
     //var serverAddress = "localhost:10000";
-    var heightShare = 0.9; //implement a marging below the canvas for a link to the game manual and spotify soundtrack
+    var ptpxConversion = 1.33; //a factor to translate font sizes into expected line heights
+
+    var heightShare = 0.9; //implement a margin below the canvas for a link to the game manual and spotify soundtrack
     var listRefreshDelay = 3000; //the number of miliseconds between sending requests for updated gane lists
-    var startingFontSize = 16;
+    var mediaShare = 0.5; //tune how much of the initial canvas will be taken up by graphics (not on mobile)
+    var mediaSource = "./img/cartolan_instructions.mp4"; //point to the image or video that users will be met with on first load
+    var messageFontPx = 40;
+    var mediaBottom = 0.55; //determine the placement of the prompt or main user information message, as a share of the canvas
+    var messageLine = 0.60;
+    var queueButtonText = "Click for game queue";
+    var queueButtonTop = 0.65;
+    var buttonFontPx = 30;
+    var titleText = "Cartolan - Trade Winds";
+    var titleFontPx = 30;
+    var titleLine = 0.7;
+    var titleBottom = 0.75;
+    var blurbText = "It is the age of exploration, an age of sails and trails and treasures from the far side of the world. Race your Adventurers out on expeditions, to earn rewards by expanding the far edges of the map. Develop trade routes by carefully placing a network of Agents to rest at, so that you can quickly navigate exotic lands and collect treasure for your vault back at the Capital. Perhaps you'll also discover the Mythical City on the far side of the world and start exploration anew. Ultimately, perhaps your greater earning will buy you a global monopoly, or let you dominate the new age of trade when all the world is mapped. But remember, there are rivals for your glory, and they may not be above a little piracy!"
+    var blurbFontPx = 20;
+    var blurbTop = 0.75;
+    var tableFontPx = 16;
+    var musicVolume = 0.5;
+    var bgndImage = "./img/cartolan_backing.png"
+    var bgndMargin = 0.05;
 
     var canvas;
     var context;
     var websocket;
-    //            var canvas = document.getElementById('stage');
-    //            var context = canvas.getContext("2d");
 
+    var backing = new Image();
+    backing.onload = function () { backing.loaded = true; console.log("Background image loaded.")}; //make this backing image available to redraw
+    var splash = true; //keep track of whether a splash screen is being drawn
+
+    //Create some utility functions...
+    //Function to check for mobiles, to tailor content to smaller displays
+    function detectMob() {
+      //Determines whether the game is being played on a mobile device
+      if ((window.innerWidth <= 800) && (window.innerHeight <= 600)) {
+        splash = false;
+        return true;
+      } else {
+        return false;
+      }
+    };
+    //Create a function to wrap text for this display size
+    function wrapText(context, text, x, y, maxWidth, lineHeight) {
+      var words = text.split(' ');
+      var line = '';
+
+      for (var n = 0; n < words.length; n++) {
+        var testLine = line + words[n] + ' ';
+        var metrics = context.measureText(testLine);
+        var testWidth = metrics.width;
+        if (testWidth > maxWidth && n > 0) {
+          context.fillText(line, x, y);
+          line = words[n] + ' ';
+          y += lineHeight;
+        }
+        else {
+          line = testLine;
+        }
+      }
+      context.fillText(line, x, y);
+    };
+    //Draw a rectangular button to bring up the game queue
+    roundRect = function (context, x, y, w, h, r) { // thanks to Grumdrig: https://stackoverflow.com/questions/1255512/how-to-draw-a-rounded-rectangle-using-html-canvas
+      if (w < 2 * r) r = w / 2;
+      if (h < 2 * r) r = h / 2;
+      context.beginPath();
+      context.moveTo(x + r, y);
+      context.arcTo(x + w, y, x + w, y + h, r);
+      context.arcTo(x + w, y + h, x, y + h, r);
+      context.arcTo(x, y + h, x, y, r);
+      context.arcTo(x, y, x + w, y, r);
+      context.closePath();
+      return context;
+    }
+    //A function to draw a table flexibly
+    //Create a function to wrap text for this display size
+    function drawTable(context, tableTexts, x, y, tableWidth, rowHeight, colSpacing) {
+      //Establish a font size that will fit the table to the specified width
+      var FontPx = tableFontPx;
+      var oldFont = context.font;
+      var estimatedWidth = 0
+      var tableFits = false;
+      while (!tableFits) {
+        context.font = FontPx.toString() + 'px Calibri';
+        var maxColWidths = [].fill(0);
+        //var maxRowHeight = 0;
+        var metrics = null;
+        for (var row = 0; row < tableTexts.length; row++) {
+          //Check that the widest cell of each column has been found
+          for (var col = 0; col < tableTexts[row].length; col++) {
+            metrics = context.measureText(tableTexts[row][col]);
+            if (metrics.width > maxColWidths[col]) {
+              maxColWidths[col] = metrics.width;
+            }
+          }
+        }
+        //check whether the table now fits
+        estimatedWidth = 0;
+        for (var col = 0; col < maxColWidths.length; col++) {
+          estimatedWidth += maxColWidths[col] + colSpacing;
+        }
+        if (estimatedWidth <= tableWidth) {
+          tableFits = true;
+        } else {
+          //reduce text size
+          FontPx -= 1;
+        }
+      }
+      //Render the table with the chosen font size
+      var centredTableStart = x - Math.floor(estimatedWidth / 2);
+      var horizontal = centredTableStart;
+      var vertical = y;
+      var rowGames = new Array(length(tableTexts));
+      for (var row = 0; row < tableTexts.length; row++) {
+        //Retain this GameID somewhere accessible to the whole page
+        startGame.rowGame[row] = tableTexts[row][0];
+        for (var col = 0; col < tableTexts[row].length; col++) {
+          context.fillText(tableTexts[row][col], horizontal, vertical);
+          horizontal += maxColWidths[col] + colSpacing;
+        }
+        horizontal = centredTableStart;
+        vertical += rowHeight;
+      }
+      //Retain the table corners and row height, in order to match clicks with rows
+      startGame.tableCorners = [centredTableStart, y, horizontal, vertical];
+      startGame.tableRowHeight = rowHeight;
+      //Reset the font size for subsequent uses
+      context.font = oldFont;
+    };
+
+    //Now the main function and closures for communicating with the server and rendering the page
     function openWS() {
       websocket = new WebSocket("ws:" + serverAddress);
       websocket.binaryType = "arraybuffer";
@@ -114,23 +241,23 @@
             ];
             game_table.push(row);
           })
-          this.startGame.updateQueue(game_table)
+          this.startGame.updateQueue(game_table);
         } else if (decomposed[0] === 'PLAYERS') { // accept only text
           console.log("Player numbers in queue received: " + decomposed[1]);
           // update the queue notifcation with the numbers just reveived
-          if (!this.startGame.detectMob()) {
-            document.fonts.load('24pt Calibri').then(this.startGame.drawSplash);
+          if (!this.detectMob()) {
+            document.fonts.load(messageFontPx.toString() + 'px Calibri').then(this.startGame.drawSplash);
           }
           //Print a message informing the user that something is happening
-          context.font = "36px Arial";
+          context.font = messageFontPx.toString()+"px Arial";
           var text = "Configuring game and waiting for everyone to join... (has " + decomposed[1] + " players)";
           //                    context.fillText(text, x, y);
-          var maxwidth = Math.round(this.canvas.width * heightShare);
-          var lineHeight = 25;
+          var maxwidth = Math.round(this.canvas.width * heightShare); //leave some margin around the prompt
+          var lineHeight = messageFontPx * ptpxConversion;
           this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
           var x = this.canvas.width / 2;
-          var y = this.canvas.height / 2;
-          this.startGame.wrapText(context, text, x, y, maxwidth, lineHeight);
+          var y = this.canvas.height * messageLine;
+          this.wrapText(context, text, x, y, maxwidth, lineHeight);
         } else if (decomposed[0] === 'PROMPT') { // accept only text
           console.log("Text prompt received: " + decomposed[1]);
           var input = prompt(decomposed[1]);
@@ -138,19 +265,39 @@
           console.log("input: " + input);
           this.send("TEXT[00100]" + input);
         } else if (decomposed[0] === 'IMAGE') { //this is a base64 image to render
+          splash = false; //make sure that splash screen contents stop rendering
           var img = new Image();
           console.log("Image received.");
           //                        download(decomposed[1], "test.png");
           //                        img.src = "data:image/png;base64, "+btoa(decomposed[1]);
+          
           img.onload = function () {
             //If the user has asked not to queue moves then clear the history of clicks
             if (!context.queueMoves) {
               myGameArea.clear();
             }
-            //                            context.fillStyle = "red";
-            //                            context.fillRect(0, 0, 100, 100);
-            context.drawImage(img, 0, 0);
-            console.log("Image drawn to canvas. ");
+            //Render differently on mobile and desktop, to maximise mobile play area by removing the jagged border around the parchment backing image
+            if (detectMob()) {
+              console.log("Displaying play area for mobile");
+              if (backing.loaded) {
+                context.drawImage(backing, backing.width * bgndMargin, backing.height * bgndMargin, 1 - bgndMargin, 1 - bgndMargin, 0, 0, canvas.width, canvas.height,);
+                console.log("background drawn to canvas.");
+              }
+              //                            context.fillStyle = "red";
+              //                            context.fillRect(0, 0, 100, 100);
+              context.drawImage(img, 0, 0);
+              console.log("Image drawn to canvas. ");
+            } else {
+              console.log("Displaying play area for desktop");
+              if (backing.loaded) {
+                context.drawImage(backing, 0, 0, canvas.width, canvas.height);
+                console.log("background drawn to canvas.");
+              }
+              //                            context.fillStyle = "red";
+              //                            context.fillRect(0, 0, 100, 100);
+              context.drawImage(img, backing.insideLeft, backing.insideTop, backing.insideWidth, backing.insideHeight);
+              console.log("Image drawn to canvas. ");
+            };
           };
           //                        img.src = "data:image/png;base64, "+btoa(decomposed[1]);
           imageString = decomposed[1].toString().substring(1).replace(/'/g, "");
@@ -193,88 +340,7 @@
     function startGame() {
       //initiate a play area of a suitable size within the browser window
       myGameArea.start();
-      //Function to check for mobiles, to tailor content to smaller displays
-      context = myGameArea.context;
-      function detectMob() {
-        return ((window.innerWidth <= 800) && (window.innerHeight <= 600));
-      };
-      startGame.detectMob = detectMob; //make this available externally
-      //Create a function to wrap text for this display size
-      function wrapText(context, text, x, y, maxWidth, lineHeight) {
-        var words = text.split(' ');
-        var line = '';
-
-        for (var n = 0; n < words.length; n++) {
-          var testLine = line + words[n] + ' ';
-          var metrics = context.measureText(testLine);
-          var testWidth = metrics.width;
-          if (testWidth > maxWidth && n > 0) {
-            context.fillText(line, x, y);
-            line = words[n] + ' ';
-            y += lineHeight;
-          }
-          else {
-            line = testLine;
-          }
-        }
-        context.fillText(line, x, y);
-      };
-      startGame.wrapText = wrapText;  //make this available externally
-      //A function to draw a table flexibly
-      //Create a function to wrap text for this display size
-      function drawTable(context, tableTexts, x, y, tableWidth, rowHeight, colSpacing) {
-        //Establish a font size that will fit the table to the specified width
-        var fontSize = startingFontSize;
-        var oldFont = context.font;
-        var estimatedWidth = 0
-        var tableFits = false;
-        while (!tableFits) {
-          context.font = toString(fontSize) + 'pt Calibri';
-          var maxColWidths = [].fill(0);
-          //var maxRowHeight = 0;
-          var metrics = null;
-          for (var row = 0; row < tableTexts.length; row++) {
-            //Check that the widest cell of each column has been found
-            for (var col = 0; col < tableTexts[row].length; col++) {
-              metrics = context.measureText(tableTexts[row][col]);
-              if (metrics.width > maxColWidths[col]) {
-                maxColWidths[col] = metrics.width;
-              }
-            }
-          }
-          //check whether the table now fits
-          estimatedWidth = 0;
-          for (var col = 0; col < maxColWidths.length; col++) {
-            estimatedWidth += maxColWidths[col] + colSpacing;
-          }
-          if (estimatedWidth <= tableWidth) {
-            tableFits = true;
-          } else {
-            //reduce text size
-            fontSize -= 1;
-          }
-        }
-        //Render the table with the chosen font size
-        var centredTableStart = x - Math.floor(estimatedWidth / 2);
-        var horizontal = centredTableStart;
-        var vertical = y;
-        var rowGames = new Array(length(tableTexts));
-        for (var row = 0; row < tableTexts.length; row++) {
-          //Retain this GameID somewhere accessible to the whole page
-          startGame.rowGame[row] = tableTexts[row][0];
-          for (var col = 0; col < tableTexts[row].length; col++) {
-            context.fillText(tableTexts[row][col], horizontal, vertical);
-            horizontal += maxColWidths[col] + colSpacing; 
-          }
-          horizontal = centredTableStart;
-          vertical += rowHeight;
-        }
-        //Retain the table corners and row height, in order to match clicks with rows
-        startGame.tableCorners = [centredTableStart, y, horizontal, vertical];
-        startGame.tableRowHeight = rowHeight;
-        //Reset the font size for subsequent uses
-        context.font = oldFont;
-      };
+      
       //Introduce a function that can be called internally or externally to draw a table of queued games in preparetion
       function updateQueue(queueTable) {
         var x = Math.floor(canvas.width / 2);
@@ -284,10 +350,11 @@
         colSpacing = 5;
         drawTable(context, queueTable, x, y, tableWidth, rowHeight, colSpacing)
         //Print a message prompting interaction with the table(s)
-        context.font = "36px Arial";
+        context.font = messageFontPx.toString() + "px Calibri";
+        lineHeight = messageFontPx * ptpxConversion;
         var text = "Please choose a game to join";
         //                    context.fillText(text, x, y);
-        this.startGame.wrapText(context, text, x, y, maxwidth, lineHeight);
+        this.wrapText(context, text, x, y, maxwidth, lineHeight);
       }
       startGame.updateQueue = updateQueue;  //make this available externally
       //Populate the splash screen with some introductory information
@@ -296,63 +363,50 @@
       function drawSplash() {
 
         var x = canvas.width / 2;
-        var y = canvas.height / 2;
+        var y = canvas.height * titleLine;
         //Display cover image
-        var img = new Image();
-        img.src = "./img/splash_screen.jpg";
-        //                    var img = document.getElementById("icon");
-        img.onload = function () {
-          context.drawImage(img, x - img.width / 2, 0);
-        };
-        startGame.drawSplash = drawSplash;  //make this available externally
+        //var img = new Image();
+        //img.src = "./img/splash_screen.jpg";
+        //img.onload = function () {
+        //  context.drawImage(img, x - img.width / 2, 0);
+        //};
+        //var instructionsGif = GIF();
+        //instructionsGif.load("./img/cartolan_instructions.gif");
+
+
         //Now print the game title
-        y = y + 120;
-        text = 'Cartolan - Trade Winds';
-        context.font = '24pt Calibri';
+        context.font = titleFontPx.toString() + 'px Calibri';
+        lineHeight = titleFontPx * ptpxConversion;
         //                    context.fillStyle = '#333';
-        wrapText(context, text, x, y, maxwidth, lineHeight);
+        wrapText(context, titleText, x, y, maxwidth, lineHeight);
         //Now print the game blurb below
-        y = y + 30;
-        text = "It is the age of exploration, an age of sails and trails and treasures from the far side of the world. Race your Adventurers out on expeditions, to earn rewards by expanding the far edges of the map. Develop trade routes by carefully placing a network of Agents to rest at, so that you can quickly navigate exotic lands and collect treasure for your vault back at the Capital. Perhaps you'll also discover the Mythical City on the far side of the world and start exploration anew. Ultimately, perhaps your greater earning will buy you a global monopoly, or let you dominate the new age of trade when all the world is mapped. But remember, there are rivals for your glory, and they may not be above a little piracy!";
-        context.font = '16pt Calibri';
+        y = canvas.height * blurbTop;
+        context.font = blurbFontPx.toString() + 'px Calibri';
+        lineHeight = blurbFontPx * ptpxConversion;
         //                    context.fillStyle = '#333';
-        wrapText(context, text, x, y, maxwidth, lineHeight);
+        wrapText(context, blurbText, x, y, maxwidth, lineHeight);
         //                    context.fillText(text, x, y)
       }
       var maxwidth = Math.round(this.canvas.width * heightShare);
-      var lineHeight = 25;
       this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
       if (!detectMob()) {
-        document.fonts.load('24pt Calibri').then(drawSplash);
-        //                   drawSplash();
+        document.fonts.load(messageFontPx.toString() + 'px Calibri').then(drawSplash);
       }
       //Prompt user to click before connecting to game server and launching popups
-      context.font = "36px Arial";
-      var text = "Click anywhere to Create/Join the next game";
       var x = canvas.width / 2;
-      var y = canvas.height / 2;
+      var y = canvas.height * messageLine;
+      context.font = messageFontPx.toString() + "px Calibri";
+      text = "Click anywhere to Create/Join the next game";
+      lineHeight = messageFontPx * ptpxConversion;
       wrapText(context, text, x, y, maxwidth, lineHeight);
-      //Draw a rectangular button to bring up the game queue
-      roundRect = function (context, x, y, w, h, r) { // thanks to Grumdrig: https://stackoverflow.com/questions/1255512/how-to-draw-a-rounded-rectangle-using-html-canvas
-        if (w < 2 * r) r = w / 2;
-        if (h < 2 * r) r = h / 2;
-        context.beginPath();
-        context.moveTo(x + r, y);
-        context.arcTo(x + w, y, x + w, y + h, r);
-        context.arcTo(x + w, y + h, x, y + h, r);
-        context.arcTo(x, y + h, x, y, r);
-        context.arcTo(x, y, x + w, y, r);
-        context.closePath();
-        return context;
-      }
-      y = y + 40;
-      var buttonText = "Click for game queue";
+      y = canvas.height * queueButtonTop;
       var cornerRadius = 2;
-      context.font = "24px Arial";
-      var buttonSize = context.measureText(buttonText)
+      context.font = buttonFontPx.toString() + "px Calibri";
+      var buttonSize = context.measureText(queueButtonText)
       var buttonWidth = buttonSize.width;
       var buttonHeight = buttonSize.actualBoundingBoxAscent + buttonSize.actualBoundingBoxDescent;
       context.strokeStyle = "white";
+      //Draw a rectangular button to bring up the game queue
       //roundRect(context, x - Math.round(buttonWidth / 2), y - buttonSize.actualBoundingBoxAscent - cornerRadius, buttonWidth, buttonHeight, cornerRadius).stroke();
       //context.fillText(buttonText, x, y);
       var listButton = [x - Math.round(buttonWidth / 2), y - buttonSize.actualBoundingBoxAscent - cornerRadius, x + buttonWidth, y + buttonHeight];
@@ -363,14 +417,10 @@
           console.log("Click detected. Proceeding with prompts...");
           myGameArea.clicked = false;
           //Redraw the splash screen
-          var x = canvas.width / 2;
-          var y = canvas.height / 2;
           this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
           if (!detectMob()) {
             drawSplash();
           }
-          //set up the websocket connection to the game server
-          openWS();
           //Check whether the click was within the button for seeing the game lists and render these
           if (myGameArea.x >= listButton[0] && myGameArea.x <= listButton[2]
             && myGameArea.y >= listButton[1] && myGameArea.y <= listButton[3]) {
@@ -378,12 +428,24 @@
             waitForConnection(updateTable, 10);
             //Regularly check for any clicks and check whether these corresponded to rows in the table
             this.table_interval = setInterval(updateTable, 5000);
+          } else if (myGameArea.y < canvas.height * mediaBottom) {
+            //Play or pause the video if the clicks are within the video height
+            playPauseClick();
+            waiting();
           } else {
+            //set up the websocket connection to the game server
+            openWS();
             //Print a message informing the user that something is happening
-            context.font = "36px Arial";
-            var text = "Configuring game and waiting for everyone to join...";
+            var x = canvas.width / 2;
+            var y = canvas.height * messageLine;
+            context.font = messageFontPx.toString() + "px Arial";
             //                    context.fillText(text, x, y);
+            text = "Configuring game and waiting for everyone to join...";
             wrapText(context, text, x, y, maxwidth, lineHeight);
+            //Start music playing
+            var audio = document.getElementById("shanty");
+            audio.volume = musicVolume;
+            audio.play();
             //Regularly check for any recorded clicks and report them to the server as input to the game
             this.interval = setInterval(updateGameArea, 20);
             console.log("Requesting to join a game from the server.");
@@ -413,11 +475,22 @@
         document.body.insertBefore(this.canvas, document.body.childNodes[0]);
         //@TODO allow queueing of moves to be configured
         context.queueMoves = false;
+        //Prepare to draw a bgnd to play
+        backing.src = bgndImage;
+        backing.insideWidth = canvas.width * (1 - 2* bgndMargin);
+        backing.insideHeight = canvas.height * (1 - 2* bgndMargin);
+        backing.insideLeft = canvas.width * bgndMargin;
+        backing.insideTop = canvas.height * bgndMargin;
         //Record clicks inside the browser area, for sharing with the server
         window.addEventListener('pointerdown', function (e) {
           myGameArea.clicked = true;
-          myGameArea.x = Math.round(e.pageX);
-          myGameArea.y = Math.round(e.pageY);
+          if (detectMob()) {
+            myGameArea.x = Math.round(e.pageX);
+            myGameArea.y = Math.round(e.pageY);
+          } else {
+            myGameArea.x = Math.round((e.pageX - backing.insideLeft) / (1 - 2 * bgndMargin));
+            myGameArea.y = Math.round((e.pageY - backing.insideTop) / (1 - 2 * bgndMargin));
+          }
         });
       },
       clear: function () {
@@ -450,6 +523,107 @@
         send("LOBBY[00100]BLANK");
       }
     }
+
+    // Solution taken from blindman67: https://stackoverflow.com/questions/4429440/html5-display-video-inside-canvas
+    // This code is from the example document on stackoverflow documentation. See HTML for link to the example.
+    // This code is almost identical to the example. Mute has been added and a media source. Also added some error handling in case the media load fails and a link to fix IE9+ and Edge support.
+    // Code by Blindman67.
+
+    if (!detectMob()) {
+      var videoContainer; // object to hold video and associated info
+      var video = document.createElement("video"); // create a video element
+      video.src = mediaSource;
+      // the video will now begin to load.
+      // As some additional info is needed we will place the video in a
+      // containing object for convenience
+      video.autoPlay = false; // ensure that the video does not auto play
+      video.loop = true; // set the video to loop.
+      //video.muted = muted;
+      videoContainer = {  // we will add properties as needed
+        video: video,
+        ready: false,
+      };
+      //video.oncanplay = readyToPlayVideo; // set the event to present the video for playing
+      video.onloadeddata = readyToPlayVideo; // set the event to present the video for playing
+    }
+   
+    function readyToPlayVideo(event) { // this is a referance to the video
+      // the video may not match the canvas size so find a scale to fit
+      videoContainer.scale = Math.min(
+        canvas.width / this.videoWidth,
+        canvas.height * mediaBottom / this.videoHeight);
+      videoContainer.ready = true;
+      //Play video automatically on load
+      videoContainer.video.paused = false;
+      // the video can be played so hand it off to the display function
+      requestAnimationFrame(updateVideo);
+      ////// add instruction
+      //document.createElement("playPause").textContent = "Click video to play/pause.";
+      //document.querySelector(".mute").textContent = "Mute";
+    }
+
+    function updateVideo() {
+      if (splash) {
+        // Clear the area where the video is drawn (down to the main user message)
+        context.clearRect(0, 0, canvas.width, canvas.height * mediaBottom);
+        // only draw if loaded and ready
+        if (videoContainer !== undefined && videoContainer.ready) {
+          // find the top left of the video on the canvas
+          //video.muted = muted;
+          var scale = videoContainer.scale;
+          var vidH = videoContainer.video.videoHeight;
+          var vidW = videoContainer.video.videoWidth;
+          //var top = canvas.height / 2 - (vidH / 2) * scale;
+          var top = 0;
+          var left = canvas.width / 2 - (vidW / 2) * scale;
+          // now just draw the video the correct size
+          context.drawImage(videoContainer.video, left, top, vidW * scale, vidH * scale);
+          if (videoContainer.video.paused) { // if not playing show the paused screen 
+            drawPlayIcon(left, top, vidW*scale, vidH*scale);
+          }
+        }
+        // all done for display 
+        // request the next frame in 1/60th of a second, unless the splash screen is no longer being drawn
+        requestAnimationFrame(updateVideo);
+      }
+    }
+
+    function drawPlayIcon(left, top, width, height) {
+      context.fillStyle = "black";  // darken display
+      context.globalAlpha = 0.5;
+      context.fillRect(left, top, width, height);
+      context.fillStyle = "#DDD"; // colour of play icon
+      context.globalAlpha = 0.75; // partly transparent
+      context.beginPath(); // create the path for the icon
+      var size = (height / 2) * 0.5;  // the size of the icon
+      context.moveTo(left + width / 2 + size / 2, top + height / 2); // start at the pointy end
+      context.lineTo(left + width / 2 - size / 2, top + height / 2 + size);
+      context.lineTo(left + width / 2 - size / 2, top + height / 2 - size);
+      context.closePath();
+      context.fill();
+      context.globalAlpha = 1; // restore alpha
+    }
+
+    function playPauseClick() {
+      if (videoContainer !== undefined && videoContainer.ready) {
+        if (videoContainer.video.paused) {
+          videoContainer.video.play();
+        } else {
+          videoContainer.video.pause();
+        }
+      }
+    }
+    function videoMute() {
+      muted = !muted;
+      if (muted) {
+        document.querySelector(".mute").textContent = "Mute";
+      } else {
+        document.querySelector(".mute").textContent = "Sound on";
+      }
+    }
+    // register the event
+    //canvas.addEventListener("click", playPauseClick);
+    //document.querySelector(".mute").addEventListener("click", videoMute)
   </script>
 
   <!--         Google Analytics: change UA-XXXXX-Y to be your site's ID.
@@ -470,6 +644,11 @@
     <a href="https://open.spotify.com/playlist/4HAbxzg1trnO2bn2aaSdMj" target="_blank">Music (spotify)</a>
     &nbsp;&nbsp;&nbsp;&nbsp;
     <a href="mailto:delwddrylliwr@gmail.com" target="_blank">Feedback</a>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    <audio controls autoplay id="shanty">
+      <source src="./audio/cartolan_shanty.mp3" type="audio/mpeg">
+      Your browser does not support the audio element.
+    </audio>
   </p>
 </body>
 
