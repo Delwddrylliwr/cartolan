@@ -248,13 +248,18 @@
           if (!this.detectMob()) {
             document.fonts.load(messageFontPx.toString() + 'px Calibri').then(this.startGame.drawSplash);
           }
-          //Print a message informing the user that something is happening
+          //Clear a space for the message, in place of the old message
+          if (!detectMob()) {
+            this.context.clearRect(0, video.height, this.canvas.width, canvas.height * (messageLine + titleLine) / 2);
+          } else {
+            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+          }
+            //Print a message informing the user that something is happening
           context.font = messageFontPx.toString()+"px Arial";
           var text = "Configuring game and waiting for everyone to join... (has " + decomposed[1] + " players)";
           //                    context.fillText(text, x, y);
           var maxwidth = Math.round(this.canvas.width * heightShare); //leave some margin around the prompt
           var lineHeight = messageFontPx * ptpxConversion;
-          this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
           var x = this.canvas.width / 2;
           var y = this.canvas.height * messageLine;
           this.wrapText(context, text, x, y, maxwidth, lineHeight);
@@ -279,11 +284,11 @@
             //Render differently on mobile and desktop, to maximise mobile play area by removing the jagged border around the parchment backing image
             if (detectMob()) {
               console.log("Displaying play area for mobile");
-              if (backing.loaded) {
-                context.drawImage(backing, backing.width * bgndMargin, backing.height * bgndMargin, 1 - bgndMargin, 1 - bgndMargin, 0, 0, canvas.width, canvas.height,);
-                console.log("background drawn to canvas.");
-              }
-              //                            context.fillStyle = "red";
+              //if (backing.loaded) {
+              //  context.drawImage(backing, backing.width * bgndMargin, backing.height * bgndMargin, 1 - bgndMargin, 1 - bgndMargin, 0, 0, canvas.width, canvas.height,);
+              //  console.log("background drawn to canvas.");
+              //}
+              ////                            context.fillStyle = "red";
               //                            context.fillRect(0, 0, 100, 100);
               context.drawImage(img, 0, 0);
               console.log("Image drawn to canvas. ");
@@ -416,25 +421,28 @@
         if (myGameArea.clicked) {
           console.log("Click detected. Proceeding with prompts...");
           myGameArea.clicked = false;
-          //Redraw the splash screen
-          this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-          if (!detectMob()) {
-            drawSplash();
-          }
           //Check whether the click was within the button for seeing the game lists and render these
-          if (myGameArea.x >= listButton[0] && myGameArea.x <= listButton[2]
+          if (!detectMob() && myGameArea.x >= listButton[0] && myGameArea.x <= listButton[2]
             && myGameArea.y >= listButton[1] && myGameArea.y <= listButton[3]) {
+            //Clear a space for the table, in place of the media
+            this.context.clearRect(0, 0, this.canvas.width, canvas.height *(messageLine + titleLine)/2);
             //Once connected, draw the initial table
             waitForConnection(updateTable, 10);
             //Regularly check for any clicks and check whether these corresponded to rows in the table
             this.table_interval = setInterval(updateTable, 5000);
-          } else if (myGameArea.y < canvas.height * mediaBottom) {
+          } else if (!detectMob() && myGameArea.y < canvas.height * mediaBottom) {
             //Play or pause the video if the clicks are within the video height
             playPauseClick();
             waiting();
           } else {
             //set up the websocket connection to the game server
             openWS();
+            //Clear a space for the message, in place of the old message
+            if (!detectMob()) {
+              this.context.clearRect(0, video.height, this.canvas.width, canvas.height * (messageLine + titleLine) / 2);
+            } else {
+              this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            }
             //Print a message informing the user that something is happening
             var x = canvas.width / 2;
             var y = canvas.height * messageLine;
