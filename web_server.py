@@ -53,8 +53,8 @@ GAME_MODES = { 'Exploratory':{'game_type':GameBeginner, 'player_set':{"blueviole
               }
 DEFAULT_GAME_MODE = "Adventurous"
 DEFAULT_LOCAL_PLAYERS = 1
-DEFAULT_VIRTUAL_PLAYERS = 0
-DEFAULT_REMOTE_PLAYERS = 2
+DEFAULT_VIRTUAL_PLAYERS = 3
+DEFAULT_REMOTE_PLAYERS = 0
 DEFAULT_JOINING_PLAYERS = 1
 MAX_NAME_CHARS = 5
 ORDINALS = ["first", "second", "third", "fourth"]

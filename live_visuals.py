@@ -40,7 +40,7 @@ class GameVisualisation():
     AGENT_OFFSET = [0.5, 0.5] #the placement of agents on the tile, the same for all players and agents, because there will only be one per tile
     ADVENTURER_OFFSETS = [[0.0, 0.0], [0.1, -0.1], [-0.1, 0.1], [-0.1, -0.1], [0.1, 0.1]] #the offset to differentiate multiple adventurers on the same tile
     DIMENSION_BUFFER = 1 #the number of tiles by which the play area is extended when methods are called
-    BACKGROUND_COLOUR = (38,50,60) #(38,50,66)
+    BACKGROUND_COLOUR = (255,255,255,0) #(38,50,60) #(38,50,66)
     PLAIN_TEXT_COLOUR = (255,255,255)
     WONDER_TEXT_COLOUR = (0,0,0)
     ACCEPT_UNDO_COLOUR = (255, 0, 0)
@@ -113,11 +113,11 @@ class GameVisualisation():
              , "dis+upwind":"This Adventurer can move once more before tiring, rather than after, each turn and after resting."
              , "dis+maps":"This Adventurer carries an extra map tile in their chest."
              , "com+rests":"Your Adventurers can rest with other Adventurers like Agents. Draw 3 Adventurers."
-            , "com+transfers":"Treasure earned by your Agents goes to your Vault. Draw 3 Manuscript cards."
-            , "com+earning":"Your Agents earn 1 treasure when opponents trade on their tile. Draw 3 Manuscript cards."
+            , "com+transfers":"Treasure earned by your Agents goes to your Vault. Draw 3 Manuscripts."
+            , "com+earning":"Your Agents earn 1 treasure when opponents trade on their tile. Draw 3 Manuscripts."
             , "com+arrest":"Your Agents try to arrest pirates landing on their tile. Draw 3 Adventurers."
-            , "com+refurnish":"Your Adventurers can lose the pirate token by resting. Draw 3 Adventureres."
-            , "com+pool":"Your Agents can swap any Adventurer's maps for 1 treasure. Draw 3 Manuscript cards."
+            , "com+refurnish":"Your Adventurers can lose the pirate token by resting. Draw 3 Adventurers."
+            , "com+pool":"Anyone's Agents can swap your Adventures' maps for 1 treasure. Draw 3 Manuscripts."
             }
     
     def __init__(self, game, peer_visuals, player_colours):
@@ -163,7 +163,7 @@ class GameVisualisation():
     def init_GUI(self):
         print("Initialising the pygame window and GUI")
         pygame.init()
-        self.window = pygame.display.set_mode((0, 0), pygame.RESIZABLE)
+        self.window = pygame.display.set_mode((0, 0), pygame.RESIZABLEf, depth=32)
         self.width, self.height = pygame.display.get_surface().get_size()
         pygame.display.set_caption("Cartolan - Trade Winds")
         self.window.fill(self.BACKGROUND_COLOUR) #fill the screen with white
@@ -440,7 +440,7 @@ class GameVisualisation():
                 text_fits = True
             else:
                 last_line_fits = False
-        paragraph = pygame.Surface((max_line_width, max_line_height * len(lines)))
+        paragraph = pygame.Surface((max_line_width, max_line_height * len(lines)),pygame.SRCALPHA, 32)
         paragraph.fill(background_colour)
         line_vertical = 0
         for line in lines:
@@ -545,7 +545,7 @@ class GameVisualisation():
         if new_width > self.width or new_height > self.height:
             reload_needed = True
         self.width, self.height = new_width, new_height
-        pygame.display.set_mode((new_width, new_height), pygame.RESIZABLE)
+        pygame.display.set_mode((new_width, new_height), pygame.RESIZABLE, depth=32)
         if reload_needed:
             self.init_graphics() #reload the PNG images
         else:
@@ -897,7 +897,7 @@ class GameVisualisation():
         score_title = self.scores_font.render("Treasure in...", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(score_title, [horizontal, vertical])
         vertical += score_title.get_height()
-        horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width // 2
+        horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width #// 2
         score_title = self.scores_font.render("Vault", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(score_title, [horizontal, vertical])
         #Start recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
@@ -919,7 +919,7 @@ class GameVisualisation():
             score_value = self.scores_font.render(player.name, 1, colour)
             self.window.blit(score_value, [horizontal, vertical])
             score_value = self.scores_font.render(str(self.game.player_wealths[player]), 1, colour)
-            horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width - score_value.get_width()
+            horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width # - score_value.get_width()
             self.window.blit(score_value, [horizontal, vertical])
             #Record this space for click detection
 #            self.score_rects.append([(horizontal, vertical, self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width, self.SCORES_FONT_SCALE * self.height), player])
@@ -1423,8 +1423,8 @@ class WebServerVisualisation(GameVisualisation):
     def init_GUI(self):
         print("Initialising the pygame window and GUI")
         pygame.init()
-        self.window = pygame.Surface((self.width, self.height))
-        self.window.fill(self.BACKGROUND_COLOUR) #fill the screen with white
+        self.window = pygame.Surface((self.width, self.height), pygame.SRCALPHA, 32)
+        self.window.fill(self.BACKGROUND_COLOUR) #fill the screen with a background colour/transparency
         print("Initialising visual scale variables, to fit window of size "+str(self.width)+"x"+str(self.height))
         self.tile_size = self.height // self.dimensions[1]
         #We'll have a different tile size for dicards and menu highlights
