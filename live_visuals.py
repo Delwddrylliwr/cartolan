@@ -71,22 +71,22 @@ class GameVisualisation():
     PROMPT_POSITION = [0.0, 0.95]
     PROMPT_FONT_SCALE = 0.05 #relative to window size
     
-    GENERAL_TILE_PATH = './images/'
+    TILE_PATH = './images/tiles/'
     CARDS_PATH = './images/cards/'
     SPECIAL_TILE_PATHS = {"water_disaster":'./images/water_disaster.png'
                      , "land_disaster":'./images/land_disaster.png'
                      , "capital":'./images/capital.png'
                      , "mythical":'./images/mythical.png'
                      } #file paths for special tiles
-    HIGHLIGHT_PATHS = {"move":'./images/option_valid_move.png'
-                  , "abandon":'./images/option_abandon.png'
-                  , "invalid":'./images/option_invalid_move.png'
-                  , "buy":'./images/option_buy.png'
-                  , "attack":'./images/option_attack.png'
-                  , "rest":'./images/option_rest.png'
-                  , "buy_rest":'./images/option_buy.png'
-                  , "move_agent":'./images/option_valid_move.png'
-                  , "agent_transfer":'./images/option_buy.png'
+    HIGHLIGHT_PATHS = {"move":'./images/highlights/option_valid_move.png'
+                  , "abandon":'./images/highlights/option_abandon.png'
+                  , "invalid":'./images/highlights/option_invalid_move.png'
+                  , "buy":'./images/highlights/option_buy.png'
+                  , "attack":'./images/highlights/option_attack.png'
+                  , "rest":'./images/highlights/option_rest.png'
+                  , "buy_rest":'./images/highlights/option_buy.png'
+                  , "move_agent":'./images/highlights/option_valid_move.png'
+                  , "agent_transfer":'./images/highlights/option_buy.png'
                   }
     TOGGLE_HIGHLIGHTS = ["buy", "attack", "rest"]
     CARD_TITLES = {"com+rests":"The Inrepid Academy"
@@ -172,9 +172,9 @@ class GameVisualisation():
 #        self.window.blit(self.backing_image, [0,0])
         print("Initialising visual scale variables, to fit window of size "+str(self.width)+"x"+str(self.height))
         self.tile_size = self.height // self.dimensions[1]
-        #We'll have a different tile size for dicards
+        #We'll have a different tile size for dicards and chest tiles
         self.menu_tile_size = round(self.RIGHT_MENU_SCALE * self.width) // self.MENU_TILE_COLS
-        #Where piracy is possible, we'll have a different tile size for 
+        #Where piracy is possible, we'll have a different tile size for choosing stolen ones
         self.offer_tile_size = round(self.OFFER_SCALE * self.width)
         #Before sizing against the horizontal dimension, we'll work out how much space the menus will take away
         self.play_area_width = round(self.width * (1 - self.LEFT_MENU_SCALE - self.RIGHT_MENU_SCALE))
@@ -225,17 +225,35 @@ class GameVisualisation():
 #        while not self.game.game_over:
 #            self.update()
     
-    def save_tile_rotations(self, tile_name, tile_image):
-        '''For a particular tile image, adds all its rotations to the library
+    # def save_tile_rotations(self, tile_name, tile_image):
+    #     '''For a particular tile image, adds all its rotations to the library
+    #     '''
+    #     #North East wind
+    #     self.tile_image_library[tile_name+"TrueTrue"] = tile_image
+    #     #South East wind
+    #     self.tile_image_library[tile_name+"FalseTrue"] = pygame.transform.rotate(tile_image.copy(), -90)
+    #     #South West wind
+    #     self.tile_image_library[tile_name+"FalseFalse"] = pygame.transform.rotate(tile_image.copy(), 180)
+    #     #North West wind
+    #     self.tile_image_library[tile_name+"TrueFalse"] = pygame.transform.rotate(tile_image.copy(), 90)
+    
+    def rotate_tile_image(self, tile, tile_image):
+        '''Translates a tile's wind direction into a rotation of its image
         '''
-        #North East wind
-        self.tile_image_library[tile_name+"TrueTrue"] = tile_image
-        #South East wind
-        self.tile_image_library[tile_name+"FalseTrue"] = pygame.transform.rotate(tile_image.copy(), -90)
-        #South West wind
-        self.tile_image_library[tile_name+"FalseFalse"] = pygame.transform.rotate(tile_image.copy(), 180)
-        #North West wind
-        self.tile_image_library[tile_name+"TrueFalse"] = pygame.transform.rotate(tile_image.copy(), 90)
+        wind_direction = tile.wind_direction
+        if wind_direction.north and wind_direction.east:
+            #North East wind
+            return tile_image
+        if not wind_direction.north and wind_direction.east:
+            #South East wind
+            return pygame.transform.rotate(tile_image.copy(), -90)
+        if not wind_direction.north and not wind_direction.east:
+            #South West wind
+            return pygame.transform.rotate(tile_image.copy(), 180)
+        if wind_direction.north and not wind_direction.east:
+            #North West wind
+            return pygame.transform.rotate(tile_image.copy(), 90)
+        
     
     def rescale_images(self, image_library, new_size):
         '''For a particular image library, rescales all of the images
@@ -248,60 +266,36 @@ class GameVisualisation():
         '''Reads in the images for visualising play
         '''
         print("Importing tile and highlight images and establishing a mapping")
-        self.tile_image_library = {}
-        for tile_name in self.SPECIAL_TILE_PATHS:
-            tile_image = pygame.image.load(self.SPECIAL_TILE_PATHS[tile_name])
-            self.save_tile_rotations(tile_name, tile_image)
-        for uc_water in [True, False]: 
-            for ua_water in [True, False]:
-                for dc_water in [True, False]:
-                    for da_water in [True, False]:
-                        for wonder in [True, False]:
-                            filename = ""
-                            if uc_water:
-                                filename += "t"
-                            else:
-                                filename += "f"
-                            if ua_water:
-                                filename += "t"
-                            else:
-                                filename += "f"
-                            if dc_water:
-                                filename += "t"
-                            else:
-                                filename += "f"
-                            if da_water:
-                                filename += "t"
-                            else:
-                                filename += "f"
-                            if wonder:
-                                filename += "t"
-                            else:
-                                filename += "f"
-                            tile_image = pygame.image.load(self.GENERAL_TILE_PATH +filename+ '.png')
-                            tile_name = str(uc_water)+str(ua_water)+str(dc_water)+str(da_water)+str(wonder)
-                            #Rotate the image for different wind directions
-                            self.save_tile_rotations(tile_name, tile_image)
+        self.tile_images = {} #a dict of lists of tile images with a particular combination of land, sea and wind
+        self.tile_image_library = {} #a dict pairing particular tiles with particular art for the play area itself
+        self.menu_tile_library = {} #a dict pairing particular tiles with their art at a scale for the chest and discard piles
+        if isinstance(self.game, GameRegular):
+            #duplicate tile art for use in selection menu after piracy
+            self.offer_tile_library = {}
+        tile_image_names = [filename for filename in os.listdir(self.TILE_PATH) if ".png" in filename]
+        tile_image_names.sort() #Ensure it's deterministic which specific cards are assigned to each adventurer, so that this is consistent with the game's other visuals
+        print(tile_image_names)
+        for tile_image_name in tile_image_names:
+            tile_type = tile_image_name.split(".")[0].split("_")[0] #assumes that the tile type will be the image filename will start with the type as recognised by the game
+            tile_image = pygame.image.load(self.TILE_PATH + tile_image_name)
+            #Resize the tile image to the smallest that will still fit in each of its roles
+            min_size = max(self.tile_size, self.menu_tile_size, self.offer_tile_size)
+            scaled_image = pygame.transform.scale(tile_image.copy(), [min_size, min_size])
+            tile_type_set = self.tile_images.get(tile_type)
+            if tile_type_set is None:
+                self.tile_images[tile_type] = [scaled_image]
+            else:
+                tile_type_set.append(scaled_image)
         # import the masks used to highlight movement options
         self.highlight_library = {}
         for highlight_name in self.HIGHLIGHT_PATHS:
             highlight_image = self.HIGHLIGHT_PATHS[highlight_name]
             self.highlight_library[highlight_name] = pygame.image.load(highlight_image)
         # duplicate these tiles at a smaller size for use in menus
-        self.menu_tile_library = {}
-        for tile_name in self.tile_image_library:
-            tile_image = self.tile_image_library[tile_name]
-            self.menu_tile_library[tile_name] = pygame.transform.scale(tile_image, [self.menu_tile_size, self.menu_tile_size])
         self.toggle_library = {}
         for highlight_name in self.highlight_library:
             highlight_image = self.highlight_library[highlight_name]
             self.toggle_library[highlight_name] = pygame.transform.scale(highlight_image, [self.menu_highlight_size, self.menu_highlight_size])
-        if isinstance(self.game, GameRegular):
-            #duplicate tiles for use in selection mennu after piracy
-            self.offer_tile_library = {}
-            for tile_name in self.tile_image_library:
-                tile_image = self.tile_image_library[tile_name]
-                self.offer_tile_library[tile_name] = pygame.transform.scale(tile_image, [self.offer_tile_size, self.offer_tile_size])
         #import the cards that will award various rule buffs
         if isinstance(self.game, GameAdvanced):
             self.card_image_library = {}
@@ -328,6 +322,23 @@ class GameVisualisation():
                     scaled_image = pygame.transform.scale(card_image, [new_width, new_height])
                     self.update_card_text(scaled_image, card_type)
                     card_type_set.append(scaled_image)
+#                 #Resize the card image to be displayed more prominently
+#                 new_width = self.card
+#                 new_height = int(card_image.get_height() * new_width / card_image.get_width())
+#                 self.card_height = new_height
+#                 self.card_width = new_width
+#                 card_type_set = self.card_image_library.get(card_type)
+#                 print("Adding text to card of type '"+card_type+"'")
+#                 if card_type_set is None:
+#                     scaled_image = pygame.transform.scale(card_image, [new_width, new_height])
+#                     self.update_card_text(scaled_image, card_type)
+#                     self.card_image_library[card_type] = [scaled_image]
+#                     #just in case the images available don't provide enough unique versions of each card type for what the game allocates
+# #                    self.used_card_images[card_type] = []
+#                 else:
+#                     scaled_image = pygame.transform.scale(card_image, [new_width, new_height])
+#                     self.update_card_text(scaled_image, card_type)
+#                     card_type_set.append(scaled_image)
             #Now supplement with the card types that don't have images
             for card_type in self.CARD_TITLES:
                 if not card_type in self.card_image_library.keys():
@@ -590,13 +601,27 @@ class GameVisualisation():
             else:
                 return "land_disaster"
         else:
-            wonder = str(tile.is_wonder)
-            uc = str(e.upwind_clock_water)
-            ua = str(e.upwind_anti_water)
-            dc = str(e.downwind_clock_water)
-            da = str(e.downwind_anti_water)
+            uc = str(e.upwind_clock_water)[0].lower()
+            ua = str(e.upwind_anti_water)[0].lower()
+            dc = str(e.downwind_clock_water)[0].lower()
+            da = str(e.downwind_anti_water)[0].lower()
+            wonder = str(tile.is_wonder)[0].lower()
             return uc + ua + dc + da + wonder
     
+    def assign_tile_image(self, tile):
+        '''Assigns a suitable tile image for a particular tile
+        '''
+        tile_name = self.establish_tilename(tile)
+        available_tiles = self.tile_images[tile_name]
+        tile_image = available_tiles.pop()
+        bordered_tile_size = round(self.tile_size * (1 - self.TILE_BORDER))
+        self.tile_image_library[tile] = pygame.transform.scale(tile_image.copy(), [bordered_tile_size, bordered_tile_size])
+        self.menu_tile_library[tile] = pygame.transform.scale(tile_image.copy(), [self.menu_tile_size, self.menu_tile_size])
+        if isinstance(self.game, GameRegular):
+            self.offer_tile_library[tile] = pygame.transform.scale(tile_image.copy(), [self.offer_tile_size, self.offer_tile_size])
+        available_tiles.insert(0, tile_image) #Prepend this image back into the library so that it won't get used again unless other images run out
+        return tile_image
+
     def draw_play_area(self):
         '''Renders the tiles that have been laid in a particular game of Cartolan - Trade Winds
         '''
@@ -613,15 +638,16 @@ class GameVisualisation():
             for latitude in play_area_update[longitude]:
                 #bring in the relevant image from the library
                 tile = play_area_update[longitude][latitude]
-                tile_name = self.establish_tilename(tile)
-                north = str(tile.wind_direction.north)
-                east = str(tile.wind_direction.east)
-                tile_image = self.tile_image_library[tile_name + north + east]
+                tile_image = self.tile_image_library.get(tile)
+                if tile_image is None:
+                    self.assign_tile_image(tile)
+                    tile_image = self.tile_image_library.get(tile)
+                rotated_image = self.rotate_tile_image(tile, tile_image)
                 #place the tile image in the grid
                 horizontal = self.play_area_start + self.get_horizontal(longitude) * self.tile_size
-                vertical = self.get_vertical(latitude) *self.tile_size
+                vertical = self.get_vertical(latitude) * self.tile_size
 #                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
-                self.window.blit(tile_image, [horizontal, vertical])
+                self.window.blit(rotated_image, [horizontal, vertical])
                 #Print a number on this tile showing the dropped wealth there
                 if tile.dropped_wealth > 0:
                     if tile.is_wonder:
@@ -705,12 +731,13 @@ class GameVisualisation():
         tile_count = 0
         for discard_pile in list(self.game.discard_piles.values()):
             for tile in discard_pile.tiles:
-                tile_name = self.establish_tilename(tile)
-                north = str(tile.wind_direction.north)
-                east = str(tile.wind_direction.east)
-                tile_image = self.menu_tile_library[tile_name + north + east]
+                tile_image = self.menu_tile_library.get(tile)
+                if tile_image is None:
+                    self.assign_tile_image(tile)
+                    tile_image = self.menu_tile_library.get(tile)
+                rotated_image = self.rotate_tile_image(tile, tile_image)
     #                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
-                self.window.blit(tile_image, [horizontal, vertical])
+                self.window.blit(rotated_image, [horizontal, vertical])
                 #Draw a frame to keep distinct from play area
                 pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
                                  , (horizontal, vertical, self.menu_tile_size, self.menu_tile_size)
@@ -1090,22 +1117,16 @@ class GameVisualisation():
                                  , self.chest_highlight_thickness)
         #Cycle through the chest tiles, drawing them
         for tile in chest_tiles:
-            # e = tile.tile_edges
-            # wonder = str(tile.is_wonder)
-            # uc = str(e.upwind_clock_water)
-            # ua = str(e.upwind_anti_water)
-            # dc = str(e.downwind_clock_water)
-            # da = str(e.downwind_anti_water)
-            # tile_name = uc + ua + dc + da + wonder
-            tile_name = self.establish_tilename(tile)
-            north = str(tile.wind_direction.north)
-            east = str(tile.wind_direction.east)
-            tile_image = self.menu_tile_library[tile_name + north + east]
+            tile_image = self.menu_tile_library.get(tile)
+            if tile_image is None:
+                self.assign_tile_image(tile)
+                tile_image = self.menu_tile_library.get(tile)
+            rotated_image = self.rotate_tile_image(tile, tile_image)
 #                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
             horizontal = self.chest_rect[0] + (chest_tiles.index(tile) % self.MENU_TILE_COLS) * self.menu_tile_size
 #            vertical += (chest_tiles.index(tile) // self.MENU_TILE_COLS) * self.menu_tile_size
             vertical = self.chest_rect[1] + (chest_tiles.index(tile) // self.MENU_TILE_COLS) * self.menu_tile_size
-            self.window.blit(tile_image, [horizontal, vertical])
+            self.window.blit(rotated_image, [horizontal, vertical])
             #If this is the tile selected then highlight this with a hollow rectangle
             if chest_tiles.index(tile) == preferred_tile_num:
                 pygame.draw.rect(self.window, self.CHEST_HIGHLIGHT_COLOUR
@@ -1206,7 +1227,7 @@ class GameVisualisation():
         Arguments:
         Cards takes a list of Cartolan Cards
         '''
-        self.offer_images = [] #reset the record of card images in use
+        # self.offer_images = [] #reset the record of card images in use
         self.offer_rects = [] #reset the record of card positions for selection
         #Cycle through the offered Cards, drawing them
         horizontal_increment = self.width // (len(cards) + 1)
@@ -1224,7 +1245,7 @@ class GameVisualisation():
             adjusted_horizontal = card_horizontal - card_image.get_width() // 2
             self.window.blit(card_image, [adjusted_horizontal, card_vertical])
             card_horizontal += horizontal_increment
-            self.offer_images.append(card_image)
+            # self.offer_images.append(card_image)
             self.offer_rects.append((adjusted_horizontal, card_vertical, card_image.get_width(), card_image.get_height()))
     
     #@TODO combine the two methods for choosing cards and tiles, once there are multiple tile images too
@@ -1234,29 +1255,23 @@ class GameVisualisation():
         Arguments:
         tiles takes a list of Cartolan Tiles
         '''
-        self.offer_images = [] #reset the record of card images in use
+        # self.offer_images = [] #reset the record of card images in use
         self.offer_rects = [] #reset the record of card positions for selection
         #Cycle through the offered Cards, drawing them
         horizontal_increment = self.width // (len(tiles) + 1)
         tile_horizontal = horizontal_increment
         tile_vertical = (self.height - self.offer_tile_size) // 2 #Centre the cards vertically
         for tile in tiles:
-            e = tile.tile_edges
-            wonder = str(tile.is_wonder)
-            uc = str(e.upwind_clock_water)
-            ua = str(e.upwind_anti_water)
-            dc = str(e.downwind_clock_water)
-            da = str(e.downwind_anti_water)
-            tile_name = uc + ua + dc + da + wonder
-            north = str(tile.wind_direction.north)
-            east = str(tile.wind_direction.east)
-            tile_image = self.offer_tile_library[tile_name + north + east]
+            tile_image = self.offer_tile_library.get(tile)
+            if tile_image is None:
+                self.assign_tile_image(tile)
+                tile_image = self.offer_tile_library.get(tile)
+            rotated_image = self.rotate_tile_image(tile, tile_image)
 #                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
-            print("Drawing a tile of type "+tile_name + north + east)
             adjusted_horizontal = tile_horizontal - self.offer_tile_size // 2
-            self.window.blit(tile_image, [adjusted_horizontal, tile_vertical])
+            self.window.blit(rotated_image, [adjusted_horizontal, tile_vertical])
             tile_horizontal += horizontal_increment
-            self.offer_images.append(tile_image)
+            # self.offer_images.append(tile_image)
             self.offer_rects.append((adjusted_horizontal, tile_vertical, self.offer_tile_size, self.offer_tile_size))
     
     def draw_prompt(self):
