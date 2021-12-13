@@ -67,6 +67,9 @@ class GameVisualisation():
     SCORES_SPACING = 1.5 #the multiple of the score pixel scale to leave for each number
     CARD_FONT_SCALE = 0.03
     MOVE_COUNT_POSITION = [0.8, 0.0]
+    METER_OPACITY = 128
+    ANY_DIRECTION_METER_COLOUR = (0,0,0)
+    DOWNWIND_WATER_METER_COLOUR = (0,0,0)
     PROMPT_SHARE = 0 #@TODO move prompt into the bottom right corner, with multi-line
     PROMPT_POSITION = [0.0, 0.95]
     PROMPT_FONT_SCALE = 0.05 #relative to window size
@@ -78,6 +81,9 @@ class GameVisualisation():
                      , "capital":'./images/capital.png'
                      , "mythical":'./images/mythical.png'
                      } #file paths for special tiles
+    METERS_PATHS = {"any_direction":'./images/move_meters/any_direction.png'
+                  , "downwind_water":'./images/move_meters/downwind_water.png'
+                  }
     HIGHLIGHT_PATHS = {"move":'./images/highlights/option_valid_move.png'
                   , "abandon":'./images/highlights/option_abandon.png'
                   , "invalid":'./images/highlights/option_invalid_move.png'
@@ -202,7 +208,7 @@ class GameVisualisation():
         self.scores_rect = (0, 0, 0, 0)
         self.stack_rect = (0, 0, 0, 0)
         self.current_move_count = None
-        self.move_count_rect = (self.MOVE_COUNT_POSITION[0]*self.width, self.MOVE_COUNT_POSITION[1]*self.height, 0, round(self.height * self.SCORES_FONT_SCALE))
+        self.move_count_rect = (self.MOVE_COUNT_POSITION[0]*self.width, self.MOVE_COUNT_POSITION[1]*self.height, 0, round(self.height * self.SCORES_FONT_SCALE) + self.menu_tile_size)
         self.toggles_rect = (self.right_menu_start, self.move_count_rect[1]+self.move_count_rect[3], 0, self.menu_tile_size+round(self.height * self.SCORES_FONT_SCALE))
         self.chest_rect = (self.right_menu_start, self.toggles_rect[1]+self.toggles_rect[3]+round(self.height * self.SCORES_FONT_SCALE), 0, self.menu_tile_size)
         self.piles_rect = (self.right_menu_start, self.toggles_rect[1]+self.toggles_rect[3]+round(self.height * self.SCORES_FONT_SCALE), 0, 0)
@@ -296,6 +302,11 @@ class GameVisualisation():
         for highlight_name in self.highlight_library:
             highlight_image = self.highlight_library[highlight_name]
             self.toggle_library[highlight_name] = pygame.transform.scale(highlight_image, [self.menu_highlight_size, self.menu_highlight_size])
+        # import the graphics for meters showing the remaining moves until rest
+        self.meters_library = {}
+        for meter_name in self.METERS_PATHS:
+            meter_image = pygame.image.load(self.METERS_PATHS[meter_name])
+            self.meters_library[meter_name] = pygame.transform.scale(meter_image, (self.menu_tile_size, self.menu_tile_size))
         #import the cards that will award various rule buffs
         if isinstance(self.game, GameAdvanced):
             self.card_image_library = {}
@@ -701,23 +712,49 @@ class GameVisualisation():
     def draw_move_count(self):
         '''report the number of moves that have been used so far:
         '''
-        moves_since_rest = self.current_adventurer.downwind_moves + self.current_adventurer.upwind_moves + self.current_adventurer.land_moves
-        horizontal = self.MOVE_COUNT_POSITION[0] * self.width
+        # horizontal = self.MOVE_COUNT_POSITION[0] * self.width
+        horizontal = self.right_menu_start
 #            vertical = self.MOVE_COUNT_POSITION[1] * self.height + len(self.game.tile_piles) * self.SCORES_FONT_SCALE * self.height
         vertical = 0
+        #Only show moves available in meters if the current player is viewed
         if self.current_adventurer == self.viewed_adventurer:
-            if moves_since_rest != 0:
-                move_count = self.scores_font.render(str(moves_since_rest)+" of "+str(self.current_adventurer.max_downwind_moves)+" moves since rest", 1, self.PLAIN_TEXT_COLOUR)
-            else:
-                report = "No moves since rest"
-                move_count = self.scores_font.render(report, 1, self.PLAIN_TEXT_COLOUR)
+            #Work out how many moves remain of each type, and get ready to overlay the move type icon with a greyed-out meter and numbers
+            report = "Moves until rest:"
+            move_title = self.scores_font.render(report, 1, self.viewed_player_colour)
+            moves_since_rest = self.current_adventurer.downwind_moves + self.current_adventurer.upwind_moves + self.current_adventurer.land_moves
+            # any_direction_moves = self.current_adventurer.upwind_moves + self.current_adventurer.land_moves
+            max_downwind_moves = self.current_adventurer.max_downwind_moves
+            max_any_direction_moves = self.current_adventurer.max_upwind_moves
+            any_direction_share = min(moves_since_rest / max_any_direction_moves, 1)
+            any_direction_meter = pygame.Surface((self.menu_tile_size, round(any_direction_share*self.menu_tile_size)))
+            count = str(max(max_any_direction_moves - moves_since_rest, 0)) + " / " + str(max_any_direction_moves)
+            any_direction_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
+            downwind_water_share = moves_since_rest / max_downwind_moves
+            downwind_water_meter = pygame.Surface((self.menu_tile_size, round(downwind_water_share*self.menu_tile_size)))
+            count = str(max_downwind_moves - moves_since_rest) + " / " + str(max_downwind_moves)
+            downwind_water_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
         else:
-            report = "Not "+self.viewed_adventurer.player.name+"'s Adventurer's turn"
-            move_count = self.scores_font.render(report, 1, self.viewed_player_colour)
-        if move_count.get_width() > self.right_text_start:
-            self.right_text_start = move_count.get_width() #permanently adjust the text margin on this setup if it doesn't fit
-        self.window.blit(move_count, [horizontal, vertical])
-        self.move_count_rect = (horizontal, vertical, move_count.get_width(), move_count.get_height())
+            report = "Not Adventurer's turn"
+            move_title = self.scores_font.render(report, 1, self.viewed_player_colour)
+            any_direction_meter = pygame.Surface((self.menu_tile_size, self.menu_tile_size))
+            downwind_water_meter = pygame.Surface((self.menu_tile_size, self.menu_tile_size))
+        any_direction_meter.set_alpha(self.METER_OPACITY)
+        any_direction_meter.fill(self.ANY_DIRECTION_METER_COLOUR)
+        downwind_water_meter.set_alpha(self.METER_OPACITY)
+        downwind_water_meter.fill(self.DOWNWIND_WATER_METER_COLOUR)
+        if move_title.get_width() > self.right_text_start:
+            self.right_text_start = move_title.get_width() #permanently adjust the text margin on this setup if it doesn't fit
+        self.window.blit(move_title, [horizontal, vertical])
+        self.move_count_rect = (horizontal, vertical, move_title.get_width(), move_title.get_height() + self.menu_tile_size)
+        #Render the icons for each move type, greyed out to the extent that they are still available
+        vertical += move_title.get_height()
+        self.window.blit(self.meters_library["any_direction"], (horizontal, vertical))
+        self.window.blit(any_direction_meter, (horizontal, vertical))
+        self.window.blit(any_direction_text, (horizontal, vertical))
+        horizontal += self.menu_tile_size
+        self.window.blit(self.meters_library["downwind_water"], (horizontal, vertical))
+        self.window.blit(downwind_water_meter, (horizontal, vertical))
+        self.window.blit(downwind_water_text, (horizontal, vertical))
         
     def draw_discard_pile(self):
         '''Draw small versions of the tiles that have been discarded so far
@@ -1099,10 +1136,11 @@ class GameVisualisation():
         max_chest_tiles = self.viewed_adventurer.num_chest_tiles
         #Establish the top left coordinate of the column of tiles to choose from, below the table of treasure scores
 #        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.game.players) + 1)
-        horizontal = self.right_text_start
+        # horizontal = self.right_text_start
+        horizontal = self.right_menu_start
 #        vertical = (len(self.game.players) + 1) * self.SCORES_FONT_SCALE * self.height
         vertical = self.toggles_rect[1] + self.toggles_rect[3] 
-        title_text = "Adventurer #"+str(self.viewed_adventurer_number+1)+"'s chest maps:"
+        title_text = "#"+str(self.viewed_adventurer_number+1)+"'s chest maps:"
         chest_title = self.scores_font.render(title_text, 1, self.viewed_player_colour)
         self.window.blit(chest_title, (horizontal, vertical))
         #Draw a box to surround the Chest menu, and remember its coordinates for player input
