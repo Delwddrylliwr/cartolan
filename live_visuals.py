@@ -737,7 +737,9 @@ class GameVisualisation():
             report = "Not Adventurer's turn"
             move_title = self.scores_font.render(report, 1, self.viewed_player_colour)
             any_direction_meter = pygame.Surface((self.menu_tile_size, self.menu_tile_size))
+            any_direction_text = self.scores_font.render("", 1, self.PLAIN_TEXT_COLOUR)
             downwind_water_meter = pygame.Surface((self.menu_tile_size, self.menu_tile_size))
+            downwind_water_text = self.scores_font.render("", 1, self.PLAIN_TEXT_COLOUR)
         any_direction_meter.set_alpha(self.METER_OPACITY)
         any_direction_meter.fill(self.ANY_DIRECTION_METER_COLOUR)
         downwind_water_meter.set_alpha(self.METER_OPACITY)
@@ -759,9 +761,9 @@ class GameVisualisation():
     def draw_discard_pile(self):
         '''Draw small versions of the tiles that have been discarded so far
         '''
-        horizontal = self.right_text_start
+        horizontal = self.right_menu_start
         vertical = self.piles_rect[1] + self.piles_rect[3]
-        discard_title = self.scores_font.render("Failed mapping attempts:", 1, self.PLAIN_TEXT_COLOUR)
+        discard_title = self.scores_font.render("Failed map draws:", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(discard_title, [horizontal, vertical])
         horizontal = self.right_menu_start
         vertical += self.SCORES_FONT_SCALE * self.height
@@ -1023,24 +1025,33 @@ class GameVisualisation():
     def draw_tile_piles(self):
         '''Draw the numbers of tiles in each pile
         '''
-        horizontal = self.right_text_start
+        horizontal = self.right_menu_start
         vertical = self.chest_rect[1] + self.chest_rect[3]
         #Start recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
         self.piles_rect = (horizontal, vertical, 0, 0)
-        max_pile_width = 0
+        piles_title = self.scores_font.render("Tiles to draw:", 1, self.PLAIN_TEXT_COLOUR)
+        self.window.blit(piles_title, (horizontal, vertical))
+        vertical += piles_title.get_height()
         for tile_back in self.game.tile_piles:
             tiles = self.game.tile_piles[tile_back].tiles
-            tile_count = self.scores_font.render(str(len(tiles))+" maps left in "+tile_back+" bag", 1, self.PLAIN_TEXT_COLOUR)
-            if tile_count.get_width() > max_pile_width:
-                max_pile_width = tile_count.get_width()
+            tile_count = len(tiles)
+            pile_size = self.game.NUM_TILES[tile_back]
+            pile_share = tile_count/pile_size
+            tile_meter = pygame.Surface((self.menu_tile_size, round(pile_share*self.menu_tile_size)))
+            tile_meter.set_alpha(self.METER_OPACITY)
+            count = str(tile_count) + " / " + str(pile_size)
+            pile_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
             tile_count_position = [horizontal, vertical]
-            self.window.blit(tile_count, tile_count_position)
-            vertical += self.SCORES_FONT_SCALE * self.height
+            tile_back_image = pygame.transform.scale(self.tile_images[tile_back][0].copy(), [self.menu_tile_size, self.menu_tile_size])
+            self.window.blit(tile_back_image, tile_count_position)
+            self.window.blit(tile_meter, tile_count_position)
+            self.window.blit(pile_text, tile_count_position)
+            horizontal += tile_meter.get_width()
         #Finish recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
         self.piles_rect = (self.piles_rect[0]
             , self.piles_rect[1]
-            , max_pile_width
-            , vertical - self.piles_rect[1])   
+            , 2 * self.menu_tile_size
+            , piles_title.get_height() + self.menu_tile_size)
     
     def draw_toggle_menu(self, fixed_responses):
         '''Visualises a set of highlights for action prompts that can have a fixed True/False response set for them 
