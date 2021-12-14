@@ -1029,14 +1029,14 @@ class GameVisualisation():
         vertical = self.chest_rect[1] + self.chest_rect[3]
         #Start recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
         self.piles_rect = (horizontal, vertical, 0, 0)
-        piles_title = self.scores_font.render("Tiles to draw:", 1, self.PLAIN_TEXT_COLOUR)
+        piles_title = self.scores_font.render("Maps to draw:", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(piles_title, (horizontal, vertical))
         vertical += piles_title.get_height()
         for tile_back in self.game.tile_piles:
             tiles = self.game.tile_piles[tile_back].tiles
             tile_count = len(tiles)
             pile_size = self.game.NUM_TILES[tile_back]
-            pile_share = tile_count/pile_size
+            pile_share = 1 - tile_count/pile_size
             tile_meter = pygame.Surface((self.menu_tile_size, round(pile_share*self.menu_tile_size)))
             tile_meter.set_alpha(self.METER_OPACITY)
             count = str(tile_count) + " / " + str(pile_size)
