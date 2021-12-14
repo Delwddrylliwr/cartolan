@@ -723,15 +723,16 @@ class GameVisualisation():
             move_title = self.scores_font.render(report, 1, self.viewed_player_colour)
             moves_since_rest = self.current_adventurer.downwind_moves + self.current_adventurer.upwind_moves + self.current_adventurer.land_moves
             # any_direction_moves = self.current_adventurer.upwind_moves + self.current_adventurer.land_moves
-            max_downwind_moves = self.current_adventurer.max_downwind_moves
             max_any_direction_moves = self.current_adventurer.max_upwind_moves
+            only_downwind_moves = self.current_adventurer.max_downwind_moves - max_any_direction_moves
+            extra_downwind_moves = max(moves_since_rest - max_any_direction_moves, 0)
             any_direction_share = min(moves_since_rest / max_any_direction_moves, 1)
-            any_direction_meter = pygame.Surface((self.menu_tile_size, round(any_direction_share*self.menu_tile_size)))
+            any_direction_meter = pygame.Surface((int(round(any_direction_share*self.menu_tile_size)), self.menu_tile_size))
             count = str(max(max_any_direction_moves - moves_since_rest, 0)) + " / " + str(max_any_direction_moves)
             any_direction_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
-            downwind_water_share = moves_since_rest / max_downwind_moves
-            downwind_water_meter = pygame.Surface((self.menu_tile_size, round(downwind_water_share*self.menu_tile_size)))
-            count = str(max_downwind_moves - moves_since_rest) + " / " + str(max_downwind_moves)
+            downwind_water_share = extra_downwind_moves / only_downwind_moves
+            downwind_water_meter = pygame.Surface((int(round(downwind_water_share*self.menu_tile_size)), self.menu_tile_size))
+            count = str(extra_downwind_moves) + " / " + str(only_downwind_moves)
             downwind_water_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
         else:
             report = "Not Adventurer's turn"
@@ -1029,14 +1030,14 @@ class GameVisualisation():
         vertical = self.chest_rect[1] + self.chest_rect[3]
         #Start recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
         self.piles_rect = (horizontal, vertical, 0, 0)
-        piles_title = self.scores_font.render("Tiles to draw:", 1, self.PLAIN_TEXT_COLOUR)
+        piles_title = self.scores_font.render("Maps to draw:", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(piles_title, (horizontal, vertical))
         vertical += piles_title.get_height()
         for tile_back in self.game.tile_piles:
             tiles = self.game.tile_piles[tile_back].tiles
             tile_count = len(tiles)
             pile_size = self.game.NUM_TILES[tile_back]
-            pile_share = tile_count/pile_size
+            pile_share = 1 - tile_count/pile_size
             tile_meter = pygame.Surface((self.menu_tile_size, round(pile_share*self.menu_tile_size)))
             tile_meter.set_alpha(self.METER_OPACITY)
             count = str(tile_count) + " / " + str(pile_size)
