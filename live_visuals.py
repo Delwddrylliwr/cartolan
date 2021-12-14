@@ -723,15 +723,16 @@ class GameVisualisation():
             move_title = self.scores_font.render(report, 1, self.viewed_player_colour)
             moves_since_rest = self.current_adventurer.downwind_moves + self.current_adventurer.upwind_moves + self.current_adventurer.land_moves
             # any_direction_moves = self.current_adventurer.upwind_moves + self.current_adventurer.land_moves
-            max_downwind_moves = self.current_adventurer.max_downwind_moves
             max_any_direction_moves = self.current_adventurer.max_upwind_moves
+            only_downwind_moves = self.current_adventurer.max_downwind_moves - max_any_direction_moves
+            extra_downwind_moves = max(moves_since_rest - max_any_direction_moves, 0)
             any_direction_share = min(moves_since_rest / max_any_direction_moves, 1)
-            any_direction_meter = pygame.Surface((self.menu_tile_size, round(any_direction_share*self.menu_tile_size)))
+            any_direction_meter = pygame.Surface((int(round(any_direction_share*self.menu_tile_size)), self.menu_tile_size))
             count = str(max(max_any_direction_moves - moves_since_rest, 0)) + " / " + str(max_any_direction_moves)
             any_direction_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
-            downwind_water_share = moves_since_rest / max_downwind_moves
-            downwind_water_meter = pygame.Surface((self.menu_tile_size, round(downwind_water_share*self.menu_tile_size)))
-            count = str(max_downwind_moves - moves_since_rest) + " / " + str(max_downwind_moves)
+            downwind_water_share = extra_downwind_moves / only_downwind_moves
+            downwind_water_meter = pygame.Surface((int(round(downwind_water_share*self.menu_tile_size)), self.menu_tile_size))
+            count = str(extra_downwind_moves) + " / " + str(only_downwind_moves)
             downwind_water_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
         else:
             report = "Not Adventurer's turn"
