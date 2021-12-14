@@ -732,7 +732,7 @@ class GameVisualisation():
             any_direction_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
             downwind_water_share = extra_downwind_moves / only_downwind_moves
             downwind_water_meter = pygame.Surface((int(round(downwind_water_share*self.menu_tile_size)), self.menu_tile_size))
-            count = str(extra_downwind_moves) + " / " + str(only_downwind_moves)
+            count = str(only_downwind_moves - extra_downwind_moves) + " / " + str(only_downwind_moves)
             downwind_water_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
         else:
             report = "Not Adventurer's turn"
