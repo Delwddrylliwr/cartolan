@@ -156,6 +156,8 @@ class GameVisualisation():
         self.toggles_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
         self.action_rects = []
         self.piles_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
+        self.discard_pile = []
+        self.discarding_adventurer = None
         self.undo_rect = (self.width, self.height, 0, 0)
         self.undo_agreed = False
         self.adventurer_centres = []
@@ -762,6 +764,9 @@ class GameVisualisation():
     def draw_discard_pile(self):
         '''Draw small versions of the tiles that have been discarded so far
         '''
+        #If the player has changed then empty the discard list
+        if not self.discarding_adventurer == self.current_adventurer:
+            self.discard_pile = []
         horizontal = self.right_menu_start
         vertical = self.piles_rect[1] + self.piles_rect[3]
         discard_title = self.scores_font.render("Failed map draws:", 1, self.PLAIN_TEXT_COLOUR)
@@ -769,29 +774,27 @@ class GameVisualisation():
         horizontal = self.right_menu_start
         vertical += self.SCORES_FONT_SCALE * self.height
         tile_count = 0
-        for discard_pile in list(self.game.discard_piles.values()):
-            for tile in discard_pile.tiles:
+        for pile in list(self.game.discard_piles.values()):
+            new_discards = [tile for tile in pile.tiles if not tile in self.discard_pile]
+            self.discard_pile += new_discards
+        for tile in reversed(self.discard_pile):
+            tile_image = self.menu_tile_library.get(tile)
+            if tile_image is None:
+                self.assign_tile_image(tile)
                 tile_image = self.menu_tile_library.get(tile)
-                if tile_image is None:
-                    self.assign_tile_image(tile)
-                    tile_image = self.menu_tile_library.get(tile)
-                rotated_image = self.rotate_tile_image(tile, tile_image)
-    #                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
-                self.window.blit(rotated_image, [horizontal, vertical])
-                #Draw a frame to keep distinct from play area
-                pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
-                                 , (horizontal, vertical, self.menu_tile_size, self.menu_tile_size)
-                                 , self.chest_highlight_thickness)
-                tile_count += 1
-                if tile_count % self.MENU_TILE_COLS == 0:
-                    vertical += self.menu_tile_size
-                    horizontal = self.right_menu_start
-                else:
-                    horizontal += self.menu_tile_size
-                #If the vertical is encroaching on the prompt area then stop
-                if vertical > (1 - self.PROMPT_SHARE) * self.height:
-                    return False
-        return True #confirm that all the discarded tiles were drawn
+            rotated_image = self.rotate_tile_image(tile, tile_image)
+#                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
+            self.window.blit(rotated_image, [horizontal, vertical])
+            #Draw a frame to keep distinct from play area
+            pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
+                             , (horizontal, vertical, self.menu_tile_size, self.menu_tile_size)
+                             , self.chest_highlight_thickness)
+            tile_count += 1
+            if tile_count % self.MENU_TILE_COLS == 0:
+                vertical += self.menu_tile_size
+                horizontal = self.right_menu_start
+            else:
+                horizontal += self.menu_tile_size
      
     def check_highlighted(self, input_longitude, input_latitude):
         '''Given play area grid coordinates, checks whether this is highlighted as a valid move/action
