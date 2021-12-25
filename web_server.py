@@ -244,8 +244,9 @@ class ClientSocket(WebSocket):
         #Get remote user input about how many computer players the game will have
         if num_client_players < max_players:
             valid_options = [str(i) for i in range(0, max_players - num_client_players + 1)]
+            practical_default = min(DEFAULT_VIRTUAL_PLAYERS, int(valid_options[-1]))
             prompt_text = ("Please specify how many computer-controlled players will play, between " +valid_options[0]+ " and " +valid_options[-1]+ "?")
-            prompt_text += " (Hit enter for default "+str(DEFAULT_VIRTUAL_PLAYERS)+")"
+            prompt_text += " (Hit enter for default "+str(practical_default)+")"
             print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
             self.sendMessage("PROMPT[00100]"+prompt_text)
             num_virtual_players = None
@@ -258,8 +259,9 @@ class ClientSocket(WebSocket):
                             num_virtual_players = None
                             self.sendMessage("PROMPT[00100]"+prompt_text)
                     else:
-                        #For any input besides a number, assume the default
-                        num_virtual_players = DEFAULT_VIRTUAL_PLAYERS
+                        #For any input besides a number, assume the default, or the closest to it possible
+                        num_virtual_players = practical_default
+                        print("No viable option chosen, so defaulting to "+str(practical_default))
                 else:
                     time.sleep(self.INPUT_DELAY)
         #Assign random names and colours to these CPU players
@@ -282,8 +284,9 @@ class ClientSocket(WebSocket):
         #If there are still spaces available then allow for remote players
         if num_players < max_players:
             valid_options = [str(i) for i in range(max(min_players - num_players, 0), max_players - num_players + 1)]
+            practical_default = min(DEFAULT_REMOTE_PLAYERS, int(valid_options[-1]))
             prompt_text = ("Please specify how many players from other computers will play, between "+str(valid_options[0])+" and " +str(valid_options[-1])+ "?")
-            prompt_text += " (Hit enter for default "+str(DEFAULT_REMOTE_PLAYERS)+")"
+            prompt_text += " (Hit enter for default "+str(practical_default)+")"
             print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
             self.sendMessage("PROMPT[00100]"+prompt_text)
             num_players = None
@@ -296,8 +299,9 @@ class ClientSocket(WebSocket):
                             num_players = None
                             self.sendMessage("PROMPT[00100]"+prompt_text)
                     else:
-                        #For any input besides a number, assume the default
-                        num_players = num_client_players + num_virtual_players + DEFAULT_REMOTE_PLAYERS
+                        #For any input besides a number, assume the default or the closest to it possible
+                        num_players = num_client_players + num_virtual_players + practical_default
+                        print("No viable option chosen, so defaulting to "+str(practical_default))
                 else:
                     time.sleep(self.INPUT_DELAY)
             new_game_colours[game_id] = random.sample(available_colours, num_players - len(new_game_players[game_id]))
@@ -320,10 +324,11 @@ class ClientSocket(WebSocket):
             num_players = num_existing_players + num_spaces
             print("The existing game has "+str(num_existing_clients)+" other clients connected")
     #        valid_options = [str(i) for i in range(1, num_spaces + 1)]
+            practical_default = min(DEFAULT_JOINING_PLAYERS, num_spaces)
             prompt_text = ("The current game has " +str(num_existing_players) +"/"
                            +str(num_players)+" players. Please specify how many players will play from this computer, between 1 and " 
                            +str(num_spaces)+ "?")
-            prompt_text += " (Hit enter for default "+str(DEFAULT_JOINING_PLAYERS)+")"
+            prompt_text += " (Hit enter for default "+str(practical_default)+")"
             print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
             self.sendMessage("PROMPT[00100]"+prompt_text)
             while not num_client_players in range(1, max_players + 1):
@@ -336,7 +341,8 @@ class ClientSocket(WebSocket):
                             self.sendMessage("PROMPT[00100]"+prompt_text)
                     else:
                         #For any input besides a number, assume the default
-                        num_client_players = DEFAULT_JOINING_PLAYERS
+                        num_client_players = practical_default
+                        print("No viable option chosen, so defaulting to "+str(practical_default))
                 else:
                     time.sleep(self.INPUT_DELAY)
         #Check whether the players have been set up for this client
