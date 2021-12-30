@@ -76,7 +76,7 @@ class AdvancedConfig:
                         , "+bank":{"transfers_to_agents":{"buff_type":"new", "buff_val":True}}
                         , "+damage":{"attacks_abandon":{"buff_type":"new", "buff_val":True}}
                         , "+defence":{"defence_rounds":{"buff_type":"boost", "buff_val":1}}
-                        , "+downwind":{"max_downwind_moves":{"buff_type":"boost", "buff_val":2}}
+                        , "+downwind":{"max_downwind_moves":{"buff_type":"boost", "buff_val":1}}
                         , "+upwind":{"max_upwind_moves":{"buff_type":"boost", "buff_val":1}
                                             ,"max_land_moves":{"buff_type":"boost", "buff_val":1}}
                         , "+maps":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}}
