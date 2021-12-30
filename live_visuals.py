@@ -107,7 +107,7 @@ class GameVisualisation():
              , "adv+bank":"Can transfer treasure to your Agents when visiting anyone's Agent."
              , "adv+damage":"Successfully attacked Adventurers are returned to their last city, and Agents are fully removed."
              , "adv+defence":"Attacking opponents have to win Rock, Paper, Scissors twice to succeed."
-             , "adv+downwind":"Can move up to four times riding the wind after tiring, each turn and after resting."
+             , "adv+downwind":"Can move up to three times riding the wind after tiring, each turn and after resting."
              , "adv+upwind":"Can move three times in any direction before getting tired, then one riding the wind, each turn or after resting."
              , "adv+maps":"Carries up to three map tiles in Chest."
              , "dis+agents":"This Adventurer can place Agents on existing tiles and immediately rest with them, for 3 treasure."
@@ -732,7 +732,10 @@ class GameVisualisation():
             any_direction_meter = pygame.Surface((int(round(any_direction_share*self.menu_tile_size)), self.menu_tile_size))
             count = str(max(max_any_direction_moves - moves_since_rest, 0)) + " / " + str(max_any_direction_moves)
             any_direction_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
-            downwind_water_share = extra_downwind_moves / only_downwind_moves
+            if only_downwind_moves:
+                downwind_water_share = extra_downwind_moves / only_downwind_moves
+            else:
+                downwind_water_share = 1.0
             downwind_water_meter = pygame.Surface((int(round(downwind_water_share*self.menu_tile_size)), self.menu_tile_size))
             count = str(only_downwind_moves - extra_downwind_moves) + " / " + str(only_downwind_moves)
             downwind_water_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
