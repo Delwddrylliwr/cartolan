@@ -36,7 +36,7 @@ class BeginnerConfig:
     MAX_UPWIND_MOVES = 2
 
 class RegularConfig:
-    NUM_TILES = {"water":60, "land":40}
+    NUM_TILES = {"water":60, "land":30}
     
     NUM_CHEST_TILES = 2
     VALUE_DISCOVER_WONDER = {"water":1, "land":1}
