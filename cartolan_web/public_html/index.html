@@ -84,7 +84,7 @@
     var titleFontPx = 30;
     var titleLine = 0.7;
     var titleBottom = 0.75;
-    var blurbText = "It is the age of exploration, an age of sails and trails and treasures from the far side of the world. Race your Adventurers out on expeditions, to earn rewards by expanding the far edges of the map. Develop trade routes by carefully placing a network of Agents to rest at, so that you can quickly navigate exotic lands and collect treasure for your vault back at the Capital. Perhaps you'll also discover the Mythical City on the far side of the world and start exploration anew. Ultimately, perhaps your greater earning will buy you a global monopoly, or let you dominate the new age of trade when all the world is mapped. But remember, there are rivals for your glory, and they may not be above a little piracy!"
+    var blurbText = "It is the age of exploration, an age of sails and trails and treasures from the far side of the world. Race your Adventurers out on expeditions, riding the winds to earn rewards by expanding the far edges of the map. Develop trade routes by placing a network of Agents to give Adventurers rest, letting them quickly navigate to exotic lands and collect treasure for your vault back at the Capital. Perhaps you'll also find the Mythical City on the far side of the world and start exploration anew. If you can earn fast enough, then you might even buy an unassailable global monopoly. But remember, there are rivals for your glory, and they may not be above a little piracy!"
     var blurbFontPx = 20;
     var blurbTop = 0.75;
     var tableFontPx = 16;
@@ -228,20 +228,20 @@
         console.log("Data received of type: " + evt.data.type);
         if (decomposed[0] === 'PING') { // this is a heartbeat message
           this.send("PONG[00100]");
-        } else if (decomposed[0] === 'QUEUE') { // tabular JSON with a list of games in preparation
-          games = JSON.parse(decomposed[1])
-          console.log("List of games in preparation received, with length " + games.length)
-          game_table = ["ID", "Name", "Mode", "#Spaces", "#AIs"]
-          games.forEach(game => {
-            row = [game.game_id
-              , game.game_name
-              , game.game_type
-              , game.existing_players + "/" + game.total_players
-              , game.cpu_players
-            ];
-            game_table.push(row);
-          })
-          this.startGame.updateQueue(game_table);
+        //} else if (decomposed[0] === 'QUEUE') { // tabular JSON with a list of games in preparation
+        //  games = JSON.parse(decomposed[1])
+        //  console.log("List of games in preparation received, with length " + games.length)
+        //  game_table = ["ID", "Name", "Mode", "#Spaces", "#AIs"]
+        //  games.forEach(game => {
+        //    row = [game.game_id
+        //      , game.game_name
+        //      , game.game_type
+        //      , game.existing_players + "/" + game.total_players
+        //      , game.cpu_players
+        //    ];
+        //    game_table.push(row);
+        //  })
+        //  this.startGame.updateQueue(game_table);
         } else if (decomposed[0] === 'PLAYERS') { // accept only text
           console.log("Player numbers in queue received: " + decomposed[1]);
           // update the queue notifcation with the numbers just reveived
