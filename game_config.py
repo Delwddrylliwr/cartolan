@@ -36,7 +36,7 @@ class BeginnerConfig:
     MAX_UPWIND_MOVES = 2
 
 class RegularConfig:
-    NUM_TILES = {"water":60, "land":40}
+    NUM_TILES = {"water":60, "land":30}
     
     NUM_CHEST_TILES = 2
     VALUE_DISCOVER_WONDER = {"water":1, "land":1}
@@ -76,7 +76,7 @@ class AdvancedConfig:
                         , "+bank":{"transfers_to_agents":{"buff_type":"new", "buff_val":True}}
                         , "+damage":{"attacks_abandon":{"buff_type":"new", "buff_val":True}}
                         , "+defence":{"defence_rounds":{"buff_type":"boost", "buff_val":1}}
-                        , "+downwind":{"max_downwind_moves":{"buff_type":"boost", "buff_val":2}}
+                        , "+downwind":{"max_downwind_moves":{"buff_type":"boost", "buff_val":1}}
                         , "+upwind":{"max_upwind_moves":{"buff_type":"boost", "buff_val":1}
                                             ,"max_land_moves":{"buff_type":"boost", "buff_val":1}}
                         , "+maps":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}}

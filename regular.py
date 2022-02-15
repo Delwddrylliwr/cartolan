@@ -337,9 +337,10 @@ class AdventurerRegular(AdventurerBeginner):
                         if 0 < len(self.chest_tiles) < self.num_chest_tiles:
                             victim_chest = token.chest_tiles
 #                            self.chest_tiles.append(victim_chest.pop(random.randint(0, len(victim_chest)-1)))
-                            stolen_tile = self.player.choose_tile(self, victim_chest)
-                            victim_chest.remove(stolen_tile)
-                            self.chest_tiles.append(stolen_tile)
+                            if len(victim_chest) > 0:
+                                stolen_tile = self.player.choose_tile(self, victim_chest)
+                                victim_chest.remove(stolen_tile)
+                                self.chest_tiles.append(stolen_tile)
         elif isinstance(token, Agent):
             if not token.is_dispossessed:
                 self.pirate_token = True #just trying will make them a pirate
