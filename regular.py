@@ -248,6 +248,17 @@ class AdventurerRegular(AdventurerBeginner):
             super().discover(tile)
     
     def interact_tokens(self):
+        #check whether there is an adventurer here and attack if the player wants
+        if self.current_tile.adventurers:
+            for adventurer in self.current_tile.adventurers:
+                if (adventurer.player != self.player 
+                    and ((adventurer.wealth > 0 and not adventurer.pirate_token)
+                         or (adventurer.pirate_token #cannot arrest pirates on Disaster Tiles
+                             and not isinstance(self.current_tile, DisasterTile)))):
+                    if self.player.check_attack_adventurer(self, adventurer):
+                        self.attack(adventurer)
+                        
+        
         #check whether there is an agent here and then check rest, attack if active or restore if dispossessed
         if self.current_tile.agent:
             agent = self.current_tile.agent
@@ -260,27 +271,19 @@ class AdventurerRegular(AdventurerBeginner):
                         if self.player.check_rest(self, agent):
                             self.rest(agent)
                 else:
-                    if self.can_rest(agent):
-                        if self.player.check_rest(self, agent):
-                            self.rest(agent)
                     if agent.wealth + self.value_dispossess_agent > 0:
                         if self.player.check_attack_agent(self, agent):
                             self.attack(agent)
+                    #If not attacking, then offer rest
+                    if self.can_rest(agent):
+                        if self.player.check_rest(self, agent):
+                            self.rest(agent)
+            #Restore the Agent if they are dispossessed        
             else:
                 if (agent.player == self.player 
                     and self.wealth >= self.cost_agent_restore):
                     if self.player.check_restore_agent(self, agent):
                         self.restore_agent(agent)
-
-        #check whether there is an adventurer here and attack if the player wants
-        if self.current_tile.adventurers:
-            for adventurer in self.current_tile.adventurers:
-                if (adventurer.player != self.player 
-                    and ((adventurer.wealth > 0 and not adventurer.pirate_token)
-                         or (adventurer.pirate_token #cannot arrest pirates on Disaster Tiles
-                             and not isinstance(self.current_tile, DisasterTile)))):
-                    if self.player.check_attack_adventurer(self, adventurer):
-                        self.attack(adventurer)
     
     def trade(self, tile):
         '''Expands on the AdventurerBeginner, by preventing pirates from trading
