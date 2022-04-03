@@ -102,28 +102,28 @@ class GameVisualisation():
             , "com+refurnish":"The Privateer Brethren"
             , "com+pool":"Order of the Lightbrary"
             }
-    CARD_TEXTS = {"adv+agents":"Can place and immediately rest with Brokers on existing tiles, for 3 treasure."
+    CARD_TEXTS = {"adv+agents":"Can place and immediately rest with Inns on existing tiles, for 3 treasure."
              , "adv+attack":"Needs only win or draw Rock, Paper, Scissors to attack successfully."
-             , "adv+bank":"Can transfer treasure to your Brokers when visiting anyone's Broker."
-             , "adv+damage":"Successfully attacked Adventurers are returned to their last city, and Brokers are fully removed."
+             , "adv+bank":"Can transfer treasure to your Inns when visiting anyone's Inn."
+             , "adv+damage":"Successfully attacked Adventurers are returned to their last city, and Inns are fully removed."
              , "adv+defence":"Attacking opponents have to win Rock, Paper, Scissors twice to succeed."
              , "adv+downwind":"Can move up to three times riding the wind after tiring, each turn and after resting."
              , "adv+upwind":"Can move three times in any direction before getting tired, then one riding the wind, each turn or after resting."
              , "adv+maps":"Carries up to three map tiles in Chest."
-             , "dis+agents":"This Adventurer can place Brokers on existing tiles and immediately rest with them, for 3 treasure."
+             , "dis+agents":"This Adventurer can place Inns on existing tiles and immediately rest with them, for 3 treasure."
              , "dis+attack":"This Adventurer needs only win or draw Rock, Paper, Scissors to attack successfully."
-             , "dis+bank":"This Adventurer can transfer treasure to your Brokers when visiting anyone's Broker."
-             , "dis+damage":"Successfully attacked Adventurers are returned to their last city, and Brokers are removed."
+             , "dis+bank":"This Adventurer can transfer treasure to your Inns when visiting anyone's Inn."
+             , "dis+damage":"Successfully attacked Adventurers are returned to their last city, and Inns are removed."
              , "dis+defence":"Attacking opponents have to win an extra round of Rock, Paper, Scissors to succeed."
              , "dis+downwind":"This Adventurer can move once more riding the wind after tiring, each turn and after resting."
              , "dis+upwind":"This Adventurer can move once more before tiring, rather than after, each turn and after resting."
              , "dis+maps":"This Adventurer carries an extra map tile in their chest."
-             , "com+rests":"Your Adventurers can rest with other Adventurers like Brokers. Draw 3 Adventurers."
-            , "com+transfers":"Treasure earned by your Brokers goes to your Vault. Draw 3 Manuscripts."
-            , "com+earning":"Your Brokers earn 1 treasure when opponents trade on their tile. Draw 3 Manuscripts."
-            , "com+arrest":"Your Brokers try to arrest pirates landing on their tile. Draw 3 Adventurers."
+             , "com+rests":"Your Adventurers can rest with other Adventurers like Inns. Draw 3 Adventurers."
+            , "com+transfers":"Treasure earned by your Inns goes to your Vault. Draw 3 Manuscripts."
+            , "com+earning":"Your Inns earn 1 treasure when opponents trade on their tile. Draw 3 Manuscripts."
+            , "com+arrest":"Your Inns try to arrest pirates landing on their tile. Draw 3 Adventurers."
             , "com+refurnish":"Your Adventurers can lose the pirate token by resting. Draw 3 Adventurers."
-            , "com+pool":"Anyone's Brokers can swap your Adventures' maps for 1 treasure. Draw 3 Manuscripts."
+            , "com+pool":"Anyone's Inns can swap your Adventures' maps for 1 treasure. Draw 3 Manuscripts."
             }
     
     def __init__(self, game, peer_visuals, player_colours):
@@ -1742,7 +1742,7 @@ class WebServerVisualisation(GameVisualisation):
             for rect in self.agent_rects:
                 if (horizontal in range(int(rect[0][0]), int(rect[0][0] + rect[0][2]))
                     and vertical in range(int(rect[0][1]), int(rect[0][1] + rect[0][3]))):
-                    print("Click detected within one of the Brokers' areas for "+self.player_colours[rect[1]]+" player.")
+                    print("Click detected within one of the Inns' areas for "+self.player_colours[rect[1]]+" player.")
                     self.viewed_player_colour = self.player_colours[rect[1]]
                     self.viewed_adventurer_number = 0
                     self.viewed_adventurer = self.game.adventurers[rect[1]][0]
