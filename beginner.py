@@ -185,6 +185,8 @@ class AdventurerBeginner(Adventurer):
         self.upwind_moves = 0
         #the list of agents rested with is reset
         self.agents_rested = []
+        #reset Adventurer's list of visited Wonders
+        self.wonders_visited = []
         #return any discarded tiles to the main piles (if they weren't already empty)
         for discard_pile in self.game.discard_piles.values():
             if discard_pile:
@@ -737,8 +739,8 @@ class CityTileBeginner(CityTile):
         Cartolan.Adventurer the Adventurer arriving on the City tile
         Boolean aborted prevents hiring option if the Adventurer has aborted their expedition, making it harder to replace opponents' Agents.
         '''
-        #reset Adventurer's list of visited Wonders
-        adventurer.wonders_visited = []
+        # #reset Adventurer's list of visited Wonders
+        # adventurer.wonders_visited = []
         
         #record that this is the latest city visited
         adventurer.latest_city = self
