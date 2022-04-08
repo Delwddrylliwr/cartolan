@@ -5,6 +5,7 @@
 from base import Player
 from advanced import AdventurerAdvanced
 from game import GameAdvanced
+from game_config import BeginnerConfig, RegularConfig, AdvancedConfig
 import random
 
 class PlayerBeginnerExplorer(Player):    
@@ -29,8 +30,9 @@ class PlayerBeginnerExplorer(Player):
     '''
     def __init__(self, name):
         super().__init__(name)
-        self.p_deviate = 0.1 #some randomness for artificial player behaviour to avoid rutts
-        self.return_city_attr = "cost_adventurer"
+        self.p_deviate = BeginnerConfig.P_DEVIATE #some randomness for artificial player behaviour to avoid rutts
+        self.p_buy_adventurer = BeginnerConfig.P_BUY_ADVENTURER
+        self.return_city_attr = BeginnerConfig.RETURN_CITY_ATTR #Set a criterion for returning to bank wealth
     
     def check_location_to_avoid(self, longitude, latitude):
         '''Compares coordinates to a list to avoid'''
@@ -207,7 +209,7 @@ class PlayerBeginnerExplorer(Player):
 #        #move towards a city while banking will put the player ahead, and explore otherwise
 #        elif(adventurer.wealth > adventurer.game.wealth_difference):
         #move towards a city while banking will increase earning potential
-        elif(adventurer.wealth > getattr(adventurer.game, self.return_city_attr)):
+        elif(adventurer.wealth >= getattr(adventurer.game, self.return_city_attr)):
             self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
 #             self.explore_away_from_tile(adventurer, adventurer.latest_city)
@@ -260,7 +262,7 @@ class PlayerBeginnerExplorer(Player):
         print(report)
         
         #randomly choose not to hire, regardless of other conditions
-        if random.random() < self.p_deviate:
+        if random.random() > self.p_buy_adventurer:
             return False
         
         if adventurer.game.player_wealths[adventurer.player] > adventurer.game.cost_adventurer:
@@ -343,7 +345,7 @@ class PlayerBeginnerTrader(PlayerBeginnerExplorer):
                 self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
 #            if adventurer.wealth <= adventurer.game.wealth_difference:
-            if (adventurer.wealth <= getattr(adventurer.game, self.return_city_attr) 
+            if (adventurer.wealth < getattr(adventurer.game, self.return_city_attr) 
                 and self.next_agent_num[adventurers.index(adventurer)] < len(agents) - 1):
                 self.move_towards_tile(adventurer, agents[self.next_agent_num[adventurers.index(adventurer)]].current_tile)
             else:
@@ -413,7 +415,7 @@ class PlayerBeginnerRouter(PlayerBeginnerTrader):
         #locate the next unvisited agent and move towards them, or if all agents have been visited either explore or return home
         elif self.next_agent_num[adventurers.index(adventurer)] >= len(agents):
 #            if (adventurer.wealth <= adventurer.game.wealth_difference):
-            if (adventurer.wealth <= getattr(adventurer.game, self.return_city_attr)):
+            if (adventurer.wealth < getattr(adventurer.game, self.return_city_attr)):
                 self.explore_best_space(adventurer)
 #                 self.explore_above_distance(adventurer, adventurer.latest_city, adventurer.game.CITY_DOMAIN_RADIUS)
             else:
@@ -560,7 +562,7 @@ class PlayerRegularPirate(PlayerRegularExplorer):
             adventurer.move(random.choice(['n','e','s','w']))
         #move towards the capital while banking will put the player ahead, and chase the next big score otherwise
 #        elif(adventurer.wealth > adventurer.game.wealth_difference):
-        elif(adventurer.wealth > getattr(adventurer.game, self.return_city_attr)):
+        elif(adventurer.wealth >= getattr(adventurer.game, self.return_city_attr)):
             self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
             # if there is an adventurer on the same tile then attack them
@@ -620,7 +622,8 @@ class PlayerAdvancedExplorer(PlayerRegularExplorer):
     '''
     def __init__(self, name):
         super().__init__(name)
-        self.return_city_attr = "cost_tech"
+        self.p_buy_tech = AdvancedConfig.P_BUY_TECH
+        self.return_city_attr = AdvancedConfig.RETURN_CITY_ATTR
     
     def continue_turn(self, adventurer):
         if isinstance(adventurer.game, GameAdvanced):
@@ -634,10 +637,11 @@ class PlayerAdvancedExplorer(PlayerRegularExplorer):
     
     def check_buy_tech(self, adventurer):
         #randomly choose not to buy, regardless of other conditions
-        if random.random() < self.p_deviate:
+        if random.random() > self.p_buy_tech:
             return False
         
-        if adventurer.game.player_wealths[adventurer.player] > adventurer.game.cost_tech:
+        print(self.name+" is deciding whether to buy a Manuscript card")
+        if adventurer.game.player_wealths[adventurer.player] >= adventurer.game.cost_tech:
             #Check whether player has won compared to wealthiest opponent 
             wealthiest_opponent_wealth = 0
             #Check whether any opponent is in a position to win based just on their incoming wealth, if an Adventurer were hired
@@ -672,20 +676,24 @@ class PlayerAdvancedTrader(PlayerRegularTrader, PlayerAdvancedExplorer):
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
-        self.return_city_attr = "cost_tech"
-
+        self.p_buy_tech = AdvancedConfig.P_BUY_TECH
+        self.return_city_attr = AdvancedConfig.RETURN_CITY_ATTR
+    
 class PlayerAdvancedRouter(PlayerRegularRouter, PlayerAdvancedExplorer):    
     '''A virtual player for Regular Cartolan that favours maximising trade value
     
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
-        self.return_city_attr = "cost_tech"
-        
+        self.p_buy_tech = AdvancedConfig.P_BUY_TECH
+        self.return_city_attr = AdvancedConfig.RETURN_CITY_ATTR
+    
 class PlayerAdvancedPirate(PlayerRegularPirate, PlayerAdvancedExplorer):    
     '''A virtual player for Regular Cartolan that favours maximising trade value
     
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
-        self.return_city_attr = "cost_tech"
+        self.p_buy_tech = AdvancedConfig.P_BUY_TECH
+        self.return_city_attr = AdvancedConfig.RETURN_CITY_ATTR
+    
