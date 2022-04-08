@@ -378,13 +378,14 @@ class CityTileAdvanced(CityTileRegular):
        if self.game.game_over or abandoned:
             return
         
-       #Offer the chance to upgrade the Adventurer with a Discovery card
+       print("Offering "+adventurer.player.name+"'s adventurer the chance to upgrade the Adventurer with a Discovery/Manuscript card")
        available_cards = self.game.discovery_cards
        rejected_cards = []
        while (available_cards 
            and adventurer.game.player_wealths[adventurer.player] >= self.game.cost_tech
            and adventurer.player.check_buy_tech(adventurer)):
            
+           print(adventurer.player.name+"'s has chosen to buy a Manuscript card")
            card_options = []
            #Offer several cards, but only those which don't duplicate another one time card buff the Adventurer already has
            while (len(card_options) < self.game.num_discovery_choices[adventurer.player]

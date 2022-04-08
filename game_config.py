@@ -20,20 +20,28 @@ class BeginnerConfig:
     MAX_ADVENTURERS = 4
     MAX_AGENTS = 4
     
+    #Values earned
     VALUE_DISCOVER_WONDER = {"water":1}
     VALUE_TRADE = 1
     VALUE_FILL_MAP_GAP = [[3 * land_edges + 3 * water_edges for land_edges in range(0,5)] for water_edges in range(0,5)] # These are the rewards for filling a gap with, 0,1,2,3, and 4 adjacent water tiles respectively, for each number of adjacent land tiles
     VALUE_COMPLETE_MAP = 10
     
+    #Costs of buying
     COST_ADVENTURER = 10
     COST_AGENT_EXPLORING = 1
     COST_AGENT_FROM_CITY = 3
     COST_AGENT_REST = 1
     
+    #Movement config
     MAX_EXPLORATION_ATTEMPTS = 1
     MAX_DOWNWIND_MOVES = 4
     MAX_LAND_MOVES = 2
     MAX_UPWIND_MOVES = 2
+    
+    #AI behaviour config
+    RETURN_CITY_ATTR = "cost_adventurer" #The Adventurer cost attribute against which CPU Adventurers will compare their current Chest wealth, when deciding whether to head back for the Capital
+    P_DEVIATE = 0.1 #The probability that CPU players will randomly deviate from their heuristic
+    P_BUY_ADVENTURER = 0.5 #The probability that CPU players will spend their Vault wealth on further Adventurers, if they can afford it
 
 class RegularConfig:
     NUM_TILES = {"water":60, "land":30}
@@ -56,6 +64,11 @@ class AdvancedConfig:
     NUM_CHARACTER_CHOICES = 2
     NUM_DISCOVERY_CHOICES = 2
     
+    #AI behaviour config
+    RETURN_CITY_ATTR = "cost_adventurer" #The Adventurer cost attribute against which CPU Adventurers will compare their current Chest wealth, when deciding whether to head back for the Capital
+    P_BUY_TECH = 0.5 #The probability that CPU players will spend their Vault wealth on Manuscript cards, if they can afford it
+    
+    #Config relating to card buffs
     VALUE_AGENT_TRADE = 0
     ATTACKS_ABANDON = False
     AGENT_ON_EXISTING = False
