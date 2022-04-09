@@ -2,7 +2,7 @@
     Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
-from base import Player
+from base import Player, CityTile
 from advanced import AdventurerAdvanced
 from game import GameAdvanced
 from game_config import BeginnerConfig, RegularConfig, AdvancedConfig
@@ -327,52 +327,55 @@ class PlayerBeginnerTrader(PlayerBeginnerExplorer):
     '''
     def __init__(self, name):
         super().__init__(name)
-        self.next_agent_num = [0] # this won't work for multiple adventurers
+        self.next_agent_num = {} #An integer for each Adventurer, tracking by index which Inn/Agent is next to visit
     
     def continue_move(self, adventurer):
-        adventurers = adventurer.game.adventurers[self]
         agents = adventurer.game.agents[self]
                                 
         #with some probability, move in a random direction, to break out of degenerate situations
         if random.random() < self.p_deviate:
             adventurer.move(random.choice(['n','e','s','w']))
         #locate the next unvisited agent and move towards them, or if all agents have been visited either explore or return home
-        elif self.next_agent_num[adventurers.index(adventurer)] >= len(agents):
+        elif self.next_agent_num.get(adventurer) is not None and self.next_agent_num.get(adventurer) < len(agents):
+            if (adventurer.wealth < getattr(adventurer.game, self.return_city_attr)):
+                print("As a Trader, "+self.name+" is moving towards their next Inn, #"+str(self.next_agent_num.get(adventurer)))
+                self.move_towards_tile(adventurer, agents[self.next_agent_num.get(adventurer)].current_tile)
+            else:
+                self.move_towards_tile(adventurer, adventurer.latest_city)
+        else:
+            if self.next_agent_num.get(adventurer) is not None:
+                print("As a Trader, "+self.name+" has visited all their "+str(self.next_agent_num.get(adventurer)+1)+" Inns")
             if (adventurer.wealth < getattr(adventurer.game, self.return_city_attr) and len(agents) < adventurer.game.MAX_AGENTS):
                 self.explore_best_space(adventurer)
 #                   self.explore_above_distance(adventurer, adventurer.latest_city, adventurer.game.CITY_DOMAIN_RADIUS)
             else:
                 self.move_towards_tile(adventurer, adventurer.latest_city)
-        else:
-#            if adventurer.wealth <= adventurer.game.wealth_difference:
-            if (adventurer.wealth < getattr(adventurer.game, self.return_city_attr)):
-                self.move_towards_tile(adventurer, agents[self.next_agent_num[adventurers.index(adventurer)]].current_tile)
-            else:
-                self.move_towards_tile(adventurer, adventurer.latest_city)
-
+        
+        if isinstance(adventurer.current_tile, CityTile):
+            print(self.name+" has visited a city and will start heading to their first Inn again")
+            self.next_agent_num[adventurer] = 0
         return True
 
     def check_rest(self, adventurer, agent):
-        adventurers = adventurer.game.adventurers[self]
         agents = adventurer.game.agents[self]
         #if this was the target agent for movement then start looking for the next one
-        if self.next_agent_num[adventurers.index(adventurer)] < len(agents):
-            if agent == agents[self.next_agent_num[adventurers.index(adventurer)]]:
-                #start targetting the next agent
-                self.next_agent_num[adventurers.index(adventurer)] += 1
+        if self.next_agent_num.get(adventurer) is not None and self.next_agent_num.get(adventurer) < len(agents):
+            if agent == agents[self.next_agent_num.get(adventurer)]:
+                print(self.name+"has reached their intended Inn, and will now head for Inn #"+str(self.next_agent_num[adventurer]+1))
+                self.next_agent_num[adventurer] += 1
         #if there is an agent then always rest
         return True        
 
     def check_bank_wealth(self, adventurer, report="Player is being asked whether to bank"):
-        adventurers = adventurer.game.adventurers[self]
-        #register that a city has been visited and that should start going back to first agent
-        self.next_agent_num[adventurers.index(adventurer)] = 0
+        print(self.name+"has visited a city and will start heading to their first Inn again")
+        self.next_agent_num[adventurer] = 0
         return super().check_bank_wealth(adventurer, report)
     
     # if this is a wonder then always place an agent when offered
     def check_place_agent(self, adventurer):
         agents = adventurer.game.agents[self]
         if len(agents) < adventurer.current_tile.game.MAX_AGENTS and adventurer.current_tile.is_wonder:
+            print(self.name+" is placing an Inn where they can trade.")
             return True
         else:
             return False
@@ -383,8 +386,9 @@ class PlayerBeginnerTrader(PlayerBeginnerExplorer):
     
     # if a new Adventurer is hired then extend the tracker for which Agent is next to visit
     def check_buy_adventurer(self, adventurer, report=""):
+        adventurers = adventurer.game.adventurers[self]
         if super().check_buy_adventurer(adventurer):
-            self.next_agent_num += [0]
+            self.next_agent_num[adventurers[-1]] = 0
             return True
         else:
             return False
@@ -406,26 +410,31 @@ class PlayerBeginnerRouter(PlayerBeginnerTrader):
     check_move_agent takes a Cartolan.Adventurer
     '''    
     def continue_move(self, adventurer):
-        adventurers = adventurer.game.adventurers[self]
         agents = adventurer.game.agents[self]
         #with some probability, move in a random direction, to break out of degenerate situations
         if random.random() < self.p_deviate:
             adventurer.move(random.choice(['n','e','s','w']))
         #locate the next unvisited agent and move towards them, or if all agents have been visited either explore or return home
-        elif self.next_agent_num[adventurers.index(adventurer)] >= len(agents):
+        elif self.next_agent_num.get(adventurer) is not None and  self.next_agent_num.get(adventurer) < len(agents):
+            print("As a Router, "+self.name+" is moving towards their next Inn, #"+str(self.next_agent_num.get(adventurer)))
+            self.move_towards_tile(adventurer, agents[self.next_agent_num.get(adventurer)].current_tile)
+        else:
+            if self.next_agent_num.get(adventurer):
+                print("As a Router, "+self.name+" has visited all their "+str(self.next_agent_num.get(adventurer) + 1)+" Inns")
 #            if (adventurer.wealth <= adventurer.game.wealth_difference):
             if (adventurer.wealth < getattr(adventurer.game, self.return_city_attr)):
                 self.explore_best_space(adventurer)
 #                 self.explore_above_distance(adventurer, adventurer.latest_city, adventurer.game.CITY_DOMAIN_RADIUS)
             else:
                 self.move_towards_tile(adventurer, adventurer.latest_city)
-        else:
-            self.move_towards_tile(adventurer, agents[self.next_agent_num[adventurers.index(adventurer)]].current_tile)
 
         #if this is a wonder then always trade
 #             if isinstance(adventurer.current_tile, WonderTile):
         if adventurer.current_tile.is_wonder:
             adventurer.trade(adventurer.current_tile)
+        if isinstance(adventurer.current_tile, CityTile):
+            print(self.name+" has visited a city and will start heading to their first Inn again")
+            self.next_agent_num[adventurer] = 0
         return True
     
     # if this is the last movement of a turn then always place an agent when offered
@@ -433,6 +442,7 @@ class PlayerBeginnerRouter(PlayerBeginnerTrader):
         agents = adventurer.game.agents[self]
         #if this would otherwise be the last move this turn, then place an agent
         if len(agents) < adventurer.game.MAX_AGENTS and not adventurer.can_move(None):
+            print(self.name+" is placing an Inn where they have struggled to move.")
             return True
         else:
             return False
