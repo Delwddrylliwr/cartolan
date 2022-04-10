@@ -489,6 +489,7 @@ class DisasterTile(Tile):
         if isinstance(token, Token):
             if isinstance(token, Adventurer):
                 token.route.append(self)
+                token.turn_route.append(self)
                 if not self in self.game.disaster_tiles:
                     self.game.disaster_tiles.append(self)
                 else:
