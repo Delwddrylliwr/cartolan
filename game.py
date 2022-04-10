@@ -190,6 +190,7 @@ class GameBeginner(Game):
             # let players move an adventurer so long as it still has valid moves
             for adventurer in self.adventurers[player]:
                 if adventurer.turns_moved < self.turn:
+                    adventurer.turn_route = [adventurer.current_tile]
                     player.continue_turn(adventurer)
                     print() #to help log readability
                     

@@ -182,6 +182,7 @@ class Token:
         
         self.wealth = 0
         self.route = []
+        self.turn_route = []
         
         current_tile.move_onto_tile(self)
 
@@ -481,6 +482,7 @@ class Tile:
                 token.current_tile = self
                 self.adventurers.append(token)
                 token.route.append(self)
+                token.turn_route.append(self)
                 
             elif isinstance(token, Agent):
                 if token.__dict__.get("is_dispossessed"):
@@ -492,12 +494,14 @@ class Tile:
                     token.current_tile = self
                     self.agent = token
                     token.route.append(self) 
+                    token.turn_route.append(self)
                 elif self.agent.__dict__.get("is_dispossessed"):
                     self.agent.dismiss()
                     print("Moving agent for " +str(token.player.name)+ " onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                     self.agent = token
                     self.agent.current_tile = self
                     token.route.append(self) # relevant only in Regular and Advanced mode
+                    token.turn_route.append(self)
                 else: raise Exception("Tried to add multiple Agents to a tile: adding and agent of " +token.player.name+ " where there was an existing agent of " +self.agent.player.name)
             else: raise Exception("Didn't know how to handle this kind of token")
         else: raise Exception("Tried to move something other than a token onto a tile")

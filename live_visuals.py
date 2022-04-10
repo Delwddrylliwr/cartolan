@@ -57,6 +57,7 @@ class GameVisualisation():
     RIGHT_MENU_SCALE = 0.13
     OFFER_SCALE = 0.15
     ROUTE_THICKNESS = 4.0
+    NUM_DASHES = 10
     TOKEN_SCALE = 0.2 #relative to tile sizes
     AGENT_SCALE = 1.75 #relative to Adventurer radius
     TOKEN_OUTLINE_SCALE = 0.25 #relative to token scale
@@ -901,6 +902,17 @@ class GameVisualisation():
         Arguments:
         List of Carolan.Players the Adventurers and Agents that will be rendered
         '''
+        #This sub-method will draw a dashed line instead of a continuous one
+        def draw_dash_line(window, colour, start, end, thickness):
+            dash_size = [round((end[0]-start[0])/self.NUM_DASHES), round((end[1]-start[1])/self.NUM_DASHES)]
+            for dash_num in range(self.NUM_DASHES):
+                if dash_num % 2 == 1:
+                    #Draw only odd line increments
+                    inc_start = [start[0] + dash_num*dash_size[0], start[1] + dash_num*dash_size[1]]
+                    inc_end = [start[0] + (dash_num+1)*dash_size[0], start[1] + (dash_num+1)*dash_size[1]]
+                    pygame.draw.line(window, colour, inc_start, inc_end, thickness)
+            return [min(start[0], end[0]), min(start[1], end[1]), abs(end[0]-start[0]), abs(end[1]-start[1])]
+        
 #        print("Drawing a series of lines to mark out the route travelled by players since the last move")
         players = self.game.players
         self.drawn_routes = [] #Clear out old routes
@@ -914,20 +926,18 @@ class GameVisualisation():
             adventurers = self.game.adventurers[player]
             colour = pygame.Color(self.player_colours[player])
             for adventurer in adventurers:
+                adventurer_offset = self.ADVENTURER_OFFSETS[adventurers.index(adventurer)]
+                adventurer_offset = [adventurer_offset[i] + player_offset[i] for i in [0, 1]]
+                #Draw the route for this expedition, between City visits
                 if adventurer.route:
-                    adventurer_offset = self.ADVENTURER_OFFSETS[adventurers.index(adventurer)]
-                    adventurer_offset = [adventurer_offset[i] + player_offset[i] for i in [0, 1]]
                     previous_step = [int(self.play_area_start + self.tile_size * (self.get_horizontal(adventurer.route[0].tile_position.longitude) + adventurer_offset[0]))
                             , int(self.tile_size * (self.get_vertical(adventurer.route[0].tile_position.latitude) + adventurer_offset[1]))]
-                    # we'll introduce a gradual offset during the course of the game, to help keep track of when a route was travelled
                     move = 0
                     drawn_route = []
                     for tile in adventurer.route:
-                        # you'll need to get the centre-point for each tile_image
-                        offset = [0.5 + float(move)/float(len(adventurer.route))*(x - 0.5) for x in adventurer_offset]
-                        step = [int(self.play_area_start + self.tile_size * (self.get_horizontal(tile.tile_position.longitude) + offset[0]))
-                                , int(self.tile_size * (self.get_vertical(tile.tile_position.latitude) + offset[1]))]
-                        segment = pygame.draw.line(self.window, colour
+                        step = [int(self.play_area_start + self.tile_size * (self.get_horizontal(tile.tile_position.longitude) + adventurer_offset[0]))
+                                , int(self.tile_size * (self.get_vertical(tile.tile_position.latitude) + adventurer_offset[1]))]
+                        segment = draw_dash_line(self.window, colour
                                          , [previous_step[0], previous_step[1]]
                                          , [step[0], step[1]]
                                          , math.ceil(self.route_thickness 
@@ -945,6 +955,24 @@ class GameVisualisation():
 #                        print("Recording route of "+self.player_colours[adventurer.player]+" player, for fast travel.")
 #                        print("Route length: "+str(len(drawn_route)))
                         self.drawn_routes.append([drawn_route, route_to_follow])
+                #Draw the route for the latest turn
+                if adventurer.turn_route:
+                    previous_step = [int(self.play_area_start + self.tile_size * (self.get_horizontal(adventurer.turn_route[0].tile_position.longitude) + adventurer_offset[0]))
+                            , int(self.tile_size * (self.get_vertical(adventurer.turn_route[0].tile_position.latitude) + adventurer_offset[1]))]
+                    move = 0
+                    for tile in adventurer.turn_route:
+                        # you'll need to get the centre-point for each tile_image
+                        step = [int(self.play_area_start + self.tile_size * (self.get_horizontal(tile.tile_position.longitude) + adventurer_offset[0]))
+                                , int(self.tile_size * (self.get_vertical(tile.tile_position.latitude) + adventurer_offset[1]))]
+                        segment = pygame.draw.line(self.window, colour
+                                         , [previous_step[0], previous_step[1]]
+                                         , [step[0], step[1]]
+                                         , math.ceil(self.route_thickness 
+                                                     * float(len(adventurer.route)-len(adventurer.turn_route)+move)/float(len(adventurer.route))
+                                                     )
+                                         )
+                        previous_step = step
+                        move += 1
             
 #            if isinstance(player, PlayerRegularExplorer):
 #                for attack in player.attack_history: 
