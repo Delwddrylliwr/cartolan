@@ -944,6 +944,7 @@ class GameVisualisation():
                                                      * float(move)/float(len(adventurer.route))
                                                      )
                                          )
+                        # print(segment)
                         previous_step = step
                         drawn_route.append(segment)
                         move += 1
@@ -1842,10 +1843,10 @@ class WebServerVisualisation(GameVisualisation):
                     #Also check whether the click was on a drawn route
                     for route in self.drawn_routes:
                         for segment in route[0]:
-                            if (horizontal in range(int(segment[0])
-                                , int(segment[0]) + int(segment[2]))
-                            and vertical in range(int(segment[1])
-                                , int(segment[1]) + int(segment[3]))):
+                            if (horizontal in range(int(segment[0] - self.ROUTE_THICKNESS)
+                                , int(segment[0]) + int(segment[2] + self.ROUTE_THICKNESS))
+                            and vertical in range(int(segment[1] - self.ROUTE_THICKNESS)
+                                , int(segment[1]) + int(segment[3] + self.ROUTE_THICKNESS))):
                                 longitude = int(math.ceil((horizontal - self.play_area_start)/self.tile_size)) - self.origin[0] - 1
                                 latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
 #                                print("Identified coordinates on a route of length "+str(len(route[1])))
