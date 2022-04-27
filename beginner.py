@@ -356,11 +356,9 @@ class AdventurerBeginner(Adventurer):
         return exploration_value
     
     def rotate_and_place(self, potential_tile, longitude, latitude, compass_point_moving, adjoining_edges_water):
-        '''For a given potential tile try it in
+        '''For a given potential tile try it in the various rotations that are allowed, and then place it if possible
         '''
-        # rotate it to the orientation of the current tile
-        def null():
-            pass
+        # rotate the potential tile to the orientation of the current tile
         while not (potential_tile.wind_direction.north == self.current_tile.wind_direction.north and 
                    potential_tile.wind_direction.east == self.current_tile.wind_direction.east):
             potential_tile.rotate_tile_clock()
@@ -372,6 +370,22 @@ class AdventurerBeginner(Adventurer):
 #                  +";E:"+str(potential_tile.wind_direction.east))
         
         # check whether the tile will place, rotating as needed
+        if self.rotated_tile_fits(potential_tile, compass_point_moving, adjoining_edges_water):    
+            # place tile and feed back to calling function that tile has been placed
+            potential_tile.place_tile(longitude, latitude)
+            # if this filled a gap in the map then award the Adventurer accordingly 
+            self.wealth += self.get_exploration_value(adjoining_edges_water, compass_point_moving)
+            return True
+        else:
+            #Feed back to the calling function that the tile wouldn't place under any suitable rotation
+            return False
+        
+    def rotated_tile_fits(self, potential_tile, compass_point_moving, adjoining_edges_water):
+        '''Check whether a given tile will fit into an adjacent space to the Adventurer
+        '''
+        # first establish the set of rotations under this ruleset
+        def null():
+            pass
         if self.game.exploration_rules == "clockwise": # this version 1 of exploration rules will just try a clockwise rotation and then an anti
             rotations = [null, potential_tile.rotate_tile_anti, potential_tile.rotate_tile_clock] # remember these will pop in reverse order, print used as a null function that will do nothing to the potential tile
         elif  self.game.exploration_rules == "continuous": # this version 2 of the exploration rules will try to line up arrows head to toe as a first preference 
@@ -406,10 +420,6 @@ class AdventurerBeginner(Adventurer):
                 edge_matches = adjoining_edges_water[compass_point] is None or adjoining_edges_water[compass_point] == potential_tile.compass_edge_water(compass_point)
 
             if edge_matches:
-                # place tile and feed back to calling function that tile has been placed
-                potential_tile.place_tile(longitude, latitude)
-                # if this filled a gap in the map then award the Adventurer accordingly 
-                self.wealth += self.get_exploration_value(adjoining_edges_water, compass_point_moving)
                 return True
             else:
                 #return the tile to the same wind direction as the original
