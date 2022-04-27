@@ -65,8 +65,8 @@ class AdvancedConfig:
     NUM_DISCOVERY_CHOICES = 2
     
     #AI behaviour config
-    RETURN_CITY_ATTR = "cost_adventurer" #The Adventurer cost attribute against which CPU Adventurers will compare their current Chest wealth, when deciding whether to head back for the Capital
-    P_BUY_TECH = 0.5 #The probability that CPU players will spend their Vault wealth on Manuscript cards, if they can afford it
+    RETURN_CITY_ATTR = "cost_tech" #The Adventurer cost attribute against which CPU Adventurers will compare their current Chest wealth, when deciding whether to head back for the Capital
+    P_BUY_TECH = 0.25 #The probability that CPU players will spend their Vault wealth on Manuscript cards, if they can afford it
     
     #Config relating to card buffs
     VALUE_AGENT_TRADE = 0

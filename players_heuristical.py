@@ -468,6 +468,73 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
         self.attack_history = {} #to keep track of when this player has attacked, for reference
         super().__init__(name)
     
+    #@TODO this repeats a lot from the parent method, but the changes touch everything slightly so a more elegant solution would take a complete rewrite
+    def explore_best_space(self, adventurer):
+        '''Extends basic behaviour by trying to use Chest maps first'''
+        #check downwind clockwise first, then downwind anti, then upwind clock, then upwind anti
+        print(str(adventurer.player.name) +": trying heuristic that prefers the adjacent gap in the map with the highest prospective score from adjoining edges, preferring downwind and right when this is tied")
+        if adventurer.current_tile.wind_direction.east:
+            if adventurer.current_tile.wind_direction.north:
+                potential_moves = ['e', 'n', 'w', 's']
+            else:
+                potential_moves = ['s', 'e', 'n', 'w']
+        else:
+            if adventurer.current_tile.wind_direction.north:
+                potential_moves = ['n', 'w', 's', 'e']
+            else:
+                potential_moves = ['w', 's', 'e', 'n']
+        
+        #for each possible move, check wether an empty space in the map and how much exploration is worth
+        preferred_move = None
+        preferred_guaranteed = False #Keep track of whether there is a Chest tile that will guarantee this exploration succeeds
+        preferred_score = 0
+        exploration_moves = 0
+        for compass_point in potential_moves:
+            if adventurer.can_move(compass_point):
+                #translate the compass point into coordinates
+                longitude_increment = int(compass_point.lower() in ["east","e"]) - int(compass_point.lower() in ["west","w"])
+                new_longitude = adventurer.current_tile.tile_position.longitude + longitude_increment
+                latitude_increment = int(compass_point.lower() in ["north","n"]) - int(compass_point.lower() in ["south","s"])
+                new_latitude = adventurer.current_tile.tile_position.latitude + latitude_increment
+                #check whether empty or otherwise designated to avoid
+                if (adventurer.exploration_needed(new_longitude, new_latitude) 
+                    and not self.check_location_to_avoid(new_longitude, new_latitude)):
+                    #Check whether the score from exploring here beats any checked so far
+                    exploration_moves += 1
+                    potential_score = adventurer.get_exploration_value(adventurer.get_adjoining_edges(new_longitude, new_latitude), compass_point)
+                    score_guaranteed = None #An int for the index of the Chest tile that fits
+                    for tile in adventurer.chest_tiles:
+                        if adventurer.rotated_tile_fits(tile, compass_point, adventurer.get_adjoining_edges(new_longitude, new_latitude)):
+                            score_guaranteed = adventurer.chest_tiles.index(tile)
+                    if preferred_guaranteed:
+                        if score_guaranteed is not None:
+                            #Omly bother evaluating if this exploration is also guaranteed
+                            if potential_score > preferred_score:
+                                preferred_move = compass_point
+                                preferred_score = potential_score
+                                adventurer.preferred_tile_num = score_guaranteed #Select this chest tile to be used
+                    else:
+                        #Either a higher reward or a guaranteed reward will make this move preferable
+                        if score_guaranteed is not None or potential_score > preferred_score:
+                            preferred_move = compass_point
+                            preferred_score = potential_score
+                            adventurer.preferred_tile_num = score_guaranteed #Select this chest tile to be used
+        print(self.name +"'s Adventurer has "+str(exploration_moves)+" exploration options.")
+        if preferred_move is not None:
+            if adventurer.move(preferred_move):
+                return True
+            else:
+                #If movement failed because the turn is over then leave here
+                if adventurer.turns_moved >= adventurer.game.turn:
+                    return True
+                self.locations_to_avoid.append([new_longitude, new_latitude])
+                return False
+        elif exploration_moves == 3:
+            #The absence of any scoring opportunities despite exploration on all sides implies isolation and that it's worth abandoning the expedition
+            city_tile = adventurer.latest_city
+            adventurer.abandon_expedition(city_tile)
+        print("With no valid Chest map placements found, then looking for random exploration")
+        return self.move_away_from_tile(adventurer, adventurer.latest_city)
     
     def continue_turn(self, adventurer):
         print(str(adventurer.player.name)+ " is moving an Adventurer, which has " 
