@@ -9,6 +9,9 @@ __pycache__/*
 cartolan_web/nbproject
 cartolan_web/.vs
 
+#SSL certificates
+cartolan_web/certificates
+
 # Deployment
 logs/*.txt
 dist/*

@@ -996,7 +996,7 @@ class GameVisualisation():
         game = self.game
         horizontal = self.SCORES_POSITION[0] * self.width
         vertical = self.SCORES_POSITION[1] * self.height
-        score_title = self.scores_font.render("Treasure in...", 1, self.PLAIN_TEXT_COLOUR)
+        score_title = self.scores_font.render("Turn "+str(game.turn)+", treasure in...", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(score_title, [horizontal, vertical])
         vertical += score_title.get_height()
         horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width #// 2
@@ -1020,7 +1020,13 @@ class GameVisualisation():
             vertical += self.SCORES_FONT_SCALE * self.height #increment the vertical position to a new row
             score_value = self.scores_font.render(player.name, 1, colour)
             self.window.blit(score_value, [horizontal, vertical])
-            score_value = self.scores_font.render(str(self.game.player_wealths[player]), 1, colour)
+            if player == game.winning_player:
+                score_text = str(self.game.player_wealths[player])+" (+"+str(game.wealth_difference)+")"
+            # elif game.winning_player is not None:
+            #     score_text = str(self.game.player_wealths[player])+" (-"+str(self.game.player_wealths[self.game.winning_player] - self.game.player_wealths[player])+")"
+            else:
+                score_text = str(self.game.player_wealths[player])
+            score_value = self.scores_font.render(score_text, 1, colour)
             horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width # - score_value.get_width()
             self.window.blit(score_value, [horizontal, vertical])
             #Record this space for click detection

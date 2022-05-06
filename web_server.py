@@ -180,30 +180,31 @@ class ClientSocket(WebSocket):
         game_id = next_game_id
         next_game_id += 1
         new_game_clients[game_id] = [self]
-        print("Seeking game specification from newly joined client")
-        prompt_text = "Please specify which mode of Cartolan you would like to host: "
-        valid_options = []
-        for game_type in GAME_MODES:
-            prompt_text += "'"+game_type+"'"
-            valid_options.append(game_type)
-            if len(valid_options) < len(GAME_MODES):
-                prompt_text += ", or "
-            else:
-                prompt_text += "."
-        if new_game_type not in valid_options:
-            prompt_text += " (Hit enter for default "+DEFAULT_GAME_MODE+")"
-            print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-            self.sendMessage("PROMPT[00100]"+prompt_text)
-        while not new_game_type in valid_options:
-            new_game_type = self.get_text()
-            if new_game_type:
-                if new_game_type == "BLANK":
-                    print("Game type prompt was left blank, so assuming default mode of "+DEFAULT_GAME_MODE)
-                    new_game_type = DEFAULT_GAME_MODE
-                elif not new_game_type in valid_options:
-                    new_game_type = None
-                    self.sendMessage("PROMPT[00100]"+prompt_text)
-            time.sleep(self.INPUT_DELAY)
+        # print("Seeking game specification from newly joined client")
+        # prompt_text = "Please specify which mode of Cartolan you would like to host: "
+        # valid_options = []
+        # for game_type in GAME_MODES:
+        #     prompt_text += "'"+game_type+"'"
+        #     valid_options.append(game_type)
+        #     if len(valid_options) < len(GAME_MODES):
+        #         prompt_text += ", or "
+        #     else:
+        #         prompt_text += "."
+        # if new_game_type not in valid_options:
+        #     prompt_text += " (Hit enter for default "+DEFAULT_GAME_MODE+")"
+        #     print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+        #     self.sendMessage("PROMPT[00100]"+prompt_text)
+        # while not new_game_type in valid_options:
+        #     new_game_type = self.get_text()
+        #     if new_game_type:
+        #         if new_game_type == "BLANK":
+        #             print("Game type prompt was left blank, so assuming default mode of "+DEFAULT_GAME_MODE)
+        #             new_game_type = DEFAULT_GAME_MODE
+        #         elif not new_game_type in valid_options:
+        #             new_game_type = None
+        #             self.sendMessage("PROMPT[00100]"+prompt_text)
+        #     time.sleep(self.INPUT_DELAY)
+        new_game_type = DEFAULT_GAME_MODE #Deprecating multiple game modes
         new_game_types[game_id] = new_game_type
         min_players = GAME_MODES[new_game_type]["game_type"].MIN_PLAYERS
         max_players = GAME_MODES[new_game_type]["game_type"].MAX_PLAYERS
