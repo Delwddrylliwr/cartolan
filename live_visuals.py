@@ -1022,6 +1022,10 @@ class GameVisualisation():
             self.window.blit(score_value, [horizontal, vertical])
             if player == game.winning_player:
                 score_text = str(self.game.player_wealths[player])+" (+"+str(game.wealth_difference)+")"
+            #Highlight the second placed player too, because lower ranked players can behave differently
+            elif (game.winning_player is not None 
+                  and self.game.player_wealths[game.winning_player] - self.game.player_wealths[player] == game.wealth_difference):
+                score_text = str(self.game.player_wealths[player])+" (2nd)"
             # elif game.winning_player is not None:
             #     score_text = str(self.game.player_wealths[player])+" (-"+str(self.game.player_wealths[self.game.winning_player] - self.game.player_wealths[player])+")"
             else:
