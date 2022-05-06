@@ -16,3 +16,6 @@ build/*
 
 # Logging
 *nohup.out
+
+# SSL Certificates
+cartolan_web/certificates/*
