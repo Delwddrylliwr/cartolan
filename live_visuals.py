@@ -996,7 +996,7 @@ class GameVisualisation():
         game = self.game
         horizontal = self.SCORES_POSITION[0] * self.width
         vertical = self.SCORES_POSITION[1] * self.height
-        score_title = self.scores_font.render("Turn "+str(game.turn)+", treasure in...", 1, self.PLAIN_TEXT_COLOUR)
+        score_title = self.scores_font.render("At turn "+str(game.turn)+", players have this much treasure in their...", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(score_title, [horizontal, vertical])
         vertical += score_title.get_height()
         horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width #// 2
