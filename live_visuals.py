@@ -52,6 +52,7 @@ class GameVisualisation():
     TILE_BORDER = 0.02 #the share of grid width/height that is used for border
     CARD_HEADER_SHARE = 0.15 # the share of card images that is the header, visually summarising the buffs of the card with colour and a logo
     CARD_BODY_START = 0.7 # the share of the card before text starts
+    MENU_FONT = "stmary10" #The system font to try and match
     LEFT_MENU_SCALE = 0.13
     MENU_TILE_COLS = 2
     RIGHT_MENU_SCALE = 0.13
@@ -200,9 +201,9 @@ class GameVisualisation():
         self.token_size = round(self.TOKEN_SCALE * self.tile_size) #token size will be proportional to the tiles
         self.outline_width = math.ceil(self.TOKEN_OUTLINE_SCALE * self.token_size)
         self.token_font = pygame.font.SysFont(None, round(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
-        self.scores_font = pygame.font.SysFont(None, round(self.height * self.SCORES_FONT_SCALE)) #the font size for scores will be proportionate to the window size
+        self.scores_font = pygame.font.SysFont(self.MENU_FONT, round(self.height * self.SCORES_FONT_SCALE)) #the font size for scores will be proportionate to the window size
         self.card_font = pygame.font.SysFont(None, round(self.height * self.CARD_FONT_SCALE)) #the font size for scores will be proportionate to the window size
-        self.prompt_font = pygame.font.SysFont(None, round(self.height * self.PROMPT_FONT_SCALE)) #the font size for prompt will be proportionate to the window size
+        self.prompt_font = pygame.font.SysFont(self.MENU_FONT, round(self.height * self.PROMPT_FONT_SCALE)) #the font size for prompt will be proportionate to the window size
         self.prompt_position = [self.play_area_start + self.PROMPT_POSITION[0]*self.width
                                 , self.PROMPT_POSITION[1]*self.height]
         pygame.font.init()
@@ -999,76 +1000,113 @@ class GameVisualisation():
         score_title = self.scores_font.render("Turn "+str(game.turn)+", treasure in...", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(score_title, [horizontal, vertical])
         vertical += score_title.get_height()
-        horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width #// 2
-        score_title = self.scores_font.render("Vault", 1, self.PLAIN_TEXT_COLOUR)
-        self.window.blit(score_title, [horizontal, vertical])
-        #Add the first Adventurer's Chest column, as there will always be one
-        score_title = self.scores_font.render("Chest #1", 1, self.PLAIN_TEXT_COLOUR)
-        horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width
-        self.window.blit(score_title, [horizontal, vertical])
-        #Start recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
-        self.scores_rect = (horizontal, vertical, 0, 0)
-        self.score_rects = []
+        scores_texts = [[], [], []] #Start with three columns: name, vault treasure, 1st adventurer's chest treasure
+        scores_widths = []
+        #Leave the top cell of the names column blank
+        scores_texts[0].append([self.scores_font.render("", 1, self.PLAIN_TEXT_COLOUR), None]) #2-array kept to allow click-detection
+        scores_widths.append(0)
+        #Label the Vault column
+        score_text = self.scores_font.render("  Vault", 1, self.PLAIN_TEXT_COLOUR)
+        scores_texts[1].append([score_text, None]) #2-array kept to allow click-detection
+        scores_widths.append(score_text.get_width())
+        #Label the first Adventurer Chest column, as there will always be one
+        score_text = self.scores_font.render("  Chest #1  ", 1, self.PLAIN_TEXT_COLOUR)
+        scores_texts[2].append([score_text, None]) #2-array kept to allow click-detection
+        scores_widths.append(score_text.get_width())
         #Work out the maximum number of Adventurers in play, to only draw this many columns
         max_num_adventurers = 1
         for player in self.game.players:
             if len(game.adventurers[player]) > max_num_adventurers:
                 max_num_adventurers = len(game.adventurers[player])
-        self.scores_spacing = self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width
         if max_num_adventurers > 1:
-            for adventurer_num in range(2, max_num_adventurers + 1):
-                    score_title = self.scores_font.render(" #"+str(adventurer_num)+" ", 1, self.PLAIN_TEXT_COLOUR)
-                    horizontal += self.scores_spacing
-                    #Adjust the column widths here and for the scores themselves to match the shoter title
-                    self.scores_spacing = score_title.get_width()
-                    self.window.blit(score_title, [horizontal, vertical])
+            for adventurer_num in range(2, max_num_adventurers + 1):    
+                score_title = self.scores_font.render("  #"+str(adventurer_num)+"  ", 1, self.PLAIN_TEXT_COLOUR)
+                scores_texts.append([[score_title, None]]) #2-array kept to allow click-detection
+                scores_widths.append(score_title.get_width())
+        #There will now be a row for each player
         for player in self.game.players:
             colour = pygame.Color(self.player_colours[player])
-            horizontal = self.SCORES_POSITION[0] * self.width #reset the scores position before going through other rows below
-            vertical += self.SCORES_FONT_SCALE * self.height #increment the vertical position to a new row
-            score_value = self.scores_font.render(player.name, 1, colour)
-            self.window.blit(score_value, [horizontal, vertical])
+            #First we have the Player's name
+            score_text = self.scores_font.render(player.name, 1, colour)
+            scores_texts[0].append([score_text, player])
+            #Update the column width if needed
+            if score_text.get_width() > scores_widths[0]:
+                scores_widths[0] = score_text.get_width()
+            #Now the Player's Vault treasure (score)  
             if player == game.winning_player:
-                score_text = str(self.game.player_wealths[player])+" (+"+str(game.wealth_difference)+")"
+                text = "  "+str(self.game.player_wealths[player])+" (+"+str(game.wealth_difference)+")"
             #Highlight the second placed player too, because lower ranked players can behave differently
             elif (game.winning_player is not None 
                   and self.game.player_wealths[game.winning_player] - self.game.player_wealths[player] == game.wealth_difference):
-                score_text = str(self.game.player_wealths[player])+" (2nd)"
+                text = "  "+str(self.game.player_wealths[player])+" (2nd)"
             # elif game.winning_player is not None:
-            #     score_text = str(self.game.player_wealths[player])+" (-"+str(self.game.player_wealths[self.game.winning_player] - self.game.player_wealths[player])+")"
+            #     text = str(self.game.player_wealths[player])+" (-"+str(self.game.player_wealths[self.game.winning_player] - self.game.player_wealths[player])+")"
             else:
-                score_text = str(self.game.player_wealths[player])
-            score_value = self.scores_font.render(score_text, 1, colour)
-            horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width # - score_value.get_width()
-            self.window.blit(score_value, [horizontal, vertical])
-            #Record this space for click detection
-#            self.score_rects.append([(horizontal, vertical, self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width, self.SCORES_FONT_SCALE * self.height), player])
-            self.score_rects.append([(horizontal, vertical, score_value.get_width(), score_value.get_height()), player])
-            horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width #Shift to a new column
-            for adventurer in game.adventurers[player]:
-                score_value = self.scores_font.render(str(adventurer.wealth), 1, colour)
-                self.window.blit(score_value, [horizontal, vertical])
-                #If this is the moving Adventurer, then highlight their score
-                if adventurer == self.current_adventurer:
-                    pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
-                                 , (horizontal
-                                    , vertical + score_value.get_height()
-                                    , score_value.get_width()
-                                    , 0)
-                                 , self.chest_highlight_thickness)
-                #If this is the Adventurer whose cards are being viewed then mark with a dot underneath
-                if adventurer == self.viewed_adventurer:
-                    pygame.draw.circle(self.window, self.PLAIN_TEXT_COLOUR
-                                 , (horizontal + score_value.get_width()//2
-                                    , vertical + score_value.get_height())
-                                 , self.chest_highlight_thickness)
-                #Record this space for click detection
-#                self.score_rects.append([(horizontal, vertical, self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width, self.SCORES_FONT_SCALE * self.height), adventurer])
-                self.score_rects.append([(horizontal, vertical, score_value.get_width(), score_value.get_height()), adventurer])
-                if game.adventurers[player].index(adventurer) == 0:
-                    horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width #Shift to a new column
+                text = str(self.game.player_wealths[player])
+            score_text = self.scores_font.render("  "+text, 1, colour)
+            scores_texts[1].append([score_text, player])
+            #Update the column width if needed
+            if score_text.get_width() > scores_widths[1]:
+                scores_widths[1] = score_text.get_width()
+            #Now the Player's first Adventurer's Chest 
+            adventurer = game.adventurers[player][0]
+            score_text = self.scores_font.render(str(adventurer.wealth)+"  ", 1, colour)
+            scores_texts[2].append([score_text, adventurer])
+            #Update the column width if needed
+            if score_text.get_width() > scores_widths[2]:
+                scores_widths[2] = score_text.get_width()
+            #Now any further Adventurers
+            for adventurer_num in range(2, max_num_adventurers+1):
+                if len(self.game.adventurers[player]) >= adventurer_num:
+                    adventurer = self.game.adventurers[player][adventurer_num-1]
+                    score_text = self.scores_font.render(str(adventurer.wealth)+"  ", 1, colour)
+                    #If this is the moving Adventurer, then highlight their score
+                    if adventurer == self.current_adventurer:
+                        pygame.draw.rect(score_text, self.PLAIN_TEXT_COLOUR
+                                     , (0
+                                        , score_text.get_height()
+                                        , score_text.get_width()
+                                        , 0)
+                                     , self.chest_highlight_thickness)
+                    #If this is the Adventurer whose cards are being viewed then mark with a dot underneath
+                    if adventurer == self.viewed_adventurer:
+                        pygame.draw.circle(score_text, self.PLAIN_TEXT_COLOUR
+                                     , (score_text.get_width()//2
+                                        , score_text.get_height())
+                                     , self.chest_highlight_thickness)
                 else:
-                    horizontal += self.scores_spacing
+                    score_text = self.scores_font.render("", 1, colour)
+                scores_texts[adventurer_num+1].append([score_text, adventurer])
+                #Update the column width if needed
+                if score_text.get_width() > scores_widths[adventurer_num+1]:
+                    scores_widths[adventurer_num+1] = score_text.get_width()
+                
+        #Add all of the table cells to the canvas
+        left_edge = right_edge = horizontal = self.SCORES_POSITION[0] * self.width #reset the scores position before going through other rows below
+        #Start recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
+        self.scores_rect = [horizontal, vertical, 0, 0]
+        self.score_rects = []
+        for column in scores_texts:
+            #Calculate the right edge of this column
+            right_edge += scores_widths[scores_texts.index(column)]
+            #Reset the vertical position
+            vertical = self.SCORES_POSITION[1] * self.height #reset the scores position before going through other rows below
+            for score_text, score_owner in column:
+                vertical += self.SCORES_FONT_SCALE * self.height #increment the vertical position to a new row
+                #Draw this in the window
+                if scores_texts.index(column) > 0:
+                    horizontal = right_edge - score_text.get_width() #Right-align Chest treasure
+                else:
+                    horizontal = left_edge
+                self.window.blit(score_text, [horizontal, vertical])
+                #Remember where for click detection
+                self.score_rects.append([(horizontal, vertical, score_text.get_width(), score_text.get_height()), score_owner])
+            #Update the left edge for the next column
+            left_edge += scores_widths[scores_texts.index(column)]
+        #Remember the outer dimensions of the whole table
+        self.scores_rect[2] = right_edge
+        self.scores_rect[3] = vertical + self.SCORES_FONT_SCALE * self.height
+                
         #State the current player and Adventurer
         vertical += self.SCORES_FONT_SCALE * self.height
         horizontal = self.SCORES_POSITION[0] * self.width
