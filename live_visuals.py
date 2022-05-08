@@ -1002,6 +1002,10 @@ class GameVisualisation():
         horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width #// 2
         score_title = self.scores_font.render("Vault", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(score_title, [horizontal, vertical])
+        #Add the first Adventurer's Chest column, as there will always be one
+        score_title = self.scores_font.render("Chest #1", 1, self.PLAIN_TEXT_COLOUR)
+        horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width
+        self.window.blit(score_title, [horizontal, vertical])
         #Start recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
         self.scores_rect = (horizontal, vertical, 0, 0)
         self.score_rects = []
@@ -1010,10 +1014,14 @@ class GameVisualisation():
         for player in self.game.players:
             if len(game.adventurers[player]) > max_num_adventurers:
                 max_num_adventurers = len(game.adventurers[player])
-        for adventurer_num in range(1, max_num_adventurers + 1):
-                score_title = self.scores_font.render("Chest #"+str(adventurer_num), 1, self.PLAIN_TEXT_COLOUR)
-                horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width
-                self.window.blit(score_title, [horizontal, vertical])
+        self.scores_spacing = self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width
+        if max_num_adventurers > 1:
+            for adventurer_num in range(2, max_num_adventurers + 1):
+                    score_title = self.scores_font.render(" #"+str(adventurer_num)+" ", 1, self.PLAIN_TEXT_COLOUR)
+                    horizontal += self.scores_spacing
+                    #Adjust the column widths here and for the scores themselves to match the shoter title
+                    self.scores_spacing = score_title.get_width()
+                    self.window.blit(score_title, [horizontal, vertical])
         for player in self.game.players:
             colour = pygame.Color(self.player_colours[player])
             horizontal = self.SCORES_POSITION[0] * self.width #reset the scores position before going through other rows below
@@ -1036,8 +1044,8 @@ class GameVisualisation():
             #Record this space for click detection
 #            self.score_rects.append([(horizontal, vertical, self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width, self.SCORES_FONT_SCALE * self.height), player])
             self.score_rects.append([(horizontal, vertical, score_value.get_width(), score_value.get_height()), player])
+            horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width #Shift to a new column
             for adventurer in game.adventurers[player]:
-                horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width #Shift to a new column
                 score_value = self.scores_font.render(str(adventurer.wealth), 1, colour)
                 self.window.blit(score_value, [horizontal, vertical])
                 #If this is the moving Adventurer, then highlight their score
@@ -1057,6 +1065,10 @@ class GameVisualisation():
                 #Record this space for click detection
 #                self.score_rects.append([(horizontal, vertical, self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width, self.SCORES_FONT_SCALE * self.height), adventurer])
                 self.score_rects.append([(horizontal, vertical, score_value.get_width(), score_value.get_height()), adventurer])
+                if game.adventurers[player].index(adventurer) == 0:
+                    horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width #Shift to a new column
+                else:
+                    horizontal += self.scores_spacing
         #State the current player and Adventurer
         vertical += self.SCORES_FONT_SCALE * self.height
         horizontal = self.SCORES_POSITION[0] * self.width
