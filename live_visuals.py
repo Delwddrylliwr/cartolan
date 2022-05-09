@@ -52,6 +52,7 @@ class GameVisualisation():
     TILE_BORDER = 0.02 #the share of grid width/height that is used for border
     CARD_HEADER_SHARE = 0.15 # the share of card images that is the header, visually summarising the buffs of the card with colour and a logo
     CARD_BODY_START = 0.7 # the share of the card before text starts
+    MENU_FONT = "stmary10" #The system font to try and match
     LEFT_MENU_SCALE = 0.13
     MENU_TILE_COLS = 2
     RIGHT_MENU_SCALE = 0.13
@@ -200,9 +201,9 @@ class GameVisualisation():
         self.token_size = round(self.TOKEN_SCALE * self.tile_size) #token size will be proportional to the tiles
         self.outline_width = math.ceil(self.TOKEN_OUTLINE_SCALE * self.token_size)
         self.token_font = pygame.font.SysFont(None, round(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
-        self.scores_font = pygame.font.SysFont(None, round(self.height * self.SCORES_FONT_SCALE)) #the font size for scores will be proportionate to the window size
+        self.scores_font = pygame.font.SysFont(self.MENU_FONT, round(self.height * self.SCORES_FONT_SCALE)) #the font size for scores will be proportionate to the window size
         self.card_font = pygame.font.SysFont(None, round(self.height * self.CARD_FONT_SCALE)) #the font size for scores will be proportionate to the window size
-        self.prompt_font = pygame.font.SysFont(None, round(self.height * self.PROMPT_FONT_SCALE)) #the font size for prompt will be proportionate to the window size
+        self.prompt_font = pygame.font.SysFont(self.MENU_FONT, round(self.height * self.PROMPT_FONT_SCALE)) #the font size for prompt will be proportionate to the window size
         self.prompt_position = [self.play_area_start + self.PROMPT_POSITION[0]*self.width
                                 , self.PROMPT_POSITION[1]*self.height]
         pygame.font.init()
@@ -212,7 +213,7 @@ class GameVisualisation():
         self.stack_rect = (0, 0, 0, 0)
         self.current_move_count = None
         self.move_count_rect = (self.MOVE_COUNT_POSITION[0]*self.width, self.MOVE_COUNT_POSITION[1]*self.height, 0, round(self.height * self.SCORES_FONT_SCALE) + self.menu_tile_size)
-        self.toggles_rect = (self.right_menu_start, self.move_count_rect[1]+self.move_count_rect[3], 0, self.menu_tile_size+round(self.height * self.SCORES_FONT_SCALE))
+        self.toggles_rect = (self.right_menu_start, self.move_count_rect[1]+self.move_count_rect[3]+round(self.height * self.SCORES_FONT_SCALE)+self.menu_highlight_size, 0, self.menu_tile_size+round(self.height * self.SCORES_FONT_SCALE))
         self.chest_rect = (self.right_menu_start, self.toggles_rect[1]+self.toggles_rect[3]+round(self.height * self.SCORES_FONT_SCALE), 0, self.menu_tile_size)
         self.piles_rect = (self.right_menu_start, self.toggles_rect[1]+self.toggles_rect[3]+round(self.height * self.SCORES_FONT_SCALE), 0, 0)
         #Import images
@@ -741,7 +742,7 @@ class GameVisualisation():
             count = str(only_downwind_moves - extra_downwind_moves) + " / " + str(only_downwind_moves)
             downwind_water_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
         else:
-            report = "Not Adventurer's turn"
+            report = "Not #" +str(self.viewed_adventurer_number+1)+ "'s turn"
             move_title = self.scores_font.render(report, 1, self.viewed_player_colour)
             any_direction_meter = pygame.Surface((self.menu_tile_size, self.menu_tile_size))
             any_direction_text = self.scores_font.render("", 1, self.PLAIN_TEXT_COLOUR)
@@ -999,64 +1000,113 @@ class GameVisualisation():
         score_title = self.scores_font.render("At turn "+str(game.turn)+", players have this much treasure in their...", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(score_title, [horizontal, vertical])
         vertical += score_title.get_height()
-        horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width #// 2
-        score_title = self.scores_font.render("Vault", 1, self.PLAIN_TEXT_COLOUR)
-        self.window.blit(score_title, [horizontal, vertical])
-        #Start recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
-        self.scores_rect = (horizontal, vertical, 0, 0)
-        self.score_rects = []
+        scores_texts = [[], [], []] #Start with three columns: name, vault treasure, 1st adventurer's chest treasure
+        scores_widths = []
+        #Leave the top cell of the names column blank
+        scores_texts[0].append([self.scores_font.render("", 1, self.PLAIN_TEXT_COLOUR), None]) #2-array kept to allow click-detection
+        scores_widths.append(0)
+        #Label the Vault column
+        score_text = self.scores_font.render("  Vault", 1, self.PLAIN_TEXT_COLOUR)
+        scores_texts[1].append([score_text, None]) #2-array kept to allow click-detection
+        scores_widths.append(score_text.get_width())
+        #Label the first Adventurer Chest column, as there will always be one
+        score_text = self.scores_font.render("  Chest #1", 1, self.PLAIN_TEXT_COLOUR)
+        scores_texts[2].append([score_text, None]) #2-array kept to allow click-detection
+        scores_widths.append(score_text.get_width())
         #Work out the maximum number of Adventurers in play, to only draw this many columns
         max_num_adventurers = 1
         for player in self.game.players:
             if len(game.adventurers[player]) > max_num_adventurers:
                 max_num_adventurers = len(game.adventurers[player])
-        for adventurer_num in range(1, max_num_adventurers + 1):
-                score_title = self.scores_font.render("Chest #"+str(adventurer_num), 1, self.PLAIN_TEXT_COLOUR)
-                horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width
-                self.window.blit(score_title, [horizontal, vertical])
+        if max_num_adventurers > 1:
+            for adventurer_num in range(2, max_num_adventurers + 1):    
+                score_title = self.scores_font.render("  #"+str(adventurer_num)+"  ", 1, self.PLAIN_TEXT_COLOUR)
+                scores_texts.append([[score_title, None]]) #2-array kept to allow click-detection
+                scores_widths.append(score_title.get_width())
+        #There will now be a row for each player
         for player in self.game.players:
             colour = pygame.Color(self.player_colours[player])
-            horizontal = self.SCORES_POSITION[0] * self.width #reset the scores position before going through other rows below
-            vertical += self.SCORES_FONT_SCALE * self.height #increment the vertical position to a new row
-            score_value = self.scores_font.render(player.name, 1, colour)
-            self.window.blit(score_value, [horizontal, vertical])
+            #First we have the Player's name
+            score_text = self.scores_font.render(player.name, 1, colour)
+            scores_texts[0].append([score_text, player])
+            #Update the column width if needed
+            if score_text.get_width() > scores_widths[0]:
+                scores_widths[0] = score_text.get_width()
+            #Now the Player's Vault treasure (score)  
             if player == game.winning_player:
-                score_text = str(self.game.player_wealths[player])+" (+"+str(game.wealth_difference)+")"
+                text = " "+str(self.game.player_wealths[player])+" (+"+str(game.wealth_difference)+")"
             #Highlight the second placed player too, because lower ranked players can behave differently
             elif (game.winning_player is not None 
                   and self.game.player_wealths[game.winning_player] - self.game.player_wealths[player] == game.wealth_difference):
-                score_text = str(self.game.player_wealths[player])+" (2nd)"
+                text = " "+str(self.game.player_wealths[player])+" (2nd)"
             # elif game.winning_player is not None:
-            #     score_text = str(self.game.player_wealths[player])+" (-"+str(self.game.player_wealths[self.game.winning_player] - self.game.player_wealths[player])+")"
+            #     text = str(self.game.player_wealths[player])+" (-"+str(self.game.player_wealths[self.game.winning_player] - self.game.player_wealths[player])+")"
             else:
-                score_text = str(self.game.player_wealths[player])
-            score_value = self.scores_font.render(score_text, 1, colour)
-            horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width # - score_value.get_width()
-            self.window.blit(score_value, [horizontal, vertical])
-            #Record this space for click detection
-#            self.score_rects.append([(horizontal, vertical, self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width, self.SCORES_FONT_SCALE * self.height), player])
-            self.score_rects.append([(horizontal, vertical, score_value.get_width(), score_value.get_height()), player])
-            for adventurer in game.adventurers[player]:
-                horizontal += self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width #Shift to a new column
-                score_value = self.scores_font.render(str(adventurer.wealth), 1, colour)
-                self.window.blit(score_value, [horizontal, vertical])
+                text = " "+str(self.game.player_wealths[player])
+            score_text = self.scores_font.render("  "+text, 1, colour)
+            scores_texts[1].append([score_text, player])
+            #Update the column width if needed
+            if score_text.get_width() > scores_widths[1]:
+                scores_widths[1] = score_text.get_width()
+            #Now the Player's first Adventurer's Chest 
+            adventurer = game.adventurers[player][0]
+            score_text = self.scores_font.render("  "+str(adventurer.wealth), 1, colour)
+            scores_texts[2].append([score_text, adventurer])
+            #Update the column width if needed
+            if score_text.get_width() > scores_widths[2]:
+                scores_widths[2] = score_text.get_width()
+            #Now any further Adventurers
+            for adventurer_num in range(2, max_num_adventurers+1):
+                if len(self.game.adventurers[player]) >= adventurer_num:
+                    adventurer = self.game.adventurers[player][adventurer_num-1]
+                    score_text = self.scores_font.render("  "+str(adventurer.wealth), 1, colour)
+                else:
+                    score_text = self.scores_font.render("", 1, colour)
+                scores_texts[adventurer_num+1].append([score_text, adventurer])
+                #Update the column width if needed
+                if score_text.get_width() > scores_widths[adventurer_num+1]:
+                    scores_widths[adventurer_num+1] = score_text.get_width()
+                
+        #Add all of the table cells to the canvas
+        left_edge = right_edge = horizontal = self.SCORES_POSITION[0] * self.width #reset the scores position before going through other rows below
+        #Start recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
+        self.scores_rect = [horizontal, vertical, 0, 0]
+        self.score_rects = []
+        for column in scores_texts:
+            #Calculate the right edge of this column
+            right_edge += scores_widths[scores_texts.index(column)]
+            #Reset the vertical position
+            vertical = self.SCORES_POSITION[1] * self.height #reset the scores position before going through other rows below
+            for score_text, score_owner in column:
+                vertical += self.SCORES_FONT_SCALE * self.height #increment the vertical position to a new row
+                #Draw this in the window
+                if scores_texts.index(column) > 1:
+                    horizontal = right_edge - score_text.get_width() #Right-align Chest treasure
+                else:
+                    horizontal = left_edge
+                self.window.blit(score_text, [horizontal, vertical])
+                #Remember where for click detection
+                self.score_rects.append([(horizontal, vertical, score_text.get_width(), score_text.get_height()), score_owner])
                 #If this is the moving Adventurer, then highlight their score
-                if adventurer == self.current_adventurer:
+                if score_owner == self.current_adventurer:
                     pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
                                  , (horizontal
-                                    , vertical + score_value.get_height()
-                                    , score_value.get_width()
+                                    , vertical + score_text.get_height()
+                                    , score_text.get_width()
                                     , 0)
                                  , self.chest_highlight_thickness)
                 #If this is the Adventurer whose cards are being viewed then mark with a dot underneath
-                if adventurer == self.viewed_adventurer:
+                if score_owner == self.viewed_adventurer:
                     pygame.draw.circle(self.window, self.PLAIN_TEXT_COLOUR
-                                 , (horizontal + score_value.get_width()//2
-                                    , vertical + score_value.get_height())
+                                 , (horizontal + score_text.get_width()//2
+                                    , vertical + score_text.get_height())
                                  , self.chest_highlight_thickness)
-                #Record this space for click detection
-#                self.score_rects.append([(horizontal, vertical, self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width, self.SCORES_FONT_SCALE * self.height), adventurer])
-                self.score_rects.append([(horizontal, vertical, score_value.get_width(), score_value.get_height()), adventurer])
+            #Update the left edge for the next column
+            left_edge += scores_widths[scores_texts.index(column)]
+        #Remember the outer dimensions of the whole table
+        self.scores_rect[2] = right_edge
+        self.scores_rect[3] = vertical + self.SCORES_FONT_SCALE * self.height
+                
         #State the current player and Adventurer
         vertical += self.SCORES_FONT_SCALE * self.height
         horizontal = self.SCORES_POSITION[0] * self.width
@@ -1099,21 +1149,13 @@ class GameVisualisation():
             , 2 * self.menu_tile_size
             , piles_title.get_height() + self.menu_tile_size)
     
-    def draw_toggle_menu(self, fixed_responses):
+    def draw_toggle_menu(self, fixed_responses = {}):
         '''Visualises a set of highlights for action prompts that can have a fixed True/False response set for them 
         '''
-        self.action_rects = [] #Reset the record of where the toggle menu buttons have been drawn
-        #Establish the top left coordinate below the table of treasure scores
-#        horizontal = self.MOVE_COUNT_POSITION[0] * self.width
-#        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.game.tile_piles) + 1)
-        horizontal = self.right_menu_start
-        vertical = self.move_count_rect[1] + self.move_count_rect[3] 
-        toggle_title = self.scores_font.render("Auto-Actions:", 1, self.PLAIN_TEXT_COLOUR)
-        self.window.blit(toggle_title, (horizontal, vertical))
         #Draw a box to surround the toggle menu, and remember its coordinates for player input
         horizontal = self.right_menu_start
-        vertical += self.SCORES_FONT_SCALE * self.height
-        menu_height = self.menu_highlight_size + self.menu_spacing
+        vertical = self.move_count_rect[1] + self.move_count_rect[3] 
+        menu_height = self.SCORES_FONT_SCALE * self.height + self.menu_highlight_size + self.menu_spacing
         if self.draw_all_routes:
             #If all players' routes are to be drawn then there will need to be space for a horizontal line each in the toggle menu
             menu_height += len(self.player_colours) * self.menu_route_thickness
@@ -1122,12 +1164,23 @@ class GameVisualisation():
             if not self.current_adventurer.player == self.viewed_adventurer.player:
                 menu_height += self.menu_route_thickness #two routes will be drawn if the viewed Adventurer is for another player
         self.toggles_rect = (horizontal, vertical, self.play_area_start, menu_height )
+        if not self.current_adventurer.player == self.viewed_adventurer.player:
+            return #This menu isn't relevant if the adventurer doesn't belong to the player viewing
+        self.action_rects = [] #Reset the record of where the toggle menu buttons have been drawn
+        #Establish the top left coordinate below the table of treasure scores
+#        horizontal = self.MOVE_COUNT_POSITION[0] * self.width
+#        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.game.tile_piles) + 1)
+        toggle_title = self.scores_font.render("Auto-Actions:", 1, self.PLAIN_TEXT_COLOUR)
+        self.window.blit(toggle_title, (horizontal, vertical))
+
 #        print("Chest map menu corners defined at pixels...")
 #        print(self.chest_rect)
 #        pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
 #                                 , self.chest_rect
 #                                 , self.chest_highlight_thickness)
         #Cycle through the auto-actions, drawing their highlight over the toggle button that will decide their auto-response
+        horizontal = self.right_menu_start
+        vertical += self.SCORES_FONT_SCALE * self.height
         for highlight_type in fixed_responses:
             #If there is a fixed response set for this action type, then give it a colour to indicate True / False
             if fixed_responses[highlight_type]:
@@ -1145,9 +1198,13 @@ class GameVisualisation():
             #Remember the position of this highlight's toggle
             self.action_rects.append([(horizontal, vertical, self.menu_highlight_size, self.menu_highlight_size), highlight_type])
             horizontal += self.menu_highlight_size #increment the horizontal placement before the next toggle is drawn
-        
-        #Add a toggle below this menu for whether to draw all routes, or just the current and viewed players'
+    
+    def draw_routes_menu(self):
+        ''''Add a toggle below the auto-actions menu for whether to draw all routes, or just the current and viewed players'
+        '''
         horizontal = self.right_menu_start
+        vertical = self.move_count_rect[1] + self.move_count_rect[3]
+        vertical += self.SCORES_FONT_SCALE * self.height
         vertical += self.menu_highlight_size + self.menu_spacing #increment down below the highlighht menu with a space
         for player in self.player_colours:
             if (self.draw_all_routes 
@@ -1570,7 +1627,7 @@ class WebServerVisualisation(GameVisualisation):
         self.stack_rect = (0, 0, 0, 0)
         self.current_move_count = None
         self.move_count_rect = (self.MOVE_COUNT_POSITION[0]*self.width, self.MOVE_COUNT_POSITION[1]*self.height, 0, round(self.height * self.SCORES_FONT_SCALE))
-        self.toggles_rect = (self.right_menu_start, self.move_count_rect[1]+self.move_count_rect[3], 0, self.menu_tile_size+round(self.height * self.SCORES_FONT_SCALE))
+        self.toggles_rect = (self.right_menu_start, self.move_count_rect[1]+self.move_count_rect[3]+round(self.height * self.SCORES_FONT_SCALE) + self.menu_highlight_size, 0, self.menu_tile_size+round(self.height * self.SCORES_FONT_SCALE))
         self.chest_rect = (self.right_menu_start, self.toggles_rect[1]+self.toggles_rect[3]+round(self.height * self.SCORES_FONT_SCALE), 0, self.menu_tile_size)
         self.piles_rect = (self.right_menu_start, self.toggles_rect[1]+self.toggles_rect[3]+round(self.height * self.SCORES_FONT_SCALE), 0, 0)
         
@@ -1643,6 +1700,8 @@ class WebServerVisualisation(GameVisualisation):
         #Draw the right menu items
         if not input_type in ["choose_company", "choose_character"]:
             self.draw_move_count()
+            self.draw_toggle_menu()
+            self.draw_routes_menu()
             if isinstance(self.current_adventurer, AdventurerRegular):
                 if not input_type == "choose_tile": #Don't draw the chest tiles when the players are first picking companies and adventurers 
                     self.draw_chest_tiles()
@@ -1769,6 +1828,11 @@ class WebServerVisualisation(GameVisualisation):
                     self.selected_card_num += (vertical - selected_card_bottom) // int(self.card_height * self.CARD_HEADER_SHARE)
 #                        print("Updated the selected card to number "+str(self.selected_card_num))
             return True
+        #Check for clicks in the toggle menu, for changing route drawing mode
+        elif (horizontal in range(int(self.toggles_rect[0]), int(self.toggles_rect[0] + self.toggles_rect[2]))
+            and vertical in range(int(self.toggles_rect[1]), int(self.toggles_rect[1] + self.toggles_rect[3]))):
+            self.draw_all_routes = not self.draw_all_routes
+            return True
         else:
             #Check the various Adventurer and Agent shapes for a click and use this to select the Adventurer to focus on
             for centre in self.adventurer_centres:
@@ -1816,9 +1880,6 @@ class WebServerVisualisation(GameVisualisation):
                     menu_row = (vertical - int(self.chest_rect[1])) // self.menu_tile_size
                     menu_column = (horizontal - int(self.chest_rect[0])) // self.menu_tile_size
                     return {"preferred_tile":self.MENU_TILE_COLS * menu_row + menu_column}
-                #Check whether the click was irrelevant to gameplay but changes the focus of the active player's visuals
-                elif self.check_update_focus(horizontal, vertical):
-                    return {"update_visuals":"update_visuals"}
                 #Check whether the click was within the toggle menu, and update the index of the selected card
                 elif (horizontal in range(int(self.toggles_rect[0]), int(self.toggles_rect[0] + self.toggles_rect[2]))
                     and vertical in range(int(self.toggles_rect[1]), int(self.toggles_rect[1] + self.toggles_rect[3]))):
@@ -1835,6 +1896,10 @@ class WebServerVisualisation(GameVisualisation):
                     #If the click wasn't in the rect around one of the highlight options, then assume it was a click to toggle route drawing
                     self.draw_all_routes = not self.draw_all_routes
                     return {"update_visuals":"update_visuals"} 
+                #Check whether the click was irrelevant to gameplay but changes the focus of the active player's visuals
+                elif self.check_update_focus(horizontal, vertical):
+                    return {"update_visuals":"update_visuals"}
+                #Check whether the unod button was clicked
                 elif self.check_undo(horizontal, vertical):
                     self.refresh_peers(adventurer) #Update peers' displays to show that the undo request has been made
                     return {"update_cards":"update_cards"} #Get the player to prompt again and refresh their own visuals              
