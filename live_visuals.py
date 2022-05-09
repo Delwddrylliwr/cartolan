@@ -1061,6 +1061,7 @@ class GameVisualisation():
                     adventurer = self.game.adventurers[player][adventurer_num-1]
                     score_text = self.scores_font.render("  "+str(adventurer.wealth), 1, colour)
                 else:
+                    adventurer = None
                     score_text = self.scores_font.render("", 1, colour)
                 scores_texts[adventurer_num+1].append([score_text, adventurer])
                 #Update the column width if needed
