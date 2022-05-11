@@ -8,14 +8,15 @@ import pygame
 import sys
 import os
 import time
+import json
 import base64
 import random
 import string
 from collections import deque
 #from PodSixNet.Connection import ConnectionListener, connection
 #from time import sleep
-from base import Player, CityTile #, TileEdges, WindDirection
-from regular import DisasterTile, AdventurerRegular, AgentRegular #, MythicalTileRegular
+from base import Player, CityTile, Game, Tile, Card, Agent, Adventurer  # , TileEdges, WindDirection
+from regular import AdventurerRegular, AgentRegular, DisasterTile  # , MythicalTileRegular
 from advanced import AdventurerAdvanced
 from game import GameBeginner, GameRegular, GameAdvanced
 # from players_human import PlayerHuman
@@ -1566,9 +1567,12 @@ class WebServerVisualisation(GameVisualisation):
         
         #Import images
         self.init_graphics()
+
+        #Keep track of which tiles and cards have been shared so far, to reduce the data stream
+        self.shared_tiles_cards = []
     
     def update_web_display(self):
-        '''For this client visualisation in particular, send out an image of the play area.
+        '''For this client visualisation in particular, send out a JSON serialisation of the play area and player scores.
         '''
 #        pygame.display.flip()
         #generate a random filename, to avoid thread conflicts
@@ -1576,9 +1580,60 @@ class WebServerVisualisation(GameVisualisation):
         #@TODO could reduce file size and latency by compressing into a lossy jpg
         pygame.image.save(self.window, randname + self.TEMP_FILE_EXTENSION)
         out = open(randname + self.TEMP_FILE_EXTENSION,"rb").read()
+        print("Image has a size of: "+str(sys.getsizeof(out)))
         self.client.sendMessage("IMAGE[00100]"+str(base64.b64encode(out)))
-        print("data sent to client at "+str(self.client.address))
+        print("Play area image sent to client at " + str(self.client.address))
         os.remove(randname + self.TEMP_FILE_EXTENSION)
+
+        # Before serialising the game objects for sharing to the JS frontend, we'll convert members to dicts and ignore Game objects because they contain an object-keyed list
+        self.shared_tiles_cards = []
+        def dict_reserve_tiles_cards(obj):
+            if isinstance(obj, Tile):
+                if obj in self.shared_tiles_cards:
+                    return {"tile_id":obj.tile_id}
+                else:
+                    self.shared_tiles_cards.append(obj)
+                    return obj.__dict__
+                #@TODO after a card has been shared once in a game, its perk details don't need to be shared again - indeed the card type should be enough in the first place
+            elif isinstance(obj, Card):
+                if obj in self.shared_tiles_cards:
+                    return {"card_id":obj.card_id}
+                else:
+                    self.shared_tiles_cards.append(obj)
+                    return {"card_id":obj.card_id, "card_type":obj.card_type}
+            elif isinstance(obj, Adventurer):
+                if obj.character_card in self.shared_tiles_cards:
+                    character_card = {"card_id":obj.character_card.card_id}
+                elif obj.character_card is not None:
+                    self.shared_tiles_cards.append(obj.character_card)
+                    character_card = {"card_id":obj.character_card.card_id, "card_type":obj.character_card.card_type}
+                else:
+                    character_card = None
+                return {"player":obj.player.name,
+                        "vault_wealth":self.game.player_wealths[obj.player],
+                        "cadre_card":self.game.assigned_cadres[obj.player],
+                        "num":self.game.adventurers[obj.player].index(obj),
+                        "wealth":obj.wealth,
+                        "pirate_token":obj.pirate_token,
+                        "route":obj.route,
+                        "character_card":character_card,
+                       "discovery_cards":obj.discovery_cards}
+            elif isinstance(obj, Agent):
+                return {"player": obj.player.name,
+                        "wealth": obj.wealth,
+                        "is_dispossessed":obj.is_dispossessed}
+            elif isinstance(obj, Game) or isinstance(obj, Player):
+                return None
+            else:
+                return obj.__dict__
+
+        serialised_play_area = json.dumps(self.game.play_area, default=lambda obj: dict_reserve_tiles_cards(obj), check_circular=False)
+        print("Serialised play-area has a size of: "+str(sys.getsizeof(serialised_play_area)))
+        print(serialised_play_area)
+        # self.client.sendMessage("STATE[00100]"+serialised_play_area)
+        #print("Play area data sent to client at "+str(self.client.address))
+        # #@TODO now share any messages to the player
+
     
     def get_input_value(self, adventurer, prompt_text, maximum, minimum = 0):
         '''Sends a prompt to the player, and waits for numerical input.

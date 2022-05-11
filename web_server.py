@@ -13,11 +13,11 @@ from players_human import PlayerHuman
 from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
 from players_heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
 from players_heuristical import PlayerAdvancedExplorer, PlayerAdvancedTrader, PlayerAdvancedRouter, PlayerAdvancedPirate
-import zmq
-import zmq.auth
-from zmq.auth.thread import ThreadAuthenticator
+#import zmq
+#import zmq.auth
+#from zmq.auth.thread import ThreadAuthenticator
 import sys
-import os
+#import os
 import time
 import random
 import string
@@ -115,21 +115,25 @@ class ClientSocket(WebSocket):
         self.coords_buffer = None
         return output
     
-    def init_ZMQ(self):
-        '''Set up a socket with a secure threadsafe message queue based on ZeroMQ: https://en.wikipedia.org/wiki/ZeroMQ
-        '''
-        file = sys.argv[0]
-        base_dir = os.path.dirname(file)
-        certs_dir = os.path.join(base_dir, 'cartolan_web/certificates')
-        self.context = zmq.Context()
-        self.socket = self.context.socket(zmq.DEALER)
-        client_secret_file = os.path.join(certs_dir, "cartolan.local.key")
-        client_public, client_secret = zmq.auth.load_certificate(client_secret_file)
-        self.socket.curve_publickey = client_public
-        self.socket.curve_secretkey = client_secret
-        server_public_file = os.path.join(certs_dir, "rootSSL.key")
-        server_public, _ = zmq.auth.load_certificate(server_public_file)
-        self.socket.curve_serverkey = server_public
+#    def init_ZMQ(self):
+#        '''Set up a socket with a secure threadsafe message queue based on ZeroMQ: https://en.wikipedia.org/wiki/ZeroMQ
+#        '''
+#        file = sys.argv[0]
+#        base_dir = os.path.dirname(file)
+#        keys_dir = os.path.join(base_dir, 'certificates')
+#        public_keys_dir = os.path.join(base_dir, 'public_keys')
+#        secret_keys_dir = os.path.join(base_dir, 'private_keys')
+#        self.context = zmq.Context()
+#        self.socket = self.context.socket(zmq.DEALER)
+#        client_secret_file = os.path.join(secret_keys_dir, "client.key_secret")
+#        client_public, client_secret = zmq.auth.load_certificate(client_secret_file)
+#        self.socket.curve_publickey = client_public
+#        self.socket.curve_secretkey = client_secret
+#        server_public_file = os.path.join(public_keys_dir, "server.key")
+#        server_public, _ = zmq.auth.load_certificate(server_public_file)
+#        self.socket.curve_serverkey = server_public
+#        self.width = "0"
+#        self.height = "0"
     
     def setup_client_players(self, num_client_players):
         '''Seeks remote input to determine the names of 
@@ -176,30 +180,31 @@ class ClientSocket(WebSocket):
         game_id = next_game_id
         next_game_id += 1
         new_game_clients[game_id] = [self]
-        print("Seeking game specification from newly joined client")
-        prompt_text = "Please specify which mode of Cartolan you would like to host: "
-        valid_options = []
-        for game_type in GAME_MODES:
-            prompt_text += "'"+game_type+"'"
-            valid_options.append(game_type)
-            if len(valid_options) < len(GAME_MODES):
-                prompt_text += ", or "
-            else:
-                prompt_text += "."
-        if new_game_type not in valid_options:
-            prompt_text += " (Hit enter for default "+DEFAULT_GAME_MODE+")"
-            print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
-            self.sendMessage("PROMPT[00100]"+prompt_text)
-        while not new_game_type in valid_options:
-            new_game_type = self.get_text()
-            if new_game_type:
-                if new_game_type == "BLANK":
-                    print("Game type prompt was left blank, so assuming default mode of "+DEFAULT_GAME_MODE)
-                    new_game_type = DEFAULT_GAME_MODE
-                elif not new_game_type in valid_options:
-                    new_game_type = None
-                    self.sendMessage("PROMPT[00100]"+prompt_text)
-            time.sleep(self.INPUT_DELAY)
+        # print("Seeking game specification from newly joined client")
+        # prompt_text = "Please specify which mode of Cartolan you would like to host: "
+        # valid_options = []
+        # for game_type in GAME_MODES:
+        #     prompt_text += "'"+game_type+"'"
+        #     valid_options.append(game_type)
+        #     if len(valid_options) < len(GAME_MODES):
+        #         prompt_text += ", or "
+        #     else:
+        #         prompt_text += "."
+        # if new_game_type not in valid_options:
+        #     prompt_text += " (Hit enter for default "+DEFAULT_GAME_MODE+")"
+        #     print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
+        #     self.sendMessage("PROMPT[00100]"+prompt_text)
+        # while not new_game_type in valid_options:
+        #     new_game_type = self.get_text()
+        #     if new_game_type:
+        #         if new_game_type == "BLANK":
+        #             print("Game type prompt was left blank, so assuming default mode of "+DEFAULT_GAME_MODE)
+        #             new_game_type = DEFAULT_GAME_MODE
+        #         elif not new_game_type in valid_options:
+        #             new_game_type = None
+        #             self.sendMessage("PROMPT[00100]"+prompt_text)
+        #     time.sleep(self.INPUT_DELAY)
+        new_game_type = DEFAULT_GAME_MODE #Deprecating multiple game modes
         new_game_types[game_id] = new_game_type
         min_players = GAME_MODES[new_game_type]["game_type"].MIN_PLAYERS
         max_players = GAME_MODES[new_game_type]["game_type"].MAX_PLAYERS
@@ -531,8 +536,8 @@ class ClientSocket(WebSocket):
         if protocode == ("START"):
            print("START...ing a new connection, and creating/joining the next game")
            print(time.strftime('%Y-%m-%d %H:%M %Z', time.gmtime(time.time()))) #timestamp
-           self.socket.setsockopt(zmq.IDENTITY, str(msg))
-           self.socket.connect("tcp://LOCALHOST:80")
+#           self.socket.setsockopt(zmq.IDENTITY, str(msg))
+#           self.socket.connect("tcp://LOCALHOST:80")
 #           #Check whether there are enough players in the queue for a game,
 #           #start one in a Thread if so
 #           #@TODO join specifically the game that has been asked for
@@ -621,8 +626,9 @@ class ClientSocket(WebSocket):
         '''
         print(self.address, 'connected')
         clients.append(self)
-        self.init_ZMQ()
-        #channel.setup()
+        
+#        self.init_ZMQ()
+#        channel.setup()
 
 
     def handleClose(self):
