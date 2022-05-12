@@ -193,8 +193,9 @@ class Card:
         self.game = game
         self.card_type = card_type
         self.buffs = None
-        self.card_id = card_type+str(random.random())
-        
+        # self.card_id = card_type+str(random.random())
+        self.card_id = str(random.random())
+
     def __hash__(self):
         return hash(self.card_id)
     
@@ -329,8 +330,9 @@ class Tile:
         self.adventurers = [] # to keep track of the Adventurer tokens on a tile at any point
         self.agent = None # there can only be one Agent token on a given tile
         self.dropped_wealth = 0 # to keep track of wealth dropped when returning abruptly to a City
-        self.tile_id = tile_back+str(wind_direction.north)+str(wind_direction.east)+str(tile_edges.upwind_clock_water)+str(tile_edges.upwind_anti_water)+str(tile_edges.downwind_clock_water) + str(tile_edges.downwind_anti_water)+str(random.random())
-        
+        # self.tile_id = tile_back+str(wind_direction.north)+str(wind_direction.east)+str(tile_edges.upwind_clock_water)+str(tile_edges.upwind_anti_water)+str(tile_edges.downwind_clock_water) + str(tile_edges.downwind_anti_water)+str(random.random())
+        self.tile_id = str(random.random())
+
     def __hash__(self):
         return hash(self.tile_id)
     
