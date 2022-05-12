@@ -190,6 +190,7 @@ class PlayerHuman(Player):
         #Draw the right menu items
         game_vis.draw_move_count()
         game_vis.draw_toggle_menu(self.auto_actions)
+        game_vis.draw_routes_menu()
         if isinstance(adventurer, AdventurerRegular):
             adventurer.match_chest_directions()
             game_vis.draw_chest_tiles()
@@ -254,6 +255,7 @@ class PlayerHuman(Player):
                 #Draw the right menu items
                 game_vis.draw_move_count()
                 game_vis.draw_toggle_menu(self.auto_actions)
+                game_vis.draw_routes_menu()
                 if isinstance(adventurer, AdventurerRegular):
                     adventurer.match_chest_directions()
                     game_vis.draw_chest_tiles()
@@ -413,6 +415,7 @@ class PlayerHuman(Player):
         #Draw the right menu items
         game_vis.draw_move_count()
         game_vis.draw_toggle_menu(self.auto_actions)
+        game_vis.draw_routes_menu()
         if isinstance(adventurer, AdventurerRegular):
             adventurer.match_chest_directions()
             game_vis.draw_chest_tiles()
@@ -469,6 +472,7 @@ class PlayerHuman(Player):
             #Draw the right menu items
             game_vis.draw_move_count()
             game_vis.draw_toggle_menu(self.auto_actions)
+            game_vis.draw_routes_menu()
             if isinstance(adventurer, AdventurerRegular):
                 adventurer.match_chest_directions()
                 game_vis.draw_chest_tiles()
