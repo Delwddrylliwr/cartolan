@@ -27,7 +27,8 @@ class Game:
         self.game_id = uuid.uuid4()
         for player in players:
             player.join_game(self)
-        
+
+        self.tile_count = 0
         self.tile_piles = {}
         self.play_area = {}
         self.player_wealths = {}
@@ -52,6 +53,22 @@ class Game:
 #         self.agent_distances = [[]] #placeholder to keep track of where trade routes could be built
 #         self.most_lucrative_route_value = 0
 #         self.most_lucrative_route_player = None
+
+    def register(self, asset):
+        '''Gives game elements IDs that are consistent with others of their type
+        Args:
+            asset: a game element that needs an ID consistent with others of its type
+
+        Returns: an id specific to this game
+        '''
+        if isinstance(asset, Tile):
+            tile_id = self.tile_count
+            self.tile_count += 1
+            return tile_id
+        elif isinstance(asset, Card):
+            card_id = self.card_count
+            self.card_count += 1
+            return card_id
 
     def save(self):
         '''Backs up the game and tokens' states, so that they can be restored later e.g. to undo a mistake
@@ -194,7 +211,7 @@ class Card:
         self.card_type = card_type
         self.buffs = None
         # self.card_id = card_type+str(random.random())
-        self.card_id = str(random.random())
+        self.card_id = game.register(self)
 
     def __hash__(self):
         return hash(self.card_id)
@@ -331,7 +348,7 @@ class Tile:
         self.agent = None # there can only be one Agent token on a given tile
         self.dropped_wealth = 0 # to keep track of wealth dropped when returning abruptly to a City
         # self.tile_id = tile_back+str(wind_direction.north)+str(wind_direction.east)+str(tile_edges.upwind_clock_water)+str(tile_edges.upwind_anti_water)+str(tile_edges.downwind_clock_water) + str(tile_edges.downwind_anti_water)+str(random.random())
-        self.tile_id = str(random.random())
+        self.tile_id = game.register(self)
 
     def __hash__(self):
         return hash(self.tile_id)

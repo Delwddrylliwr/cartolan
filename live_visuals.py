@@ -1648,7 +1648,8 @@ class WebServerVisualisation(GameVisualisation):
         #@TODO could reduce file size and latency by compressing into a lossy jpg
         pygame.image.save(self.window, randname + self.TEMP_FILE_EXTENSION)
         out = open(randname + self.TEMP_FILE_EXTENSION,"rb").read()
-        print("Image has a size of: "+str(sys.getsizeof(out)))
+        print("Image has a size of: " + str(sys.getsizeof(out)))
+        print("Message has a size of: "+str(sys.getsizeof(base64.b64encode(out))))
         self.client.sendMessage("IMAGE[00100]"+str(base64.b64encode(out)))
         print("Play area image sent to client at " + str(self.client.address))
         os.remove(randname + self.TEMP_FILE_EXTENSION)

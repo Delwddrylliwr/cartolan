@@ -358,6 +358,7 @@ class GameAdvanced(GameRegular):
         self.transfers_to_agents = AdvancedConfig.TRANSFERS_TO_AGENTS
         
         #Set up the decks of cards
+        self.card_count = 0
         self.cadre_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.CADRE_CARDS] #a copy that can be modified independent of the config file
         self.character_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.CHARACTER_CARDS] #a copy that can be modified independent of the config file
         self.discovery_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.MANUSCRIPT_CARDS] #a copy that can be modified independent of the config file

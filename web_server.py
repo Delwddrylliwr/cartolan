@@ -1,10 +1,12 @@
-'''
+"""
 Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 
 Based on this example from AlexiK: https://stackoverflow.com/questions/32595130/javascript-html5-canvas-display-from-python-websocket-server
-'''
+"""
 
 from SimpleWebSocketServer import WebSocket, SimpleWebSocketServer #, SimpleSSLWebSocketServer
+
+from base import Tile, Card, Adventurer, Agent, Game
 from main_game import setup_simulation
 #from live_visuals import ClientGameVisualisation, WebServerVisualisation
 from live_visuals import WebServerVisualisation
@@ -86,15 +88,15 @@ def id_generator(size=10, chars=string.ascii_uppercase + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
 
 class ClientSocket(WebSocket):
-    '''Shares whole images of clients' play areas and receives input coordinates.
-    
+    """Shares whole images of clients' play areas and receives input coordinates.
+
     Architecture:
     Client Side |    Server Side
     Web app    <-> Socket <-> Server   <->   Visualisation  <- Game
                                                /\                \/
                                               Player <- Adventurer/Agent
-    
-    '''
+
+    """
     INPUT_DELAY = 0.1 #delay time between checking for input, in seconds
     TIMEOUT_DELAY = 5 #delay time between heartbeats, after which loop will stop keeping the socket alive
     
@@ -136,8 +138,8 @@ class ClientSocket(WebSocket):
 #        self.height = "0"
     
     def setup_client_players(self, num_client_players):
-        '''Seeks remote input to determine the names of 
-        '''
+        """Seeks remote input to determine the names of
+        """
         global client_players
         client_players[self] = []
         for player_num in range(num_client_players):
@@ -173,8 +175,8 @@ class ClientSocket(WebSocket):
             client_players[self].append(player)
     
     def create_game(self, new_game_type="", num_client_players=None, num_virtual_players=0, num_players=None):
-        '''Seeks remote input to specify and set up a game that can then be joined by players.
-        '''
+        """Seeks remote input to specify and set up a game that can then be joined by players.
+        """
         global next_game_id, client_players
         global new_game_clients, new_game_types, new_game_colours, new_game_players, new_game_cpu_players
         game_id = next_game_id
@@ -309,8 +311,8 @@ class ClientSocket(WebSocket):
         return game_id
     
     def join_game(self, game_id, num_client_players=None):
-        '''Attempts to join a specific game, and otherwise joins the game queue
-        '''
+        """Attempts to join a specific game, and otherwise joins the game queue
+        """
         global client_players
         global new_game_clients, new_game_types, new_game_colours, new_game_players
         new_game_type = new_game_types[game_id]
@@ -356,7 +358,7 @@ class ClientSocket(WebSocket):
         num_existing_players = len(new_game_players[game_id])
         num_players = num_existing_players + num_spaces
         if len(client_players[self]) > num_spaces:
-            prompt_text = ("This game filled up while you were responding. Enter any response to continue and wait for another.")
+            prompt_text = "This game filled up while you were responding. Enter any response to continue and wait for another."
             print("Prompting client at " +str(self.address)+ " with: " +prompt_text)
             response = None
             while response is None:
@@ -370,8 +372,8 @@ class ClientSocket(WebSocket):
         return True
     
     def join_queue(self):
-        '''Adds players to a queue, the first specifies setup, the last hosts in their thread.
-        '''
+        """Adds players to a queue, the first specifies setup, the last hosts in their thread.
+        """
         global new_game_clients, new_game_types, new_game_colours, new_game_players
         def report_queue(client, game_id):
             num_existing_players = len(new_game_players[game_id])
@@ -419,11 +421,11 @@ class ClientSocket(WebSocket):
             return True
             
     def start_game(self, game_id):
-        '''Checks whether a game is full and launches it, then runs it in this thread until completion
-        
+        """Checks whether a game is full and launches it, then runs it in this thread until completion
+
         Arguments:
         game_id takes an integer unique reference for a Cartolan game in the global games list
-        '''
+        """
         global clients, client_visuals, client_players, games
         global new_game_clients, new_game_types, new_game_colours, new_game_players
         num_spaces = len(new_game_colours[game_id])
@@ -638,6 +640,61 @@ class ClientSocket(WebSocket):
         print (self.address, 'closed')
         for client in clients:
             client.sendMessage(self.address[0] + u' - disconnected')
+
+    # def update_client_displays(self, game_id):
+    #     '''For each client visualisation in a particular game, send out a JSON serialisation of the play area and player scores.
+    #     '''
+    #     # Before serialising the game objects for sharing to the JS frontend, we'll convert members to dicts and ignore Game objects because they contain an object-keyed list
+    #     shared_tiles_cards = []
+    #
+    #     def dict_reserve_tiles_cards(obj):
+    #         if isinstance(obj, Tile):
+    #             if obj in shared_tiles_cards:
+    #                 return {"tile_id": obj.tile_id}
+    #             else:
+    #                 shared_tiles_cards.append(obj)
+    #                 return obj.__dict__
+    #         elif isinstance(obj, Card):
+    #             if obj in shared_tiles_cards:
+    #                 return {"card_id": obj.card_id}
+    #             else:
+    #                 shared_tiles_cards.append(obj)
+    #                 return {"card_id": obj.card_id, "card_type": obj.card_type}
+    #         elif isinstance(obj, Adventurer):
+    #             if obj.character_card in shared_tiles_cards:
+    #                 character_card = {"card_id": obj.character_card.card_id}
+    #             elif obj.character_card is not None:
+    #                 shared_tiles_cards.append(obj.character_card)
+    #                 character_card = {"card_id": obj.character_card.card_id,
+    #                                   "card_type": obj.character_card.card_type}
+    #             else:
+    #                 character_card = None
+    #             return {"player": obj.player.name,
+    #                     "vault_wealth": self.game.player_wealths[obj.player],
+    #                     "cadre_card": self.game.assigned_cadres[obj.player],
+    #                     "num": self.game.adventurers[obj.player].index(obj),
+    #                     "wealth": obj.wealth,
+    #                     "pirate_token": obj.pirate_token,
+    #                     "route": obj.route,
+    #                     "character_card": character_card,
+    #                     "discovery_cards": obj.discovery_cards}
+    #         elif isinstance(obj, Agent):
+    #             return {"player": obj.player.name,
+    #                     "wealth": obj.wealth,
+    #                     "is_dispossessed": obj.is_dispossessed}
+    #         elif isinstance(obj, Game) or isinstance(obj, Player):
+    #             return None
+    #         else:
+    #             return obj.__dict__
+    #
+    #     game = games[game_id]["game"]
+    #     serialised_play_area = json.dumps(game.play_area, default=lambda obj: dict_reserve_tiles_cards(obj),
+    #                                       check_circular=False)
+    #     print("Serialised play-area has a size of: " + str(sys.getsizeof(serialised_play_area)))
+    #     print(serialised_play_area)
+    #     for client in games[game_id]["clients"]:
+    #         client.sendMessage("STATE[00100]"+serialised_play_area)
+    #         print("Play area data sent to client at "+str(client.address))
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

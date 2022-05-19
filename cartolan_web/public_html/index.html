@@ -67,7 +67,7 @@
 
   <script>
     var serverAddress = "51.38.83.99:10000";
-    //var serverAddress = "localhost:10000";
+    var serverAddress = "localhost:10000";
     var ptpxConversion = 1.33; //a factor to translate font sizes into expected line heights
 
     var heightShare = 0.9; //implement a margin below the canvas for a link to the game manual and spotify soundtrack
@@ -457,8 +457,28 @@
             //Regularly check for any recorded clicks and report them to the server as input to the game
             this.interval = setInterval(updateGameArea, 20);
             console.log("Requesting to join a game from the server.");
-            //pass the play area dimensions to the server and join the queue for the next available game
-            waitForConnection(function () { send("START[00100]" + myGameArea.canvas.width + "[55555]" + myGameArea.canvas.height); }, 100)
+            //Wait for all images to have loaded before starting the game ... solution provided by User https://stackoverflow.com/questions/11071314/javascript-execute-after-all-images-have-loaded
+            Promise.all(Array.from(document.images).map(img => {
+              if (img.complete)
+                if (img.naturalHeight !== 0)
+                  return Promise.resolve();
+                else
+                  return Promise.reject(img);
+              return new Promise((resolve, reject) => {
+                img.addEventListener('load', resolve);
+                img.addEventListener('error', () => reject(img));
+              });
+            })).then(() => {
+              console.log('all images loaded successfully');
+              //@TODO sort images before the game starts, to give a consistent allocation of images to assets across clients
+              //pass the play area dimensions to the server and join the queue for the next available game
+              waitForConnection(function () { send("START[00100]" + myGameArea.canvas.width + "[55555]" + myGameArea.canvas.height); }, 100)
+            }, badImg => {
+              console.log('some image failed to load, others may still be loading');
+              console.log('first broken image:', badImg);
+              text = "Error: an image file was corrupted, please refresh the page to try again...";
+              wrapText(context, text, x, y, maxwidth, lineHeight);
+            });
             //Reset the click coordinates
             myGameArea.x = false;
             myGameArea.y = false;
