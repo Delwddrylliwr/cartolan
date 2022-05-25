@@ -15,22 +15,22 @@ The variant described here is:
 class BeginnerConfig:
     NUM_TILES = {"water":60}
     
-    GAME_WINNING_DIFFERENCE = 15
+    GAME_WINNING_DIFFERENCE = 30
     
     MAX_ADVENTURERS = 4
     MAX_AGENTS = 4
     
     #Values earned
-    VALUE_DISCOVER_WONDER = {"water":1}
-    VALUE_TRADE = 1
+    VALUE_DISCOVER_WONDER = {"water":2}
+    VALUE_TRADE = 2
     VALUE_FILL_MAP_GAP = [[3 * land_edges + 3 * water_edges for land_edges in range(0,5)] for water_edges in range(0,5)] # These are the rewards for filling a gap with, 0,1,2,3, and 4 adjacent water tiles respectively, for each number of adjacent land tiles
-    VALUE_COMPLETE_MAP = 10
+    VALUE_COMPLETE_MAP = 20
     
     #Costs of buying
-    COST_ADVENTURER = 10
-    COST_AGENT_EXPLORING = 1
-    COST_AGENT_FROM_CITY = 3
-    COST_AGENT_REST = 1
+    COST_ADVENTURER = 20
+    COST_AGENT_EXPLORING = 2
+    COST_AGENT_FROM_CITY = 5
+    COST_AGENT_REST = 2
     
     #Movement config
     MAX_EXPLORATION_ATTEMPTS = 1
@@ -47,18 +47,18 @@ class RegularConfig:
     NUM_TILES = {"water":60, "land":30}
     
     NUM_CHEST_TILES = 2
-    VALUE_DISCOVER_WONDER = {"water":1, "land":1}
-    VALUE_DISCOVER_CITY = 5
-    VALUE_ARREST = 5
-    VALUE_DISPOSSESS_AGENT = 1
-    COST_AGENT_RESTORE = 1
-    COST_REFRESH_MAPS = 1
+    VALUE_DISCOVER_WONDER = {"water":2, "land":2}
+    VALUE_DISCOVER_CITY = 10
+    VALUE_ARREST = 10
+    VALUE_DISPOSSESS_AGENT = 2
+    COST_AGENT_RESTORE = 2
+    COST_REFRESH_MAPS = 2
     
     ATTACK_SUCCESS_PROB = 1.0/3.0
     DEFENCE_ROUNDS = 1
     
 class AdvancedConfig:
-    COST_TECH = 3
+    COST_TECH = 5
     
     NUM_CADRE_CHOICES = 2
     NUM_CHARACTER_CHOICES = 2
@@ -69,7 +69,7 @@ class AdvancedConfig:
     P_BUY_TECH = 0.25 #The probability that CPU players will spend their Vault wealth on Manuscript cards, if they can afford it
     
     #Config relating to card buffs
-    VALUE_AGENT_TRADE = 0
+    VALUE_AGENT_TRADE = 1
     ATTACKS_ABANDON = False
     AGENT_ON_EXISTING = False
     REST_AFTER_PLACING = False
@@ -97,7 +97,7 @@ class AdvancedConfig:
                                             , "num_character_choices":{"buff_type":"new", "buff_val":3}}
                         , "+transfers":{"transfer_agent_earnings":{"buff_type":"new", "buff_val":True}
                                             , "num_discovery_choices":{"buff_type":"new", "buff_val":3}}
-                        , "+earning":{"value_agent_trade":{"buff_type":"new", "buff_val":1}
+                        , "+earning":{"value_agent_trade":{"buff_type":"new", "buff_val":2}
                                             , "num_discovery_choices":{"buff_type":"new", "buff_val":3}}
                         , "+arrest":{"agents_arrest":{"buff_type":"new", "buff_val":True}
                                             # , "confiscate_stolen":{"buff_type":"new", "buff_val":True}

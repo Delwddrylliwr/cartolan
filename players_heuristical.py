@@ -76,7 +76,7 @@ class PlayerBeginnerExplorer(Player):
                     and not self.check_location_to_avoid(new_longitude, new_latitude)):
                     #Check whether the score from exploring here beats any checked so far
                     exploration_moves += 1
-                    potential_score = adventurer.get_exploration_value(adventurer.get_adjoining_edges(new_longitude, new_latitude), compass_point)
+                    potential_score = adventurer.get_exploration_value(new_longitude, new_latitude)
                     if potential_score > preferred_score:
                         preferred_move = compass_point
                         preferred_score = potential_score
@@ -501,7 +501,7 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
                     and not self.check_location_to_avoid(new_longitude, new_latitude)):
                     #Check whether the score from exploring here beats any checked so far
                     exploration_moves += 1
-                    potential_score = adventurer.get_exploration_value(adventurer.get_adjoining_edges(new_longitude, new_latitude), compass_point)
+                    potential_score = adventurer.get_exploration_value(new_longitude, new_latitude)
                     score_guaranteed = None #An int for the index of the Chest tile that fits
                     for tile in adventurer.chest_tiles:
                         if adventurer.rotated_tile_fits(tile, compass_point, adventurer.get_adjoining_edges(new_longitude, new_latitude)):

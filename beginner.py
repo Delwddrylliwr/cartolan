@@ -333,25 +333,21 @@ class AdventurerBeginner(Adventurer):
               + ", South: " +str(adjoining_edges_water["s"])+ ", West: " +str(adjoining_edges_water["w"]))
         return adjoining_edges_water
     
-    def get_exploration_value(self, adjoining_edges_water, compass_point_moving):
+    def get_exploration_value(self, longitude, latitude):
         '''calculate the score that would come from filling a particular gap in the map'''
-        num_adjacent_water = 0
-        num_adjacent_land = 0
-        for compass_point in ['n', 'e', 's', 'w']:
-            if adjoining_edges_water[compass_point]:
-                num_adjacent_water += 1
-            elif adjoining_edges_water[compass_point] is not None: 
-                num_adjacent_land += 1
-        #Exclude the edge over which the Adventurer is moving
-        if self.current_tile.compass_edge_water(compass_point_moving):
-            num_adjacent_water -= 1
-        else:
-            num_adjacent_land -= 1
+        play_area = self.game.play_area
         
+        num_long_maps = 0
+        num_lat_maps = 0
+        for long in play_area:
+            if long == longitude:
+                num_long_maps = len(play_area[long])
+            if play_area[long].get(latitude) is not None:
+                num_lat_maps += 1
+                
         #Calculate the score this represents
-        exploration_value = self.value_fill_map_gap[num_adjacent_water][num_adjacent_land]
-        print(self.player.name+" the gap in the  map is adjacent to " +str(num_adjacent_water)
-              + " water tiles and " +str(num_adjacent_land)+ " land tiles, and is worth " 
+        exploration_value = num_long_maps * num_lat_maps
+        print(self.player.name+" the gap in the  map is worth " 
               +str(exploration_value))
         return exploration_value
     
@@ -374,7 +370,7 @@ class AdventurerBeginner(Adventurer):
             # place tile and feed back to calling function that tile has been placed
             potential_tile.place_tile(longitude, latitude)
             # if this filled a gap in the map then award the Adventurer accordingly 
-            self.wealth += self.get_exploration_value(adjoining_edges_water, compass_point_moving)
+            self.wealth += self.get_exploration_value(longitude, latitude)
             return True
         else:
             #Feed back to the calling function that the tile wouldn't place under any suitable rotation
