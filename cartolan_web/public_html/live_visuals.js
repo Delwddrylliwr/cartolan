@@ -252,12 +252,12 @@ function init_GUI(){
   /**Translates a tile's wind direction into a rotation of its image
   */
   function rotate_tile_image(tile, tile_image){
-    wind_direction = tile[wind_direction]
-    if wind_direction["north"] and wind_direction["east"]{
+    wind_direction = tile.wind_direction
+    if (wind_direction.north && wind_direction.east) {
       rotation = 0; //North East
-    } else if not wind_direction["north"] and wind_direction["east"]{
+    } else if (!wind_direction.north && wind_direction.east) {
       rotation = -Math.PI / 2; //South East wind
-    } else if not wind_direction["north"] and not wind_direction["east"]{
+    } else if (!wind_direction.north && !wind_direction.east) {
       rotation = Math.PI; //South West wind
     } else {
       rotation = Math.PI / 2; //North West wind by exclusion
@@ -300,7 +300,7 @@ function init_GUI(){
 
   /**Reads in the images for visualising play, caching
   */
-  //@TODO cache all the images in off-screen canvases (although with higher-res versions you may only want to cache the rotations of chest tiles)
+  //cache all the images in off-screen canvases (although with higher-res versions you may only want to cache the rotations of chest tiles)
   function cache_menu_graphics() {
     console.log("Importing tile and highlight images and establishing a mapping")
     var tile_image_names = [filename for filename in os.listdir(TILE_PATH) if ".png" in filename] //@TODO this list may need to be sent separately from the server: we can't presume that all the images will have loaded when we get here
@@ -343,62 +343,11 @@ function init_GUI(){
       meter_path = METER_PATHS[meter_name];
       meter_image.src = meter_path;
     }
-    //import the cards that will award various rule buffs
-    //            used_card_images = {} //just in case the images available don't provide enough unique versions of each card type
-    card_image_names = [filename for filename in os.listdir(CARDS_PATH) if ".png" in filename]
-    card_image_names.sort() //Ensure it's deterministic which specific cards are assigned to each adventurer, so that this is consistent with the game's other visuals
-    for (card_image_name in card_image_names) {
-      card_type = card_image_name.split("_")[0] //assumes that the card type will be the image filename will start with the type as recognised by the game
-      card_image = pygame.image.load(CARDS_PATH + card_image_name)
-      //Resize the card image to fit in the menu
-      new_width = play_area_start
-      new_height = int(card_image.get_height() * new_width / card_image.get_width())
-      card_height = new_height
-      card_width = new_width
-      card_type_set = card_image_library.get(card_type)
-      console.log("Adding text to card of type '" + card_type + "'")
-      if (card_type_set is null) {
-        scaled_image = pygame.transform.scale(card_image, [new_width, new_height])
-        update_card_text(scaled_image, card_type)
-        card_image_library[card_type] = [scaled_image]
-        //just in case the images available don't provide enough unique versions of each card type for what the game allocates
-        //                    used_card_images[card_type] = []
-      } else {
-        scaled_image = pygame.transform.scale(card_image, [new_width, new_height])
-        update_card_text(scaled_image, card_type)
-        card_type_set.push(scaled_image)
-        //                 //Resize the card image to be displayed more prominently
-        //                 new_width = card
-        //                 new_height = int(card_image.get_height() * new_width / card_image.get_width())
-        //                 card_height = new_height
-        //                 card_width = new_width
-        //                 card_type_set = card_image_library.get(card_type)
-        //                 console.log("Adding text to card of type '" + card_type + "'")
-        //                 if card_type_set is None{
-        //                     scaled_image = pygame.transform.scale(card_image, [new_width, new_height])
-        //                     update_card_text(scaled_image, card_type)
-        //                     card_image_library[card_type] = [scaled_image]
-        //                     //just in case the images available don't provide enough unique versions of each card type for what the game allocates
-        // //                    used_card_images[card_type] = []
-        //                 else{
-        //                     scaled_image = pygame.transform.scale(card_image, [new_width, new_height])
-        //                     update_card_text(scaled_image, card_type)
-        //                     card_type_set.push(scaled_image)
-        //Now supplement with the card types that don't have images
-        for (card_type in CARD_TITLES) {
-          if (not card_type in card_image_library.keys()) {
-            console.log("With no card image for type " + card_type + ", creating one...")
-            card_image_library[card_type] = [create_card(card_type)]
-          }
-        }
-      }
-    }
     rescale_graphics() //adjust the size of the imported images to fit the display size
   }
 
   /**For cards with no image, creates a placeholder.
   */
-  //@TODO differentiate Cadre vs Character / Manuscript cards, to determine orientation
   function create_card(card_type) {
     card_width = play_area_start
     card_height = play_area_start * play_area_start // card_height
@@ -480,10 +429,10 @@ min_latitude, max_latitude = 0, 0
       min_longitude = longitude
     } else if (longitude > max_longitude) {
       max_longitude = longitude
-      for (latitude in game.play_area[longitude]) {
-        if (latitude < min_latitude) {
-          min_latitude = latitude
-        }
+    }
+    for (latitude in game.play_area.longitude) {
+      if (latitude < min_latitude) {
+        min_latitude = latitude
       }
     } else if (latitude > max_latitude) {
       max_latitude = latitude
@@ -515,12 +464,13 @@ min_latitude, max_latitude = 0, 0
     }
     //        console.log("Dimensions are now: " + str(dimensions[0]) + ", " + str(dimensions[1]))
     //        console.log("Origin is now: " + str(origin[0]) + ", " + str(origin[1]))
-    return True
+    return true
   }
 
 
   /**Deals with resizing of the window
   */
+  //@TODO adapt this to the JS resize event
   function window_resize(resize_event) {
     new_width, new_height = resize_event.w, resize_event.h
     reload_needed = False //keep track of whether graphics are being scaled up, which would need the original PNGs to be reloaded
@@ -587,53 +537,92 @@ min_latitude, max_latitude = 0, 0
    * Assumes that all images will have been loaded before this point, so that the same images are assigned to tiles for all clients
   */
   function assign_tile_image(tile) {
-    tile_type = establish_tile_type(tile)
-    available_tiles = tile_images.tile_type
-    tile_name = available_tiles.pop()
+    tile_type = establish_tile_type(tile);
+    available_tiles = tile_images.tile_type;
+    tile_name = available_tiles.pop();
     //Register the image against the tile in question, and cache it if not already
     let tile_image;
     if (!tile_name in cached_tile_images) {
       tile_image = new Image;
       tile_image.onload = function () {
         bordered_tile_size = Math.round(tile_size * (1 - TILE_BORDER))
+        //@TODO cache all the rotations of each tile
+
         //Cache this image for every time it's shown in the Chest or the Play Area is rescaled
         tile_image_library[tile] = cache_offscreen(background, tile_image, bordered_tile_size, bordered_tile_size);
-        cached_tile_images.tile_name.play_image = tile_image_library[tile]
+        cached_tile_images.tile_name.play_image = tile_image_library[tile];
         menu_tile_library[tile] = cache_offscreen(background, tile_image, menu_tile_size, menu_tile_size);
-        cached_tile_images.tile_name.menu_image = menu_tile_library[tile]
+        cached_tile_images.tile_name.menu_image = menu_tile_library[tile];
         offer_tile_library[tile] = cache_offscreen(background, tile_image, offer_tile_size, offer_tile_size);
-        cached_tile_images.tile_name.offer_image = offer_tile_library[tile]
+        cached_tile_images.tile_name.offer_image = offer_tile_library[tile];
       }
       tile_image.src = TILE_PATH + tile_name;
     } else {
       //If the image has already been cached then reference this same offscreen canvas
-      tile_image_library[tile] = cached_tile_images.tile_name.play_image
-      menu_tile_library[tile] = cached_tile_images.tile_name.menu_image
-      offer_tile_library[tile] = cached_tile_images.tile_name.offer_image
+      tile_image_library[tile] = cached_tile_images.tile_name.play_image;
+      menu_tile_library[tile] = cached_tile_images.tile_name.menu_image;
+      offer_tile_library[tile] = cached_tile_images.tile_name.offer_image;
     }
-    available_tiles.insert(0, tile_name) //Prepend this image back into the list so that it won't get used again unless other images run out
+    available_tiles.insert(0, tile_name); //Prepend this image back into the list so that it won't get used again unless other images run out
+  }
+
+  /**Assigns a suitable tile image for a particular tile and cache it ready for use
+   *
+   * Assumes that all images will have been loaded before this point, so that the same images are assigned to tiles for all clients
+  */
+  function assign_card_image(card) {
+    card_type = card.card_type; //assumes that the card type will be the image filename will start with the type as recognised by the game
+    available_cards = card_images.card_type;
+    card_name = available_cards.pop();
+    //Register the image against the card in question and cache it offscreen if not already
+    let card_image;
+    if (!card_name in cached_card_images) {
+      card_image = new Image;
+      //Prepare to resize the card image to fit in the menu
+      menu_width = play_area_start;
+      menu_height = int(card_image.get_height() * new_width / card_image.get_width());
+      offer_width = int(card_image.get_height() * offer_tile_size / card_image.get_width());
+      card_image.onload = function () {
+        //Cache this image for every time it's shown in the Menu or presented for information or theft
+        card_image_library[card] = cache_offscreen(turn_fground, card_image, menu_width, menu_height);
+        console.log("Adding text to card of type '" + card_type + "'");
+        update_card_text(card_image_library[card], card_type);
+        card_offer_library[card] = cache_offscreen(move_fground, card_image, offer_tile_size, offer_width);
+      }
+      img.onerror = function () {
+        card_image_library[card] = cache_offscreen(turn_fground, create_card(card_type), menu_width, menu_height);
+        card_offer_library[card] = cache_offscreen(move_fground, card_image_library[card], offer_tile_size, offer_width);
+      }
+      card_image.src = CARDS_PATH + card_name;
+      chached_card_images.card_name.menu_image = card_image_library[card];
+      chached_card_images.card_name.offer_image = card_offer_library[card];
+    } else {
+      //If the image has already been cached then reference this same offscreen canvas
+      card_image_library[card] = cached_card_images.card_name.menu_image;
+      card_offer_library[card] = cached_card_images.card_name.offer_image;
+    }
   }
 
   /**Renders the tiles that have been laid in a particular game of Cartolan - Trade Winds
   */
 function draw_play_area(){
-play_area_update = game.play_area
 //        console.log("Drawing the play area, with " + str(len(play_area_update)) + " columns of tiles")
         //Check whether the visuals need to be rescaled
 rescale_as_needed()
         //Clear what's already been drawn
+  //@TODO allow transparent background or print parchment texture instead of plain colour
   background.fillStyle = BACKGROUND_COLOUR;  // fill completely with a default background colour
-  background.fill();
+  background.fillRect(0, 0, canvas.width, canvas.height);
 //        background.drawImage(backing_image, [0, 0])
         //For each location in the play area draw the tile
-for longitude in play_area_update{
-    for latitude in play_area_update[longitude]{
-                //bring in the relevant image from the library
-tile = play_area_update[longitude][latitude]
-tile_image = tile_image_library.get(tile)
-if tile_image is None{
-assign_tile_image(tile)
-tile_image = tile_image_library.get(tile)
+for (longitude in play_area_update) {
+    for (latitude in play_area_update[longitude]) {
+      //bring in the relevant image from the library
+      tile = play_area_update[longitude][latitude].tile_name
+      if (!tile_image in tile_image_library) {
+        assign_tile_image(tile)
+      }
+tile_image = tile_image_library.tile
 rotated_image = rotate_tile_image(tile, tile_image)
                 //place the tile image in the grid
 horizontal = play_area_start + get_horizontal(longitude) * tile_size
