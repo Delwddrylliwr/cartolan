@@ -3,11 +3,11 @@
 
 # TEAM
 
-    <name> -- <role> -- <twitter>
+    Tom Wilkinson -- Developer
 
 # THANKS
 
-    <name>
+    Will Fry for hosting
 
 # TECHNOLOGY COLOPHON
 
