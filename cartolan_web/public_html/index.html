@@ -4,13 +4,15 @@
 <head>
   <meta charset="utf-8">
   <title>Cartolan - Trade Winds</title>
-  <meta name="description" content="">
+  <meta name="description" content="Play an online version of the boardgame Cartolan - Trade Winds, with your friends elsewhere or against AI bots.">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <meta property="og:title" content="">
-  <meta property="og:type" content="">
-  <meta property="og:url" content="">
-  <meta property="og:image" content="">
+  <meta property="og:title" content="Cartolan - Trade Winds">
+  <meta property="og:description" content="Play an online version of the boardgame Cartolan - Trade Winds, with your friends elsewhere or against AI bots.">
+  <meta property="og:type" content="Game">
+  <meta property="og:site_name" content="Cartolan">
+  <meta property="og:url" content="http://cartolan.ddns.net:9000">
+  <meta property="og:image" content="http://cartolan.ddns.net/icon.png">
 
   <link rel="manifest" href="site.webmanifest">
   <link rel="apple-touch-icon" href="icon.png">
@@ -19,7 +21,7 @@
   <link rel="stylesheet" href="css/normalize.css">
   <link rel="stylesheet" href="css/main.css">
 
-  <meta name="theme-color" content="#fafafa">
+  <meta name="theme-color" content="#263242">
 
   <!--<script src="download.js" type="text/javascript"></script>-->
 
@@ -457,28 +459,8 @@
             //Regularly check for any recorded clicks and report them to the server as input to the game
             this.interval = setInterval(updateGameArea, 20);
             console.log("Requesting to join a game from the server.");
-            //Wait for all images to have loaded before starting the game ... solution provided by User https://stackoverflow.com/questions/11071314/javascript-execute-after-all-images-have-loaded
-            Promise.all(Array.from(document.images).map(img => {
-              if (img.complete)
-                if (img.naturalHeight !== 0)
-                  return Promise.resolve();
-                else
-                  return Promise.reject(img);
-              return new Promise((resolve, reject) => {
-                img.addEventListener('load', resolve);
-                img.addEventListener('error', () => reject(img));
-              });
-            })).then(() => {
-              console.log('all images loaded successfully');
-              //@TODO sort images before the game starts, to give a consistent allocation of images to assets across clients
-              //pass the play area dimensions to the server and join the queue for the next available game
-              waitForConnection(function () { send("START[00100]" + myGameArea.canvas.width + "[55555]" + myGameArea.canvas.height); }, 100)
-            }, badImg => {
-              console.log('some image failed to load, others may still be loading');
-              console.log('first broken image:', badImg);
-              text = "Error: an image file was corrupted, please refresh the page to try again...";
-              wrapText(context, text, x, y, maxwidth, lineHeight);
-            });
+            //pass the play area dimensions to the server and join the queue for the next available game
+            waitForConnection(function () { send("START[00100]" + myGameArea.canvas.width + "[55555]" + myGameArea.canvas.height); }, 100)
             //Reset the click coordinates
             myGameArea.x = false;
             myGameArea.y = false;
