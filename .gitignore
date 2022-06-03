@@ -8,6 +8,8 @@ __pycache__/*
 #IDE project files
 cartolan_web/nbproject
 cartolan_web/.vs
+.idea/*
+.ipynb_checkpoints/*
 
 #SSL certificates
 cartolan_web/certificates
