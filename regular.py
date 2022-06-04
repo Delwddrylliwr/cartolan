@@ -434,21 +434,36 @@ class CityTileRegular(CityTileBeginner):
         #Cities provide the Adventurer with civilised clothes so they can be redeemed from piracy
         if adventurer.pirate_token:
             adventurer.pirate_token = False
-        
+
         #Top up any missing chest tiles from the bags
         adventurer.replenish_chest_tiles()
-        
+
         super().visit_city(adventurer, abandoned)
         
         if self.game.game_over or abandoned:
             return
-        
-        #Offer the chance to pay and completely swap out chest tiles
-        while (adventurer.game.player_wealths[adventurer.player] >= self.game.cost_refresh_maps 
-            and adventurer.player.check_buy_maps(adventurer)):
+
+    def buy_maps(self, adventurer):
+        '''Lets the Adventurer choose to refrtesh all their Chest maps.
+
+        Args:
+            adventurer: the visiting Adventurer
+        '''
+        # Offer the chance to pay and completely swap out chest tiles
+        while (adventurer.game.player_wealths[adventurer.player] >= self.game.cost_refresh_maps
+               and adventurer.player.check_buy_maps(adventurer)):
             adventurer.game.player_wealths[adventurer.player] -= self.game.cost_refresh_maps
             adventurer.rechoose_chest_tiles()
-                
+
+    def offer_purchases(self, adventurer):
+        '''Manages the sequence of purchasing options for players when their Adventurer reaches a city.
+
+        Args:
+            adventurer: the visiting Adventurer
+        '''
+        self.buy_adventurers(adventurer)
+        self.buy_agents(adventurer)
+        self.buy_maps(adventurer)
 
 class AgentRegular(AgentBeginner):
     '''Extends the AgentBeginner class to keep track of information relevant in the Regular mode of Cartolan'''
@@ -482,7 +497,7 @@ class DisasterTile(Tile):
     '''***DEPRECATED*** Represents a Disaster Tile in the game Cartolan, which removes Adventurers' wealth and send them back to a city '''
     def move_onto_tile(self, token):
         '''Takes the wealth of non-Pirate Adventurers as they land on the tile, but allows pirates to move as if from land
-        
+
         Arguments:
         Cartolan.Token for the Adventurer moving onto the tile
         '''
@@ -501,30 +516,30 @@ class DisasterTile(Tile):
                     super().move_onto_tile(token)
 #                    if token.player.check_court_disaster(token, self): # get player input on whether to attack the disaster
 #                        self.attack_adventurer(token)
-                else: # otherwise send the Adventurer to the capital and keep their wealth and end their turn 
+                else: # otherwise send the Adventurer to the capital and keep their wealth and end their turn
                     print("Adventurer moved onto disaster tile. Dropping wealth and returning to last city visited.")
                     self.dropped_wealth += token.wealth
                     token.end_expedition()
-            elif isinstance(token, Agent): 
+            elif isinstance(token, Agent):
                 print("Tried to add Agent to a disaster tile")
                 return False
         else: raise Exception("Tried to move something other than a token onto a tile")
-    
+
     def attack_adventurer(self, adventurer):
         '''Checks whether a Player wants to try and recover wealth taken by the tile
-        
+
         Arguments:
         Cartolan.Adventurer for the Adventurer token that is on the tile
         '''
 #        import random
-#        
+#
 #        # if the rolls are the same then the pirate gets helf the wealth
 #        if random.random() < self.game.attack_success_prob:
 #            adventurer.wealth += self.dropped_wealth//2 + self.dropped_wealth%2
 #        else: # otherwise send the Adventurer to the capital and keep their wealth
 #            self.dropped_wealth += adventurer.wealth
 #            adventurer.end_expedition()
-            
+
     def compare(self, tile):
         if not isinstance(tile, DisasterTile):
             return False

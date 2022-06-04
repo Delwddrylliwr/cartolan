@@ -334,12 +334,16 @@ class AgentAdvanced(AgentRegular):
         '''
         if AgentRegular.give_rest(self, adventurer):
             if self.resting_refurnishes and adventurer.pirate_token:
+                print("Agent is refurnishing Adventurer, getting rid of their Pirate token.")
                 adventurer.pirate_token = False
             if self.transfer_agent_earnings and self.wealth > 0:
-                self.game.player_wealths[self.player] += self.wealth
-                self.wealth = 0
+                print("Agent is moving income from providing rest directly to player's Vault")
+                self.game.player_wealths[self.player] += self.game.cost_agent_rest
+                self.wealth -= self.game.cost_agent_rest
             if adventurer.rechoose_at_agents and adventurer.wealth > self.game.cost_refresh_maps:
+                print("Agent is offering Adventurer the chance to swap all their Chest maps.")
                 if adventurer.player.check_buy_maps(adventurer):
+                    adventurer.wealth -= self.game.cost_refresh_maps
                     adventurer.rechoose_chest_tiles()
             return True
         else:
@@ -356,10 +360,11 @@ class AgentAdvanced(AgentRegular):
             return False
         #check whether Adventurer trading is from the same player
         elif adventurer.player == self.player:
-            print("Agent on tile " +str(self.current_tile.tile_position.longitude)+","
-                  +str(self.current_tile.tile_position.longitude)+ " has given monopoly bonus to Adventurer")
-            # pay as necessary
-#            adventurer.wealth += self.value_agent_trade
+            if self.transfer_agent_earnings:
+                print("Agent on tile "+str(self.current_tile.tile_position.longitude)+", "+str(self.current_tile.tile_position.latitude)+
+                      " has transferred trade income direct to the bank instead of to the Adventurer")
+                adventurer.wealth -= adventurer.value_trade
+                self.game.player_wealths[adventurer.player] += adventurer.value_trade
         else:
             # retain wealth if they are a different player
             print("Agent on tile " +str(self.current_tile.tile_position.longitude)+","
@@ -370,45 +375,68 @@ class AgentAdvanced(AgentRegular):
 class CityTileAdvanced(CityTileRegular):
     '''Extends to replenish Chest Tiles, and offer purchase of refreshed chest tiles
     '''
-    def visit_city(self, adventurer, abandoned=False):
+    def offer_purchases(self, adventurer):
        '''Extends to allow rule changes from cards
        '''
-       super().visit_city(adventurer, abandoned)
-       
-       if self.game.game_over or abandoned:
-            return
-        
-       print("Offering "+adventurer.player.name+"'s adventurer the chance to upgrade the Adventurer with a Discovery/Manuscript card")
-       available_cards = self.game.discovery_cards
-       rejected_cards = []
-       while (available_cards 
-           and adventurer.game.player_wealths[adventurer.player] >= self.game.cost_tech
-           and adventurer.player.check_buy_tech(adventurer)):
-           
-           print(adventurer.player.name+"'s has chosen to buy a Manuscript card")
-           card_options = []
-           #Offer several cards, but only those which don't duplicate another one time card buff the Adventurer already has
-           while (len(card_options) < self.game.num_discovery_choices[adventurer.player]
-               and available_cards):
-               new_tech_card = available_cards.pop(random.randint(0, len(available_cards)-1))
-               #Check whether this is a one off perk and then whether its a duplicate, returning it and drawing another if so
-               for buff_attr in new_tech_card.buffs:
-                   if new_tech_card.buffs[buff_attr]["buff_type"] == "new":
-                       if buff_attr in adventurer.character_card.buffs:
-                           rejected_cards.append(new_tech_card)
-                           break
-                       for existing_card in adventurer.discovery_cards:
-                           if buff_attr in existing_card.buffs:
-                               rejected_cards.append(new_tech_card)
-                               break
-               card_options.append(new_tech_card)
-           if card_options: #Providing there were some valid discovery cards still available, let the player choose
-               chosen_card = adventurer.player.choose_card(adventurer, card_options)
-               card_options.remove(chosen_card)
-               adventurer.discover_card(chosen_card)
-               adventurer.game.player_wealths[adventurer.player] -= self.game.cost_tech
-           available_cards += card_options #Return the remaining options to the deck
-           available_cards += rejected_cards #Return the cards that weren't suitable to the Discovery deck
+       self.buy_adventurers(adventurer)
+       self.buy_agents(adventurer)
+       self.buy_manuscripts(adventurer)
+       self.buy_maps(adventurer)
+
+    def buy_manuscripts(self, adventurer):
+        '''Offers the visiting Adventurer the chance to upgrade themselves.
+
+        Args:
+            adventurer: the visiting adventurer
+        '''
+        print(
+            "Offering " + adventurer.player.name + "'s adventurer the chance to upgrade the Adventurer with a Discovery/Manuscript card")
+        available_cards = self.game.discovery_cards
+        rejected_cards = []
+        while (available_cards
+               and adventurer.game.player_wealths[adventurer.player] >= self.game.cost_tech
+               and adventurer.player.check_buy_tech(adventurer)):
+
+            print(adventurer.player.name + "'s has chosen to buy a Manuscript card")
+            card_options = []
+            # Offer several cards, but only those which don't duplicate another one time card buff the Adventurer already has
+            while (len(card_options) < self.game.num_discovery_choices[adventurer.player]
+                   and available_cards):
+                new_tech_card = available_cards.pop(random.randint(0, len(available_cards) - 1))
+                # Check whether this is a one off perk and then whether its a duplicate, returning it and drawing another if so
+                for buff_attr in new_tech_card.buffs:
+                    if new_tech_card.buffs[buff_attr]["buff_type"] == "new":
+                        if buff_attr in adventurer.character_card.buffs:
+                            rejected_cards.append(new_tech_card)
+                            break
+                        for existing_card in adventurer.discovery_cards:
+                            if buff_attr in existing_card.buffs:
+                                rejected_cards.append(new_tech_card)
+                                break
+                card_options.append(new_tech_card)
+            if card_options:  # Providing there were some valid discovery cards still available, let the player choose
+                chosen_card = adventurer.player.choose_card(adventurer, card_options)
+                card_options.remove(chosen_card)
+                adventurer.discover_card(chosen_card)
+                adventurer.game.player_wealths[adventurer.player] -= self.game.cost_tech
+            available_cards += card_options  # Return the remaining options to the deck
+            available_cards += rejected_cards  # Return the cards that weren't suitable to the Discovery deck
+
+    def buy_maps(self, adventurer):
+        '''Extends the parent with the potential for a free refresh of maps.
+
+        Args:
+            adventurer: the visiting Adventurer
+        '''
+        # If they have the perk, let them have one swap of maps for free
+        if adventurer.rechoose_at_agents:
+            cost_refresh_maps = self.game.cost_refresh_maps
+            self.game.cost_refresh_maps = 0
+            if adventurer.player.check_buy_maps(adventurer):
+                adventurer.rechoose_chest_tiles()
+            self.game.cost_refresh_maps = cost_refresh_maps
+        super().buy_maps(adventurer)
+
 
 class CapitalTileAdvanced(CityTileAdvanced):
     def __init__(self, game, tile_back = "water"
