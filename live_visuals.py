@@ -121,11 +121,11 @@ class GameVisualisation():
              , "dis+upwind":"This Adventurer can move once more before tiring, rather than after, each turn and after resting."
              , "dis+maps":"This Adventurer carries an extra map tile in their chest."
              , "com+rests":"Your Adventurers can rest with other Adventurers like Inns. Draw 3 Adventurers."
-            , "com+transfers":"Treasure earned by your Inns goes to your Vault. Draw 3 Manuscripts."
+            , "com+transfers":"Treasure you earn on your Inns' tiles goes to your Vault. Draw 3 Manuscripts."
             , "com+earning":"Your Inns earn 1 treasure when opponents trade on their tile. Draw 3 Manuscripts."
             , "com+arrest":"Your Inns try to arrest pirates landing on their tile. Draw 3 Adventurers."
             , "com+refurnish":"Your Adventurers can lose the pirate token by resting. Draw 3 Adventurers."
-            , "com+pool":"Anyone's Inns can swap your Adventures' maps for 1 treasure. Draw 3 Manuscripts."
+            , "com+pool":"Swap maps once per visit for free at a city and 1 treasure at any Inn. Draw 3 Manuscripts."
             }
     
     def __init__(self, game, peer_visuals, player_colours):
