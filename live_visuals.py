@@ -97,7 +97,7 @@ class GameVisualisation():
                   , "agent_transfer":'./images/highlights/option_buy.png'
                   }
     TOGGLE_HIGHLIGHTS = ["buy", "attack", "rest"]
-    CARD_TITLES = {"com+rests":"The Inrepid Academy"
+    CARD_TITLES = {"com+rests":"The Intrepid Academy"
             , "com+transfers":"The Great Company"
             , "com+earning":"The Merchants' Guild"
             , "com+arrest":"The Harbour Authority"
