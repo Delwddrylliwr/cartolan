@@ -274,77 +274,77 @@ function init_GUI(){
 
   /**For a particular image library, rescales all of the images
   */
-  function rescale_images(image_library, new_size) {
-    for (image_type in image_library) {
-      image = image_library.image_type
-      background.offscreenCanvas = document.createElement('canvas');
-      background.offscreenCanvas.width = image.width;
-      background.offscreenCanvas.height = image.height;
-      background.offscreenCanvas.drawImage(image, 0, 0);
-      background.offscreenCanvas.getContext.scale(new_size[0], new_size[1]);
-      image_library.image_type = background.offscreenCanvas;
-    }
-  }
+    function rescale_images(image_library, new_size) {
+        for (image_type in image_library) {
+            image = image_library.image_type;
+            background.offscreenCanvas = document.createElement('canvas');
+            background.offscreenCanvas.width = image.width;
+            background.offscreenCanvas.height = image.height;
+            background.offscreenCanvas.drawImage(image, 0, 0);
+            background.offscreenCanvas.getContext.scale(new_size[0], new_size[1]);
+            image_library.image_type = background.offscreenCanvas;
+        };
+    };
 
 
   /**Caches an image offscreen for a given canvas
   */
-  function cache_offscreen(parentCanvas, image, width, height) {
-    parentCanvas.offscreenCanvas = document.createElement('canvas');
-    parentCanvas.offscreenCanvas.width = image.width;
-    parentCanvas.offscreenCanvas.height = image.height;
-    parentCanvas.offscreenCanvas.drawImage(image, 0, 0);
-    parentCanvas.offscreenCanvas.getContext.scale(width, height);
-    return parentCanvas.offscreenCanvas;
-  };
+    function cache_offscreen(parentCanvas, image, width, height) {
+        parentCanvas.offscreenCanvas = document.createElement('canvas');
+        parentCanvas.offscreenCanvas.width = image.width;
+        parentCanvas.offscreenCanvas.height = image.height;
+        parentCanvas.offscreenCanvas.drawImage(image, 0, 0);
+        parentCanvas.offscreenCanvas.getContext.scale(width, height);
+        return parentCanvas.offscreenCanvas;
+    };
 
   /**Reads in the images for visualising play, caching
   */
   //cache all the images in off-screen canvases (although with higher-res versions you may only want to cache the rotations of chest tiles)
-  function cache_menu_graphics() {
-    console.log("Importing tile and highlight images and establishing a mapping")
-    var tile_image_names = [filename for filename in os.listdir(TILE_PATH) if ".png" in filename] //@TODO this list may need to be sent separately from the server: we can't presume that all the images will have loaded when we get here
-    var tile_image_names.sort() //Ensure it's deterministic which specific cards are assigned to each adventurer, so that this is consistent with the game's other visuals
-    //Resize the tile image to the smallest that will still fit in each of its roles
-    var max_size = max(tile_size, menu_tile_size, offer_tile_size);
-    //console.log(tile_image_names)
-    for (tile_image_name in tile_image_names) {
-      tile_type = tile_image_name.split(".")[0].split("_")[0] //assumes that the tile type will be the image filename will start with the type as recognised by the game
-      let tile_image = new Image;
-      tile_image.onload = function () {
-        offscreenCanvas = cache_offscreen(background, tile_image, max_size, max_size);
-        tile_type_set = tile_images.get(tile_type)
-        if (tile_type_set is null) {
-          tile_images.tile_type = [offscreenCanvas]
-        } else {
-          tile_type_set.push(offscreenCanvas)
+    function cache_menu_graphics() {
+        console.log("Importing tile and highlight images and establishing a mapping");
+        var tile_image_names = [filename for filename in os.listdir(TILE_PATH) if ".png" in filename]; //@TODO this list may need to be sent separately from the server: we can't presume that all the images will have loaded when we get here
+        var tile_image_names.sort(); //Ensure it's deterministic which specific cards are assigned to each adventurer, so that this is consistent with the game's other visuals
+        //Resize the tile image to the smallest that will still fit in each of its roles
+        var max_size = max(tile_size, menu_tile_size, offer_tile_size);
+        //console.log(tile_image_names)
+        for (tile_image_name in tile_image_names) {
+            tile_type = tile_image_name.split(".")[0].split("_")[0]; //assumes that the tile type will be the image filename will start with the type as recognised by the game
+            let tile_image = new Image;
+            tile_image.onload = function () {
+                offscreenCanvas = cache_offscreen(background, tile_image, max_size, max_size);
+                tile_type_set = tile_images.get(tile_type);
+                if (tile_type_set is null) {
+                    tile_images.tile_type = [offscreenCanvas];
+                } else {
+                    tile_type_set.push(offscreenCanvas);
+                };
+            }
+            tile_image.src = TILE_PATH + tile_image_name;
         };
-      }
-      tile_image.src = TILE_PATH + tile_image_name;
-    }
-    // import the masks used to highlight movement options
-    for (highlight_name in HIGHLIGHT_PATHS) {
-      let highlight_image = new Image;
-      highlight_image.onload = function () {
-        highlight_library.highlight_name = cache_offscreen(move_fground, highlight_image, tile_size, tile_size);
-        // duplicate these tiles at a different size for use in menus
-        toggle_library.highlight_name = cache_offscreen(move_fground, highlight_image, menu_highlight_size, menu_highlight_size);
+        // import the masks used to highlight movement options
+        for (highlight_name in HIGHLIGHT_PATHS) {
+            let highlight_image = new Image;
+            highlight_image.onload = function () {
+                highlight_library.highlight_name = cache_offscreen(move_fground, highlight_image, tile_size, tile_size);
+                // duplicate these tiles at a different size for use in menus
+                toggle_library.highlight_name = cache_offscreen(move_fground, highlight_image, menu_highlight_size, menu_highlight_size);
+            };
+            highlight_path = HIGHLIGHT_PATHS[highlight_name];
+            highlight_image.src = highlight_path;
         };
-      highlight_path = HIGHLIGHT_PATHS[highlight_name];
-      highlight_image.src = highlight_path
-    };
-    // import the graphics for meters showing the remaining moves until rest
-    meters_library = {}
-    for (meter_name in METERS_PATHS) {
-      let meter_image = new Image;
-      meter_image.onload = function () {
-        meters_library.meter_name = cache_offscreen(move_fground, meter_image, menu_tile_size, menu_tile_size);
-      };
-      meter_path = METER_PATHS[meter_name];
-      meter_image.src = meter_path;
+        // import the graphics for meters showing the remaining moves until rest
+        meters_library = {}
+        for (meter_name in METERS_PATHS) {
+            let meter_image = new Image;
+            meter_image.onload = function () {
+                meters_library.meter_name = cache_offscreen(move_fground, meter_image, menu_tile_size, menu_tile_size);
+            };
+            meter_path = METER_PATHS[meter_name];
+            meter_image.src = meter_path;
+        }
+        rescale_graphics() //adjust the size of the imported images to fit the display size
     }
-    rescale_graphics() //adjust the size of the imported images to fit the display size
-  }
 
   /**For cards with no image, creates a placeholder.
   */
@@ -392,31 +392,31 @@ function init_GUI(){
 
   /**Rescales images in response to updated dimensions for the play grid
   */
-  function rescale_graphics() {
-    console.log("Updating the dimensions that will be used for drawing the play area")
-    //        dimensions = dimensions        
-    //Tiles, tokens and text will need adjusting to the new dimensions
-    //Tiles will be scaled to fit the smaller dimension
-    max_tile_height = height // dimensions[1]
-    max_tile_width = play_area_width // dimensions[0]
-    if (max_tile_height < max_tile_width) {
-      tile_size = max_tile_height
-    } else {
-      tile_size = max_tile_width
+    function rescale_graphics() {
+        console.log("Updating the dimensions that will be used for drawing the play area");
+        //        dimensions = dimensions        
+        //Tiles, tokens and text will need adjusting to the new dimensions
+        //Tiles will be scaled to fit the smaller dimension
+        max_tile_height = height; // dimensions[1]
+        max_tile_width = play_area_width; // dimensions[0]
+        if (max_tile_height < max_tile_width) {
+            tile_size = max_tile_height;
+        } else {
+            tile_size = max_tile_width;
+        }
+        token_size = Math.round(TOKEN_SCALE * tile_size); //token size will be proportional to the tiles
+        outline_width = math.ceil(TOKEN_OUTLINE_SCALE * token_size);
+        route_thickness = ROUTE_THICKNESS;
+        chest_highlight_thickness = int(route_thickness);
+        token_font = pygame.font.SysFont(None, int(tile_size * TOKEN_FONT_SCALE)); //the font size for tokens will be proportionate to the window size
+        //scale down the images as the dimensions of the grid are changed, rather than when placing
+        //the tiles' scale will be slightly smaller than the space in the grid, to givea discernible margin
+        bordered_tile_size = Math.round(tile_size * (1 - TILE_BORDER));
+        console.log("Updated tile size to be " + str(tile_size) + " pixels, and with border: " + str(bordered_tile_size));
+        rescale_images(tile_image_library, bordered_tile_size);
+        rescale_images(highlight_library, tile_size);
+        //        rescale_images(menu_tile_library, menu_tile_size)
     }
-    token_size = Math.round(TOKEN_SCALE * tile_size) //token size will be proportional to the tiles
-    outline_width = math.ceil(TOKEN_OUTLINE_SCALE * token_size)
-    route_thickness = ROUTE_THICKNESS
-    chest_highlight_thickness = int(route_thickness)
-    token_font = pygame.font.SysFont(None, int(tile_size * TOKEN_FONT_SCALE)) //the font size for tokens will be proportionate to the window size
-    //scale down the images as the dimensions of the grid are changed, rather than when placing
-    //the tiles' scale will be slightly smaller than the space in the grid, to givea discernible margin
-    bordered_tile_size = Math.round(tile_size * (1 - TILE_BORDER))
-    console.log("Updated tile size to be " + str(tile_size) + " pixels, and with border: " + str(bordered_tile_size))
-    rescale_images(tile_image_library, bordered_tile_size)
-    rescale_images(highlight_library, tile_size)
-    //        rescale_images(menu_tile_library, menu_tile_size)
-  }
 
     /**Checks the extremes of the play_area and rescales visual elements as needed
   */
@@ -608,7 +608,7 @@ min_latitude, max_latitude = 0, 0
 function draw_play_area(){
 //        console.log("Drawing the play area, with " + str(len(play_area_update)) + " columns of tiles")
         //Check whether the visuals need to be rescaled
-rescale_as_needed()
+    rescale_as_needed();
         //Clear what's already been drawn
   //@TODO allow transparent background or print parchment texture instead of plain colour
   background.fillStyle = BACKGROUND_COLOUR;  // fill completely with a default background colour
@@ -618,27 +618,27 @@ rescale_as_needed()
 for (longitude in play_area_update) {
     for (latitude in play_area_update[longitude]) {
       //bring in the relevant image from the library
-      tile = play_area_update[longitude][latitude].tile_name
+        tile = play_area_update[longitude][latitude].tile_name;
       if (!tile_image in tile_image_library) {
-        assign_tile_image(tile)
+          assign_tile_image(tile);
       }
-tile_image = tile_image_library.tile
-rotated_image = rotate_tile_image(tile, tile_image)
+        tile_image = tile_image_library.tile;
+        rotated_image = rotate_tile_image(tile, tile_image);
                 //place the tile image in the grid
-horizontal = play_area_start + get_horizontal(longitude) * tile_size
-vertical = get_vertical(latitude) * tile_size
+        horizontal = play_area_start + get_horizontal(longitude) * tile_size;
+        vertical = get_vertical(latitude) * tile_size;
 //                console.log("Placing a tile at pixel coordinates " + str(horizontal * tile_size) + ", " + str(vertical * tile_size))
-background.drawImage(rotated_image, [horizontal, vertical])
+        background.drawImage(rotated_image, [horizontal, vertical]);
                 //Print a number on this tile showing the dropped wealth there
-if tile.dropped_wealth > 0{
-    if tile.is_wonder{
-        text_colour = WONDER_TEXT_COLOUR
-    else{
-    text_colour = PLAIN_TEXT_COLOUR
-horizontal += int(tile_size * (1 - TOKEN_FONT_SCALE / 2) / 2)
-vertical += int(tile_size * (1 - TOKEN_FONT_SCALE / 2) / 2)
-wealth_label = token_font.render(str(tile.dropped_wealth), 1, text_colour)
-move_fground.putImageData(wealth_label, [horizontal, vertical])
+if (tile.dropped_wealth > 0){
+    if (tile.is_wonder) {
+        text_colour = WONDER_TEXT_COLOUR;
+    else {
+            text_colour = PLAIN_TEXT_COLOUR;
+            horizontal += int(tile_size * (1 - TOKEN_FONT_SCALE / 2) / 2);
+            vertical += int(tile_size * (1 - TOKEN_FONT_SCALE / 2) / 2);
+            wealth_label = token_font.render(str(tile.dropped_wealth), 1, text_colour);
+            move_fground.putImageData(wealth_label, [horizontal, vertical]);
         // // Keep track of what the latest play_area to have been visualised was
         // play_area = play_area_union(play_area, play_area_update)
 return True
