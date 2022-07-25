@@ -8,6 +8,7 @@ __pycache__/*
 #IDE project files
 cartolan_web/nbproject
 cartolan_web/.vs
+.idea/
 
 #SSL certificates
 cartolan_web/certificates

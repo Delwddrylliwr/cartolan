@@ -76,14 +76,15 @@ class GameVisualisation():
     PROMPT_FONT_SCALE = 0.05 #relative to window size
     
     TILE_PATH = './images/tiles/'
+    TILE_EXTENSION = ".jpg"
     CARDS_PATH = './images/cards/'
     SPECIAL_TILE_PATHS = {"water_disaster":'./images/water_disaster.png'
                      , "land_disaster":'./images/land_disaster.png'
                      , "capital":'./images/capital.png'
                      , "mythical":'./images/mythical.png'
                      } #file paths for special tiles
-    METERS_PATHS = {"any_direction":'./images/move_meters/any_direction.png'
-                  , "downwind_water":'./images/move_meters/downwind_water.png'
+    METERS_PATHS = {"any_direction":'./images/move_meters/any_direction.jpg'
+                  , "downwind_water":'./images/move_meters/downwind_water.jpg'
                   }
     HIGHLIGHT_PATHS = {"move":'./images/highlights/option_valid_move.png'
                   , "abandon":'./images/highlights/option_abandon.png'
@@ -281,7 +282,7 @@ class GameVisualisation():
         if isinstance(self.game, GameRegular):
             #duplicate tile art for use in selection menu after piracy
             self.offer_tile_library = {}
-        tile_image_names = [filename for filename in os.listdir(self.TILE_PATH) if ".png" in filename]
+        tile_image_names = [filename for filename in os.listdir(self.TILE_PATH) if self.TILE_EXTENSION in filename]
         tile_image_names.sort() #Ensure it's deterministic which specific cards are assigned to each adventurer, so that this is consistent with the game's other visuals
         print(tile_image_names)
         for tile_image_name in tile_image_names:
