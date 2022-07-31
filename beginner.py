@@ -210,21 +210,21 @@ class AdventurerBeginner(Adventurer):
         self.placed = False
         self.banked = False
         self.bought_adventurer = 0
-        self.bought_agent = 0 #@TODO this variable may need to store different information
-        self.moved_agent = None #@TODO this variable may need to store different information
+        self.bought_agent = 0
+        self.moved_agent = None
         
         # check whether the next tile exists and explore if needed, movement rules can be either "initial" or "budgetted"
         moved = False
         if self.can_move(compass_point):
             #include this in the number of moves so far since resting - even if exploration subsequently fails
             if not self.current_tile.compass_edge_water(compass_point): #land movement
-                print("Making a land move")
+                print("Making a land move, with existing treasure "+str(self.wealth))
                 self.land_moves += 1
             elif self.current_tile.compass_edge_downwind(compass_point): #downwind movement possible
-                print("Making a downwind water move")
+                print("Making a downwind water move, with existing treasure "+str(self.wealth))
                 self.downwind_moves += 1
             else: #if not land or downwind, then movement must have been upwind
-                print("Making an upwind water move")
+                print("Making an upwind water move, with existing treasure "+str(self.wealth))
                 self.upwind_moves += 1
             
             #locate the space in the play area that the Adventurer is moving into
@@ -268,7 +268,7 @@ class AdventurerBeginner(Adventurer):
         
         #check whether any more moves will be possible
         if not self.can_move(None):
-            print("Adventurer determined that cannot move any more, so finishing turn")
+            print("Adventurer determined that cannot move any more, so finishing turn, with Chest treasure "+str(self.wealth)+", and Vault treasure "+str(self.game.player_wealths[self.player]))
             self.end_turn()
         
         return moved #even if exlploration fails this still counts as a move
@@ -276,7 +276,7 @@ class AdventurerBeginner(Adventurer):
     
     def wait(self):
         '''Allows the Adventurer to just wait in place rather than moving, to end a turn early'''
-        print("Adventurer is choosing to wait in place")
+        print("Adventurer is choosing to wait in place, with treasure "+str(self.wealth))
         #Reset records of actions taken from previous move, and record that this was a choice to wait in place
         self.moved = "wait"
         self.traded = False
@@ -303,7 +303,7 @@ class AdventurerBeginner(Adventurer):
             self.interact_tokens()
         
         if not self.can_move(None):
-            print("Adventurer determined that cannot move any more, so finishing turn")
+            print("Adventurer determined that cannot move any more, so finishing turn, with Chest treasure "+str(self.wealth)+", and Vault treasure "+str(self.game.player_wealths[self.player]))
             self.end_turn()
         
         return True
@@ -760,9 +760,7 @@ class CityTileBeginner(CityTile):
         self.game.game_over = self.game.check_win_conditions()
         
         if not self.game.game_over and not abandoned:
-            self.buy_adventurers(adventurer)
-            
-            self.buy_agents(adventurer)
+            self.offer_purchases(adventurer)
         
         #End the Adventurer's turn and reset their moves
         adventurer.end_turn()
@@ -873,6 +871,15 @@ class CityTileBeginner(CityTile):
                      +" and sent them to the tile at "
                      +str(tile.tile_position.longitude)+","+str(tile.tile_position.latitude))
         return True
+
+    def offer_purchases(self, adventurer):
+        '''Manages the sequence of purchasing options for players when their Adventurer reaches a city.
+
+        Args:
+            adventurer: the visiting Adventurer
+        '''
+        self.buy_adventurers(adventurer)
+        self.buy_agents(adventurer)
 
 class WonderTile(Tile):
      def __init__(self, game, tile_back = "water"

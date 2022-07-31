@@ -183,7 +183,20 @@ class PlayerHuman(Player):
         #make sure that tiles and token positions are up to date
         game_vis.draw_play_area()
         game_vis.draw_routes()
-
+        #Draw the left menu items
+        game_vis.draw_scores()
+        if isinstance(adventurer, AdventurerAdvanced):
+            game_vis.draw_cards()
+        #Draw the right menu items
+        game_vis.draw_move_count()
+        game_vis.draw_toggle_menu(self.auto_actions)
+        game_vis.draw_routes_menu()
+        if isinstance(adventurer, AdventurerRegular):
+            adventurer.match_chest_directions()
+            game_vis.draw_chest_tiles()
+        game_vis.draw_tile_piles()
+        game_vis.draw_discard_pile()
+        game_vis.draw_undo_button()
         game_vis.draw_move_options(moves)
         game_vis.draw_tokens() #draw them on top of highlights
             
@@ -259,6 +272,7 @@ class PlayerHuman(Player):
                 # Draw the right menu items
                 game_vis.draw_move_count()
                 game_vis.draw_toggle_menu(self.auto_actions)
+                game_vis.draw_routes_menu()
                 if isinstance(adventurer, AdventurerRegular):
                     adventurer.match_chest_directions()
                     game_vis.draw_chest_tiles()
@@ -407,6 +421,20 @@ class PlayerHuman(Player):
         #make sure that tiles and token positions are up to date
         game_vis.draw_play_area()
         game_vis.draw_routes()
+        #Draw the left menu items
+        game_vis.draw_scores()
+        if isinstance(adventurer, AdventurerAdvanced):
+            game_vis.draw_cards()
+        #Draw the right menu items
+        game_vis.draw_move_count()
+        game_vis.draw_toggle_menu(self.auto_actions)
+        game_vis.draw_routes_menu()
+        if isinstance(adventurer, AdventurerRegular):
+            adventurer.match_chest_directions()
+            game_vis.draw_chest_tiles()
+        game_vis.draw_tile_piles()
+        game_vis.draw_discard_pile()
+        game_vis.draw_undo_button()
 
         print("Adding movement options that will be available next move, to allow skipping of actions")
         if not isinstance(adventurer.current_tile, CityTile): #If this is a buying action from the city then the turn is about to end, even with spare moves
@@ -477,6 +505,7 @@ class PlayerHuman(Player):
             # Draw the right menu items
             game_vis.draw_move_count()
             game_vis.draw_toggle_menu(self.auto_actions)
+            game_vis.draw_routes_menu()
             if isinstance(adventurer, AdventurerRegular):
                 adventurer.match_chest_directions()
                 game_vis.draw_chest_tiles()
@@ -629,7 +658,7 @@ class PlayerHuman(Player):
         action_type = "buy"
         actions[action_type] = [[adventurer.current_tile.tile_position.longitude
                     , adventurer.current_tile.tile_position.latitude]]
-        prompt = ("If you want your Adventurer to recruit a Inn on this tile for "+str(adventurer.cost_agent_exploring)
+        prompt = ("If you want your Adventurer to base an Inn on this tile for "+str(adventurer.cost_agent_exploring)
                         +" treasure then click it, otherwise click elsewhere.")
         if self.check_action(adventurer, action_type, actions, prompt):
             return True
@@ -637,7 +666,7 @@ class PlayerHuman(Player):
             return False
         
     # When offered, give the player the option to buy on any tile that doesn't have an active Agent 
-    def check_buy_agent(self, adventurer, report="Player has been offered to buy a Inn by a city"):
+    def check_buy_agent(self, adventurer, report="Player has been offered to buy an Inn by a city"):
         print(report)
         if self.undone: 
             print("automatically responding false to action")
@@ -647,7 +676,7 @@ class PlayerHuman(Player):
         action_type = "buy"
         #Establish a list of all tiles without an active Agent, to offer the player
         actions[action_type] = []
-        prompt = ("Click any unoccupied tile to hire a Inn and send them there for " 
+        prompt = ("Click any unoccupied tile to buy rights and base an Inn there for "
                              +str(adventurer.game.cost_agent_from_city) 
                              +" treasure, otherwise click elsewhere.")
         play_area = adventurer.game.play_area
@@ -681,7 +710,7 @@ class PlayerHuman(Player):
         for agent in adventurer.game.agents[self]:
             actions[action_type].append([agent.current_tile.tile_position.longitude, agent.current_tile.tile_position.latitude])
         prompt = ("You will need to move an existing Inn of " +str(self.name)+ ", click to choose one"
-                                       +", otherwise click elsewhere to cancel buying a Inn.")
+                                       +", otherwise click elsewhere to cancel buying an Inn.")
         selected_tile = self.check_action(adventurer, action_type, actions, prompt)
         if selected_tile is not None:
             return selected_tile.agent
@@ -697,7 +726,7 @@ class PlayerHuman(Player):
         for agent in adventurer.game.agents[self]:
             if not agent.current_tile == adventurer.current_tile: #Avoid trying to transfer treasure to the current tile
                 actions[action_type].append([agent.current_tile.tile_position.longitude, agent.current_tile.tile_position.latitude])
-        prompt = ("Select a Inn If you want " +str(self.name)+ "'s Adventurer to move treasure there "
+        prompt = ("Select an Inn If you want " +str(self.name)+ "'s Adventurer to move treasure there "
                                        +", otherwise click elsewhere.")
         selected_tile = self.check_action(adventurer, action_type, actions, prompt)
         if selected_tile is not None:
@@ -803,7 +832,7 @@ class PlayerHuman(Player):
         action_type = "buy"
         actions = {action_type:[[adventurer.current_tile.tile_position.longitude
                     , adventurer.current_tile.tile_position.latitude]]}
-        prompt = ("If you want your Adventurer to restore your dispossessed Inn on this tile for "+str(adventurer.game.cost_agent_restore)
+        prompt = ("If you want your Adventurer to restore your ransacked Inn on this tile for "+str(adventurer.game.cost_agent_restore)
                         +" then click it, otherwise click elsewhere.")
         if self.check_action(adventurer, action_type, actions, prompt):
             return True
