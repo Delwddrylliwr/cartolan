@@ -79,6 +79,7 @@ class GameVisualisation():
     TILE_PATH = './images/tiles/'
     TILE_EXTENSION = ".jpg"
     CARDS_PATH = './images/cards/'
+    CARDS_EXTENSION = ".png"
     SPECIAL_TILE_PATHS = {"water_disaster":'./images/water_disaster.png'
                      , "land_disaster":'./images/land_disaster.png'
                      , "capital":'./images/capital.png'
@@ -153,6 +154,7 @@ class GameVisualisation():
         #Placeholders for the various GUI elements
         self.scores_rect = (0, 0, 0, 0)
         self.stack_rect = (0, 0, 0, 0)
+        self.cadre_card_rect = (0, 0, 0, 0)
         self.current_move_count = None
         self.move_count_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
         self.chest_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
@@ -166,6 +168,8 @@ class GameVisualisation():
         self.adventurer_centres = []
         self.agent_rects = []
         if isinstance(self.game, GameAdvanced):
+            self.selected_cadre_card = False
+            self.selected_character_card = False
             self.selected_card_num = None
             self.card_images = {}
         self.draw_all_routes = True
@@ -283,83 +287,60 @@ class GameVisualisation():
         if isinstance(self.game, GameRegular):
             #duplicate tile art for use in selection menu after piracy
             self.offer_tile_library = {}
-        tile_image_names = [filename for filename in os.listdir(self.TILE_PATH) if self.TILE_EXTENSION in filename]
-        tile_image_names.sort() #Ensure it's deterministic which specific cards are assigned to each adventurer, so that this is consistent with the game's other visuals
-        print(tile_image_names)
-        for tile_image_name in tile_image_names:
-            tile_type = tile_image_name.split(".")[0].split("_")[0] #assumes that the tile type will be the image filename will start with the type as recognised by the game
-            tile_image = pygame.image.load(self.TILE_PATH + tile_image_name)
-            #Resize the tile image to the smallest that will still fit in each of its roles
-            min_size = max(self.tile_size, self.menu_tile_size, self.offer_tile_size)
-            scaled_image = pygame.transform.scale(tile_image.copy(), [min_size, min_size])
-            tile_type_set = self.tile_images.get(tile_type)
-            if tile_type_set is None:
-                self.tile_images[tile_type] = [scaled_image]
-            else:
-                tile_type_set.append(scaled_image)
-        # import the masks used to highlight movement options
-        self.highlight_library = {}
-        for highlight_name in self.HIGHLIGHT_PATHS:
-            highlight_image = self.HIGHLIGHT_PATHS[highlight_name]
-            self.highlight_library[highlight_name] = pygame.image.load(highlight_image)
-        # duplicate these tiles at a smaller size for use in menus
-        self.toggle_library = {}
-        for highlight_name in self.highlight_library:
-            highlight_image = self.highlight_library[highlight_name]
-            self.toggle_library[highlight_name] = pygame.transform.scale(highlight_image, [self.menu_highlight_size, self.menu_highlight_size])
-        # import the graphics for meters showing the remaining moves until rest
-        self.meters_library = {}
-        for meter_name in self.METERS_PATHS:
-            meter_image = pygame.image.load(self.METERS_PATHS[meter_name])
-            self.meters_library[meter_name] = pygame.transform.scale(meter_image, (self.menu_tile_size, self.menu_tile_size))
-        #import the cards that will award various rule buffs
-        if isinstance(self.game, GameAdvanced):
-            self.card_image_library = {}
-#            self.used_card_images = {} #just in case the images available don't provide enough unique versions of each card type
-            card_image_names = [filename for filename in os.listdir(self.CARDS_PATH) if ".png" in filename]
-            card_image_names.sort() #Ensure it's deterministic which specific cards are assigned to each adventurer, so that this is consistent with the game's other visuals
-            for card_image_name in card_image_names:
-                card_type = card_image_name.split("_")[0] #assumes that the card type will be the image filename will start with the type as recognised by the game
-                card_image = pygame.image.load(self.CARDS_PATH +card_image_name)
-                #Resize the card image to fit in the menu
-                new_width = self.play_area_start
-                new_height = int(card_image.get_height() * new_width / card_image.get_width())
-                self.card_height = new_height
-                self.card_width = new_width
-                card_type_set = self.card_image_library.get(card_type)
-                print("Adding text to card of type '"+card_type+"'")
-                if card_type_set is None:
-                    scaled_image = pygame.transform.scale(card_image, [new_width, new_height])
-                    self.update_card_text(scaled_image, card_type)
-                    self.card_image_library[card_type] = [scaled_image]
-                    #just in case the images available don't provide enough unique versions of each card type for what the game allocates
-#                    self.used_card_images[card_type] = []
+            tile_image_names = [filename for filename in os.listdir(self.TILE_PATH) if self.TILE_EXTENSION in filename]
+            tile_image_names.sort() #Ensure it's deterministic which specific cards are assigned to each adventurer, so that this is consistent with the game's other visuals
+            print(tile_image_names)
+            for tile_image_name in tile_image_names:
+                tile_type = tile_image_name.split(".")[0].split("_")[0] #assumes that the tile type will be the image filename will start with the type as recognised by the game
+                tile_image = pygame.image.load(self.TILE_PATH + tile_image_name)
+                #Resize the tile image to the smallest that will still fit in each of its roles
+                min_size = max(self.tile_size, self.menu_tile_size, self.offer_tile_size)
+                scaled_image = pygame.transform.scale(tile_image.copy(), [min_size, min_size])
+                tile_type_set = self.tile_images.get(tile_type)
+                if tile_type_set is None:
+                    self.tile_images[tile_type] = [scaled_image]
                 else:
-                    scaled_image = pygame.transform.scale(card_image, [new_width, new_height])
-                    self.update_card_text(scaled_image, card_type)
-                    card_type_set.append(scaled_image)
-#                 #Resize the card image to be displayed more prominently
-#                 new_width = self.card
-#                 new_height = int(card_image.get_height() * new_width / card_image.get_width())
-#                 self.card_height = new_height
-#                 self.card_width = new_width
-#                 card_type_set = self.card_image_library.get(card_type)
-#                 print("Adding text to card of type '"+card_type+"'")
-#                 if card_type_set is None:
-#                     scaled_image = pygame.transform.scale(card_image, [new_width, new_height])
-#                     self.update_card_text(scaled_image, card_type)
-#                     self.card_image_library[card_type] = [scaled_image]
-#                     #just in case the images available don't provide enough unique versions of each card type for what the game allocates
-# #                    self.used_card_images[card_type] = []
-#                 else:
-#                     scaled_image = pygame.transform.scale(card_image, [new_width, new_height])
-#                     self.update_card_text(scaled_image, card_type)
-#                     card_type_set.append(scaled_image)
-            #Now supplement with the card types that don't have images
-            for card_type in self.CARD_TITLES:
-                if not card_type in self.card_image_library.keys():
-                    print("With no card image for type "+card_type+", creating one...")
-                    self.card_image_library[card_type] = [self.create_card(card_type)]
+                    tile_type_set.append(scaled_image)
+            # import the masks used to highlight movement options
+            self.highlight_library = {}
+            for highlight_name in self.HIGHLIGHT_PATHS:
+                highlight_image = self.HIGHLIGHT_PATHS[highlight_name]
+                self.highlight_library[highlight_name] = pygame.image.load(highlight_image)
+            # duplicate these tiles at a smaller size for use in menus
+            self.toggle_library = {}
+            for highlight_name in self.highlight_library:
+                highlight_image = self.highlight_library[highlight_name]
+                self.toggle_library[highlight_name] = pygame.transform.scale(highlight_image, [self.menu_highlight_size, self.menu_highlight_size])
+            # import the graphics for meters showing the remaining moves until rest
+            self.meters_library = {}
+            for meter_name in self.METERS_PATHS:
+                meter_image = pygame.image.load(self.METERS_PATHS[meter_name])
+                self.meters_library[meter_name] = pygame.transform.scale(meter_image, (self.menu_tile_size, self.menu_tile_size))
+            #import the cards that will award various rule buffs
+            if isinstance(self.game, GameAdvanced):
+                self.card_images = {}  # a dict of lists of tile images with a particular combination of land, sea and wind
+                self.card_image_library = {}  # a dict pairing particular tiles with particular art for the play area itself
+                # duplicate tile art for use in selection menu after piracy
+                self.card_offer_library = {}
+                card_image_names = [filename for filename in os.listdir(self.CARDS_PATH) if self.CARDS_EXTENSION in filename]
+                card_image_names.sort()  # Ensure it's deterministic which specific cards are assigned to each adventurer, so that this is consistent with the game's other visuals
+                print(card_image_names)
+                for card_image_name in card_image_names:
+                    card_type = card_image_name.split(".")[0].split("_")[0]  # assumes that the tile type will be the image filename will start with the type as recognised by the game
+                    card_image = pygame.image.load(self.CARDS_PATH + card_image_name)
+                    # Resize the card image to fit in the menu
+                    new_width = self.play_area_start
+                    new_height = int(card_image.get_height() * new_width / card_image.get_width())
+                    offer_height = min(card_image.get_height(), self.height)
+                    offer_width = int(card_image.get_width() * offer_height / card_image.get_height())
+                    self.card_height = new_height
+                    self.card_width = new_width
+                    scaled_image = pygame.transform.scale(card_image.copy(), [offer_width, offer_height])
+                    card_type_set = self.card_images.get(card_type)
+                    if card_type_set is None:
+                        self.card_images[card_type] = [scaled_image]
+                    else:
+                        card_type_set.append(scaled_image)
         #adjust the size of the imported images to fit the display size
         self.rescale_graphics()
     
@@ -637,6 +618,19 @@ class GameVisualisation():
             self.offer_tile_library[tile] = pygame.transform.scale(tile_image.copy(), [self.offer_tile_size, self.offer_tile_size])
         available_tiles.insert(0, tile_image) #Prepend this image back into the library so that it won't get used again unless other images run out
         return tile_image
+
+    def assign_card_image(self, card):
+        '''Assigns a suitable card image for a particular card
+        '''
+        available_cards = self.card_images[card.card_type]
+        card_image = available_cards.pop()
+        self.card_image_library[card] = pygame.transform.scale(card_image.copy(), [self.card_width, self.card_height])
+        if isinstance(self.game, GameAdvanced):
+            offer_height = min(card_image.get_height(), self.height)
+            offer_width = int(card_image.get_width() * offer_height / card_image.get_height())
+            self.card_offer_library[card] = pygame.transform.scale(card_image.copy(), [offer_width, offer_height])
+        available_cards.insert(0, card_image) #Prepend this image back into the library so that it won't get used again unless other images run out
+        return card_image
 
     def draw_play_area(self):
         '''Renders the tiles that have been laid in a particular game of Cartolan - Trade Winds
@@ -1310,14 +1304,19 @@ class GameVisualisation():
 #        vertical = self.chest_rect[1] + self.chest_rect[3]
         #draw the Adventurer's Player's Cadre Card        
         if self.game.assigned_cadres.get(adventurer.player) is not None:
-            card_title = self.scores_font.render(adventurer.player.name+"'s Cadre card:", 1, self.PLAIN_TEXT_COLOUR)
+            card_title = self.scores_font.render(adventurer.player.name+"'s Culture card:", 1, self.PLAIN_TEXT_COLOUR)
             self.window.blit(card_title, [horizontal, vertical])
             #Now draw the card itself
             card = self.game.assigned_cadres.get(adventurer.player)
-            card_image = self.get_card_image(adventurer, card)
+            card_image = self.card_image_library.get(card)
+            if card_image is None:
+                card_image = self.assign_card_image(card)
             vertical += self.SCORES_FONT_SCALE * self.height
-            self.window.blit(card_image, [horizontal, vertical])
-            vertical += card_image.get_height()
+            self.window.blit(card_image, [horizontal, vertical], [0, 0, card_image.get_width(), card_image.get_height() * self.CARD_HEADER_SHARE ])
+            self.cadre_card_rect = (horizontal, vertical, self.play_area_start, card_image.get_height() * self.CARD_HEADER_SHARE)
+            vertical += card_image.get_height() * self.CARD_HEADER_SHARE
+            if self.selected_cadre_card:
+                self.draw_card_offers([card])
         #Procede to draw any other cards
         if adventurer.character_card is not None:
             card_title = self.scores_font.render("Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1)+" cards:", 1, self.PLAIN_TEXT_COLOUR)
@@ -1333,47 +1332,40 @@ class GameVisualisation():
         for card in adventurer.discovery_cards:
             if self.selected_card_num is not None:
                 if adventurer.discovery_cards.index(card) == self.selected_card_num:
-                    break
+                    self.draw_card_offers([card])
 #            print("Drawing a card of type "+card.card_type)
-            card_image = self.get_card_image(adventurer, card)
+            card_image = self.card_image_library.get(card)
+            if card_image is None:
+                card_image = self.assign_card_image(card)
             self.window.blit(card_image, [horizontal, vertical])
-            vertical += self.CARD_HEADER_SHARE * card_image.get_height() 
+            vertical += self.CARD_HEADER_SHARE * card_image.get_height()
         
         #Draw the Adventurer's Character Card over the top
         if adventurer.character_card is not None:
-            card_image = self.get_card_image(adventurer, adventurer.character_card)
-    #        card_horizontal = 0
+            card = adventurer.character_card
+            card_image = self.card_image_library.get(card)
+            if card_image is None:
+                card_image = self.assign_card_image(card)
+
+                #        card_horizontal = 0
             vertical = self.stack_rect[1] + card_image.get_height() * self.CARD_HEADER_SHARE * len(adventurer.discovery_cards)
             self.window.blit(card_image, [horizontal, vertical])
+            # If one of the cards has been selected then draw it mid screen
+            if self.selected_character_card:
+                self.draw_card_offers([adventurer.character_card])
 #        card_rect = (0, card_stack_position, self.play_area_start, stack_size)
 #        pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
 #                                 , self.chest_rect
 #                                 , self.chest_highlight_thickness)
-        #If one of the discovery/manuscript cards has been selected then draw cards back over the current ones in reverse up to that one
-        if self.selected_card_num is not None:
-            for card in reversed(adventurer.discovery_cards):
-                vertical -= self.CARD_HEADER_SHARE * card_image.get_height()
-#                print("Drawing a card of type "+card.card_type)
-                card_image = self.get_card_image(adventurer, card)
-                self.window.blit(card_image, [horizontal, vertical])
-                if adventurer.discovery_cards.index(card) == self.selected_card_num:
-                    break
-                
-    
-    def get_card_image(self, card_holder, card):
-        '''Draws a Character or Discovery card
-        '''
-        card_image = self.card_images.get(card)
-        if card_image is None:
-            available_cards = self.card_image_library[card.card_type]
-#            if not available_cards: #if all the card images have been used then recycle
-#                self.card_image_library[card.card_type] = self.used_card_images[card.card_type]
-#                available_cards = self.card_image_library[card.card_type]
-#                self.used_card_images[card.card_type] = []
-            card_image = self.card_images[card] = available_cards.pop()
-#            self.used_card_images[card.card_type].append(card_image)
-            available_cards.insert(0, card_image) #Prepend this image back into the library so that it won't get used again unless other images run out
-        return card_image   
+#         #If one of the discovery/manuscript cards has been selected then draw cards back over the current ones in reverse up to that one
+#         if self.selected_card_num is not None:
+#             for card in reversed(adventurer.discovery_cards):
+#                 vertical -= self.CARD_HEADER_SHARE * card_image.get_height()
+# #                print("Drawing a card of type "+card.card_type)
+#                 card_image = self.get_card_image(adventurer, card)
+#                 self.window.blit(card_image, [horizontal, vertical])
+#                 if adventurer.discovery_cards.index(card) == self.selected_card_num:
+#                     break
 
     def draw_card_offers(self, cards):
         '''Prominently displays an array of cards from which the player can choose
@@ -1386,16 +1378,19 @@ class GameVisualisation():
         #Cycle through the offered Cards, drawing them
         horizontal_increment = self.width // (len(cards) + 1)
         card_horizontal = horizontal_increment
-        card_vertical = (self.height - self.card_height) // 2 #Centre the cards vertically
         for card in cards:
             print("Drawing a card of type "+card.card_type)
-            card_image = self.get_card_image(None, card)
-#            card_type = card.card_type
+            card_image = self.card_offer_library.get(card)
+            if card_image is None:
+                self.assign_card_image(card)
+                card_image = self.card_offer_library.get(card)
+            #            card_type = card.card_type
 #            available_cards = self.card_image_library[card_type]
 #            if available_cards:
 #                card_image =  available_cards[0] #Choose the first image available
 #            else:
 #                card_image = self.used_card_images[card_type][0]
+            card_vertical = (self.height - card_image.get_height()) // 2  # Centre the cards vertically
             adjusted_horizontal = card_horizontal - card_image.get_width() // 2
             self.window.blit(card_image, [adjusted_horizontal, card_vertical])
             card_horizontal += horizontal_increment
@@ -1512,21 +1507,31 @@ class GameVisualisation():
                     menu_row = (event.pos[1] - self.chest_rect[1]) // self.menu_tile_size
                     menu_column = (event.pos[0] - self.chest_rect[0]) // self.menu_tile_size
                     return self.MENU_TILE_COLS * menu_row + menu_column
+                # Check whether the click was within the cadre/culture card, and update the index of the selected card
+                if (event.pos[0] in range(self.cadre_card_rect[0], self.cadre_card_rect[2])
+                            and event.pos[1] in range(self.cadre_card_rect[1], self.cadre_card_rect[3])):
+                    print("Click was within the Cadre Card")
+                    self.selected_cadre_card = True
+                    self.selected_character_card = False
+                    self.selected_card_num = None
                 #Check whether the click was within the card stack, and update the index of the selected card
-                if (event.pos[0] in range(self.stack_rect[0], self.stack_rect[2])
+                elif (event.pos[0] in range(self.stack_rect[0], self.stack_rect[2])
                     and event.pos[1] in range(self.stack_rect[1], self.stack_rect[3])):
-                    if self.selected_card_num is None: #The Character card at the bottom will be on top
-                        if event.pos[1] < self.stack_rect[3] - self.card_height:
-                            self.selected_card_num = (event.pos[1] - self.stack_rect[1]) // (self.card_height * self.CARD_HEADER_SHARE)
+                    if event.pos[1] < self.stack_rect[3] - self.card_height:
+                        print("The click was within a Manuscript Card")
+                        self.selected_cadre_card = False
+                        self.selected_character_card = False
+                        self.selected_card_num = (event.pos[1] - self.stack_rect[1]) // (self.card_height * self.CARD_HEADER_SHARE)
                     else:
-                        selected_card_top = self.stack_rect[1] + (self.selected_card_num - 1) * self.card_height * self.CARD_HEADER_SHARE
-                        selected_card_bottom = selected_card_top + self.card_height
-                        if event.pos[1] > self.stack_rect[3] - self.card_height * self.CARD_HEADER_SHARE:
-                            self.selected_card_num = None
-                        elif event.pos[1] < selected_card_top:
-                            self.selected_card_num = (event.pos[1] - self.stack_rect[1]) // (self.card_height * self.CARD_HEADER_SHARE)
-                        elif event.pos[1] > selected_card_bottom:
-                            self.selected_card_num += (event.pos[1] - selected_card_bottom) // (self.card_height * self.CARD_HEADER_SHARE)
+                        print("The click was within the Character Card")
+                        self.selected_cadre_card = False
+                        self.selected_character_card = True
+                        self.selected_card_num = None
+                else:
+                    #None of the cards were selected
+                    self.selected_cadre_card = False
+                    self.selected_character_card = False
+                    self.selected_card_num = None
                 #Otherwise return the coordinates
                 longitude = int(math.ceil((event.pos[0])/self.tile_size)) - self.origin[0] - 1
                 latitude = self.dimensions[1] - int(math.ceil((event.pos[1])/self.tile_size)) - self.origin[1]
@@ -1734,6 +1739,25 @@ class WebServerVisualisation(GameVisualisation):
         else:
             prompt = self.current_adventurer.player.name+" is choosing a Character card for their Adventurer #"+str(self.current_adventurer_number+1)
         self.give_prompt(prompt)
+        # Draw the right menu items
+        if not input_type in ["choose_company", "choose_character"]:
+            self.draw_move_count()
+            if isinstance(self.current_adventurer, AdventurerRegular):
+                if not input_type == "choose_tile":  # Don't draw the chest tiles when the players are first picking companies and adventurers
+                    self.draw_chest_tiles()
+            self.draw_tile_piles()
+            self.draw_discard_pile()
+            self.draw_undo_button()
+        # Draw the left menu items and any offers over the top
+        self.draw_scores()
+        if isinstance(self.current_adventurer, AdventurerAdvanced):
+            self.draw_cards()
+            # If offers are being made then draw these on top of everything else
+            if choices is not None:
+                if input_type == "choose_tile":
+                    self.draw_tile_offers(choices)
+                else:
+                    self.draw_card_offers(choices)
     
     def check_peer_input(self):
         '''Cycles through remote players besides the active one, checking whether clicks have been registered and updating their private visuals accordingly
@@ -1807,33 +1831,40 @@ class WebServerVisualisation(GameVisualisation):
                     self.viewed_adventurer = score[1]
                 print("Updated focus for card visuals to "+self.viewed_adventurer.player.name+"'s Adventurer #"+str(self.viewed_adventurer_number+1))
                 return True
-        #Check whether the click was within the card stack, and update the index of the selected card
-        if (horizontal in range(int(self.stack_rect[0]), int(self.stack_rect[0] + self.stack_rect[2]))
-            and vertical in range(int(self.stack_rect[1]), int(self.stack_rect[1] + self.stack_rect[3]))):
-            print("Player chose coordinates within the card stack, with vertical: "+str(vertical))
-            if self.selected_card_num is None: #The Character card at the bottom will be on top
-#                print("Stack top is "+str(int(self.stack_rect[1] + self.stack_rect[3])))
-#                print("Card height is "+str(self.card_height))
-                if vertical < int(self.stack_rect[1] + self.stack_rect[3]) - self.card_height:
-                    self.selected_card_num = int(vertical - self.stack_rect[1]) // int(self.card_height * self.CARD_HEADER_SHARE)
-                    print("Updated the selected card to number "+str(self.selected_card_num))
+        # Check whether the click was within the Cadre/Culture Card
+        if (horizontal in range(int(self.cadre_card_rect[0]), int(self.cadre_card_rect[0]+self.cadre_card_rect[2]))
+                and vertical in range(int(self.cadre_card_rect[1]), int(self.cadre_card_rect[1]+self.cadre_card_rect[3]))):
+            print("Click was within the Cadre Card")
+            self.selected_cadre_card = True
+            self.selected_character_card = False
+            self.selected_card_num = None
+            return True
+        # Check whether the click was within the card stack, and update the index of the selected card
+        elif (horizontal in range(int(self.stack_rect[0]), int(self.stack_rect[0] + self.stack_rect[2]))
+                and vertical in range(int(self.stack_rect[1]), int(self.stack_rect[1] + self.stack_rect[3]))):
+            print("Player chose coordinates within the card stack, with vertical: " + str(vertical))
+            if vertical - self.stack_rect[1] < self.stack_rect[3] - self.card_height:
+                print("The click was within a Manuscript Card")
+                self.selected_cadre_card = False
+                self.selected_character_card = False
+                self.selected_card_num = int(vertical - self.stack_rect[1]) // int(self.card_height * self.CARD_HEADER_SHARE)
             else:
-                selected_card_top = int(self.stack_rect[1] + (self.selected_card_num - 1) * self.card_height * self.CARD_HEADER_SHARE)
-                selected_card_bottom = selected_card_top + self.card_height
-                if vertical > int(self.stack_rect[1] + self.stack_rect[3]) - self.card_height * self.CARD_HEADER_SHARE:
-                    self.selected_card_num = None                            
-                elif selected_card_top < vertical < selected_card_bottom:
-                    self.selected_card_num = None #clicking on the selected card de-selects it
-                elif vertical < selected_card_top:
-                    self.selected_card_num = (vertical - int(self.stack_rect[1])) // int(self.card_height * self.CARD_HEADER_SHARE)
-                elif vertical > selected_card_bottom:
-                    self.selected_card_num += (vertical - selected_card_bottom) // int(self.card_height * self.CARD_HEADER_SHARE)
-#                        print("Updated the selected card to number "+str(self.selected_card_num))
+                print("The click was within the Character Card")
+                self.selected_cadre_card = False
+                self.selected_character_card = True
+                self.selected_card_num = None
             return True
         #Check for clicks in the toggle menu, for changing route drawing mode
         elif (horizontal in range(int(self.toggles_rect[0]), int(self.toggles_rect[0] + self.toggles_rect[2]))
             and vertical in range(int(self.toggles_rect[1]), int(self.toggles_rect[1] + self.toggles_rect[3]))):
             self.draw_all_routes = not self.draw_all_routes
+            return True
+        elif self.selected_cadre_card or self.selected_character_card or self.selected_card_num:
+            # Remove focus on any card
+            # None of the cards were selected
+            self.selected_cadre_card = False
+            self.selected_character_card = False
+            self.selected_card_num = None
             return True
         else:
             #Check the various Adventurer and Agent shapes for a click and use this to select the Adventurer to focus on
