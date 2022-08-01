@@ -457,6 +457,7 @@ class ClientSocket(WebSocket):
             print("Visual created for client at "+ str(client.address)+ " with dimensions: "+str(client.width)+"x"+str(client.height))
             client_visuals[client] = game_vis
             visuals.append(game_vis)
+            game_vis.client_players = client_players[client]
             for player in client_players[client]:
                 player.connect_gui(game_vis)
         

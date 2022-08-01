@@ -56,7 +56,7 @@ class GameVisualisation():
     LEFT_MENU_SCALE = 0.13
     MENU_TILE_COLS = 2
     RIGHT_MENU_SCALE = 0.13
-    OFFER_SCALE = 0.15
+    OFFER_SCALE = 0.2
     ROUTE_THICKNESS = 4.0
     NUM_DASHES = 10
     TOKEN_SCALE = 0.2 #relative to tile sizes
@@ -167,6 +167,9 @@ class GameVisualisation():
         self.undo_agreed = False
         self.adventurer_centres = []
         self.agent_rects = []
+        self.viewed_tile_num = None
+        self.viewed_longitude = None
+        self.viewed_latitude = None
         if isinstance(self.game, GameAdvanced):
             self.selected_cadre_card = False
             self.selected_character_card = False
@@ -331,7 +334,8 @@ class GameVisualisation():
                     # Resize the card image to fit in the menu
                     new_width = self.play_area_start
                     new_height = int(card_image.get_height() * new_width / card_image.get_width())
-                    offer_height = min(card_image.get_height(), self.height)
+                    offer_height = min(card_image.get_height(),
+                                       int(self.height * (1 - 2 * (1 - self.PROMPT_POSITION[1]))))
                     offer_width = int(card_image.get_width() * offer_height / card_image.get_height())
                     self.card_height = new_height
                     self.card_width = new_width
@@ -626,7 +630,7 @@ class GameVisualisation():
         card_image = available_cards.pop()
         self.card_image_library[card] = pygame.transform.scale(card_image.copy(), [self.card_width, self.card_height])
         if isinstance(self.game, GameAdvanced):
-            offer_height = min(card_image.get_height(), self.height)
+            offer_height = min(card_image.get_height(), int(self.height * (1 - 2 * (1 - self.PROMPT_POSITION[1]))))
             offer_width = int(card_image.get_width() * offer_height / card_image.get_height())
             self.card_offer_library[card] = pygame.transform.scale(card_image.copy(), [offer_width, offer_height])
         available_cards.insert(0, card_image) #Prepend this image back into the library so that it won't get used again unless other images run out
@@ -1284,6 +1288,10 @@ class GameVisualisation():
                 pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
                                  , (horizontal, vertical, self.menu_tile_size, self.menu_tile_size)
                                  , self.chest_highlight_thickness)
+            #If this tile has been selected to be viewed in more detail then draw it as an offer
+            if self.viewed_tile_num is not None:
+                viewed_tile = self.viewed_adventurer.chest_tiles[self.viewed_tile_num]
+                self.draw_tile_offers([viewed_tile])
     
     def draw_cards(self):
         '''Adds images of the current Adventurer's character and discovery cards to the menu below their Chest
@@ -1758,6 +1766,8 @@ class WebServerVisualisation(GameVisualisation):
                     self.draw_tile_offers(choices)
                 else:
                     self.draw_card_offers(choices)
+        #Draw any showcase tiles that have been selecgted from the play area
+        self.draw_showcase_tile()
     
     def check_peer_input(self):
         '''Cycles through remote players besides the active one, checking whether clicks have been registered and updating their private visuals accordingly
@@ -1807,7 +1817,15 @@ class WebServerVisualisation(GameVisualisation):
             return True
         else:
             return False
-    
+
+    def draw_showcase_tile(self):
+        '''For spectators enlarges a tile chosen from the play area
+        '''
+        # For each location in the play area draw the tile
+        if self.viewed_longitude in self.game.play_area:
+            if self.viewed_latitude in self.game.play_area[self.viewed_longitude]:
+                self.draw_tile_offers([self.game.play_area[self.viewed_longitude][self.viewed_latitude]])
+
     def check_update_focus(self, horizontal, vertical):
         '''Checks whether click coordinates were within the superficial visual elements that need no game response but should revise the client's visuals
         '''
@@ -1859,13 +1877,41 @@ class WebServerVisualisation(GameVisualisation):
             and vertical in range(int(self.toggles_rect[1]), int(self.toggles_rect[1] + self.toggles_rect[3]))):
             self.draw_all_routes = not self.draw_all_routes
             return True
-        elif self.selected_cadre_card or self.selected_character_card or self.selected_card_num:
+        #Check for clicks among the chest tiles to highlight them
+        elif (horizontal in range(int(self.chest_rect[0]), int(self.chest_rect[0] + self.chest_rect[2]))
+                  and vertical in range(int(self.chest_rect[1]), int(self.chest_rect[1] + self.chest_rect[3]))):
+            menu_row = (vertical - int(self.chest_rect[1])) // self.menu_tile_size
+            menu_column = (horizontal - int(self.chest_rect[0])) // self.menu_tile_size
+            self.viewed_tile_num = menu_row * self.MENU_TILE_COLS + menu_column
+            return True
+        elif (self.selected_cadre_card or self.selected_character_card or self.selected_card_num is not None
+                or self.viewed_tile_num is not None or self.viewed_longitude is not None):
             # Remove focus on any card
             # None of the cards were selected
             self.selected_cadre_card = False
             self.selected_character_card = False
             self.selected_card_num = None
+            self.viewed_tile_num = None
+            self.viewed_longitude = None
+            self.viewed_latitude = None
             return True
+        # Check for clicks among the play_area tiles to showcase them
+        elif (self.current_adventurer.player not in self.client_players
+                and horizontal in range(int(self.play_area_start), int(self.right_menu_start))
+                  and vertical in range(0, int(self.prompt_position[1]))):
+            longitude = int(math.ceil((horizontal - self.play_area_start) / self.tile_size)) - self.origin[0] - 1
+            latitude = self.dimensions[1] - int(math.ceil((vertical) / self.tile_size)) - self.origin[1]
+            if self.game.play_area.get(longitude) is not None:
+                if self.game.play_area.get(longitude).get(latitude) is not None:
+                    #Remember to showcase the tile at this position
+                    self.viewed_longitude = longitude
+                    self.viewed_latitude = latitude
+                    #Don't showcase anything else
+                    self.selected_cadre_card = False
+                    self.selected_character_card = False
+                    self.selected_card_num = None
+                    self.viewed_tile_num = None
+                    return True
         else:
             #Check the various Adventurer and Agent shapes for a click and use this to select the Adventurer to focus on
             for centre in self.adventurer_centres:
@@ -1883,7 +1929,7 @@ class WebServerVisualisation(GameVisualisation):
                     self.viewed_adventurer_number = 0
                     self.viewed_adventurer = self.game.adventurers[rect[1]][0]
                     return True
-            return False
+        return False
     
     def get_input_coords(self, adventurer):
         '''Sends an image of the latest play area, accepts input only from this visual's players.
