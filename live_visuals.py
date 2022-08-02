@@ -1895,23 +1895,6 @@ class WebServerVisualisation(GameVisualisation):
             self.viewed_longitude = None
             self.viewed_latitude = None
             return True
-        # Check for clicks among the play_area tiles to showcase them
-        elif (self.current_adventurer.player not in self.client_players
-                and horizontal in range(int(self.play_area_start), int(self.right_menu_start))
-                  and vertical in range(0, int(self.prompt_position[1]))):
-            longitude = int(math.ceil((horizontal - self.play_area_start) / self.tile_size)) - self.origin[0] - 1
-            latitude = self.dimensions[1] - int(math.ceil((vertical) / self.tile_size)) - self.origin[1]
-            if self.game.play_area.get(longitude) is not None:
-                if self.game.play_area.get(longitude).get(latitude) is not None:
-                    #Remember to showcase the tile at this position
-                    self.viewed_longitude = longitude
-                    self.viewed_latitude = latitude
-                    #Don't showcase anything else
-                    self.selected_cadre_card = False
-                    self.selected_character_card = False
-                    self.selected_card_num = None
-                    self.viewed_tile_num = None
-                    return True
         else:
             #Check the various Adventurer and Agent shapes for a click and use this to select the Adventurer to focus on
             for centre in self.adventurer_centres:
@@ -1929,6 +1912,24 @@ class WebServerVisualisation(GameVisualisation):
                     self.viewed_adventurer_number = 0
                     self.viewed_adventurer = self.game.adventurers[rect[1]][0]
                     return True
+            # Check for clicks among the play_area tiles to showcase them
+            if (self.current_adventurer.player not in self.client_players
+                    and horizontal in range(int(self.play_area_start), int(self.right_menu_start))
+                    and vertical in range(0, int(self.prompt_position[1]))):
+                longitude = int(math.ceil((horizontal - self.play_area_start) / self.tile_size)) - self.origin[
+                    0] - 1
+                latitude = self.dimensions[1] - int(math.ceil((vertical) / self.tile_size)) - self.origin[1]
+                if self.game.play_area.get(longitude) is not None:
+                    if self.game.play_area.get(longitude).get(latitude) is not None:
+                        # Remember to showcase the tile at this position
+                        self.viewed_longitude = longitude
+                        self.viewed_latitude = latitude
+                        # Don't showcase anything else
+                        self.selected_cadre_card = False
+                        self.selected_character_card = False
+                        self.selected_card_num = None
+                        self.viewed_tile_num = None
+                        return True
         return False
     
     def get_input_coords(self, adventurer):
