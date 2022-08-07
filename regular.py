@@ -41,8 +41,7 @@ class AdventurerRegular(AdventurerBeginner):
         self.restored = False
         
         #Draw some tiles randomly to the Adventurer's Chest
-        self.chest_tiles = []
-        self.choose_tiles(self.num_chest_tiles)
+        self.chest_tiles = self.choose_tiles(self.num_chest_tiles)
         #Keep track of which of these should be tried for movement
         self.preferred_tile_num = None
     
@@ -74,6 +73,7 @@ class AdventurerRegular(AdventurerBeginner):
     def choose_tiles(self, num_tiles):
         '''For a given number of tiles, select regular tiles from across the bags / tile_piles
         '''
+        chosen_tiles = []
         for tile_num in range(num_tiles):
             #Alternate between bags
             pile_num = tile_num % len(self.game.tile_piles)
@@ -92,9 +92,10 @@ class AdventurerRegular(AdventurerBeginner):
                         num_bad_tiles += 1
                     else:
                         tile_chosen = True
-                        self.chest_tiles.append(chosen_tile)
+                        chosen_tiles.append(chosen_tile)
                 else:
                     break
+        return chosen_tiles
             
     # Whether movement is possible is handled much like the Beginner mode, except that carrying no wealth increases upwind and land moves, and a dice roll can allow upwind movement
     def can_move(self, compass_point): 
@@ -224,18 +225,32 @@ class AdventurerRegular(AdventurerBeginner):
         #Count how many tiles they are short of the max chest tiles
         num_tiles_to_choose = self.num_chest_tiles - len(self.chest_tiles)
         #Add this many extra tiles to their chest
-        self.choose_tiles(num_tiles_to_choose)
+        self.chest_tiles += self.choose_tiles(num_tiles_to_choose)
     
     def rechoose_chest_tiles(self):
         '''Checks whether the player will pay to replace all an Adventurer's chest tiles
         '''
-        #Return current tiles to the bag / tile pile
-        while self.chest_tiles:
-            tile = self.chest_tiles.pop()
-            relevant_pile = self.game.tile_piles[tile.tile_back]
-            relevant_pile.tiles.insert(0, tile)
-        #Replenish the empty Chest Tiles
-        self.replenish_chest_tiles()
+        #For each current tile offer replacements, and return  to the bag / tile pile
+        new_chest_tiles = []
+        for tile in self.chest_tiles:
+            # Alternate between piles for forming the selection
+            tile_options = self.choose_tiles(self.game.num_tile_choices[self.player])
+            if tile_options:
+                #Offer the current tile too
+                tile_options.append(tile)
+                chosen_tile = self.player.choose_tile(self, tile_options)
+                tile_options.remove(chosen_tile)
+                new_chest_tiles.append(chosen_tile)
+                #Return all the other tiles to the relevant piles
+                for rejected_tile in tile_options:
+                    self.return_to_pile(rejected_tile)
+        self.chest_tiles = new_chest_tiles
+
+    def return_to_pile(self, tile):
+        '''Identifies the pile associated with a particular tile and returns it there
+        '''
+        relevant_pile = self.game.tile_piles[tile.tile_back]
+        relevant_pile.tiles.insert(0, tile)
         
     def discover(self, tile):
         #check whether this is a discovered city and don't offer the usual
