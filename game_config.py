@@ -53,6 +53,8 @@ class RegularConfig:
     VALUE_DISPOSSESS_AGENT = 1
     COST_AGENT_RESTORE = 1
     COST_REFRESH_MAPS = 1
+
+    NUM_TILE_CHOICES = 2
     
     ATTACK_SUCCESS_PROB = 1.0/3.0
     DEFENCE_ROUNDS = 1
@@ -96,9 +98,11 @@ class AdvancedConfig:
                         , "+rests":{"rest_with_adventurers":{"buff_type":"new", "buff_val":True}
                                             , "num_character_choices":{"buff_type":"new", "buff_val":3}}
                         , "+transfers":{"transfer_agent_earnings":{"buff_type":"new", "buff_val":True}
-                                            , "num_discovery_choices":{"buff_type":"new", "buff_val":3}}
+                                            , "num_discovery_choices":{"buff_type":"new", "buff_val":3}
+                                            , "num_tile_choices":{"buff_type":"new", "buff_val":3}}
                         , "+earning":{"value_agent_trade":{"buff_type":"new", "buff_val":1}
-                                            , "num_discovery_choices":{"buff_type":"new", "buff_val":3}}
+                                            , "num_discovery_choices":{"buff_type":"new", "buff_val":3}
+                                            , "num_tile_choices":{"buff_type":"new", "buff_val":3}}
                         , "+arrest":{"agents_arrest":{"buff_type":"new", "buff_val":True}
                                             # , "confiscate_stolen":{"buff_type":"new", "buff_val":True}
                                             , "num_character_choices":{"buff_type":"new", "buff_val":3}}
@@ -106,7 +110,8 @@ class AdvancedConfig:
                                             , "num_character_choices":{"buff_type":"new", "buff_val":3}}
                         , "+pool":{"rechoose_at_agents":{"buff_type":"new", "buff_val":True}
                                            # , "pool_maps":{"buff_type":"new", "buff_val":True}
-                                            , "num_discovery_choices":{"buff_type":"new", "buff_val":3}}
+                                            , "num_discovery_choices":{"buff_type":"new", "buff_val":3}
+                                            , "num_tile_choices":{"buff_type":"new", "buff_val":3}}
                         }
     CHARACTER_CARDS = ["adv+agents"
              , "adv+attack"

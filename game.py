@@ -285,6 +285,9 @@ class GameRegular(GameBeginner):
         
         #Chest tiles will now be carried
         self.num_chest_tiles = RegularConfig.NUM_CHEST_TILES
+        self.num_tile_choices = {}
+        for player in players:
+            self.num_tile_choices[player] = RegularConfig.NUM_TILE_CHOICES
         
         # a land tile pile is now needed
         self.tile_piles["land"] = TilePile("land",[])
