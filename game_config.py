@@ -94,24 +94,13 @@ class AdvancedConfig:
                         , "+downwind":{"max_downwind_moves":{"buff_type":"boost", "buff_val":1}}
                         , "+upwind":{"max_upwind_moves":{"buff_type":"boost", "buff_val":1}
                                             ,"max_land_moves":{"buff_type":"boost", "buff_val":1}}
-                        , "+maps":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}}
-                        , "+rests":{"rest_with_adventurers":{"buff_type":"new", "buff_val":True}
-                                            , "num_character_choices":{"buff_type":"new", "buff_val":3}}
-                        , "+transfers":{"transfer_agent_earnings":{"buff_type":"new", "buff_val":True}
-                                            , "num_discovery_choices":{"buff_type":"new", "buff_val":3}
-                                            , "num_tile_choices":{"buff_type":"new", "buff_val":3}}
-                        , "+earning":{"value_agent_trade":{"buff_type":"new", "buff_val":1}
-                                            , "num_discovery_choices":{"buff_type":"new", "buff_val":3}
-                                            , "num_tile_choices":{"buff_type":"new", "buff_val":3}}
-                        , "+arrest":{"agents_arrest":{"buff_type":"new", "buff_val":True}
-                                            # , "confiscate_stolen":{"buff_type":"new", "buff_val":True}
-                                            , "num_character_choices":{"buff_type":"new", "buff_val":3}}
-                        , "+refurnish":{"resting_refurnishes":{"buff_type":"new", "buff_val":True}
-                                            , "num_character_choices":{"buff_type":"new", "buff_val":3}}
-                        , "+pool":{"rechoose_at_agents":{"buff_type":"new", "buff_val":True}
-                                           # , "pool_maps":{"buff_type":"new", "buff_val":True}
-                                            , "num_discovery_choices":{"buff_type":"new", "buff_val":3}
-                                            , "num_tile_choices":{"buff_type":"new", "buff_val":3}}
+                        , "+maps":{"num_chest_tiles":{"buff_type":"boost", "buff_val":2}}
+                        , "+rests":{"rest_with_adventurers":{"buff_type":"new", "buff_val":True}}
+                        , "+transfers":{"transfer_agent_earnings":{"buff_type":"new", "buff_val":True}}
+                        , "+earning":{"value_agent_trade":{"buff_type":"new", "buff_val":1}}
+                        , "+arrest":{"agents_arrest":{"buff_type":"new", "buff_val":True}}
+                        , "+refurnish":{"resting_refurnishes":{"buff_type":"new", "buff_val":True}}
+                        , "+pool":{"rechoose_at_agents":{"buff_type":"new", "buff_val":True}}
                         }
     CHARACTER_CARDS = ["adv+agents"
              , "adv+attack"
