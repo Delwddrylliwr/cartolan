@@ -1884,8 +1884,8 @@ class WebServerVisualisation(GameVisualisation):
             menu_column = (horizontal - int(self.chest_rect[0])) // self.menu_tile_size
             self.viewed_tile_num = menu_row * self.MENU_TILE_COLS + menu_column
             return True
-        elif (self.selected_cadre_card or self.selected_character_card or self.selected_card_num is not None
-                or self.viewed_tile_num is not None or self.viewed_longitude is not None):
+        elif (isinstance(self.game, GameAdvanced) and (self.selected_cadre_card or self.selected_character_card or self.selected_card_num is not None
+                                                       or self.viewed_tile_num is not None or self.viewed_longitude is not None)):
             # Remove focus on any card
             # None of the cards were selected
             self.selected_cadre_card = False
@@ -1921,6 +1921,7 @@ class WebServerVisualisation(GameVisualisation):
                 latitude = self.dimensions[1] - int(math.ceil((vertical) / self.tile_size)) - self.origin[1]
                 if self.game.play_area.get(longitude) is not None:
                     if self.game.play_area.get(longitude).get(latitude) is not None:
+                        #
                         # Remember to showcase the tile at this position
                         self.viewed_longitude = longitude
                         self.viewed_latitude = latitude
