@@ -575,6 +575,13 @@ class PlayerHuman(Player):
             prompt = ("If you want "+str(self.name)+"'s Adventurer #" 
                                            +str(game.adventurers[self].index(adventurer)+1) 
                                            +" to rest with "+token_description+" then click their tile, otherwise click elsewhere.")
+        elif isinstance(adventurer, AdventurerAdvanced) and adventurer.num_free_rests > 0:
+            action_type = "rest"
+            actions[action_type] = [[adventurer.current_tile.tile_position.longitude
+                                        , adventurer.current_tile.tile_position.latitude]]
+            prompt = ("If you want " + str(self.name) + "'s Adventurer #"
+                      + str(game.adventurers[self].index(adventurer) + 1)
+                      + " to rest with " + token_description + " then click their tile, otherwise click elsewhere.")
         else:
             action_type = "buy_rest"
             actions[action_type] = [[adventurer.current_tile.tile_position.longitude
