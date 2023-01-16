@@ -590,7 +590,7 @@ class PlayerHuman(Player):
                                            +str(game.adventurers[self].index(adventurer)+1) 
                                            +" to rest with "+token_description+" for "
                                            +str(game.cost_agent_rest)+
-                                           " treasure then click their tile, otherwise click elsewhere.")
+                                           " Silk then click their tile, otherwise click elsewhere.")
         #Check whether the player wants to go ahead
         if self.check_action(adventurer, action_type, actions, prompt):
             return True
@@ -666,7 +666,7 @@ class PlayerHuman(Player):
         actions[action_type] = [[adventurer.current_tile.tile_position.longitude
                     , adventurer.current_tile.tile_position.latitude]]
         prompt = ("If you want your Adventurer to base an Inn on this tile for "+str(adventurer.cost_agent_exploring)
-                        +" treasure then click it, otherwise click elsewhere.")
+                        +" Silk then click it, otherwise click elsewhere.")
         if self.check_action(adventurer, action_type, actions, prompt):
             return True
         else:
@@ -685,7 +685,7 @@ class PlayerHuman(Player):
         actions[action_type] = []
         prompt = ("Click any unoccupied tile to buy rights and base an Inn there for "
                              +str(adventurer.game.cost_agent_from_city) 
-                             +" treasure, otherwise click elsewhere.")
+                             +" Silk, otherwise click elsewhere.")
         play_area = adventurer.game.play_area
         for longitude in play_area:
             for latitude in play_area[longitude]:
@@ -731,9 +731,9 @@ class PlayerHuman(Player):
         action_type = "agent_transfer"
         actions = {action_type:[]}
         for agent in adventurer.game.agents[self]:
-            if not agent.current_tile == adventurer.current_tile: #Avoid trying to transfer treasure to the current tile
+            if not agent.current_tile == adventurer.current_tile: #Avoid trying to transfer Silk to the current tile
                 actions[action_type].append([agent.current_tile.tile_position.longitude, agent.current_tile.tile_position.latitude])
-        prompt = ("Select an Inn If you want " +str(self.name)+ "'s Adventurer to move treasure there "
+        prompt = ("Select an Inn If you want " +str(self.name)+ "'s Adventurer to move Silk there "
                                        +", otherwise click elsewhere.")
         selected_tile = self.check_action(adventurer, action_type, actions, prompt)
         if selected_tile is not None:
@@ -760,7 +760,7 @@ class PlayerHuman(Player):
             return False
     
     #if offered by a city then always bank everything
-    def check_deposit(self, adventurer, maximum, minimum=0, default=0, report="Player is being asked whether to bank treasure"):
+    def check_deposit(self, adventurer, maximum, minimum=0, default=0, report="Player is being asked whether to bank Silk"):
         print(report)
         if self.undone: 
             print("automatically responding false to action")
@@ -774,10 +774,10 @@ class PlayerHuman(Player):
             maximum = minimum
             minimum = old_max
         
-        if isinstance(adventurer.current_tile, CityTile): #As there is a separate check to withdraw treasure before a turn, assume they will always bank everything
+        if isinstance(adventurer.current_tile, CityTile): #As there is a separate check to withdraw Silk before a turn, assume they will always bank everything
             return adventurer.wealth
         else:
-            deposit_amount = game_vis.get_input_value(adventurer, "How much treasure will your Adventurer move to this Inn, from "+str(minimum)+" to "+str(maximum)+"?", maximum, minimum)
+            deposit_amount = game_vis.get_input_value(adventurer, "How much Silk will your Adventurer move to this Inn, from "+str(minimum)+" to "+str(maximum)+"?", maximum, minimum)
             if deposit_amount is not None:
                 return deposit_amount
             else:
@@ -793,7 +793,7 @@ class PlayerHuman(Player):
         game_vis = self.games[game.game_id]["game_vis"]
         
         #Ask the visual for an amount, so that it can either prompt the player or default
-        travel_money = game_vis.get_input_value(adventurer, "How much treasure will your Adventurer take with them, up to "+str(maximum)+"?", maximum)
+        travel_money = game_vis.get_input_value(adventurer, "How much Silk will your Adventurer take with them, up to "+str(maximum)+"?", maximum)
         if travel_money in range(0, maximum+1):
             return travel_money
         else:
@@ -808,7 +808,7 @@ class PlayerHuman(Player):
         game_vis = self.games[game.game_id]["game_vis"]
         
         #Ask the visual for an amount, so that it can either prompt the player or default
-        steal_amount = game_vis.get_input_value(adventurer, "Your Adventurer's piracy succeeded. How much treasure will they take, up to "+str(maximum)+"?", maximum)
+        steal_amount = game_vis.get_input_value(adventurer, "Your Adventurer's piracy succeeded. How much Silk will they take, up to "+str(maximum)+"?", maximum)
         if steal_amount in range(0, maximum+1):
             return steal_amount
         else:
