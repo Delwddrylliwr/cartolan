@@ -106,28 +106,28 @@ class GameVisualisation():
             , "com+refurnish":"The Privateer Brethren"
             , "com+pool":"Order of the Lightbrary"
             }
-    CARD_TEXTS = {"adv+agents":"Can place and immediately rest with Inns on existing tiles, for 3 treasure."
+    CARD_TEXTS = {"adv+agents":"Can place and immediately rest with Inns on existing tiles, for 3 Silk."
              , "adv+attack":"Needs only win or draw Rock, Paper, Scissors to attack successfully."
-             , "adv+bank":"Can transfer treasure to your Inns when visiting anyone's Inn."
+             , "adv+bank":"Can transfer Silk to your Inns when visiting anyone's Inn."
              , "adv+damage":"Successfully attacked Adventurers are returned to their last city, and Inns are fully removed."
              , "adv+defence":"Attacking opponents have to win Rock, Paper, Scissors twice to succeed."
              , "adv+downwind":"Can move up to three times riding the wind after tiring, each turn and after resting."
              , "adv+upwind":"Can move three times in any direction before getting tired, then one riding the wind, each turn or after resting."
              , "adv+maps":"Carries up to three map tiles in Chest."
-             , "dis+agents":"This Adventurer can place Inns on existing tiles and immediately rest with them, for 3 treasure."
+             , "dis+agents":"This Adventurer can place Inns on existing tiles and immediately rest with them, for 3 Silk."
              , "dis+attack":"This Adventurer needs only win or draw Rock, Paper, Scissors to attack successfully."
-             , "dis+bank":"This Adventurer can transfer treasure to your Inns when visiting anyone's Inn."
+             , "dis+bank":"This Adventurer can transfer Silk to your Inns when visiting anyone's Inn."
              , "dis+damage":"Successfully attacked Adventurers are returned to their last city, and Inns are removed."
              , "dis+defence":"Attacking opponents have to win an extra round of Rock, Paper, Scissors to succeed."
              , "dis+downwind":"This Adventurer can move once more riding the wind after tiring, each turn and after resting."
              , "dis+upwind":"This Adventurer can move once more before tiring, rather than after, each turn and after resting."
              , "dis+maps":"This Adventurer carries an extra map tile in their chest."
-             , "com+rests":"Your Adventurers can rest with other Adventurers like Inns. Draw 3 Adventurers."
-            , "com+transfers":"Treasure you earn on your Inns' tiles goes to your Vault. Draw 3 Manuscripts."
-            , "com+earning":"Your Inns earn 1 treasure when opponents trade on their tile. Draw 3 Manuscripts."
-            , "com+arrest":"Your Inns try to arrest pirates landing on their tile. Draw 3 Adventurers."
-            , "com+refurnish":"Your Adventurers can lose the pirate token by resting. Draw 3 Adventurers."
-            , "com+pool":"Swap maps once per visit for free at a city and 1 treasure at any Inn. Draw 3 Manuscripts."
+             , "com+rests":"Your Adventurers can rest with other Adventurers like Inns."
+            , "com+transfers":"Silk you earn on your Inns' tiles goes to your Vault."
+            , "com+earning":"Your Inns earn 1 Silk when opponents trade on their tile."
+            , "com+arrest":"Your Inns try to arrest pirates landing on their tile."
+            , "com+refurnish":"Your Adventurers can lose the pirate token by resting."
+            , "com+pool":"Swap maps once per visit for free at a city and 1 Silk at any Inn."
             }
     
     def __init__(self, game, peer_visuals, player_colours):
@@ -996,10 +996,10 @@ class GameVisualisation():
         game = self.game
         horizontal = self.SCORES_POSITION[0] * self.width
         vertical = self.SCORES_POSITION[1] * self.height
-        score_title = self.scores_font.render("At turn "+str(game.turn)+", players have this much treasure in their...", 1, self.PLAIN_TEXT_COLOUR)
+        score_title = self.scores_font.render("At turn "+str(game.turn)+", players have this much Silk in their...", 1, self.PLAIN_TEXT_COLOUR)
         self.window.blit(score_title, [horizontal, vertical])
         vertical += score_title.get_height()
-        scores_texts = [[], [], []] #Start with three columns: name, vault treasure, 1st adventurer's chest treasure
+        scores_texts = [[], [], []] #Start with three columns: name, vault Silk, 1st adventurer's chest Silk
         scores_widths = []
         #Leave the top cell of the names column blank
         scores_texts[0].append([self.scores_font.render("", 1, self.PLAIN_TEXT_COLOUR), None]) #2-array kept to allow click-detection
@@ -1031,7 +1031,7 @@ class GameVisualisation():
             #Update the column width if needed
             if score_text.get_width() > scores_widths[0]:
                 scores_widths[0] = score_text.get_width()
-            #Now the Player's Vault treasure (score)  
+            #Now the Player's Vault Silk (score)
             if player == game.winning_player:
                 text = " "+str(self.game.player_wealths[player])+" (+"+str(game.wealth_difference)+")"
             #Highlight the second placed player too, because lower ranked players can behave differently
@@ -1081,7 +1081,7 @@ class GameVisualisation():
                 vertical += self.SCORES_FONT_SCALE * self.height #increment the vertical position to a new row
                 #Draw this in the window
                 if scores_texts.index(column) > 1:
-                    horizontal = right_edge - score_text.get_width() #Right-align Chest treasure
+                    horizontal = right_edge - score_text.get_width() #Right-align Chest Silk
                 else:
                     horizontal = left_edge
                 self.window.blit(score_text, [horizontal, vertical])
@@ -1167,7 +1167,7 @@ class GameVisualisation():
         if not self.current_adventurer.player == self.viewed_adventurer.player:
             return #This menu isn't relevant if the adventurer doesn't belong to the player viewing
         self.action_rects = [] #Reset the record of where the toggle menu buttons have been drawn
-        #Establish the top left coordinate below the table of treasure scores
+        #Establish the top left coordinate below the table of Silk scores
 #        horizontal = self.MOVE_COUNT_POSITION[0] * self.width
 #        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.game.tile_piles) + 1)
         toggle_title = self.scores_font.render("Auto-Actions:", 1, self.PLAIN_TEXT_COLOUR)
@@ -1248,7 +1248,7 @@ class GameVisualisation():
         chest_tiles = self.viewed_adventurer.chest_tiles
         preferred_tile_num = self.viewed_adventurer.preferred_tile_num
         max_chest_tiles = self.viewed_adventurer.num_chest_tiles
-        #Establish the top left coordinate of the column of tiles to choose from, below the table of treasure scores
+        #Establish the top left coordinate of the column of tiles to choose from, below the table of Silk scores
 #        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.game.players) + 1)
         # horizontal = self.right_text_start
         horizontal = self.right_menu_start
@@ -1737,7 +1737,7 @@ class WebServerVisualisation(GameVisualisation):
         if input_type == "move":
             prompt = self.current_adventurer.player.name+" is moving their Adventurer #"+str(self.current_adventurer_number+1)
         elif input_type == "text":
-            prompt = self.current_adventurer.player.name+" is choosing a treasure amount for their Adventurer #"+str(self.current_adventurer_number+1)
+            prompt = self.current_adventurer.player.name+" is choosing a Silk amount for their Adventurer #"+str(self.current_adventurer_number+1)
         elif input_type == "choose_tile":
             prompt = self.current_adventurer.player.name+" is choosing a tile for their Adventurer #"+str(self.current_adventurer_number+1)
         elif input_type == "choose_discovery":
