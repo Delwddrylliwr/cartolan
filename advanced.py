@@ -84,6 +84,8 @@ class AdventurerAdvanced(AdventurerRegular):
         self.rest_after_placing = game.rest_after_placing
         self.transfers_to_agents = game.transfers_to_agents
         self.attacks_abandon = game.attacks_abandon
+        self.num_free_rests = game.num_free_rests
+        self.free_rests = 0
         #Also player-specific characteristics
         self.rest_with_adventurers = game.rest_with_adventurers[player]
         self.confiscate_treasure = game.confiscate_treasure[player]
@@ -143,23 +145,32 @@ class AdventurerAdvanced(AdventurerRegular):
     
     def can_rest(self, token):
         '''checks whether the Adventurer can rest with an Agent on this tile'''
+        restable = False
+        #Make sure that wealth isn't a barrier when free rests are available
+        if self.free_rests > 0:
+            self.wealth += self.game.cost_agent_rest
         if super().can_rest(token):
 #            print("Deemed that could rest with Agent")
-            return True
+            restable = True
         # can the adventurer rest with an adventurer instead?
-        elif (self.rest_with_adventurers 
+        elif (self.rest_with_adventurers
               and isinstance(token, AdventurerAdvanced)
               and token not in self.agents_rested
               and not token == self):
 #            print("Checking if can rest with an Adventurer")
             if (token.player == self.player 
                 or (self.wealth >= self.game.cost_agent_rest
+                and not self.pirate_token)
+                or (self.free_rests > 0
                 and not self.pirate_token)):
 #                print("Deemed that resting with an Adventurer is possible.")
-                return True    
+                restable = True
         else:
 #            print("Deemed rest was impossible with "+token.__class__.__name__)
-            return False
+            restable = False
+        if self.free_rests > 0:
+            self.wealth -= self.game.cost_agent_rest
+        return restable
         
     def trade(self, tile):
         '''Extends to allow agents to profit from trade
@@ -177,16 +188,26 @@ class AdventurerAdvanced(AdventurerRegular):
         Arguments:
             token accepts a Cartolan Token
         '''
+        #Ensure that wealth isn't a barrier when free rests are available
+        if self.free_rests > 0:
+            self.wealth += self.game.cost_agent_rest
         if isinstance(token, AgentAdvanced):
-            return token.give_rest(self)
+            rested = token.give_rest(self)
 #        print("Make sure that the adventurer is equipped with the right method")
         elif self.rest_with_adventurers and not callable(getattr(token, "give_rest", None)):
             token.cost_agent_rest = token.game.cost_agent_rest
 #            token.give_rest = AgentAdvanced.give_rest
 #            return token.give_rest(self)
-            return AgentBeginner.give_rest(token, self)
+            rested = AgentBeginner.give_rest(token, self)
         else: 
-            return False
+            rested = False
+        #Remove any wealth compensation for free rest
+        if self.free_rests > 0:
+            if rested:
+                self.free_rests -= 1
+            else:
+                self.wealth -= self.game.cost_agent_rest
+        return rested
     
     def attack(self, token):
         '''Extends Regular mode to allow stealing of Chest Tiles
@@ -313,6 +334,10 @@ class AdventurerAdvanced(AdventurerRegular):
             pirate.wealth = 0
         AdventurerRegular.arrest(self, pirate)
 
+    def end_turn(self):
+        self.free_rests = self.num_free_rests
+        super().end_turn()
+
 class AgentAdvanced(AgentRegular):
     '''Extends Regular mode to allow Agents' rules to be changed by cards
     '''
@@ -330,7 +355,7 @@ class AgentAdvanced(AgentRegular):
 #            self.arrest = AdventurerRegular.arrest
     
     def give_rest(self, adventurer):
-        '''Extends Regular mode to replenish Chest Tiles ...now done in Regular mode
+        '''Extends Regular mode to allow buffs from cards
         '''
         if AgentRegular.give_rest(self, adventurer):
             if self.resting_refurnishes and adventurer.pirate_token:

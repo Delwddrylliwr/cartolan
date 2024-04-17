@@ -74,6 +74,7 @@ class AdvancedConfig:
     AGENT_ON_EXISTING = False
     REST_AFTER_PLACING = False
     TRANSFERS_TO_AGENTS = False
+    NUM_FREE_RESTS = 0
     
     REST_WITH_ADVENTURERS = False
     TRANSFER_AGENT_EARNINGS = False
@@ -93,6 +94,8 @@ class AdvancedConfig:
                         , "+upwind":{"max_upwind_moves":{"buff_type":"boost", "buff_val":1}
                                             ,"max_land_moves":{"buff_type":"boost", "buff_val":1}}
                         , "+maps":{"num_chest_tiles":{"buff_type":"boost", "buff_val":1}}
+                        , "+freerests":{"num_free_rests":{"buff_type":"boost", "buff_val":1}}
+                        , "+rewards":{"value_fill_map_gap":{"buff_type":"boost", "buff_val":[[land_edges + water_edges for land_edges in range(0,5)] for water_edges in range(0,5)]}}
                         , "+rests":{"rest_with_adventurers":{"buff_type":"new", "buff_val":True}
                                             , "num_character_choices":{"buff_type":"new", "buff_val":3}}
                         , "+transfers":{"transfer_agent_earnings":{"buff_type":"new", "buff_val":True}
