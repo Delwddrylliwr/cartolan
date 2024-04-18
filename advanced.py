@@ -13,7 +13,28 @@ class CardAdvanced(Card):
     def __init__(self, game, card_type):
         super().__init__(game, card_type)
         self.buffs = game.card_type_buffs[card_type[3:]]
-        
+
+    #some supporting functions to deal with different attribute types
+    def add(self, a, b):
+        '''Applies elementwise addition when given lists of lists rather than numbers
+        '''
+        if isinstance(a, list) and isinstance(b, list):
+            if isinstance(a[0], list) and isinstance(b[0], list):
+                combs = [[a[i], b[i]] for i in range(min(len(a), len(b)))]
+                return [[ comb[0][j] + comb[1][j] for j in range(min(len(comb[0]), len(comb[1])))] for comb in combs]
+        else:
+            return a + b
+
+    def sub(self, a, b):
+        '''Applies elementwise addition when given lists of lists rather than numbers
+        '''
+        if isinstance(a, list) and isinstance(b, list):
+            if isinstance(a[0], list) and isinstance(b[0], list):
+                combs = [[a[i], b[i]] for i in range(min(len(a), len(b)))]
+                return [[ comb[0][j] - comb[1][j] for j in range(min(len(comb[0]), len(comb[1])))] for comb in combs]
+        else:
+            return a - b
+
     def apply_buffs(self, target):
         '''Incorporates rule changes for the Adventurer/Agent that come from this cards
         '''
@@ -27,7 +48,7 @@ class CardAdvanced(Card):
                     print("For "+player_name+" "+target.__class__.__name__+", adding a buff to their "+buff_attr)
                     #Apply the buff
                     if self.buffs[buff_attr]["buff_type"] == "boost":
-                        setattr(target, buff_attr, current_attr_val + self.buffs[buff_attr]["buff_val"])
+                        setattr(target, buff_attr, self.add(current_attr_val, self.buffs[buff_attr]["buff_val"]))
                     elif self.buffs[buff_attr]["buff_type"] == "new":
                         setattr(target, buff_attr, self.buffs[buff_attr]["buff_val"])
                     print(player_name+" " +target.__class__.__name__+"'s "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
@@ -61,7 +82,7 @@ class CardAdvanced(Card):
                 if current_attr_val is not None:
                     #Remove the buff
                     if self.buffs[buff_attr]["buff_type"] == "boost":
-                        setattr(target, buff_attr, current_attr_val - self.buffs[buff_attr]["buff_val"])
+                        setattr(target, buff_attr, self.sub(current_attr_val, self.buffs[buff_attr]["buff_val"]))
                     elif self.buffs[buff_attr]["buff_type"] == "new":
                         #@TODO if a buff has been doubled up then it shouldn't be lost
                         setattr(target, buff_attr, getattr(self.game, buff_attr))
@@ -203,8 +224,9 @@ class AdventurerAdvanced(AdventurerRegular):
             rested = False
         #Remove any wealth compensation for free rest
         if self.free_rests > 0:
-            if rested:
+            if rested and not token.player == self.player:
                 self.free_rests -= 1
+                token.wealth -= self.game.cost_agent_rest #If the rest was free then the Inn shouldn't be rewarded
             else:
                 self.wealth -= self.game.cost_agent_rest
         return rested
