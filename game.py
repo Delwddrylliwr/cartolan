@@ -285,6 +285,9 @@ class GameRegular(GameBeginner):
         
         #Chest tiles will now be carried
         self.num_chest_tiles = RegularConfig.NUM_CHEST_TILES
+        self.num_tile_choices = {}
+        for player in players:
+            self.num_tile_choices[player] = RegularConfig.NUM_TILE_CHOICES
         
         # a land tile pile is now needed
         self.tile_piles["land"] = TilePile("land",[])
@@ -347,7 +350,7 @@ class GameAdvanced(GameRegular):
             #And a placeholder for players to choose a Cadre/Company
             self.assigned_cadres[player] = None
         
-        #Get config variables to act as masters in case of modification
+        #Get config variables to act as masters of Adventurer traits in case of modification
         self.card_type_buffs = AdvancedConfig.CARD_TYPE_BUFFS
         
         self.cost_tech = AdvancedConfig.COST_TECH

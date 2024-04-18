@@ -138,14 +138,27 @@ class AdventurerAdvanced(AdventurerRegular):
         character_cards.remove(self.character_card)
         #Take on the changes to rules based on the Character card
         self.character_card.apply_buffs(self)
-        self.replenish_chest_tiles() #in case the buffs increased the chest tile 
-    
+        #Now some ugly fixes where the card buff alone wasn't enough for desired behaviour
+        self.replenish_chest_tiles() #in case the buffs increased the chest tile
+        # If exploration values have been boosted
+        self.value_fill_map_gap = self.game.value_fill_map_gap
+        for water_edges in self.value_fill_map_gap:
+            for exploration_value in water_edges:
+                exploration_value += self.bonus_fill_map_gap
+
     def discover_card(self, card):
         '''Adds a Discovery card to the Adventurer, modifying rules according to the card's buffs
         '''
         print(self.player.name+"'s Adventurer has received the card of type "+card.card_type)
         self.discovery_cards.append(card)
         card.apply_buffs(self)
+        # Now some ugly fixes where the card buff alone wasn't enough for desired behaviour
+        self.replenish_chest_tiles()  # in case the buffs increased the chest tile
+        #If exploration values have been boosted
+        self.value_fill_map_gap = self.game.value_fill_map_gap
+        for water_edges in self.value_fill_map_gap:
+            for exploration_value in water_edges:
+                exploration_value += self.bonus_fill_map_gap
         #If maps are pooled then compare to peers
         if self.pool_maps:
             peers = self.game.adventurers[self.player]
@@ -158,6 +171,13 @@ class AdventurerAdvanced(AdventurerRegular):
         print(self.player.name+"'s Adventurer has lost a card of type "+card.card_type)
         self.discovery_cards.remove(card)
         card.remove_buffs(self)
+        # Now some ugly fixes where the card buff alone wasn't enough for desired behaviour
+        self.replenish_chest_tiles()  # in case the buffs increased the chest tile
+        # If exploration values have been boosted
+        self.value_fill_map_gap = self.game.value_fill_map_gap
+        for water_edges in self.value_fill_map_gap:
+            for exploration_value in water_edges:
+                exploration_value += self.bonus_fill_map_gap
         #If maps are pooled then compare to peers
         if self.pool_maps:
             peers = self.game.adventurers[self.player]
@@ -357,6 +377,7 @@ class AdventurerAdvanced(AdventurerRegular):
         AdventurerRegular.arrest(self, pirate)
 
     def end_turn(self):
+      '''Extends beginner behaviour to keep track of free rests each turn.'''
         self.free_rests = self.num_free_rests
         super().end_turn()
 
@@ -392,6 +413,11 @@ class AgentAdvanced(AgentRegular):
                 if adventurer.player.check_buy_maps(adventurer):
                     adventurer.wealth -= self.game.cost_refresh_maps
                     adventurer.rechoose_chest_tiles()
+            if adventurer.num_free_rests > 0:
+                print("Agent is refunding Adventurer for free rest perk,")
+                adventurer.wealth += self.game.cost_agent_rest
+                self.wealth -= self.game.cost_agent_rest
+                adventurer.num_fre_rests -= 1 #a free rest has been used up
             return True
         else:
             return False
