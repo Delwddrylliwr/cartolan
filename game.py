@@ -359,8 +359,7 @@ class GameAdvanced(GameRegular):
         self.agent_on_existing = AdvancedConfig.AGENT_ON_EXISTING
         self.rest_after_placing = AdvancedConfig.REST_AFTER_PLACING
         self.transfers_to_agents = AdvancedConfig.TRANSFERS_TO_AGENTS
-        self.bonus_fill_map_gap = AdvancedConfig.BONUS_FILL_MAP_GAP
-        self.max_free_rests = AdvancedConfig.MAX_FREE_RESTS
+        self.num_free_rests = AdvancedConfig.NUM_FREE_RESTS
         
         #Set up the decks of cards
         self.cadre_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.CADRE_CARDS] #a copy that can be modified independent of the config file

@@ -325,7 +325,8 @@ class GameVisualisation():
                 self.card_image_library = {}  # a dict pairing particular tiles with particular art for the play area itself
                 # duplicate tile art for use in selection menu after piracy
                 self.card_offer_library = {}
-                card_image_names = [filename for filename in os.listdir(self.CARDS_PATH) if self.CARDS_EXTENSION in filename]
+                # card_image_names = [filename for filename in os.listdir(self.CARDS_PATH) if self.CARDS_EXTENSION in filename]
+                card_image_names = [filename for filename in os.listdir(self.CARDS_PATH)]
                 card_image_names.sort()  # Ensure it's deterministic which specific cards are assigned to each adventurer, so that this is consistent with the game's other visuals
                 print(card_image_names)
                 for card_image_name in card_image_names:
