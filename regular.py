@@ -430,7 +430,17 @@ class AdventurerRegular(AdventurerBeginner):
             print("Didn't need to restore this Agent")
             return False
 
-        
+    def to_json(self):
+        d = super().to_json()
+        d.update({
+            "pirate_token": self.pirate_token,
+            "chest_tiles": [t.to_json() for t in self.chest_tiles],
+            "preferred_tile_num": self.preferred_tile_num,
+            "num_chest_tiles": self.num_chest_tiles,
+        })
+        return d
+
+
 class CityTileRegular(CityTileBeginner):
     '''Extends the CityTileBeginner class to redeem Adventurers from piracy and to replenish Chest Tiles, and offer purchase of refreshed chest tiles
     '''
@@ -508,6 +518,11 @@ class AgentRegular(AgentBeginner):
         self.game.agents[self.player].remove(self)
         self.current_tile.move_off_tile(self)
 
+    def to_json(self):
+        d = super().to_json()
+        d["is_dispossessed"] = self.is_dispossessed
+        return d
+
 class DisasterTile(Tile):
     '''***DEPRECATED*** Represents a Disaster Tile in the game Cartolan, which removes Adventurers' wealth and send them back to a city '''
     def move_onto_tile(self, token):
@@ -560,6 +575,11 @@ class DisasterTile(Tile):
             return False
         else:
             return super().compare(tile)
+
+    def to_json(self):
+        d = super().to_json()
+        d["tile_name"] = "water_disaster" if self.tile_back == "water" else "land_disaster"
+        return d
 
 class CapitalTileRegular(CityTileRegular):
     def __init__(self, game, tile_back = "water"

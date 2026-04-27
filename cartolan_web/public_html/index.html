@@ -19,6 +19,8 @@
   <link rel="stylesheet" href="css/normalize.css">
   <link rel="stylesheet" href="css/main.css">
 
+  <script src="live_visuals.js"></script>
+
   <meta name="theme-color" content="#fafafa">
 
   <!--<script src="download.js" type="text/javascript"></script>-->
@@ -95,6 +97,7 @@
     var canvas;
     var context;
     var websocket;
+    var gameVis = null;
 
     var backing = new Image();
     backing.onload = function () { backing.loaded = true; console.log("Background image loaded.")}; //make this backing image available to redraw
@@ -269,45 +272,15 @@
           if (input === "") { input = "BLANK" };
           console.log("input: " + input);
           this.send("TEXT[00100]" + input);
-        } else if (decomposed[0] === 'IMAGE') { //this is a base64 image to render
+        } else if (decomposed[0] === 'STATE') { //this is a JSON game state to render
           splash = false; //make sure that splash screen contents stop rendering
-          var img = new Image();
-          console.log("Image received.");
-          //                        download(decomposed[1], "test.png");
-          //                        img.src = "data:image/png;base64, "+btoa(decomposed[1]);
-          
-          img.onload = function () {
-            //If the user has asked not to queue moves then clear the history of clicks
-            if (!context.queueMoves) {
-              myGameArea.clear();
-            }
-            //Render differently on mobile and desktop, to maximise mobile play area by removing the jagged border around the parchment backing image
-            if (detectMob()) {
-              console.log("Displaying play area for mobile");
-              //if (backing.loaded) {
-              //  context.drawImage(backing, backing.width * bgndMargin, backing.height * bgndMargin, 1 - bgndMargin, 1 - bgndMargin, 0, 0, canvas.width, canvas.height,);
-              //  console.log("background drawn to canvas.");
-              //}
-              ////                            context.fillStyle = "red";
-              //                            context.fillRect(0, 0, 100, 100);
-              context.drawImage(img, 0, 0);
-              console.log("Image drawn to canvas. ");
-            } else {
-              console.log("Displaying play area for desktop");
-              if (backing.loaded) {
-                context.drawImage(backing, 0, 0, canvas.width, canvas.height);
-                console.log("background drawn to canvas.");
-              }
-              //                            context.fillStyle = "red";
-              //                            context.fillRect(0, 0, 100, 100);
-              context.drawImage(img, backing.insideLeft, backing.insideTop, backing.insideWidth, backing.insideHeight);
-              console.log("Image drawn to canvas. ");
-            };
-          };
-          //                        img.src = "data:image/png;base64, "+btoa(decomposed[1]);
-          imageString = decomposed[1].toString().substring(1).replace(/'/g, "");
-          //                        console.log(imageString);
-          img.src = "data:image/png;base64, " + imageString;
+          console.log("State received.");
+          const state = JSON.parse(decomposed[1]);
+          if (gameVis === null) {
+            gameVis = new GameVisualisation(canvas, context);
+            gameVis.sendFn = send;
+          }
+          gameVis.applyState(state);
         } else {
           console.log("Received message couldn't be processed.");
         };

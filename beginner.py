@@ -60,8 +60,24 @@ class AdventurerBeginner(Adventurer):
         self.bought_adventurer = 0
         self.bought_agent = 0 #@TODO this variable may need to store different information
         self.moved_agent = None #@TODO this variable may need to store different information
-    
-    
+
+    def to_json(self):
+        d = super().to_json()
+        d.update({
+            "downwind_moves": self.downwind_moves,
+            "upwind_moves": self.upwind_moves,
+            "land_moves": self.land_moves,
+            "max_upwind_moves": self.max_upwind_moves,
+            "max_downwind_moves": self.max_downwind_moves,
+            "pirate_token": None,
+            "chest_tiles": None,
+            "preferred_tile_num": None,
+            "num_chest_tiles": None,
+            "character_card": None,
+            "discovery_cards": None,
+        })
+        return d
+
     def has_remaining_moves(self):
         '''Checks whether there are moves left for the Adventurer, regardless of whether there are direction they can move
         '''

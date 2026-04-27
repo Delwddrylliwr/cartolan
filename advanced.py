@@ -381,6 +381,14 @@ class AdventurerAdvanced(AdventurerRegular):
         self.free_rests = self.num_free_rests
         super().end_turn()
 
+    def to_json(self):
+        d = super().to_json()
+        d.update({
+            "character_card": self.character_card.to_json() if self.character_card else None,
+            "discovery_cards": [c.to_json() for c in self.discovery_cards],
+        })
+        return d
+
 class AgentAdvanced(AgentRegular):
     '''Extends Regular mode to allow Agents' rules to be changed by cards
     '''
@@ -417,7 +425,7 @@ class AgentAdvanced(AgentRegular):
                 print("Agent is refunding Adventurer for free rest perk,")
                 adventurer.wealth += self.game.cost_agent_rest
                 self.wealth -= self.game.cost_agent_rest
-                adventurer.num_fre_rests -= 1 #a free rest has been used up
+                adventurer.num_free_rests -= 1 #a free rest has been used up
             return True
         else:
             return False

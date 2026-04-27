@@ -578,17 +578,39 @@ class ClientSocket(WebSocket):
         #           msg = ('%sSPLIT%s' % (ident, mdata))
         ##           self.socket.send(str(msg))
         elif protocode == ("COORDS"):
-            input_coords = msg.split("[66666]")
-            print("Click coordinate Input received from client... " + ", ".join(input_coords))
-            print(time.strftime('%Y-%m-%d %H:%M %Z', time.gmtime(time.time())))  # timestamp
+            print("Click input received from client.")
+            print(time.strftime('%Y-%m-%d %H:%M %Z', time.gmtime(time.time())))
             try:
-                if len(input_coords) == 2:
-                    self.coords_buffer = []
-                    for coord in input_coords:
-                        self.coords_buffer.append(int(coord))
+                if '[55555]' in msg:
+                    # Semantic format: highlight_type[55555]lon[66666]lat
+                    ht, rest = msg.split('[55555]', 1)
+                    lon_str, lat_str = rest.split('[66666]')
+                    self.coords_buffer = {ht: [int(lon_str), int(lat_str)]}
+                else:
+                    # Legacy pixel format: x[66666]y
+                    input_coords = msg.split('[66666]')
+                    if len(input_coords) == 2:
+                        self.coords_buffer = [int(input_coords[0]), int(input_coords[1])]
             except:
                 self.coords_buffer = None
-                print("The client response could not be converted into a pair of integer coordinates.")
+                print("The client response could not be parsed as click input.")
+        elif protocode == ("CHEST"):
+            try:
+                self.coords_buffer = {'preferred_tile': int(msg)}
+            except:
+                self.coords_buffer = None
+        elif protocode == ("TOGGLE"):
+            self.coords_buffer = {'toggle': msg.strip()}
+        elif protocode == ("ROUTES"):
+            self.coords_buffer = {'routes_toggle': True}
+        elif protocode == ("UNDO"):
+            self.coords_buffer = {'undo_request': True}
+        elif protocode == ("FOCUS"):
+            try:
+                parts = msg.split('[55555]')
+                self.coords_buffer = {'focus': [parts[0], int(parts[1])]}
+            except:
+                self.coords_buffer = None
         #           msg = str(msg)
         #           ident, mdata = msg.split("[11111]")
         #           msg = ('%sSPLIT%s' % (ident, mdata))
