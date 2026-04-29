@@ -18,15 +18,16 @@ class GameVisualisation {
   static LEFT_MENU_SCALE     = 0.13;
   static RIGHT_MENU_SCALE    = 0.13;
   static MENU_TILE_COLS      = 2;
+  static MENU_FONT_SCALE   = 0.04;
   static OFFER_SCALE         = 0.15;
   static ROUTE_THICKNESS     = 4.0;
-  static TOKEN_SCALE         = 0.2;
+  static TOKEN_SCALE         = 0.15;
   static AGENT_SCALE         = 1.75;
   static TOKEN_OUTLINE_SCALE = 0.25;
-  static TOKEN_FONT_SCALE    = 0.5;
+  static TOKEN_FONT_SCALE    = 0.2;
   static TOKEN_FONT_COLOURS  = { yellow: 'black' };
   static SCORES_POSITION     = [0.0, 0.0];
-  static SCORES_FONT_SCALE   = 0.05;
+  static SCORES_FONT_SCALE   = 0.04;
   static CARD_HEADER_SHARE   = 0.15;
   static CARD_BODY_START     = 0.7;
   static PROMPT_POSITION     = [0.0, 0.95];
@@ -48,7 +49,8 @@ class GameVisualisation {
 
   // ── Asset paths ───────────────────────────────────────────────────────────
   static TILE_PATH  = './img/map_tiles/tiles/';
-  static CARDS_PATH = './img/map_tiles/cards/';
+  static CARDS_PATH = './img/cards/';
+
   static METERS_PATHS = {
     any_direction:  './img/move_meters/any_direction.png',
     downwind_water: './img/move_meters/downwind_water.png',
@@ -128,16 +130,44 @@ class GameVisualisation {
     this._clickableAreas = [];
 
     // Image caches
-    this._tileSourceImages = {};  // tile_name → HTMLImageElement
+    this._tileSourceImages = {};  // tile_id → HTMLImageElement
     this._highlightImages  = {};  // highlight_type → HTMLImageElement
     this._meterImages      = {};  // meter_name → HTMLImageElement
     this._cardImages       = {};  // card_type → HTMLImageElement
+    this._offerImages      = {};  // src url → HTMLImageElement (for offer overlay)
+
+    // tile_name → [filename, ...] populated by _fetchTileManifest()
+    this._tileVariants = {};
+    // card_type → [filename, ...] populated by _fetchCardManifest()
+    this._cardVariants = {};
+    // card_type → chosen filename (cached so the image stays stable across re-renders)
+    this._cardFilenames = {};
 
     // Optional send callback — set by caller after construction (e.g. gameVis.sendFn = send)
     this.sendFn = null;
 
+    // Wrap canvas in a relative container so the scores overlay can sit on top
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'position:relative;display:inline-block;line-height:0';
+    this.canvas.parentNode.replaceChild(wrapper, this.canvas);
+    wrapper.appendChild(this.canvas);
+
+    // Scores table overlay — absolutely positioned, overlaps play area transparently
+    this._scoresEl = document.createElement('div');
+    this._scoresEl.style.cssText =
+      'position:absolute;top:0;left:0;pointer-events:none;box-sizing:border-box';
+    wrapper.appendChild(this._scoresEl);
+
+    // Cards panel overlay — positioned below scores table
+    this._cardsEl = document.createElement('div');
+    this._cardsEl.style.cssText =
+      'position:absolute;left:0;overflow-y:auto;pointer-events:auto;box-sizing:border-box';
+    wrapper.appendChild(this._cardsEl);
+
     this._preloadHighlights();
     this._preloadMeters();
+    this._fetchTileManifest();
+    this._fetchCardManifest();
 
     // Forward canvas clicks to the semantic dispatcher
     this.canvas.addEventListener('pointerdown', (e) => {
@@ -235,20 +265,55 @@ class GameVisualisation {
     }
   }
 
-  // Returns a cached HTMLImageElement for a tile_name, loading on first use.
-  _tileSourceImage(tileName) {
-    if (!this._tileSourceImages[tileName]) {
-      const img = new Image();
-      img.src = GameVisualisation.TILE_PATH + tileName + '_1.jpg';
-      img.onerror = () => {
-        const img2 = new Image();
-        img2.src = GameVisualisation.TILE_PATH + tileName + '.png';
-        img2.onload = () => this._render();
-        this._tileSourceImages[tileName] = img2;
-      };
-      this._tileSourceImages[tileName] = img;
+  _fetchTileManifest() {
+    fetch(GameVisualisation.TILE_PATH + 'tile_manifest.json')
+      .then(r => r.json())
+      .then(manifest => {
+        this._tileVariants = manifest;
+        this._tileSourceImages = {};
+        if (this.state) this._render();
+      })
+      .catch(() => {});
+  }
+
+  _fetchCardManifest() {
+    fetch(GameVisualisation.CARDS_PATH + 'card_manifest.json')
+      .then(r => r.json())
+      .then(manifest => {
+        this._cardVariants = manifest;
+        this._cardFilenames = {};  // evict cached selections so new variants are picked
+        if (this.state) this._render();
+      })
+      .catch(() => {});
+  }
+
+  // Returns a stable filename for a card type, picking randomly from the manifest on first use.
+  _cardFilename(cardType) {
+    if (!this._cardFilenames[cardType]) {
+      const variants = this._cardVariants[cardType];
+      this._cardFilenames[cardType] = variants && variants.length
+        ? variants[Math.floor(Math.random() * variants.length)]
+        : cardType + '.png';
     }
-    return this._tileSourceImages[tileName];
+    return this._cardFilenames[cardType];
+  }
+
+  // Returns a cached HTMLImageElement for a tile object, picking a random variant on
+  // first use. Keyed by tile_id so each tile object (placed or unplaced) gets its own
+  // stable image across all re-renders.
+  _tileSourceImage(tile) {
+    const key = tile.tile_id;
+    if (!this._tileSourceImages[key]) {
+      const variants = this._tileVariants[tile.tile_name];
+      const filename = variants && variants.length
+        ? variants[Math.floor(Math.random() * variants.length)]
+        : tile.tile_name + '.jpg';
+      const img = new Image();
+      img.src = GameVisualisation.TILE_PATH + filename;
+      img.onload = () => this._render();
+      this._tileSourceImages[key] = img;
+    }
+    return this._tileSourceImages[key];
   }
 
   // Returns a cached HTMLImageElement for a card_type, loading on first use.
@@ -265,15 +330,15 @@ class GameVisualisation {
   // ── Draw helpers ──────────────────────────────────────────────────────────
 
   _tileRotation(tile) {
-    if ( tile.wind_north &&  tile.wind_east) return 0;
-    if (!tile.wind_north &&  tile.wind_east) return -Math.PI / 2;
-    if (!tile.wind_north && !tile.wind_east) return Math.PI;
-    return Math.PI / 2;
+    if ( tile.wind_north &&  tile.wind_east) return 0;           // NE → no rotation
+    if (!tile.wind_north &&  tile.wind_east) return Math.PI / 2; // SE → CW 90°
+    if (!tile.wind_north && !tile.wind_east) return Math.PI;     // SW → 180°
+    return -Math.PI / 2;                                          // NW → CCW 90°
   }
 
   _drawTileAt(tile, x, y, size) {
     const ctx = this.context;
-    const img = this._tileSourceImage(tile.tile_name);
+    const img = this._tileSourceImage(tile);
     ctx.save();
     ctx.translate(x + size / 2, y + size / 2);
     ctx.rotate(this._tileRotation(tile));
@@ -335,7 +400,7 @@ class GameVisualisation {
     this._drawRoutes();
     this._drawTokens();
     this._drawMoveOptions();
-    this._drawScores();
+    this._updateScoresTable();
 
     if (s.game_mode !== 'Beginner') {
       this._drawMoveCount();
@@ -346,12 +411,11 @@ class GameVisualisation {
       this._drawTilePiles();
       this._drawDiscardPile();
     }
-    if (s.game_mode === 'Advanced') {
-      this._drawCards();
-    }
+    this._updateCardsPanel();
 
     this._drawUndoButton();
     this._drawPrompt();
+    this._drawOffersPanel();
   }
 
   // ── Draw methods ──────────────────────────────────────────────────────────
@@ -448,8 +512,12 @@ class GameVisualisation {
           ctx.stroke();
         }
 
-        ctx.fillStyle = labelColour;
-        ctx.fillText(String(advIdx + 1), cx - this.tokenSize / 2, cy - this.tokenSize);
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle    = labelColour;
+        ctx.fillText(String(advIdx + 1), cx, cy);
+        ctx.textBaseline = 'alphabetic';
+        ctx.textAlign    = 'left';
 
         // Clicking a non-viewed adventurer token focuses it
         if (!isViewed) {
@@ -478,7 +546,7 @@ class GameVisualisation {
           ctx.fillRect(ax, ay, agentSz, agentSz);
         }
         ctx.fillStyle = labelColour;
-        ctx.fillText(String(agent.wealth), ax + this.tokenSize / 2, ay);
+        ctx.fillText(String(agent.wealth), ax + this.tokenSize / 2, ay + this.tokenSize / 2);
       }
     }
     ctx.lineWidth = 1;
@@ -544,59 +612,224 @@ class GameVisualisation {
     ctx.setLineDash([]);
   }
 
-  _drawScores() {
-    const ctx      = this.context;
+  _updateScoresTable() {
     const s        = this.state;
-    const h        = this.canvas.height;
-    const fontSize = Math.round(h * GameVisualisation.SCORES_FONT_SCALE);
-    const rowH     = fontSize * 1.5;
-    ctx.font = `${fontSize}px ${GameVisualisation.MENU_FONT}`;
+    const el       = this._scoresEl;
+    const GV       = GameVisualisation;
+    const fontSize = Math.round(this.canvas.height * GV.SCORES_FONT_SCALE);
+    const pad      = Math.max(1, Math.round(fontSize * 0.2));
+    const ROW      = fontSize + 2 * pad;
+    const esc = t => String(t)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-    let x = GameVisualisation.SCORES_POSITION[0] * this.canvas.width;
-    let y = GameVisualisation.SCORES_POSITION[1] * h + rowH;
+    const maxAdvs = Math.max(0, ...s.players.map(n => (s.adventurers[n] || []).length));
+    const colSpan = 2 + maxAdvs;
+    const th      = `padding:${pad}px ${pad * 2}px;color:white;font-weight:bold;border-bottom:1px solid #888`;
 
-    ctx.fillStyle = GameVisualisation.PLAIN_TEXT_COLOUR;
-    ctx.fillText(`Turn ${s.turn}`, x, y);
-    y += rowH;
+    let advHeaders = '';
+    for (let i = 1; i <= maxAdvs; i++) advHeaders += `<th style="${th}">#${i}</th>`;
+
+    let rows = `<tr>
+      <td colspan="${colSpan}" style="padding:${pad}px ${pad * 2}px;color:white">Turn ${s.turn}</td>
+    </tr>
+    <tr>
+      <th style="${th}">Player</th>
+      <th style="${th}">Vault</th>
+      ${advHeaders}
+    </tr>`;
+    let rowCount = 2;
 
     for (const playerName of s.players) {
-      const colour = s.player_colours[playerName];
-      const vault  = s.player_wealths[playerName];
-      const advs   = s.adventurers[playerName] || [];
+      const colour    = s.player_colours[playerName];
+      const vault     = s.player_wealths[playerName];
+      const advs      = s.adventurers[playerName] || [];
+      const isCurrent = playerName === s.current_player_name;
+      const ul        = isCurrent ? 'text-decoration:underline' : '';
+      const cell      = `color:${esc(colour)};padding:${pad}px ${pad * 2}px;${ul}`;
 
-      let label = `${playerName}  Vault: ${vault}`;
-      if (playerName === s.winning_player) {
-        label += ` (+${s.wealth_difference})`;
-      }
-      advs.forEach((adv, i) => { label += `  #${i + 1}: ${adv.wealth}`; });
+      let name = esc(playerName);
+      if (playerName === s.winning_player) name += `&nbsp;(+${s.wealth_difference})`;
 
-      ctx.fillStyle = colour;
-      ctx.fillText(label, x, y);
+      let advCells = advs.map(adv => `<td style="${cell}">${adv.wealth}</td>`).join('');
+      for (let i = advs.length; i < maxAdvs; i++) advCells += `<td></td>`;
 
-      if (playerName === s.current_player_name) {
-        const w = ctx.measureText(label).width;
-        ctx.strokeStyle = GameVisualisation.PLAIN_TEXT_COLOUR;
-        ctx.lineWidth   = 1;
-        ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.moveTo(x, y + 2);
-        ctx.lineTo(x + w, y + 2);
-        ctx.stroke();
-      }
-
-      // Clicking a player's score row focuses their first adventurer
-      advs.forEach((adv, advIdx) => {
-        this._clickableAreas.push({
-          x, y: y - fontSize, w: ctx.measureText(label).width, h: rowH,
-          action: 'FOCUS',
-          data: `${playerName}[55555]${advIdx}`,
-        });
-      });
-
-      y += rowH;
+      rows += `<tr data-player="${esc(playerName)}" data-adv="0" style="cursor:pointer">
+        <td style="${cell}">${name}</td>
+        <td style="${cell}">${vault}</td>
+        ${advCells}
+      </tr>`;
+      rowCount++;
     }
 
-    this.scoresBottomY = y;
+    el.innerHTML = `<table style="border-collapse:collapse;font-family:sans-serif;font-size:${fontSize}px;line-height:${ROW}px;pointer-events:auto">${rows}</table>`;
+    this.scoresBottomY = rowCount * ROW;
+
+    el.querySelectorAll('tr[data-player]').forEach(row => {
+      row.addEventListener('pointerdown', e => {
+        e.stopPropagation();
+        if (this.sendFn) {
+          this.sendFn(`FOCUS[00100]${row.dataset.player}[55555]${row.dataset.adv}`);
+        }
+      });
+    });
+  }
+
+  _updateCardsPanel() {
+    const s   = this.state;
+    const el  = this._cardsEl;
+    const GV  = GameVisualisation;
+    const esc = t => String(t)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+    const fontSize = Math.round(this.canvas.height * GV.SCORES_FONT_SCALE);
+    const pad      = Math.max(1, Math.round(fontSize * 0.2));
+    const cardW    = this.playAreaStart;
+    const cardH    = Math.round(cardW * 0.6);
+    const headerH  = Math.round(cardH * GV.CARD_HEADER_SHARE);
+
+    el.style.top    = this.scoresBottomY + 'px';
+    el.style.width  = cardW + 'px';
+    el.style.height = (this.canvas.height - this.scoresBottomY) + 'px';
+
+    if (s.game_mode !== 'Advanced') { el.innerHTML = ''; return; }
+
+    const viewedAdv = (s.adventurers[s.viewed_player_name] || [])[s.viewed_adventurer_index] || null;
+    if (!viewedAdv) { el.innerHTML = ''; return; }
+
+    const label = (text, colour) =>
+      `<div style="padding:${pad}px ${pad * 2}px;font-family:sans-serif;font-size:${fontSize}px;color:${esc(colour || 'white')}">${text}</div>`;
+
+    const cardImg = (cardType, h, action, data) => {
+      const title    = esc(GV.CARD_TITLES[cardType] || '');
+      const body     = esc(GV.CARD_TEXTS[cardType]  || cardType);
+      const filename = this._cardFilename(cardType);
+      return `<div style="height:${h}px;overflow:hidden;cursor:pointer;flex-shrink:0"
+                   data-action="${action}" data-data="${esc(data)}">
+        <img src="${GV.CARDS_PATH}${esc(filename)}"
+             data-title="${title}" data-body="${body}"
+             style="width:100%;height:${cardH}px;object-fit:contain;display:block">
+      </div>`;
+    };
+
+    let html = '';
+
+    const cadreCard = (s.assigned_cadres || {})[s.viewed_player_name];
+    if (cadreCard) {
+      const colour = s.player_colours[s.viewed_player_name] || 'white';
+      html += label(`${esc(s.viewed_player_name)}'s Culture card:`, colour);
+      html += cardImg(cadreCard.card_type, headerH, 'CARDSEL', 'cadre');
+    }
+
+    const hasCards = viewedAdv.character_card
+                  || (viewedAdv.discovery_cards && viewedAdv.discovery_cards.length > 0);
+    if (hasCards) {
+      html += label(`Adventurer #${(s.viewed_adventurer_index || 0) + 1} cards:`);
+      (viewedAdv.discovery_cards || []).forEach((card, idx) => {
+        html += cardImg(card.card_type, headerH, 'CARDSEL', String(idx));
+      });
+      if (viewedAdv.character_card) {
+        html += cardImg(viewedAdv.character_card.card_type, cardH, 'CHARSEL', '');
+      }
+    }
+
+    el.innerHTML = html;
+
+    // Fallback: replace broken card images with text placeholders
+    el.querySelectorAll('img').forEach(img => {
+      const showFallback = () => {
+        const title = img.dataset.title;
+        const body  = img.dataset.body;
+        img.parentElement.innerHTML =
+          `<div style="background:#fff;padding:4px;font-size:11px;color:#000;height:100%;box-sizing:border-box;overflow:hidden">
+             <strong>${title}</strong><br><small>${body}</small>
+           </div>`;
+      };
+      img.addEventListener('error', showFallback);
+      if (img.complete && img.naturalWidth === 0) showFallback();
+    });
+
+    // Click handlers
+    el.querySelectorAll('[data-action]').forEach(div => {
+      div.addEventListener('pointerdown', e => {
+        e.stopPropagation();
+        if (this.sendFn) this.sendFn(`${div.dataset.action}[00100]${div.dataset.data}`);
+      });
+    });
+  }
+
+  _drawOffersPanel() {
+    const s   = this.state;
+    const ctx = this.context;
+    const GV  = GameVisualisation;
+
+    const offeredCards = s.offered_cards && s.offered_cards.length > 0 ? s.offered_cards : null;
+    const offeredTiles = !offeredCards && s.offered_tiles && s.offered_tiles.length > 0 ? s.offered_tiles : null;
+    const items   = offeredCards || offeredTiles;
+    const isCards = !!offeredCards;
+    if (!items) return;
+
+    const W = this.canvas.width;
+    const H = this.canvas.height;
+
+    // Dim the whole canvas
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fillRect(0, 0, W, H);
+
+    const n      = items.length;
+    const itemH  = Math.round(H * 0.5);
+    const itemW  = isCards ? Math.round(itemH * 0.65) : itemH;
+    const gap    = Math.round(W * 0.02);
+    const totalW = n * itemW + (n - 1) * gap;
+    const startX = Math.max(0, Math.round((W - totalW) / 2));
+    const startY = Math.round((H - itemH) / 2);
+
+    const fontSize = Math.round(H * GV.SCORES_FONT_SCALE);
+    ctx.font      = `${fontSize}px ${GV.MENU_FONT}`;
+    ctx.fillStyle = GV.PLAIN_TEXT_COLOUR;
+    ctx.textAlign = 'center';
+    ctx.fillText(isCards ? 'Choose a card:' : 'Choose a tile:', W / 2, startY - fontSize);
+    ctx.textAlign = 'left';
+
+    items.forEach((item, idx) => {
+      const x = startX + idx * (itemW + gap);
+      const y = startY;
+
+      if (isCards) {
+        const cardType = item.card_type;
+        const filename = this._cardFilename(cardType);
+        const src      = GV.CARDS_PATH + filename;
+        if (!this._offerImages[src]) {
+          const img = new Image();
+          img.src = src;
+          img.onload = () => this._render();
+          this._offerImages[src] = img;
+        }
+        const img = this._offerImages[src];
+        if (img.complete && img.naturalWidth > 0) {
+          ctx.drawImage(img, x, y, itemW, itemH);
+        } else {
+          ctx.fillStyle = GV.CARD_BACKGROUND_COLOUR;
+          ctx.fillRect(x, y, itemW, itemH);
+          const fs2 = Math.max(10, Math.round(itemH * 0.08));
+          ctx.font      = `${fs2}px ${GV.MENU_FONT}`;
+          ctx.fillStyle = GV.CARD_TEXT_COLOUR;
+          ctx.fillText(GV.CARD_TITLES[cardType] || cardType, x + 4, y + fs2 + 4);
+          ctx.fillText(GV.CARD_TEXTS[cardType] || '', x + 4, y + Math.round(itemH * 0.6));
+          ctx.font = `${fontSize}px ${GV.MENU_FONT}`;
+        }
+      } else {
+        this._drawTileAt(item, x, y, itemH);
+      }
+
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth   = 3;
+      ctx.strokeRect(x, y, itemW, itemH);
+      ctx.lineWidth   = 1;
+
+      this._clickableAreas.push({ x, y, w: itemW, h: itemH, action: 'OFFERSEL', data: String(idx) });
+    });
   }
 
   _drawMoveCount() {
@@ -604,7 +837,7 @@ class GameVisualisation {
     const s   = this.state;
     const GV  = GameVisualisation;
     const h   = this.canvas.height;
-    const fontSize = Math.round(h * GV.SCORES_FONT_SCALE);
+    const fontSize = Math.round(h * GV.MENU_FONT_SCALE);
     ctx.font = `${fontSize}px ${GV.MENU_FONT}`;
 
     const x = this.rightMenuStart;
@@ -661,7 +894,7 @@ class GameVisualisation {
     const s   = this.state;
     const GV  = GameVisualisation;
     const h   = this.canvas.height;
-    const fontSize = Math.round(h * GV.SCORES_FONT_SCALE);
+    const fontSize = Math.round(h * GV.MENU_FONT_SCALE);
     ctx.font = `${fontSize}px ${GV.MENU_FONT}`;
 
     const x = this.rightMenuStart;
@@ -717,7 +950,7 @@ class GameVisualisation {
     const s   = this.state;
     const GV  = GameVisualisation;
     const h   = this.canvas.height;
-    const fontSize = Math.round(h * GV.SCORES_FONT_SCALE);
+    const fontSize = Math.round(h * GV.MENU_FONT_SCALE);
 
     const viewedAdv = (s.adventurers[s.viewed_player_name] || [])[s.viewed_adventurer_index] || null;
     if (!viewedAdv || !viewedAdv.chest_tiles || viewedAdv.chest_tiles.length === 0) return;
@@ -760,7 +993,7 @@ class GameVisualisation {
     const s   = this.state;
     const GV  = GameVisualisation;
     const h   = this.canvas.height;
-    const fontSize = Math.round(h * GV.SCORES_FONT_SCALE);
+    const fontSize = Math.round(h * GV.MENU_FONT_SCALE);
     ctx.font = `${fontSize}px ${GV.MENU_FONT}`;
 
     const x = this.rightMenuStart;
@@ -797,7 +1030,7 @@ class GameVisualisation {
     const s   = this.state;
     const GV  = GameVisualisation;
     const h   = this.canvas.height;
-    const fontSize = Math.round(h * GV.SCORES_FONT_SCALE);
+    const fontSize = Math.round(h * GV.MENU_FONT_SCALE);
     ctx.font = `${fontSize}px ${GV.MENU_FONT}`;
 
     const allDiscards = [];
@@ -883,7 +1116,7 @@ class GameVisualisation {
     const ctx      = this.context;
     const s        = this.state;
     const h        = this.canvas.height;
-    const fontSize = Math.round(h * GameVisualisation.SCORES_FONT_SCALE);
+    const fontSize = Math.round(h * GameVisualisation.MENU_FONT_SCALE);
     ctx.font = `${fontSize}px ${GameVisualisation.MENU_FONT}`;
 
     let label;

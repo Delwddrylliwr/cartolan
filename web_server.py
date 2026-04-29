@@ -17,7 +17,8 @@ from players_heuristical import PlayerAdvancedExplorer, PlayerAdvancedTrader, Pl
 # import zmq.auth
 # from zmq.auth.thread import ThreadAuthenticator
 import sys
-# import os
+sys.stdout.reconfigure(line_buffering=True)
+import os
 import time
 import random
 import string
@@ -163,7 +164,7 @@ class ClientSocket(WebSocket):
                             player_num] + " player on this computer?")
                         player_name = None
                     elif player_name == "BLANK":
-                        player_name = NAMES[random.randint(0, len(NAMES) - 1)]
+                        player_name = random.choice(NAMES)
                         print("Assigning a random name: " + player_name)
                         while player_name in players.keys():
                             player_name += str(random.randint(0, MAX_NAME_USES))
@@ -215,7 +216,7 @@ class ClientSocket(WebSocket):
         new_game_types[game_id] = new_game_type
         min_players = GAME_MODES[new_game_type]["game_type"].MIN_PLAYERS
         max_players = GAME_MODES[new_game_type]["game_type"].MAX_PLAYERS
-        available_colours = random.sample(GAME_MODES[new_game_type]["player_set"].keys(), max_players)
+        available_colours = random.sample(list(GAME_MODES[new_game_type]["player_set"].keys()), max_players)
         new_game_colours[game_id] = []
         # Get remote user input about how many players they have at their end
         valid_options = [str(i) for i in range(1, max_players + 1)]
@@ -247,7 +248,7 @@ class ClientSocket(WebSocket):
         # Assign colours to these local players
         new_game_players[game_id] = {}
         for player in client_players[self]:
-            player_colour = available_colours.pop(random.randint(0, len(available_colours) - 1))
+            player_colour = available_colours.pop()
             #            new_game_colours[game_id].append(player_colour)
             new_game_players[game_id][player] = player_colour
         # Get remote user input about how many computer players the game will have
@@ -278,9 +279,9 @@ class ClientSocket(WebSocket):
         if new_game_cpu_players.get(game_id) is None:
             new_game_cpu_players[game_id] = {}
         for player_num in range(num_virtual_players):
-            player_colour = available_colours.pop(random.randint(0, len(available_colours) - 1))
+            player_colour = available_colours.pop()
             #            new_game_colours[game_id].append(player_colour)
-            player_name = "AI:" + NAMES[random.randint(0, len(NAMES) - 1)]
+            player_name = "AI:" + random.choice(NAMES)
             while player_name in players.keys():
                 player_name += str(random.randint(0, MAX_NAME_USES))
             player = GAME_MODES[new_game_type]["player_set"][player_colour](player_name)
@@ -378,7 +379,7 @@ class ClientSocket(WebSocket):
             return False
         # Assign colours to each new player
         for player in client_players[self]:
-            player_colour = new_game_colours[game_id].pop(random.randint(0, len(new_game_colours[game_id]) - 1))
+            player_colour = new_game_colours[game_id].pop()
             new_game_players[game_id][player] = player_colour
         return True
 
@@ -408,7 +409,7 @@ class ClientSocket(WebSocket):
                 # Try adding this client to an existing game, but then try another if that fills up while user is
                 # inputting
                 # Select a (semi-)random game to join
-                game_id = list(new_game_types.keys())[random.randint(0, len(new_game_types) - 1)]
+                game_id = random.choice(list(new_game_types.keys()))
 
                 # Now blocking is done, try to reserve a place in this game
                 if self.join_game(game_id):
@@ -611,6 +612,11 @@ class ClientSocket(WebSocket):
                 self.coords_buffer = {'focus': [parts[0], int(parts[1])]}
             except:
                 self.coords_buffer = None
+        elif protocode == ("OFFERSEL"):
+            try:
+                self.coords_buffer = {'offer_select': int(msg)}
+            except:
+                self.coords_buffer = None
         #           msg = str(msg)
         #           ident, mdata = msg.split("[11111]")
         #           msg = ('%sSPLIT%s' % (ident, mdata))
@@ -685,7 +691,71 @@ class ClientSocket(WebSocket):
             client.sendMessage(self.address[0] + u' - disconnected')
 
 
+def generate_tile_manifest():
+    '''Scans the tile image directory and writes tile_manifest.json for the JS client.
+
+    Groups filenames by tile name (prefix before first underscore), deduplicates
+    same-base-name variants by preferring .jpg over .png, and excludes backup (~)
+    and copy files.
+    '''
+    here = os.path.dirname(os.path.abspath(__file__))
+    tiles_dir = os.path.join(here, 'cartolan_web', 'public_html', 'img', 'map_tiles', 'tiles')
+    manifest_path = os.path.join(tiles_dir, 'tile_manifest.json')
+
+    variants = {}  # tile_name -> {variant_stem: chosen_filename}
+    for filename in os.listdir(tiles_dir):
+        if filename.endswith('~') or ' - Copy' in filename:
+            continue
+        stem, ext = os.path.splitext(filename)
+        if ext.lower() not in ('.jpg', '.png'):
+            continue
+        if stem.startswith('Map-Tiles'):
+            continue
+        tile_name = stem.split('_')[0]
+        tile_variants = variants.setdefault(tile_name, {})
+        # Prefer .jpg; only replace an existing entry if this one is .jpg
+        if stem not in tile_variants or ext.lower() == '.jpg':
+            tile_variants[stem] = filename
+
+    manifest = {name: list(files.values()) for name, files in sorted(variants.items())}
+    with open(manifest_path, 'w') as f:
+        json.dump(manifest, f, indent=2)
+    print("Generated tile manifest: {} tile types".format(len(manifest)))
+    print(json.dumps(manifest, indent=2))
+
+
+def generate_card_manifest():
+    '''Scans the card image directory and writes card_manifest.json for the JS client.
+
+    Groups filenames by card type (prefix before first underscore), deduplicates
+    same-base-name variants by preferring .jpg over .png, and excludes backups.
+    '''
+    here = os.path.dirname(os.path.abspath(__file__))
+    cards_dir = os.path.join(here, 'cartolan_web', 'public_html', 'img', 'cards')
+    manifest_path = os.path.join(cards_dir, 'card_manifest.json')
+
+    variants = {}  # card_type -> {variant_stem: chosen_filename}
+    for filename in os.listdir(cards_dir):
+        if filename.endswith('~') or ' - Copy' in filename:
+            continue
+        stem, ext = os.path.splitext(filename)
+        if ext.lower() not in ('.jpg', '.png'):
+            continue
+        card_type = stem.split('_')[0]
+        card_variants = variants.setdefault(card_type, {})
+        if stem not in card_variants or ext.lower() == '.jpg':
+            card_variants[stem] = filename
+
+    manifest = {ct: list(files.values()) for ct, files in sorted(variants.items())}
+    with open(manifest_path, 'w') as f:
+        json.dump(manifest, f, indent=2)
+    print("Generated card manifest: {} card types".format(len(manifest)))
+    print(json.dumps(manifest, indent=2))
+
+
 if __name__ == "__main__":
+    generate_tile_manifest()
+    generate_card_manifest()
     if len(sys.argv) > 1:
         print("Server port taken to be " + sys.argv[1])
         port = sys.argv[1]

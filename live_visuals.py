@@ -1646,6 +1646,8 @@ class WebServerVisualisation(GameVisualisation):
         self.highlight_rects = {}
         self.drawn_routes = []
         self.action_rects = []
+        self.offered_cards = None  # set by draw_card_offers, included in serialised state
+        self.offered_tiles = None  # set by draw_tile_offers, included in serialised state
 
     # ── pygame-free overrides ─────────────────────────────────────────────────
 
@@ -1687,8 +1689,10 @@ class WebServerVisualisation(GameVisualisation):
     def draw_discard_pile(self): pass
     def draw_undo_button(self): pass
     def draw_cards(self): pass
-    def draw_card_offers(self, cards): pass
-    def draw_tile_offers(self, tiles): pass
+    def draw_card_offers(self, cards):
+        self.offered_cards = [c.to_json() for c in cards]
+    def draw_tile_offers(self, tiles):
+        self.offered_tiles = [t.to_json() for t in tiles]
     def draw_prompt(self): pass
     def clear_prompt(self): self.prompt_text = ""
 
@@ -1709,6 +1713,8 @@ class WebServerVisualisation(GameVisualisation):
         state["undo_agreed"] = self.undo_agreed
         state["undo_asked"] = any(pv.undo_agreed for pv in self.peer_visuals if pv is not self)
         state["prompt"] = self.prompt_text
+        state["offered_cards"] = self.offered_cards or []
+        state["offered_tiles"] = self.offered_tiles or []
         return state
 
     def update_web_display(self):
@@ -2040,23 +2046,13 @@ class WebServerVisualisation(GameVisualisation):
             input_type = "choose_tile"
         self.refresh_peers(adventurer, choices=cards, input_type=input_type)
         
-        coords = None
-        while coords is None:
+        while True:
             coords = self.client.get_coords()
-            if coords is not None:
-                horizontal, vertical = coords
-                #check whether the click was within each of the card areas, and return the index
-                for offer_rect in self.offer_rects:
-                    if (horizontal in range(int(offer_rect[0])
-                            , int(offer_rect[0]) + int(offer_rect[2]))
-                        and vertical in range(int(offer_rect[1])
-                            , int(offer_rect[1]) + int(offer_rect[3]))):
-#                        print("Player chose coordinates within a card")
-                        selected_index = self.offer_rects.index(offer_rect)
-                        return selected_index
-                coords = None #Let them try again
-            #Check for input from the other clients to their visuals and update their view
+            if isinstance(coords, dict) and 'offer_select' in coords:
+                idx = coords['offer_select']
+                if 0 <= idx < len(cards):
+                    self.offered_cards = None
+                    self.offered_tiles = None
+                    return idx
             self.check_peer_input()
             time.sleep(self.INPUT_DELAY)
-        
-        return False
