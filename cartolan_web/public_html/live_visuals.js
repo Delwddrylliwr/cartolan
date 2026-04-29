@@ -416,6 +416,7 @@ class GameVisualisation {
     this._drawUndoButton();
     this._drawPrompt();
     this._drawOffersPanel();
+    console.log(this._clickableAreas);
   }
 
   // ── Draw methods ──────────────────────────────────────────────────────────
@@ -750,13 +751,13 @@ class GameVisualisation {
       if (img.complete && img.naturalWidth === 0) showFallback();
     });
 
-    // Click handlers
-    el.querySelectorAll('[data-action]').forEach(div => {
-      div.addEventListener('pointerdown', e => {
-        e.stopPropagation();
-        if (this.sendFn) this.sendFn(`${div.dataset.action}[00100]${div.dataset.data}`);
-      });
-    });
+    // // Click handlers
+    // el.querySelectorAll('[data-action]').forEach(div => {
+    //   div.addEventListener('pointerdown', e => {
+    //     e.stopPropagation();
+    //     if (this.sendFn) this.sendFn(`${div.dataset.action}[00100]${div.dataset.data}`);
+    //   });
+    // });
   }
 
   _drawOffersPanel() {
@@ -828,7 +829,7 @@ class GameVisualisation {
       ctx.strokeRect(x, y, itemW, itemH);
       ctx.lineWidth   = 1;
 
-      this._clickableAreas.push({ x, y, w: itemW, h: itemH, action: 'OFFERSEL', data: String(idx) });
+      this._clickableAreas.unshift({ x, y, w: itemW, h: itemH, action: 'OFFERSEL', data: String(idx) });
     });
   }
 

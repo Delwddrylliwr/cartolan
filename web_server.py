@@ -579,7 +579,7 @@ class ClientSocket(WebSocket):
         #           msg = ('%sSPLIT%s' % (ident, mdata))
         ##           self.socket.send(str(msg))
         elif protocode == ("COORDS"):
-            print("Click input received from client.")
+            print("Click coordinates input received from client.")
             print(time.strftime('%Y-%m-%d %H:%M %Z', time.gmtime(time.time())))
             try:
                 if '[55555]' in msg:
@@ -587,6 +587,7 @@ class ClientSocket(WebSocket):
                     ht, rest = msg.split('[55555]', 1)
                     lon_str, lat_str = rest.split('[66666]')
                     self.coords_buffer = {ht: [int(lon_str), int(lat_str)]}
+                    print(str(self.coords_buffer))
                 else:
                     # Legacy pixel format: x[66666]y
                     input_coords = msg.split('[66666]')
@@ -596,8 +597,11 @@ class ClientSocket(WebSocket):
                 self.coords_buffer = None
                 print("The client response could not be parsed as click input.")
         elif protocode == ("CHEST"):
+            print("Chest tile selection input received from client.")
+            print(time.strftime('%Y-%m-%d %H:%M %Z', time.gmtime(time.time())))
             try:
                 self.coords_buffer = {'preferred_tile': int(msg)}
+                print(str(self.coords_buffer))
             except:
                 self.coords_buffer = None
         elif protocode == ("TOGGLE"):
@@ -613,8 +617,11 @@ class ClientSocket(WebSocket):
             except:
                 self.coords_buffer = None
         elif protocode == ("OFFERSEL"):
+            print("Offer selection input received from client.")
+            print(time.strftime('%Y-%m-%d %H:%M %Z', time.gmtime(time.time())))
             try:
                 self.coords_buffer = {'offer_select': int(msg)}
+                print(str(self.coords_buffer))
             except:
                 self.coords_buffer = None
         #           msg = str(msg)
@@ -720,8 +727,8 @@ def generate_tile_manifest():
     manifest = {name: list(files.values()) for name, files in sorted(variants.items())}
     with open(manifest_path, 'w') as f:
         json.dump(manifest, f, indent=2)
-    print("Generated tile manifest: {} tile types".format(len(manifest)))
-    print(json.dumps(manifest, indent=2))
+    # print("Generated tile manifest: {} tile types".format(len(manifest)))
+    # print(json.dumps(manifest, indent=2))
 
 
 def generate_card_manifest():
@@ -749,8 +756,8 @@ def generate_card_manifest():
     manifest = {ct: list(files.values()) for ct, files in sorted(variants.items())}
     with open(manifest_path, 'w') as f:
         json.dump(manifest, f, indent=2)
-    print("Generated card manifest: {} card types".format(len(manifest)))
-    print(json.dumps(manifest, indent=2))
+    # print("Generated card manifest: {} card types".format(len(manifest)))
+    # print(json.dumps(manifest, indent=2))
 
 
 if __name__ == "__main__":

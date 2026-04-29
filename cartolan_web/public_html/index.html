@@ -427,8 +427,8 @@
             var audio = document.getElementById("shanty");
             audio.volume = musicVolume;
             audio.play();
-            //Regularly check for any recorded clicks and report them to the server as input to the game
-            this.interval = setInterval(updateGameArea, 20);
+            // //Regularly check for any recorded clicks and report them to the server as input to the game
+            // this.interval = setInterval(updateGameArea, 20);
             console.log("Requesting to join a game from the server.");
             //pass the play area dimensions to the server and join the queue for the next available game
             waitForConnection(function () { send("START[00100]" + myGameArea.canvas.width + "[55555]" + myGameArea.canvas.height); }, 100)

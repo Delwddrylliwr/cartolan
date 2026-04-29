@@ -889,7 +889,7 @@ class PlayerHuman(Player):
             game_vis.draw_cards()
         
         #prompt the player to input
-        print("Prompting "+self.name+" for input")
+        print("Prompting "+self.name+" for input to choose a card")
 #            game_vis.clear_prompt()
         game_vis.give_prompt(prompt)
         game_vis.draw_card_offers(cards)
@@ -919,7 +919,7 @@ class PlayerHuman(Player):
             game_vis.draw_cards()
         
         #prompt the player to input
-        print("Prompting "+self.name+" for input")
+        print("Prompting "+self.name+" for input to choose a tile")
 #            game_vis.clear_prompt()
         game_vis.give_prompt(prompt)
         game_vis.draw_tile_offers(tiles)
