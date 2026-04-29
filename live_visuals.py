@@ -823,8 +823,8 @@ class GameVisualisation():
         '''
         '''
 #        print("Clearing out the list of valid moves")
-        for highlight_type in self.highlight_library:
-            self.highlights[highlight_type] = []
+        # for highlight_type in self.highlight_library:
+        #     self.highlights[highlight_type] = []
     
     def draw_tokens(self):
         '''Illustrates the current location of Adventurers and Agents in a game, along with their paths over the last turn

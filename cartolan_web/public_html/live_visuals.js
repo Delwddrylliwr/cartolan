@@ -30,6 +30,7 @@ class GameVisualisation {
   static SCORES_FONT_SCALE   = 0.04;
   static CARD_HEADER_SHARE   = 0.15;
   static CARD_BODY_START     = 0.7;
+  static CARD_RATIO          = 1.75;
   static PROMPT_POSITION     = [0.0, 0.95];
   static PROMPT_FONT_SCALE   = 0.05;
   static TOGGLE_HIGHLIGHTS   = ['buy', 'attack', 'rest'];
@@ -687,7 +688,7 @@ class GameVisualisation {
     const fontSize = Math.round(this.canvas.height * GV.SCORES_FONT_SCALE);
     const pad      = Math.max(1, Math.round(fontSize * 0.2));
     const cardW    = this.playAreaStart;
-    const cardH    = Math.round(cardW * 0.6);
+    const cardH    = Math.round(cardW * this.CARD_RATIO);
     const headerH  = Math.round(cardH * GV.CARD_HEADER_SHARE);
 
     el.style.top    = this.scoresBottomY + 'px';
