@@ -33,7 +33,7 @@ class GameVisualisation {
   static CARD_RATIO          = 1.75;
   static PROMPT_POSITION     = [0.0, 0.95];
   static PROMPT_FONT_SCALE   = 0.05;
-  static TOGGLE_HIGHLIGHTS   = ['buy', 'attack', 'rest'];
+  static TOGGLE_HIGHLIGHTS   = ['buy_rest', 'attack', 'rest'];
 
   // ── Colours ───────────────────────────────────────────────────────────────
   static PLAIN_TEXT_COLOUR      = 'rgb(255,255,255)';
@@ -130,6 +130,12 @@ class GameVisualisation {
     // Clickable areas registered during render for click dispatch
     this._clickableAreas = [];
 
+    // Card type currently shown in full-screen preview (null = none)
+    this._previewedCardType = null;
+
+    // Route display mode: 'focus' (current/viewed player only), 'all', or 'none'
+    this._routesMode = 'all';
+
     // Image caches
     this._tileSourceImages = {};  // tile_id → HTMLImageElement
     this._highlightImages  = {};  // highlight_type → HTMLImageElement
@@ -149,7 +155,7 @@ class GameVisualisation {
 
     // Wrap canvas in a relative container so the scores overlay can sit on top
     const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'position:relative;display:inline-block;line-height:0';
+    wrapper.style.cssText = 'position:relative;display:block;line-height:0';
     this.canvas.parentNode.replaceChild(wrapper, this.canvas);
     wrapper.appendChild(this.canvas);
 
@@ -162,7 +168,7 @@ class GameVisualisation {
     // Cards panel overlay — positioned below scores table
     this._cardsEl = document.createElement('div');
     this._cardsEl.style.cssText =
-      'position:absolute;left:0;overflow-y:auto;pointer-events:auto;box-sizing:border-box';
+      'position:absolute;left:0;overflow:hidden;pointer-events:auto;box-sizing:border-box';
     wrapper.appendChild(this._cardsEl);
 
     this._preloadHighlights();
@@ -377,11 +383,27 @@ class GameVisualisation {
 
   _handleClick(x, y) {
     if (!this.sendFn || !this.state) return;
+    // Any canvas click dismisses the card preview
+    if (this._previewedCardType !== null) {
+      this._previewedCardType = null;
+      this._render();
+      return;
+    }
     for (const area of this._clickableAreas) {
       if (x >= area.x && x <= area.x + area.w && y >= area.y && y <= area.y + area.h) {
-        this.sendFn(area.action + '[00100]' + area.data);
+        if (area.action === 'ROUTES') {
+          const modes = ['focus', 'all', 'none'];
+          this._routesMode = modes[(modes.indexOf(this._routesMode) + 1) % modes.length];
+          this._render();
+        } else {
+          this.sendFn(area.action + '[00100]' + area.data);
+        }
         return;
       }
+    }
+    // Fallback: general play area click (start game / clear action opportunities)
+    if (x >= this.playAreaStart && x < this.rightMenuStart) {
+      this.sendFn('PLAY[00100]');
     }
   }
 
@@ -417,6 +439,7 @@ class GameVisualisation {
     this._drawUndoButton();
     this._drawPrompt();
     this._drawOffersPanel();
+    this._drawCardPreview();
     console.log(this._clickableAreas);
   }
 
@@ -547,8 +570,12 @@ class GameVisualisation {
           ctx.fillStyle = colour;
           ctx.fillRect(ax, ay, agentSz, agentSz);
         }
-        ctx.fillStyle = labelColour;
-        ctx.fillText(String(agent.wealth), ax + this.tokenSize / 2, ay + this.tokenSize / 2);
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle    = labelColour;
+        ctx.fillText(String(agent.wealth), ax + agentSz / 2, ay + agentSz / 2);
+        ctx.textBaseline = 'alphabetic';
+        ctx.textAlign    = 'left';
       }
     }
     ctx.lineWidth = 1;
@@ -561,6 +588,11 @@ class GameVisualisation {
     s.players.forEach((name, i) => { playerIndex[name] = i; });
 
     for (const playerName of s.players) {
+      if (this._routesMode === 'none') continue;
+      if (this._routesMode === 'focus'
+          && playerName !== s.current_player_name
+          && playerName !== s.viewed_player_name) continue;
+
       const colour  = s.player_colours[playerName];
       const pOffset = GameVisualisation.PLAYER_OFFSETS[playerIndex[playerName]];
 
@@ -665,7 +697,7 @@ class GameVisualisation {
     }
 
     el.innerHTML = `<table style="border-collapse:collapse;font-family:sans-serif;font-size:${fontSize}px;line-height:${ROW}px;pointer-events:auto">${rows}</table>`;
-    this.scoresBottomY = rowCount * ROW;
+    this.scoresBottomY = el.offsetHeight;
 
     el.querySelectorAll('tr[data-player]').forEach(row => {
       row.addEventListener('pointerdown', e => {
@@ -686,55 +718,53 @@ class GameVisualisation {
       .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
     const fontSize = Math.round(this.canvas.height * GV.SCORES_FONT_SCALE);
-    const pad      = Math.max(1, Math.round(fontSize * 0.2));
+    const pad      = Math.max(2, Math.round(fontSize * 0.2));
     const cardW    = this.playAreaStart;
-    const cardH    = Math.round(cardW * this.CARD_RATIO);
+    const innerW   = cardW - 2 * pad;
+    const cardH    = Math.round(innerW * GV.CARD_RATIO);
     const headerH  = Math.round(cardH * GV.CARD_HEADER_SHARE);
 
-    el.style.top    = this.scoresBottomY + 'px';
-    el.style.width  = cardW + 'px';
-    el.style.height = (this.canvas.height - this.scoresBottomY) + 'px';
+    el.style.top     = this.scoresBottomY + 'px';
+    el.style.width   = cardW + 'px';
+    el.style.height  = (this.canvas.height - this.scoresBottomY) + 'px';
+    el.style.padding = pad + 'px';
 
     if (s.game_mode !== 'Advanced') { el.innerHTML = ''; return; }
 
     const viewedAdv = (s.adventurers[s.viewed_player_name] || [])[s.viewed_adventurer_index] || null;
     if (!viewedAdv) { el.innerHTML = ''; return; }
 
-    const label = (text, colour) =>
-      `<div style="padding:${pad}px ${pad * 2}px;font-family:sans-serif;font-size:${fontSize}px;color:${esc(colour || 'white')}">${text}</div>`;
+    // Collect all cards in display order
+    const cards = [];
+    const cadreCard = (s.assigned_cadres || {})[s.viewed_player_name];
+    if (cadreCard) {
+      cards.push({ cardType: cadreCard.card_type, action: 'CARDSEL', data: 'cadre' });
+    }
+    (viewedAdv.discovery_cards || []).forEach((card, idx) => {
+      cards.push({ cardType: card.card_type, action: 'CARDSEL', data: String(idx) });
+    });
+    if (viewedAdv.character_card) {
+      cards.push({ cardType: viewedAdv.character_card.card_type, action: 'CHARSEL', data: '' });
+    }
 
-    const cardImg = (cardType, h, action, data) => {
-      const title    = esc(GV.CARD_TITLES[cardType] || '');
-      const body     = esc(GV.CARD_TEXTS[cardType]  || cardType);
-      const filename = this._cardFilename(cardType);
-      return `<div style="height:${h}px;overflow:hidden;cursor:pointer;flex-shrink:0"
-                   data-action="${action}" data-data="${esc(data)}">
+    if (cards.length === 0) { el.innerHTML = ''; return; }
+
+    // Stack: (n-1) header strips visible above each successive card, last card shows fully
+    const stackH = (cards.length - 1) * headerH + cardH;
+
+    let html = `<div style="position:relative;width:${innerW}px;height:${stackH}px">`;
+    cards.forEach((card, i) => {
+      const title    = esc(GV.CARD_TITLES[card.cardType] || '');
+      const body     = esc(GV.CARD_TEXTS[card.cardType]  || card.cardType);
+      const filename = this._cardFilename(card.cardType);
+      html += `<div style="position:absolute;top:${i * headerH}px;left:0;width:${innerW}px;height:${cardH}px;overflow:hidden;cursor:pointer;z-index:${i + 1}"
+                   data-action="${esc(card.action)}" data-data="${esc(card.data)}" data-card-type="${esc(card.cardType)}">
         <img src="${GV.CARDS_PATH}${esc(filename)}"
              data-title="${title}" data-body="${body}"
              style="width:100%;height:${cardH}px;object-fit:contain;display:block">
       </div>`;
-    };
-
-    let html = '';
-
-    const cadreCard = (s.assigned_cadres || {})[s.viewed_player_name];
-    if (cadreCard) {
-      const colour = s.player_colours[s.viewed_player_name] || 'white';
-      html += label(`${esc(s.viewed_player_name)}'s Culture card:`, colour);
-      html += cardImg(cadreCard.card_type, headerH, 'CARDSEL', 'cadre');
-    }
-
-    const hasCards = viewedAdv.character_card
-                  || (viewedAdv.discovery_cards && viewedAdv.discovery_cards.length > 0);
-    if (hasCards) {
-      html += label(`Adventurer #${(s.viewed_adventurer_index || 0) + 1} cards:`);
-      (viewedAdv.discovery_cards || []).forEach((card, idx) => {
-        html += cardImg(card.card_type, headerH, 'CARDSEL', String(idx));
-      });
-      if (viewedAdv.character_card) {
-        html += cardImg(viewedAdv.character_card.card_type, cardH, 'CHARSEL', '');
-      }
-    }
+    });
+    html += '</div>';
 
     el.innerHTML = html;
 
@@ -752,13 +782,72 @@ class GameVisualisation {
       if (img.complete && img.naturalWidth === 0) showFallback();
     });
 
-    // // Click handlers
-    // el.querySelectorAll('[data-action]').forEach(div => {
-    //   div.addEventListener('pointerdown', e => {
-    //     e.stopPropagation();
-    //     if (this.sendFn) this.sendFn(`${div.dataset.action}[00100]${div.dataset.data}`);
-    //   });
-    // });
+    // Click a card to toggle full-screen preview (client-side only)
+    el.querySelectorAll('[data-card-type]').forEach(div => {
+      div.addEventListener('pointerdown', () => {
+        const cardType = div.dataset.cardType;
+        this._previewedCardType = (this._previewedCardType === cardType) ? null : cardType;
+        this._render();
+      });
+    });
+  }
+
+  _drawCardPreview() {
+    if (!this._previewedCardType) return;
+    const s   = this.state;
+    const ctx = this.context;
+    const GV  = GameVisualisation;
+    // Offers take priority — clear preview if they appear
+    if ((s.offered_cards && s.offered_cards.length) || (s.offered_tiles && s.offered_tiles.length)) {
+      this._previewedCardType = null;
+      return;
+    }
+    const W        = this.canvas.width;
+    const H        = this.canvas.height;
+    const fontSize = Math.round(H * GV.SCORES_FONT_SCALE);
+    const margin   = Math.round(Math.min(W, H) * 0.02);
+    const maxItemH = H - 2 * margin - fontSize * 2;
+    const maxFromW = Math.floor((W - 2 * margin) * GV.CARD_RATIO);
+    const itemH    = Math.min(maxItemH, maxFromW);
+    const itemW    = Math.round(itemH / GV.CARD_RATIO);
+    const x        = Math.round((W - itemW) / 2);
+    const y        = Math.max(margin + 2 * fontSize, Math.round((H - itemH) / 2));
+    const cardType = this._previewedCardType;
+    const filename = this._cardFilename(cardType);
+    const src      = GV.CARDS_PATH + filename;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fillRect(0, 0, W, H);
+
+    if (!this._offerImages[src]) {
+      const img = new Image();
+      img.src = src;
+      img.onload = () => this._render();
+      this._offerImages[src] = img;
+    }
+    const img = this._offerImages[src];
+    if (img.complete && img.naturalWidth > 0) {
+      ctx.drawImage(img, x, y, itemW, itemH);
+    } else {
+      const fs = Math.max(10, Math.round(itemH * 0.08));
+      ctx.fillStyle = GV.CARD_BACKGROUND_COLOUR;
+      ctx.fillRect(x, y, itemW, itemH);
+      ctx.font      = `${fs}px ${GV.MENU_FONT}`;
+      ctx.fillStyle = GV.CARD_TEXT_COLOUR;
+      ctx.fillText(GV.CARD_TITLES[cardType] || cardType, x + 4, y + fs + 4);
+      ctx.fillText(GV.CARD_TEXTS[cardType]  || '',        x + 4, y + Math.round(itemH * 0.6));
+    }
+
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth   = 3;
+    ctx.strokeRect(x, y, itemW, itemH);
+    ctx.lineWidth   = 1;
+
+    ctx.font      = `${fontSize}px ${GV.MENU_FONT}`;
+    ctx.fillStyle = GV.PLAIN_TEXT_COLOUR;
+    ctx.textAlign = 'center';
+    ctx.fillText(GV.CARD_TITLES[cardType] || '', W / 2, y - fontSize * 0.3);
+    ctx.textAlign = 'left';
   }
 
   _drawOffersPanel() {
@@ -779,15 +868,30 @@ class GameVisualisation {
     ctx.fillStyle = 'rgba(0,0,0,0.65)';
     ctx.fillRect(0, 0, W, H);
 
-    const n      = items.length;
-    const itemH  = Math.round(H * 0.5);
-    const itemW  = isCards ? Math.round(itemH * 0.65) : itemH;
-    const gap    = Math.round(W * 0.02);
-    const totalW = n * itemW + (n - 1) * gap;
-    const startX = Math.max(0, Math.round((W - totalW) / 2));
-    const startY = Math.round((H - itemH) / 2);
+    const n          = items.length;
+    const margin     = Math.round(Math.min(W, H) * 0.02);
+    const gap        = Math.round(W * 0.02);
+    const fontSize   = Math.round(H * GV.SCORES_FONT_SCALE);
+    const maxItemH   = H - 2 * margin - fontSize * 2;
+    const availW     = W - 2 * margin - (n - 1) * gap;
 
-    const fontSize = Math.round(H * GV.SCORES_FONT_SCALE);
+    let itemH, itemW;
+    if (isCards) {
+      // CARD_RATIO = height/width
+      const maxFromW = Math.floor(availW / n * GV.CARD_RATIO);
+      itemH = Math.min(maxItemH, maxFromW);
+      itemW = Math.round(itemH / GV.CARD_RATIO);
+    } else {
+      const maxFromW = Math.floor(availW / n);
+      itemH = Math.min(maxItemH, maxFromW);
+      itemW = itemH;
+    }
+
+    const totalW = n * itemW + (n - 1) * gap;
+    const startX = Math.max(margin, Math.round((W - totalW) / 2));
+    // Clamp so the label (drawn one fontSize above startY) is always fully visible
+    const startY = Math.max(margin + 2 * fontSize, Math.round((H - itemH) / 2));
+
     ctx.font      = `${fontSize}px ${GV.MENU_FONT}`;
     ctx.fillStyle = GV.PLAIN_TEXT_COLOUR;
     ctx.textAlign = 'center';
@@ -908,6 +1012,9 @@ class GameVisualisation {
 
     const hs = this.menuHighlightSize;
     let hx = x;
+    const autoActionsForPlayer = ((s.auto_actions || {})[s.viewed_player_name]
+                                || (s.auto_actions || {})[s.current_player_name]
+                                || {});
     for (const hType of GV.TOGGLE_HIGHLIGHTS) {
       const img = this._highlightImages[hType];
       if (img && img.complete && img.naturalWidth > 0) {
@@ -917,31 +1024,39 @@ class GameVisualisation {
         ctx.lineWidth = 1;
         ctx.strokeRect(hx, y, hs, hs);
       }
+      const toggleState = autoActionsForPlayer[hType];
+      if (toggleState !== null && toggleState !== undefined) {
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = toggleState ? GV.TOGGLE_TRUE_COLOUR : GV.TOGGLE_FALSE_COLOUR;
+        ctx.fillRect(hx, y, hs, hs);
+        ctx.globalAlpha = 1;
+      }
       this._clickableAreas.push({ x: hx, y, w: hs, h: hs, action: 'TOGGLE', data: hType });
       hx += hs;
     }
     y += hs + 4;
 
-    // Route-visibility indicator: a coloured line per player whose routes are shown;
-    // clicking anywhere in the toggle section toggles draw_all_routes
-    const toggleTop = this.rightMenuY + fontSize * 2;
-    this._clickableAreas.push({
-      x, y: toggleTop, w: this.rightMenuWidth, h: hs,
-      action: 'ROUTES', data: '',
-    });
-
-    for (const pName of s.players) {
-      if (s.draw_all_routes || pName === s.current_player_name || pName === s.viewed_player_name) {
-        ctx.strokeStyle = s.player_colours[pName] || GV.PLAIN_TEXT_COLOUR;
-        ctx.lineWidth = 3;
-        ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x + this.rightMenuWidth, y);
-        ctx.stroke();
-        y += 5;
+    // Route-visibility indicator: coloured lines below the toggle icons
+    const routesAreaTop = y;
+    if (this._routesMode !== 'none') {
+      for (const pName of s.players) {
+        if (this._routesMode === 'all' || pName === s.current_player_name || pName === s.viewed_player_name) {
+          ctx.strokeStyle = s.player_colours[pName] || GV.PLAIN_TEXT_COLOUR;
+          ctx.lineWidth = 3;
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + this.rightMenuWidth, y);
+          ctx.stroke();
+          y += 5;
+        }
       }
     }
+    // Clickable area covers the indicator lines section (min height hs so 'none' mode is still clickable)
+    this._clickableAreas.push({
+      x, y: routesAreaTop, w: this.rightMenuWidth, h: Math.max(y - routesAreaTop, hs),
+      action: 'ROUTES', data: '',
+    });
     ctx.lineWidth = 1;
 
     this.rightMenuY = y;

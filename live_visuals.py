@@ -1677,6 +1677,10 @@ class WebServerVisualisation(GameVisualisation):
             coords = highlight_coords.get(ht)
             self.highlights[ht] = coords if coords else []
 
+    def clear_move_options(self):
+        for ht in self.highlights:
+            self.highlights[ht] = []
+
     def draw_play_area(self): pass
     def draw_tokens(self): pass
     def draw_routes(self): pass
@@ -1715,6 +1719,11 @@ class WebServerVisualisation(GameVisualisation):
         state["prompt"] = self.prompt_text
         state["offered_cards"] = self.offered_cards or []
         state["offered_tiles"] = self.offered_tiles or []
+        state["auto_actions"] = {
+            player.name: dict(player.auto_actions)
+            for player in self.client_players
+            if hasattr(player, 'auto_actions')
+        }
         return state
 
     def update_web_display(self):
@@ -2019,6 +2028,8 @@ class WebServerVisualisation(GameVisualisation):
                         self.viewed_player_colour = self.player_colours.get(p, 'white')
                     break
             return {"update_visuals":"update_visuals"}
+        if 'play' in sem:
+            return {"Nothing": "Nothing"}
         # highlight_type: [lon, lat] — direct game move/action from JS
         return sem if sem else None
 

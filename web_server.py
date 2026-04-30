@@ -628,6 +628,8 @@ class ClientSocket(WebSocket):
         #           ident, mdata = msg.split("[11111]")
         #           msg = ('%sSPLIT%s' % (ident, mdata))
         ##           self.socket.send(str(msg))
+        elif protocode == ("PLAY"):
+            self.coords_buffer = {'play': True}
         elif protocode == ("LOBBY"):
             print("Client prompted for a refresh of the lobby data, listing queued and active games.")
             # Share any games being prepared in the queue with this client
@@ -768,6 +770,6 @@ if __name__ == "__main__":
         port = sys.argv[1]
     else:
         port = DEFAULT_PORT
-    server = SimpleWebSocketServer('', port, ClientSocket)
+    server = SimpleWebSocketServer('0.0.0.0', port, ClientSocket)
     print("Starting server on port: ", port)
     server.serveforever()
