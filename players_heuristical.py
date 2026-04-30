@@ -2,9 +2,10 @@
     Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
-from base import Player
+from base import Player, CityTile
 from advanced import AdventurerAdvanced
 from game import GameAdvanced
+from game_config import BeginnerConfig, RegularConfig, AdvancedConfig
 import random
 
 class PlayerBeginnerExplorer(Player):    
@@ -29,8 +30,9 @@ class PlayerBeginnerExplorer(Player):
     '''
     def __init__(self, name):
         super().__init__(name)
-        self.p_deviate = 0.1 #some randomness for artificial player behaviour to avoid rutts
-        self.return_city_attr = "cost_adventurer"
+        self.p_deviate = BeginnerConfig.P_DEVIATE #some randomness for artificial player behaviour to avoid rutts
+        self.p_buy_adventurer = BeginnerConfig.P_BUY_ADVENTURER
+        self.return_city_attr = BeginnerConfig.RETURN_CITY_ATTR #Set a criterion for returning to bank wealth
     
     def check_location_to_avoid(self, longitude, latitude):
         '''Compares coordinates to a list to avoid'''
@@ -207,7 +209,7 @@ class PlayerBeginnerExplorer(Player):
 #        #move towards a city while banking will put the player ahead, and explore otherwise
 #        elif(adventurer.wealth > adventurer.game.wealth_difference):
         #move towards a city while banking will increase earning potential
-        elif(adventurer.wealth > getattr(adventurer.game, self.return_city_attr)):
+        elif(adventurer.wealth >= getattr(adventurer.game, self.return_city_attr)):
             self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
 #             self.explore_away_from_tile(adventurer, adventurer.latest_city)
@@ -260,7 +262,7 @@ class PlayerBeginnerExplorer(Player):
         print(report)
         
         #randomly choose not to hire, regardless of other conditions
-        if random.random() < self.p_deviate:
+        if random.random() > self.p_buy_adventurer:
             return False
         
         if adventurer.game.player_wealths[adventurer.player] > adventurer.game.cost_adventurer:
@@ -325,53 +327,55 @@ class PlayerBeginnerTrader(PlayerBeginnerExplorer):
     '''
     def __init__(self, name):
         super().__init__(name)
-        self.next_agent_num = [0] # this won't work for multiple adventurers
+        self.next_agent_num = {} #An integer for each Adventurer, tracking by index which Inn/Agent is next to visit
     
     def continue_move(self, adventurer):
-        adventurers = adventurer.game.adventurers[self]
         agents = adventurer.game.agents[self]
                                 
         #with some probability, move in a random direction, to break out of degenerate situations
         if random.random() < self.p_deviate:
             adventurer.move(random.choice(['n','e','s','w']))
         #locate the next unvisited agent and move towards them, or if all agents have been visited either explore or return home
-        elif not self.next_agent_num[adventurers.index(adventurer)] < len(agents):
-            if (adventurer.wealth <= adventurer.game.wealth_difference and len(agents) < adventurer.game.MAX_AGENTS):
+        elif self.next_agent_num.get(adventurer) is not None and self.next_agent_num.get(adventurer) < len(agents):
+            if (adventurer.wealth < getattr(adventurer.game, self.return_city_attr)):
+                print("As a Trader, "+self.name+" is moving towards their next Inn, #"+str(self.next_agent_num.get(adventurer)))
+                self.move_towards_tile(adventurer, agents[self.next_agent_num.get(adventurer)].current_tile)
+            else:
+                self.move_towards_tile(adventurer, adventurer.latest_city)
+        else:
+            if self.next_agent_num.get(adventurer) is not None:
+                print("As a Trader, "+self.name+" has visited all their "+str(self.next_agent_num.get(adventurer)+1)+" Inns")
+            if (adventurer.wealth < getattr(adventurer.game, self.return_city_attr) and len(agents) < adventurer.game.MAX_AGENTS):
                 self.explore_best_space(adventurer)
 #                   self.explore_above_distance(adventurer, adventurer.latest_city, adventurer.game.CITY_DOMAIN_RADIUS)
             else:
                 self.move_towards_tile(adventurer, adventurer.latest_city)
-        else:
-#            if adventurer.wealth <= adventurer.game.wealth_difference:
-            if (adventurer.wealth <= getattr(adventurer.game, self.return_city_attr) 
-                and self.next_agent_num[adventurers.index(adventurer)] < len(agents) - 1):
-                self.move_towards_tile(adventurer, agents[self.next_agent_num[adventurers.index(adventurer)]].current_tile)
-            else:
-                self.move_towards_tile(adventurer, adventurer.latest_city)
-
+        
+        if isinstance(adventurer.current_tile, CityTile):
+            print(self.name+" has visited a city and will start heading to their first Inn again")
+            self.next_agent_num[adventurer] = 0
         return True
 
     def check_rest(self, adventurer, agent):
-        adventurers = adventurer.game.adventurers[self]
         agents = adventurer.game.agents[self]
         #if this was the target agent for movement then start looking for the next one
-        if self.next_agent_num[adventurers.index(adventurer)] < len(agents):
-            if agent == agents[self.next_agent_num[adventurers.index(adventurer)]]:
-                #start targetting the next agent
-                self.next_agent_num[adventurers.index(adventurer)] += 1
+        if self.next_agent_num.get(adventurer) is not None and self.next_agent_num.get(adventurer) < len(agents):
+            if agent == agents[self.next_agent_num.get(adventurer)]:
+                print(self.name+"has reached their intended Inn, and will now head for Inn #"+str(self.next_agent_num[adventurer]+1))
+                self.next_agent_num[adventurer] += 1
         #if there is an agent then always rest
         return True        
 
     def check_bank_wealth(self, adventurer, report="Player is being asked whether to bank"):
-        adventurers = adventurer.game.adventurers[self]
-        #register that a city has been visited and that should start going back to first agent
-        self.next_agent_num[adventurers.index(adventurer)] = 0
+        print(self.name+"has visited a city and will start heading to their first Inn again")
+        self.next_agent_num[adventurer] = 0
         return super().check_bank_wealth(adventurer, report)
     
     # if this is a wonder then always place an agent when offered
     def check_place_agent(self, adventurer):
         agents = adventurer.game.agents[self]
         if len(agents) < adventurer.current_tile.game.MAX_AGENTS and adventurer.current_tile.is_wonder:
+            print(self.name+" is placing an Inn where they can trade.")
             return True
         else:
             return False
@@ -382,8 +386,9 @@ class PlayerBeginnerTrader(PlayerBeginnerExplorer):
     
     # if a new Adventurer is hired then extend the tracker for which Agent is next to visit
     def check_buy_adventurer(self, adventurer, report=""):
+        adventurers = adventurer.game.adventurers[self]
         if super().check_buy_adventurer(adventurer):
-            self.next_agent_num += [0]
+            self.next_agent_num[adventurers[-1]] = 0
             return True
         else:
             return False
@@ -405,26 +410,31 @@ class PlayerBeginnerRouter(PlayerBeginnerTrader):
     check_move_agent takes a Cartolan.Adventurer
     '''    
     def continue_move(self, adventurer):
-        adventurers = adventurer.game.adventurers[self]
         agents = adventurer.game.agents[self]
         #with some probability, move in a random direction, to break out of degenerate situations
         if random.random() < self.p_deviate:
             adventurer.move(random.choice(['n','e','s','w']))
         #locate the next unvisited agent and move towards them, or if all agents have been visited either explore or return home
-        elif self.next_agent_num[adventurers.index(adventurer)] >= len(agents):
+        elif self.next_agent_num.get(adventurer) is not None and  self.next_agent_num.get(adventurer) < len(agents):
+            print("As a Router, "+self.name+" is moving towards their next Inn, #"+str(self.next_agent_num.get(adventurer)))
+            self.move_towards_tile(adventurer, agents[self.next_agent_num.get(adventurer)].current_tile)
+        else:
+            if self.next_agent_num.get(adventurer):
+                print("As a Router, "+self.name+" has visited all their "+str(self.next_agent_num.get(adventurer) + 1)+" Inns")
 #            if (adventurer.wealth <= adventurer.game.wealth_difference):
-            if (adventurer.wealth <= getattr(adventurer.game, self.return_city_attr)):
+            if (adventurer.wealth < getattr(adventurer.game, self.return_city_attr)):
                 self.explore_best_space(adventurer)
 #                 self.explore_above_distance(adventurer, adventurer.latest_city, adventurer.game.CITY_DOMAIN_RADIUS)
             else:
                 self.move_towards_tile(adventurer, adventurer.latest_city)
-        else:
-            self.move_towards_tile(adventurer, agents[self.next_agent_num[adventurers.index(adventurer)]].current_tile)
 
         #if this is a wonder then always trade
 #             if isinstance(adventurer.current_tile, WonderTile):
         if adventurer.current_tile.is_wonder:
             adventurer.trade(adventurer.current_tile)
+        if isinstance(adventurer.current_tile, CityTile):
+            print(self.name+" has visited a city and will start heading to their first Inn again")
+            self.next_agent_num[adventurer] = 0
         return True
     
     # if this is the last movement of a turn then always place an agent when offered
@@ -432,6 +442,7 @@ class PlayerBeginnerRouter(PlayerBeginnerTrader):
         agents = adventurer.game.agents[self]
         #if this would otherwise be the last move this turn, then place an agent
         if len(agents) < adventurer.game.MAX_AGENTS and not adventurer.can_move(None):
+            print(self.name+" is placing an Inn where they have struggled to move.")
             return True
         else:
             return False
@@ -457,6 +468,73 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
         self.attack_history = {} #to keep track of when this player has attacked, for reference
         super().__init__(name)
     
+    #@TODO this repeats a lot from the parent method, but the changes touch everything slightly so a more elegant solution would take a complete rewrite
+    def explore_best_space(self, adventurer):
+        '''Extends basic behaviour by trying to use Chest maps first'''
+        #check downwind clockwise first, then downwind anti, then upwind clock, then upwind anti
+        print(str(adventurer.player.name) +": trying heuristic that prefers the adjacent gap in the map with the highest prospective score from adjoining edges, preferring downwind and right when this is tied")
+        if adventurer.current_tile.wind_direction.east:
+            if adventurer.current_tile.wind_direction.north:
+                potential_moves = ['e', 'n', 'w', 's']
+            else:
+                potential_moves = ['s', 'e', 'n', 'w']
+        else:
+            if adventurer.current_tile.wind_direction.north:
+                potential_moves = ['n', 'w', 's', 'e']
+            else:
+                potential_moves = ['w', 's', 'e', 'n']
+        
+        #for each possible move, check wether an empty space in the map and how much exploration is worth
+        preferred_move = None
+        preferred_guaranteed = False #Keep track of whether there is a Chest tile that will guarantee this exploration succeeds
+        preferred_score = 0
+        exploration_moves = 0
+        for compass_point in potential_moves:
+            if adventurer.can_move(compass_point):
+                #translate the compass point into coordinates
+                longitude_increment = int(compass_point.lower() in ["east","e"]) - int(compass_point.lower() in ["west","w"])
+                new_longitude = adventurer.current_tile.tile_position.longitude + longitude_increment
+                latitude_increment = int(compass_point.lower() in ["north","n"]) - int(compass_point.lower() in ["south","s"])
+                new_latitude = adventurer.current_tile.tile_position.latitude + latitude_increment
+                #check whether empty or otherwise designated to avoid
+                if (adventurer.exploration_needed(new_longitude, new_latitude) 
+                    and not self.check_location_to_avoid(new_longitude, new_latitude)):
+                    #Check whether the score from exploring here beats any checked so far
+                    exploration_moves += 1
+                    potential_score = adventurer.get_exploration_value(adventurer.get_adjoining_edges(new_longitude, new_latitude), compass_point)
+                    score_guaranteed = None #An int for the index of the Chest tile that fits
+                    for tile in adventurer.chest_tiles:
+                        if adventurer.rotated_tile_fits(tile, compass_point, adventurer.get_adjoining_edges(new_longitude, new_latitude)):
+                            score_guaranteed = adventurer.chest_tiles.index(tile)
+                    if preferred_guaranteed:
+                        if score_guaranteed is not None:
+                            #Omly bother evaluating if this exploration is also guaranteed
+                            if potential_score > preferred_score:
+                                preferred_move = compass_point
+                                preferred_score = potential_score
+                                adventurer.preferred_tile_num = score_guaranteed #Select this chest tile to be used
+                    else:
+                        #Either a higher reward or a guaranteed reward will make this move preferable
+                        if score_guaranteed is not None or potential_score > preferred_score:
+                            preferred_move = compass_point
+                            preferred_score = potential_score
+                            adventurer.preferred_tile_num = score_guaranteed #Select this chest tile to be used
+        print(self.name +"'s Adventurer has "+str(exploration_moves)+" exploration options.")
+        if preferred_move is not None:
+            if adventurer.move(preferred_move):
+                return True
+            else:
+                #If movement failed because the turn is over then leave here
+                if adventurer.turns_moved >= adventurer.game.turn:
+                    return True
+                self.locations_to_avoid.append([new_longitude, new_latitude])
+                return False
+        elif exploration_moves == 3:
+            #The absence of any scoring opportunities despite exploration on all sides implies isolation and that it's worth abandoning the expedition
+            city_tile = adventurer.latest_city
+            adventurer.abandon_expedition(city_tile)
+        print("With no valid Chest map placements found, then looking for random exploration")
+        return self.move_away_from_tile(adventurer, adventurer.latest_city)
     
     def continue_turn(self, adventurer):
         print(str(adventurer.player.name)+ " is moving an Adventurer, which has " 
@@ -560,7 +638,7 @@ class PlayerRegularPirate(PlayerRegularExplorer):
             adventurer.move(random.choice(['n','e','s','w']))
         #move towards the capital while banking will put the player ahead, and chase the next big score otherwise
 #        elif(adventurer.wealth > adventurer.game.wealth_difference):
-        elif(adventurer.wealth > getattr(adventurer.game, self.return_city_attr)):
+        elif(adventurer.wealth >= getattr(adventurer.game, self.return_city_attr)):
             self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
             # if there is an adventurer on the same tile then attack them
@@ -620,7 +698,8 @@ class PlayerAdvancedExplorer(PlayerRegularExplorer):
     '''
     def __init__(self, name):
         super().__init__(name)
-        self.return_city_attr = "cost_tech"
+        self.p_buy_tech = AdvancedConfig.P_BUY_TECH
+        self.return_city_attr = AdvancedConfig.RETURN_CITY_ATTR
     
     def continue_turn(self, adventurer):
         if isinstance(adventurer.game, GameAdvanced):
@@ -634,10 +713,11 @@ class PlayerAdvancedExplorer(PlayerRegularExplorer):
     
     def check_buy_tech(self, adventurer):
         #randomly choose not to buy, regardless of other conditions
-        if random.random() < self.p_deviate:
+        if random.random() > self.p_buy_tech:
             return False
         
-        if adventurer.game.player_wealths[adventurer.player] > adventurer.game.cost_tech:
+        print(self.name+" is deciding whether to buy a Manuscript card")
+        if adventurer.game.player_wealths[adventurer.player] >= adventurer.game.cost_tech:
             #Check whether player has won compared to wealthiest opponent 
             wealthiest_opponent_wealth = 0
             #Check whether any opponent is in a position to win based just on their incoming wealth, if an Adventurer were hired
@@ -672,20 +752,24 @@ class PlayerAdvancedTrader(PlayerRegularTrader, PlayerAdvancedExplorer):
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
-        self.return_city_attr = "cost_tech"
-
+        self.p_buy_tech = AdvancedConfig.P_BUY_TECH
+        self.return_city_attr = AdvancedConfig.RETURN_CITY_ATTR
+    
 class PlayerAdvancedRouter(PlayerRegularRouter, PlayerAdvancedExplorer):    
     '''A virtual player for Regular Cartolan that favours maximising trade value
     
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
-        self.return_city_attr = "cost_tech"
-        
+        self.p_buy_tech = AdvancedConfig.P_BUY_TECH
+        self.return_city_attr = AdvancedConfig.RETURN_CITY_ATTR
+    
 class PlayerAdvancedPirate(PlayerRegularPirate, PlayerAdvancedExplorer):    
     '''A virtual player for Regular Cartolan that favours maximising trade value
     
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
-        self.return_city_attr = "cost_tech"
+        self.p_buy_tech = AdvancedConfig.P_BUY_TECH
+        self.return_city_attr = AdvancedConfig.RETURN_CITY_ATTR
+    

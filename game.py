@@ -190,6 +190,7 @@ class GameBeginner(Game):
             # let players move an adventurer so long as it still has valid moves
             for adventurer in self.adventurers[player]:
                 if adventurer.turns_moved < self.turn:
+                    adventurer.turn_route = [adventurer.current_tile]
                     player.continue_turn(adventurer)
                     print() #to help log readability
                     
@@ -249,6 +250,27 @@ class GameBeginner(Game):
         
         return False
 
+    def to_json(self):
+        play_area = {}
+        for lon in self.play_area:
+            play_area[str(lon)] = {}
+            for lat in self.play_area[lon]:
+                play_area[str(lon)][str(lat)] = self.play_area[lon][lat].to_json()
+        return {
+            "game_mode": "Beginner",
+            "turn": self.turn,
+            "winning_player": self.winning_player.name if self.winning_player else None,
+            "wealth_difference": self.wealth_difference,
+            "play_area": play_area,
+            "players": [p.name for p in self.players],
+            "player_wealths": {p.name: w for p, w in self.player_wealths.items()},
+            "adventurers": {p.name: [a.to_json() for a in advs] for p, advs in self.adventurers.items()},
+            "agents": {p.name: [a.to_json() for a in agts] for p, agts in self.agents.items()},
+            "tile_piles": {back: pile.to_json() for back, pile in self.tile_piles.items()},
+            "discard_piles": {back: pile.to_json() for back, pile in self.discard_piles.items()},
+            "num_tiles": self.NUM_TILES,
+        }
+
 
 class GameRegular(GameBeginner):
     '''Extends the GameBeginner class to include extra features of the Regular mode of Cartolan - Trade Winds
@@ -284,6 +306,9 @@ class GameRegular(GameBeginner):
         
         #Chest tiles will now be carried
         self.num_chest_tiles = RegularConfig.NUM_CHEST_TILES
+        self.num_tile_choices = {}
+        for player in players:
+            self.num_tile_choices[player] = RegularConfig.NUM_TILE_CHOICES
         
         # a land tile pile is now needed
         self.tile_piles["land"] = TilePile("land",[])
@@ -297,8 +322,13 @@ class GameRegular(GameBeginner):
         self.dropped_wealth = 0
         for tile in self.disaster_tiles:
             self.dropped_wealth += tile.dropped_wealth
-        
+
         return super().check_win_conditions()
+
+    def to_json(self):
+        d = super().to_json()
+        d["game_mode"] = "Regular"
+        return d
 
 
 class GameAdvanced(GameRegular):
@@ -346,7 +376,7 @@ class GameAdvanced(GameRegular):
             #And a placeholder for players to choose a Cadre/Company
             self.assigned_cadres[player] = None
         
-        #Get config variables to act as masters in case of modification
+        #Get config variables to act as masters of Adventurer traits in case of modification
         self.card_type_buffs = AdvancedConfig.CARD_TYPE_BUFFS
         
         self.cost_tech = AdvancedConfig.COST_TECH
@@ -355,6 +385,7 @@ class GameAdvanced(GameRegular):
         self.agent_on_existing = AdvancedConfig.AGENT_ON_EXISTING
         self.rest_after_placing = AdvancedConfig.REST_AFTER_PLACING
         self.transfers_to_agents = AdvancedConfig.TRANSFERS_TO_AGENTS
+        self.num_free_rests = AdvancedConfig.NUM_FREE_RESTS
         
         #Set up the decks of cards
         self.cadre_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.CADRE_CARDS] #a copy that can be modified independent of the config file
@@ -377,6 +408,16 @@ class GameAdvanced(GameRegular):
         self.assigned_cadres[player].apply_buffs(player) #for all Adventurers and Agents created after this point
         for adventurer in self.adventurers[player]: #For all existing Adventurers
             self.assigned_cadres[player].apply_buffs(adventurer)
-        
+
+    def to_json(self):
+        d = super().to_json()
+        d["game_mode"] = "Advanced"
+        d["assigned_cadres"] = {
+            p.name: card.to_json()
+            for p, card in self.assigned_cadres.items()
+            if card is not None
+        }
+        return d
+
 #    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
 #        super().__init__(players, movement_rules, exploration_rules)

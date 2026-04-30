@@ -1,0 +1,92 @@
+{
+  "adv+agents": [
+    "adv+agents_Jan_van_jansen.png"
+  ],
+  "adv+attack": [
+    "adv+attack_sinan_the_exile.png"
+  ],
+  "adv+bank": [
+    "adv+bank_Ibn_Awza.png"
+  ],
+  "adv+damage": [
+    "adv+damage_Captain_Baker.png"
+  ],
+  "adv+defence": [
+    "adv+defence_Gregory_Gander.png",
+    "adv+defence_queen_shi.png"
+  ],
+  "adv+downwind": [
+    "adv+downwind_Ferdinand_Fetichero.png",
+    "adv+downwind_General_He.png"
+  ],
+  "adv+freerests": [
+    "adv+freerests_ewo_mekelle.png",
+    "adv+freerests_gwen_gogodin.png"
+  ],
+  "adv+maps": [
+    "adv+maps_mapaia.png",
+    "adv+maps_Ragnar_the_Red.png"
+  ],
+  "adv+rewards": [
+    "adv+rewards_christina_americi.png",
+    "adv+rewards_marco_pilota.png"
+  ],
+  "adv+upwind": [
+    "adv+upwind_marco_afanasy_tabakin.png",
+    "adv+upwind_Seekagaway.png"
+  ],
+  "com+arrest": [
+    "com+arrest_port_authority.png"
+  ],
+  "com+earning": [
+    "com+earning_merchants guild.png"
+  ],
+  "com+pool": [
+    "com+pool_order_of_the_lightbrary.png"
+  ],
+  "com+refurnish": [
+    "com+refurnish_privateer_brethren.png"
+  ],
+  "com+rests": [
+    "com+rests_intrepid_academy.png"
+  ],
+  "com+transfers": [
+    "com+transfers_great_company.png"
+  ],
+  "dis+agents": [
+    "dis+agents_contracts.jpg"
+  ],
+  "dis+attack": [
+    "dis+attack_atlatl.jpg"
+  ],
+  "dis+bank": [
+    "dis+bank_networks.jpg"
+  ],
+  "dis+damage": [
+    "dis+damage_guided_fire.jpg"
+  ],
+  "dis+defence": [
+    "dis+defence_scalemail.jpg",
+    "dis+defence_spyglass.jpg"
+  ],
+  "dis+downwind": [
+    "dis+downwind_sea_kite.jpg",
+    "dis+downwind_water wing.jpg"
+  ],
+  "dis+freerests": [
+    "dis+freerests_pentatonics.jpg",
+    "dis+freerests_rhapsody.jpg"
+  ],
+  "dis+maps": [
+    "dis+maps_chronometer.jpg",
+    "dis+maps_compass.jpg"
+  ],
+  "dis+rewards": [
+    "dis+rewards_rhumb_tattoos.jpg",
+    "dis+rewards_typometry.jpg"
+  ],
+  "dis+upwind": [
+    "dis+upwind_fermented_tea.jpg",
+    "dis+upwind_pin_pulley.jpg"
+  ]
+}

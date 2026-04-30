@@ -1,0 +1,146 @@
+{
+  "capital": [
+    "capital.jpg"
+  ],
+  "fffff": [
+    "fffff_plain.png"
+  ],
+  "fffft": [
+    "fffft_incas.jpg",
+    "fffft_plain.png"
+  ],
+  "ffftf": [
+    "ffftf_generic.jpg",
+    "ffftf_henge.jpg",
+    "ffftf_plain.png"
+  ],
+  "ffftt": [
+    "ffftt_plain.png"
+  ],
+  "fftff": [
+    "fftff_generic.jpg",
+    "fftff_ozymandias.jpg",
+    "fftff_plain.png"
+  ],
+  "fftft": [
+    "fftft_plain.png"
+  ],
+  "ffttf": [
+    "ffttf_fire_temple.jpg",
+    "ffttf_generic.jpg"
+  ],
+  "ffttt": [
+    "ffttt_bazaar.jpg",
+    "ffttt_fire_temple.png"
+  ],
+  "ftfff": [
+    "ftfff_generic.jpg",
+    "ftfff_plain.png"
+  ],
+  "ftfft": [
+    "ftfft_nile.jpg",
+    "ftfft_plain.png"
+  ],
+  "ftftf": [
+    "ftftf_plain.jpg"
+  ],
+  "ftftt": [
+    "ftftt.png",
+    "ftftt_rich_poor.jpg"
+  ],
+  "fttff": [
+    "fttff_devils_drop.jpg",
+    "fttff_generic.jpg",
+    "fttff_plain.png"
+  ],
+  "fttft": [
+    "fttft_cliff_town.jpg",
+    "fttft_fort.png"
+  ],
+  "ftttf": [
+    "ftttf_cliff_faces.jpg",
+    "ftttf_generic.jpg",
+    "ftttf_plain.png"
+  ],
+  "ftttt": [
+    "ftttt_caribbean.jpg",
+    "ftttt_plain.png"
+  ],
+  "land": [
+    "land.jpg"
+  ],
+  "mythical": [
+    "mythical.jpg"
+  ],
+  "tffff": [
+    "tffff_generic.jpg",
+    "tffff_plain.png"
+  ],
+  "tffft": [
+    "tffft_ganges.jpg",
+    "tffft_plain.png"
+  ],
+  "tfftf": [
+    "tfftf_aquaduct.jpg",
+    "tfftf_generic.jpg"
+  ],
+  "tfftt": [
+    "tfftt_fort.jpg"
+  ],
+  "tftff": [
+    "tftff_generic.jpg",
+    "tftff_plain.png"
+  ],
+  "tftft": [
+    "tftft_plain.png",
+    "tftft_rivals.jpg"
+  ],
+  "tfttf": [
+    "tfttf_generic.jpg",
+    "tfttf_plain.png",
+    "tfttf_windmills.jpg"
+  ],
+  "tfttt": [
+    "tfttt_canal_town.jpg"
+  ],
+  "ttfff": [
+    "ttfff_generic.jpg",
+    "ttfff_plain.png"
+  ],
+  "ttfft": [
+    "ttfft_plain.png"
+  ],
+  "ttftf": [
+    "ttftf_generic.jpg",
+    "ttftf_plain.png"
+  ],
+  "ttftt": [
+    "ttftt_plain.png"
+  ],
+  "tttff": [
+    "tttff_lighthouse.jpg",
+    "tttff_plain.png"
+  ],
+  "tttft": [
+    "tttft_plain.png"
+  ],
+  "ttttf": [
+    "ttttf_black_forest.jpg",
+    "ttttf_church.jpg",
+    "ttttf_cliff_islets.jpg",
+    "ttttf_desert.jpg",
+    "ttttf_forest.jpg",
+    "ttttf_isle.jpg",
+    "ttttf_isles.jpg",
+    "ttttf_lighthouse.jpg",
+    "ttttf_open_ocean.jpg",
+    "ttttf_volcanos.jpg",
+    "ttttf_watermill.jpg"
+  ],
+  "ttttt": [
+    "ttttt_open_ocean.png"
+  ],
+  "water": [
+    "water.jpg"
+  ]
+}

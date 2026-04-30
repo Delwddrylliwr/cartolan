@@ -50,7 +50,10 @@ def setup_tiles(players, game_mode, movement_rules, exploration_rules, mythical_
         game.setup_tile_pile("land")
         if mythical_city:
             game.tile_piles["land"].tiles.append(game.CITY_TYPE(game, WindDirection(True,True), TileEdges(False,False,False,False), False, True))
-      
+    
+    for pile in game.tile_piles.values():
+        random.shuffle(pile.tiles)
+    
     print("Placed the Capital tile, and surrounding water tiles")
     return game
 
