@@ -76,6 +76,7 @@ client_players = {}
 games = {}  # referenced by game IDs
 players = {}  # referenced by names, which must be unique on the server
 client_games = {}  # referenced by ClientSocket
+disconnected_players = {}  # player_name → {game_id, bot_player, colour} for potential rejoin
 # player_clients = {} #refernced by players
 # player_games = {} #refereced by players
 # Track new games as they're being initiated, based on sequential game IDs
@@ -140,12 +141,15 @@ class ClientSocket(WebSocket):
     #        self.width = "0"
     #        self.height = "0"
 
-    def setup_client_players(self, num_client_players):
+    def setup_client_players(self, game_id, num_client_players):
         """Seeks remote input to determine the names of
         """
         global client_players
         client_players[self] = []
         for player_num in range(num_client_players):
+            # Names must be unique within this game (across all its clients)
+            game_names = ({p.name for p in new_game_players.get(game_id, {})}
+                          | {p.name for p in client_players[self]})
             # Get the player to submit a name
             prompt_text = ("What is the name of the " + ORDINALS[
                 player_num] + " player on this computer? (hit enter for random)")
@@ -159,14 +163,14 @@ class ClientSocket(WebSocket):
                         prompt_text = (player_name.capitalize() + " is too long. Pick a new name for the " + ORDINALS[
                             player_num] + " player on this computer? (fewer than " + str(MAX_NAME_CHARS) + " letters)")
                         player_name = None
-                    elif player_name in players.keys():
-                        prompt_text = (player_name.capitalize() + " is taken. Pick a new name for the " + ORDINALS[
+                    elif player_name in game_names:
+                        prompt_text = (player_name.capitalize() + " is taken in this game. Pick a new name for the " + ORDINALS[
                             player_num] + " player on this computer?")
                         player_name = None
                     elif player_name == "BLANK":
                         player_name = random.choice(NAMES)
                         print("Assigning a random name: " + player_name)
-                        while player_name in players.keys():
+                        while player_name in game_names:
                             player_name += str(random.randint(0, MAX_NAME_USES))
                             print("Random name wasn't unique so appending a number: " + player_name)
                         break
@@ -177,7 +181,7 @@ class ClientSocket(WebSocket):
                 else:
                     time.sleep(self.INPUT_DELAY)
             player = PlayerHuman(player_name)
-            players[player_name] = player
+            players[(game_id, player_name)] = player
             client_players[self].append(player)
 
     def create_game(self, new_game_type="", num_client_players=None, num_virtual_players=0, num_players=None):
@@ -244,7 +248,7 @@ class ClientSocket(WebSocket):
         if (client_players.get(self) is None
                 or not len(client_players[self]) == num_client_players):
             # Name and set up these host human players
-            self.setup_client_players(num_client_players)
+            self.setup_client_players(game_id, num_client_players)
         # Assign colours to these local players
         new_game_players[game_id] = {}
         for player in client_players[self]:
@@ -281,11 +285,12 @@ class ClientSocket(WebSocket):
         for player_num in range(num_virtual_players):
             player_colour = available_colours.pop()
             #            new_game_colours[game_id].append(player_colour)
+            game_names = {p.name for p in new_game_players.get(game_id, {})} | {p.name for p in client_players[self]}
             player_name = "AI:" + random.choice(NAMES)
-            while player_name in players.keys():
+            while player_name in game_names:
                 player_name += str(random.randint(0, MAX_NAME_USES))
             player = GAME_MODES[new_game_type]["player_set"][player_colour](player_name)
-            players[player_name] = player
+            players[(game_id, player_name)] = player
             client_players[self].append(player)
             new_game_players[game_id][player] = player_colour
             new_game_cpu_players[game_id][player] = player_colour
@@ -366,7 +371,7 @@ class ClientSocket(WebSocket):
         if (client_players.get(self) is None
                 or not len(client_players[self]) == num_client_players):
             # Name and set up these host human players
-            self.setup_client_players(num_client_players)
+            self.setup_client_players(game_id, num_client_players)
         # No blocking is done, check whether the number of spaces for this game has changed and start again if so
         num_spaces = len(new_game_colours[game_id])
         num_existing_players = len(new_game_players[game_id])
@@ -445,7 +450,7 @@ class ClientSocket(WebSocket):
         Arguments:
         game_id takes an integer unique reference for a Cartolan game in the global games list
         """
-        global clients, client_visuals, client_players, games
+        global client_visuals, client_players, games
         global new_game_clients, new_game_types, new_game_colours, new_game_players
         num_spaces = len(new_game_colours[game_id])
         if not num_spaces == 0:
@@ -470,9 +475,9 @@ class ClientSocket(WebSocket):
                           }
         new_game_colours.pop(game_id)
         # Set up a visual tailored to each client's screen
-        clients = games[game_id]["clients"]
         visuals = []
-        for client in clients:
+        games[game_id]["visuals"] = visuals  # shared list; stored so rejoin can append to it
+        for client in games[game_id]["clients"]:
             # create game visualisation corresponding to each client's window resolution
             game_vis = WebServerVisualisation(self.game, visuals, games[game_id]["player_colours"], client,
                                               client.width, client.height)
@@ -538,20 +543,36 @@ class ClientSocket(WebSocket):
 
         # Remove old player from game and introduce the new player instead
         old_index = game.players.index(old_player)
-        game.players.pop(old_player)
+        game.players.remove(old_player)
         game.players.insert(old_index, new_player)
 
-        # Update the central records
-        old_colour = games[game_id]["players"].pop(old_player)
-        games[game_id]["players"][new_player] = old_colour
+        # Update the central records (player_colours is the dict; players is the ordered list)
+        old_colour = games[game_id]["player_colours"].pop(old_player)
+        games[game_id]["player_colours"][new_player] = old_colour
+        old_index = games[game_id]["players"].index(old_player)
+        games[game_id]["players"].remove(old_player)
+        games[game_id]["players"].insert(old_index, new_player)
 
     def kick_player(self, game_id, player):
-        """Remove a player from a live game and replace them with a bot
+        """Remove a human player from a live game, replace them with a bot, and record for rejoin.
 
         Arguments:
-        player takes a Cartolan player
+        player takes a Cartolan PlayerHuman
         """
-        # @TODO create a bot with character type based on colour
+        global disconnected_players
+        game_data = games[game_id]
+        colour = game_data["player_colours"].get(player)
+        game_type = game_data["game_type"]
+        bot_class = GAME_MODES[game_type]["player_set"].get(colour)
+        if not bot_class:
+            return
+        bot = bot_class("AI:" + player.name)
+        self.swap_player(game_id, player, bot)
+        disconnected_players[player.name] = {
+            "game_id": game_id,
+            "bot_player": bot,
+            "colour": colour,
+        }
 
     # @TODO decide whether to collect input from this socket via recv or the below
     def handleMessage(self):
@@ -570,6 +591,12 @@ class ClientSocket(WebSocket):
             self.width, self.height = [int(coord) for coord in msg.split("[55555]")]
             print("Received width: ", self.width, " and height: ", self.height)
             Thread(target=self.join_queue).start()
+        elif protocode == ("REJOIN"):
+            parts = msg.split("[55555]")
+            self.width, self.height = int(parts[0]), int(parts[1])
+            player_name = parts[2]
+            print("REJOIN requested for player: " + player_name)
+            Thread(target=self.rejoin_game, args=(player_name,)).start()
         elif protocode == ("PONG"):
             print("Client responded to ping")
             self.connection_confirmed = True
@@ -677,7 +704,7 @@ class ClientSocket(WebSocket):
             active_game["game_id"] = str(game_id)
             active_game["game_type"] = str(game_data["game_type"])
             # Name the game according to the first player of its first client
-            active_game["game_name"] = str(client_players[game_data["clients"]][0]) + "'s game"
+            active_game["game_name"] = str(client_players[game_data["clients"][0]][0]) + "'s game"
             # Report the player numbers
             active_game["total_players"] = len(game_data["players"])
             active_game["cpu_players"] = len(game_data["cpu_players"])
@@ -695,12 +722,77 @@ class ClientSocket(WebSocket):
     #        channel.setup()
 
     def handleClose(self):
-        """Gracefully remove a client
+        """Gracefully remove a client, replacing their players with bots if mid-game.
         """
-        clients.pop(self)
+        global client_visuals, client_players
+        clients.remove(self)
         print(self.address, 'closed')
+
+        # Unblock any game thread currently waiting for input from this client
+        self.coords_buffer = {"Nothing": "Nothing"}
+
+        # Replace human players with bots in any active game this client belongs to
+        for game_id, game_data in list(games.items()):
+            if self in game_data["clients"]:
+                for player in list(client_players.get(self, [])):
+                    if isinstance(player, PlayerHuman):
+                        self.kick_player(game_id, player)
+                # Remove this client's visual from the shared visuals list
+                vis = client_visuals.get(self)
+                if vis and vis in game_data.get("visuals", []):
+                    game_data["visuals"].remove(vis)
+                game_data["clients"].remove(self)
+                break
+
+        client_players.pop(self, None)
+        client_visuals.pop(self, None)
+
         for client in clients:
             client.sendMessage(self.address[0] + u' - disconnected')
+
+    def rejoin_game(self, player_name):
+        """Reconnects a previously disconnected human player, evicting the bot that replaced them.
+
+        Arguments:
+        player_name takes the string name the player was using when they disconnected
+        """
+        global games, client_visuals, client_players, disconnected_players, players
+
+        if player_name not in disconnected_players:
+            self.sendMessage("PROMPT[00100]No disconnected player named '" + player_name + "' was found.")
+            return
+
+        info = disconnected_players.pop(player_name)
+        game_id = info["game_id"]
+        bot_player = info["bot_player"]
+
+        if game_id not in games:
+            self.sendMessage("PROMPT[00100]That game has already ended.")
+            return
+
+        # Recreate the human player and swap out the bot
+        player = PlayerHuman(player_name)
+        players[(game_id, player_name)] = player
+        self.swap_player(game_id, bot_player, player)
+
+        # Register this client with the game
+        games[game_id]["clients"].append(self)
+        client_players[self] = [player]
+
+        # Create a new visualisation for the rejoining client and add it to the shared peer list
+        game_vis = WebServerVisualisation(
+            games[game_id]["game"],
+            games[game_id]["visuals"],
+            games[game_id]["player_colours"],
+            self, self.width, self.height,
+        )
+        game_vis.client_players = [player]
+        player.connect_gui(game_vis)
+        client_visuals[self] = game_vis
+        games[game_id]["visuals"].append(game_vis)
+
+        # Push the current game state to the rejoining client
+        game_vis.update_web_display()
 
 
 def generate_tile_manifest():

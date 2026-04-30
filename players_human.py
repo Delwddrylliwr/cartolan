@@ -203,8 +203,8 @@ class PlayerHuman(Player):
         #prompt the player to choose a tile to move on to
         print("Prompting the "+self.name+" for input")
 #        game_vis.clear_prompt()
-        prompt = ("Click which tile you would like "+str(self.name)+"'s Adventurer #" 
-                                       +str(game.adventurers[self].index(adventurer)+1) 
+        prompt = ("Click which tile you would like "+str(self.name)+"'s Adventurer #"
+                                       +str(game.adventurers[adventurer.player].index(adventurer)+1)
                                        +" to move to?")
         if game_vis.drawn_routes:
             prompt += " Or select a route to follow."
@@ -326,6 +326,8 @@ class PlayerHuman(Player):
         adventurer is a Cartolan.Adventurer
         '''
         game = adventurer.game
+        if self not in game.adventurers:
+            return  # this player was replaced by a bot mid-game
         game_vis = self.games[game.game_id]["game_vis"]
         adventurers = game.adventurers[self]
         adventurer_number = adventurers.index(adventurer)
@@ -358,6 +360,8 @@ class PlayerHuman(Player):
         
         #Move while moves are still available
         while adventurer.turns_moved < adventurer.game.turn:
+            if self not in game.adventurers:
+                return  # swapped out mid-turn; bot takes over next round
             print(self.name.capitalize()+"'s Adventurer #"+str(adventurers.index(adventurer)+1)+" is still able to move.")
             self.continue_move(adventurer)
             #If undo has been invoked then restore the game state from the start of the turn

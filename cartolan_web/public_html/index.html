@@ -82,6 +82,8 @@
     var messageLine = 0.60;
     var queueButtonText = "Click for game queue";
     var queueButtonTop = 0.65;
+    var rejoinButtonText = "Rejoin a game";
+    var rejoinButtonTop = 0.72;
     var buttonFontPx = 30;
     var titleText = "Cartolan - Trade Winds";
     var titleFontPx = 30;
@@ -392,6 +394,20 @@
       //roundRect(context, x - Math.round(buttonWidth / 2), y - buttonSize.actualBoundingBoxAscent - cornerRadius, buttonWidth, buttonHeight, cornerRadius).stroke();
       //context.fillText(buttonText, x, y);
       var listButton = [x - Math.round(buttonWidth / 2), y - buttonSize.actualBoundingBoxAscent - cornerRadius, x + buttonWidth, y + buttonHeight];
+      // Draw the rejoin button
+      y = canvas.height * rejoinButtonTop;
+      context.font = buttonFontPx.toString() + "px Calibri";
+      var rejoinMetrics = context.measureText(rejoinButtonText);
+      var rejoinBtnPad = 8;
+      var rejoinBtnX = x - Math.round(rejoinMetrics.width / 2) - rejoinBtnPad;
+      var rejoinBtnY = y - rejoinMetrics.actualBoundingBoxAscent - rejoinBtnPad;
+      var rejoinBtnW = rejoinMetrics.width + rejoinBtnPad * 2;
+      var rejoinBtnH = rejoinMetrics.actualBoundingBoxAscent + rejoinMetrics.actualBoundingBoxDescent + rejoinBtnPad * 2;
+      context.strokeStyle = "white";
+      roundRect(context, rejoinBtnX, rejoinBtnY, rejoinBtnW, rejoinBtnH, 4).stroke();
+      context.fillStyle = "white";
+      context.fillText(rejoinButtonText, x, y);
+      var rejoinButton = [rejoinBtnX, rejoinBtnY, rejoinBtnX + rejoinBtnW, rejoinBtnY + rejoinBtnH];
       //Wait for player input
       function waiting() {
         //Wait for an initial click by the player before communicating with the server
@@ -407,6 +423,23 @@
             waitForConnection(updateTable, 10);
             //Regularly check for any clicks and check whether these corresponded to rows in the table
             this.table_interval = setInterval(updateTable, 5000);
+          } else if (!detectMob() && myGameArea.x >= rejoinButton[0] && myGameArea.x <= rejoinButton[2]
+            && myGameArea.y >= rejoinButton[1] && myGameArea.y <= rejoinButton[3]) {
+            // Rejoin flow: ask for name then send REJOIN
+            var rejoinName = prompt("Enter the name you were playing as:");
+            if (rejoinName) {
+              openWS();
+              context.clearRect(0, 0, canvas.width, canvas.height);
+              context.fillStyle = "white";
+              context.font = messageFontPx.toString() + "px Arial";
+              wrapText(context, "Rejoining as " + rejoinName + "...", canvas.width / 2, canvas.height * messageLine, Math.round(canvas.width * heightShare), messageFontPx * ptpxConversion);
+              var _rn = rejoinName;
+              waitForConnection(function () {
+                send("REJOIN[00100]" + myGameArea.canvas.width + "[55555]" + myGameArea.canvas.height + "[55555]" + _rn);
+              }, 100);
+            } else {
+              waiting();
+            }
           } else if (!detectMob() && myGameArea.y < canvas.height * mediaBottom) {
             //Play or pause the video if the clicks are within the video height
             playPauseClick();

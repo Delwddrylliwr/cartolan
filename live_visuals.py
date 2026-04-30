@@ -1801,7 +1801,7 @@ class WebServerVisualisation(GameVisualisation):
             if not self.client == game_vis.client and game_vis not in checked_visuals:
                 checked_visuals.append(game_vis)
                 coords = game_vis.client.get_coords()
-                if coords is not None:
+                if coords is not None and isinstance(coords, list) and len(coords) == 2:
                     horizontal, vertical = coords
                     if game_vis.check_update_focus(horizontal, vertical):
                         game_vis.refresh_visual()
