@@ -558,6 +558,62 @@ class ClientSocket(WebSocket):
         old_colour = games[game_id]["player_colours"].pop(old_player)
         games[game_id]["player_colours"][new_player] = old_colour
 
+    def get_lobby_data(self):
+        """Returns a list of queued and active games for the lobby display."""
+        result = []
+        for game_id in list(new_game_clients.keys()):
+            game_type = new_game_types.get(game_id, DEFAULT_GAME_MODE)
+            total_slots = len(GAME_MODES[game_type]["player_set"])
+            human_players = list(new_game_players.get(game_id, {}).keys())
+            open_slots = len(new_game_colours.get(game_id, []))
+            slots = [{"name": p.name, "type": "human"} for p in human_players]
+            slots += [{"name": "", "type": "open"}] * open_slots
+            result.append({
+                "game_id": game_id,
+                "game_type": game_type,
+                "status": "waiting",
+                "slots": slots,
+            })
+        for game_id, game_data in list(games.items()):
+            slots = []
+            for p in game_data["players"]:
+                name = getattr(p, "name", "")
+                is_bot = name.startswith("AI:")
+                slots.append({"name": name[3:] if is_bot else name, "type": "bot" if is_bot else "human"})
+            result.append({
+                "game_id": str(game_id),
+                "game_type": game_data["game_type"],
+                "status": "active",
+                "slots": slots,
+            })
+        return result
+
+    def join_specific_queue(self, game_id):
+        """Joins a specific queued game by ID, then starts or waits like join_queue."""
+        global new_game_clients, new_game_players, new_game_colours
+        if game_id not in new_game_types:
+            self.sendMessage("PROMPT[00100]That game is no longer available. Refresh the lobby to see current games.")
+            return
+        if not self.join_game(game_id, 1):
+            return
+        new_game_clients[game_id].append(self)
+        num_existing = len(new_game_players[game_id])
+        num_total = num_existing + len(new_game_colours.get(game_id, []))
+        report = str(num_existing) + "/" + str(num_total)
+        for client in new_game_clients[game_id]:
+            client.sendMessage("PLAYERS[00100]" + report)
+        if not self.start_game(game_id):
+            connection_alive = True
+            self.connection_confirmed = False
+            self.sendMessage("PING[00100]")
+            while connection_alive:
+                connection_alive = self.connection_confirmed
+                self.connection_confirmed = False
+                self.sendMessage("PING[00100]")
+                time.sleep(self.TIMEOUT_DELAY)
+        else:
+            return True
+
     def kick_player(self, game_id, player):
         """Remove a human player from a live game and replace them with a bot named 'AI:<name>'.
 
@@ -593,6 +649,15 @@ class ClientSocket(WebSocket):
             self.width, self.height = [int(coord) for coord in msg.split("[55555]")]
             print("Received width: ", self.width, " and height: ", self.height)
             Thread(target=self.join_queue).start()
+        elif protocode == ("LOBBY"):
+            self.width, self.height = [int(x) for x in msg.split("[55555]")]
+            self.sendMessage("LIST[00100]" + json.dumps(self.get_lobby_data()))
+        elif protocode == ("JOIN"):
+            parts = msg.split("[55555]")
+            self.width, self.height = int(parts[0]), int(parts[1])
+            game_id = int(parts[2])
+            print("JOIN requested for queued game: " + str(game_id))
+            Thread(target=self.join_specific_queue, args=(game_id,)).start()
         elif protocode == ("REJOIN"):
             parts = msg.split("[55555]")
             self.width, self.height = int(parts[0]), int(parts[1])
@@ -662,57 +727,6 @@ class ClientSocket(WebSocket):
         ##           self.socket.send(str(msg))
         elif protocode == ("PLAY"):
             self.coords_buffer = {'play': True}
-        elif protocode == ("LOBBY"):
-            print("Client prompted for a refresh of the lobby data, listing queued and active games.")
-            # Share any games being prepared in the queue with this client
-            if len(new_game_types) > 0:
-                self.list_queued_games()
-            # Share any games already in progress with this player, in case they want to watch or replace a CPU player
-            if len(games) > 0:
-                self.list_active_games()
-
-    def list_queued_games(self):
-        """Shares with the client a list of the games currently being prepared in the queue
-        """
-        global new_game_clients, client_players, new_game_types, new_game_colours, new_game_players, new_game_cpu_players
-        # Prepare the list asa JSON table, listing the first host player's name, the numbers of total players,
-        # joined players, CPU players
-        queued_games = []
-        for game_id in new_game_types:
-            queued_game = {}
-            queued_game["game_id"] = str(game_id)
-            queued_game["game_type"] = str(new_game_types[game_id])
-            # Name the game according to the first player of its first client
-            queued_game["game_name"] = str(client_players[new_game_clients[game_id]][0]) + "'s game"
-            # Report the player numbers
-            queued_game["existing_players"] = len(new_game_players[game_id])
-            queued_game["empty_slots"] = len(new_game_colours[game_id])
-            queued_game["total_players"] = queued_game["existing_players"] + queued_game["empty_slots"]
-            queued_game["cpu_players"] = len(new_game_cpu_players[game_id])
-            # Add all of this to the growing list
-            queued_games.append(queued_game)
-        self.sendMessage("QUEUE[00100]" + json.dumps(queued_games))
-
-    def list_active_games(self):
-        """Shares with the client a list of the games that are already running
-        """
-        global games, client_players
-        # Prepare the list as a JSON table, listing the first host player's name, the numbers of total players,
-        # joined players, CPU players
-        active_games = []
-        for game_id in games:
-            game_data = games[game_id]
-            active_game = {}
-            active_game["game_id"] = str(game_id)
-            active_game["game_type"] = str(game_data["game_type"])
-            # Name the game according to the first player of its first client
-            active_game["game_name"] = str(client_players[game_data["clients"][0]][0]) + "'s game"
-            # Report the player numbers
-            active_game["total_players"] = len(game_data["players"])
-            active_game["cpu_players"] = len(game_data["cpu_players"])
-            # Add all of this to the growing list
-            active_games.append(active_game)
-        self.sendMessage("LIST[00100]" + json.dumps(active_games))
 
     def handleConnected(self):
         """On initial connection, establish client details
