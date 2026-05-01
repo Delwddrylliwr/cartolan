@@ -116,11 +116,13 @@ class PlayerHuman(Player):
     
     def continue_move(self, adventurer):
         '''Offers the user available moves, translates their mouse input into movement, and updates visuals.
-        
+
         Arguments
         adventurer takes a Cartolan.Adventurer
         '''
         game = adventurer.game
+        if self not in game.adventurers:
+            return False  # swapped out; let continue_turn's guard handle cleanup
         game_vis = self.games[game.game_id]["game_vis"]
         
         #If a route is being followed, then try to proceed to the next tile until hitting a city
@@ -228,6 +230,8 @@ class PlayerHuman(Player):
         #Carry out the player's chosen move
         player_input = {"Nothing":"Nothing"}
         while player_input.get("Nothing") is not None:
+            if self not in game.adventurers:
+                return False  # disconnected mid-wait; unfreeze the game thread
             player_input = game_vis.get_input_coords(adventurer)
         print("Player's input:")
         print(player_input)
@@ -280,6 +284,8 @@ class PlayerHuman(Player):
                 game_vis.draw_discard_pile()
                 game_vis.draw_undo_button()
                 #Seek input again
+                if self not in game.adventurers:
+                    return False  # disconnected mid-wait; unfreeze the game thread
                 player_input = game_vis.get_input_coords(adventurer)
                 print("Player's input:")
                 print(player_input)

@@ -76,7 +76,6 @@ client_players = {}
 games = {}  # referenced by game IDs
 players = {}  # referenced by names, which must be unique on the server
 client_games = {}  # referenced by ClientSocket
-disconnected_players = {}  # player_name → {game_id, bot_player, colour} for potential rejoin
 # player_clients = {} #refernced by players
 # player_games = {} #refereced by players
 # Track new games as they're being initiated, based on sequential game IDs
@@ -531,35 +530,42 @@ class ClientSocket(WebSocket):
         game = games[game_id]["game"]
         # Identify tokens owned by old player and transfer them to the new player
         # First Adventurers
-        adventurers = game.adventurers.pop(old_player)
+        adventurers = game.adventurers.pop(old_player, [])
         for adventurer in adventurers:
             adventurer.player = new_player
         game.adventurers[new_player] = adventurers
         # Now Agents
-        agents = game.agents.pop(old_player)
+        agents = game.agents.pop(old_player, [])
         for agent in agents:
             agent.player = new_player
         game.agents[new_player] = agents
+
+        # Transfer all other player-keyed dicts on the game object
+        for attr in ('player_wealths', 'num_tile_choices', 'num_character_choices',
+                     'num_discovery_choices', 'value_agent_trade', 'rest_with_adventurers',
+                     'transfer_agent_earnings', 'agents_arrest', 'confiscate_treasure',
+                     'resting_refurnishes', 'pool_maps', 'rechoose_at_agents', 'assigned_cadres'):
+            d = getattr(game, attr, None)
+            if d is not None and old_player in d:
+                d[new_player] = d.pop(old_player)
 
         # Remove old player from game and introduce the new player instead
         old_index = game.players.index(old_player)
         game.players.remove(old_player)
         game.players.insert(old_index, new_player)
 
-        # Update the central records (player_colours is the dict; players is the ordered list)
+        # Update the colour lookup (game.players IS games[game_id]["players"] — same list object)
         old_colour = games[game_id]["player_colours"].pop(old_player)
         games[game_id]["player_colours"][new_player] = old_colour
-        old_index = games[game_id]["players"].index(old_player)
-        games[game_id]["players"].remove(old_player)
-        games[game_id]["players"].insert(old_index, new_player)
 
     def kick_player(self, game_id, player):
-        """Remove a human player from a live game, replace them with a bot, and record for rejoin.
+        """Remove a human player from a live game and replace them with a bot named 'AI:<name>'.
+
+        The bot name acts as the rejoin token — any new client claiming that name can swap back in.
 
         Arguments:
         player takes a Cartolan PlayerHuman
         """
-        global disconnected_players
         game_data = games[game_id]
         colour = game_data["player_colours"].get(player)
         game_type = game_data["game_type"]
@@ -567,12 +573,8 @@ class ClientSocket(WebSocket):
         if not bot_class:
             return
         bot = bot_class("AI:" + player.name)
+        print("kick_player: replacing " + player.name + " with bot in game " + str(game_id))
         self.swap_player(game_id, player, bot)
-        disconnected_players[player.name] = {
-            "game_id": game_id,
-            "bot_player": bot,
-            "colour": colour,
-        }
 
     # @TODO decide whether to collect input from this socket via recv or the below
     def handleMessage(self):
@@ -736,7 +738,10 @@ class ClientSocket(WebSocket):
             if self in game_data["clients"]:
                 for player in list(client_players.get(self, [])):
                     if isinstance(player, PlayerHuman):
-                        self.kick_player(game_id, player)
+                        try:
+                            self.kick_player(game_id, player)
+                        except Exception as e:
+                            print("Error kicking player " + player.name + ": " + str(e))
                 # Remove this client's visual from the shared visuals list
                 vis = client_visuals.get(self)
                 if vis and vis in game_data.get("visuals", []):
@@ -753,25 +758,39 @@ class ClientSocket(WebSocket):
     def rejoin_game(self, player_name):
         """Reconnects a previously disconnected human player, evicting the bot that replaced them.
 
+        Searches active games for a bot placeholder named 'AI:<player_name>' — no separate
+        tracking dict needed.
+
         Arguments:
         player_name takes the string name the player was using when they disconnected
         """
-        global games, client_visuals, client_players, disconnected_players, players
+        global games, client_visuals, client_players, players
 
-        if player_name not in disconnected_players:
-            self.sendMessage("PROMPT[00100]No disconnected player named '" + player_name + "' was found.")
+        bot_name = "AI:" + player_name
+        found_game_id = None
+        found_bot = None
+        for game_id, game_data in list(games.items()):
+            for p in game_data["players"]:
+                if getattr(p, 'name', None) == bot_name:
+                    print("Checking name of "+getattr(p, 'name', None))
+                    found_game_id = game_id
+                    found_bot = p
+                    break
+            if not found_game_id is None:
+                print("rejoin_game: looking for bot '" + bot_name + "', found in game=" + str(found_game_id))
+                break
+
+        if found_game_id is None:
+            self.sendMessage("PROMPT[00100]No active game has a bot placeholder for '" + player_name + "'. Check the name and try again.")
             return
 
-        info = disconnected_players.pop(player_name)
-        game_id = info["game_id"]
-        bot_player = info["bot_player"]
-
-        if game_id not in games:
-            self.sendMessage("PROMPT[00100]That game has already ended.")
-            return
+        game_id = found_game_id
+        bot_player = found_bot
 
         # Recreate the human player and swap out the bot
+        game = games[game_id]["game"]
         player = PlayerHuman(player_name)
+        player.join_game(game)  # populates player.games[game.game_id] so connect_gui can register
         players[(game_id, player_name)] = player
         self.swap_player(game_id, bot_player, player)
 
@@ -781,7 +800,7 @@ class ClientSocket(WebSocket):
 
         # Create a new visualisation for the rejoining client and add it to the shared peer list
         game_vis = WebServerVisualisation(
-            games[game_id]["game"],
+            game,
             games[game_id]["visuals"],
             games[game_id]["player_colours"],
             self, self.width, self.height,

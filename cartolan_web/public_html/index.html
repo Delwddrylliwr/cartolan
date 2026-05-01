@@ -407,7 +407,14 @@
       roundRect(context, rejoinBtnX, rejoinBtnY, rejoinBtnW, rejoinBtnH, 4).stroke();
       context.fillStyle = "white";
       context.fillText(rejoinButtonText, x, y);
-      var rejoinButton = [rejoinBtnX, rejoinBtnY, rejoinBtnX + rejoinBtnW, rejoinBtnY + rejoinBtnH];
+      // Transform button bounds from canvas pixels to myGameArea coordinate space
+      var _gaScale = 1 - 2 * bgndMargin;
+      var rejoinButton = [
+        (rejoinBtnX              - backing.insideLeft) / _gaScale,
+        (rejoinBtnY              - backing.insideTop)  / _gaScale,
+        (rejoinBtnX + rejoinBtnW - backing.insideLeft) / _gaScale,
+        (rejoinBtnY + rejoinBtnH - backing.insideTop)  / _gaScale,
+      ];
       //Wait for player input
       function waiting() {
         //Wait for an initial click by the player before communicating with the server

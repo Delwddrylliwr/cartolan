@@ -83,10 +83,11 @@ class Game:
         #swap its attributes for the deep copy's - so that restoring in the 
         #middle of an Adventurer's move doesn't break references around it
         for player in adventurers:
+            backup_adventurers = self.adventurers.get(player, [])
             for adventurer in adventurers[player]:
                 adventurer_num = adventurers[player].index(adventurer)
-                if len(self.adventurers[player]) > adventurer_num:
-                    restored_copy = self.adventurers[player][adventurer_num]
+                if len(backup_adventurers) > adventurer_num:
+                    restored_copy = backup_adventurers[adventurer_num]
     #                print("Restoring attributes of "+str(adventurer)+" from backup "+str(restored_copy)+"but keeping the reference.")
                     adventurer.__dict__.update(restored_copy.__dict__)
     #                #Because the adventurers came from the deep-copied game they will have references to the "copy" that has been abandoned
@@ -99,7 +100,7 @@ class Game:
                 else:
                     #If this adventurer wasn't in the backup, then discard it
                     adventurers[player].pop(adventurer)
-            for agent in self.agents[player]:
+            for agent in self.agents.get(player, []):
                 #Because the agents came from the deep-copied game they will have references to the "copy" that has been abandoned
                 agent.game = self        
 #        print("Replacing the new replica of the game's Adventurer's list, "+str(self.adventurers)+", with the original full of original Adventurer references, "+str(adventurers))
