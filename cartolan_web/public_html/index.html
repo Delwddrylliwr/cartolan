@@ -19,13 +19,16 @@
   <link rel="stylesheet" href="css/normalize.css">
   <link rel="stylesheet" href="css/main.css">
 
+  <script src="live_visuals.js"></script>
+
   <meta name="theme-color" content="#fafafa">
 
   <!--<script src="download.js" type="text/javascript"></script>-->
 
   <style>
-    body {
+    html, body {
       margin: 0;
+      overflow: hidden;
     }
 
     canvas {
@@ -66,8 +69,8 @@
   </p>-->
 
   <script>
-    var serverAddress = "51.38.83.99:10000";
-    //var serverAddress = "localhost:10000";
+    //var serverAddress = "51.38.83.99:10000";
+    var serverAddress = window.location.hostname + ":10000";
     var ptpxConversion = 1.33; //a factor to translate font sizes into expected line heights
 
     var heightShare = 0.9; //implement a margin below the canvas for a link to the game manual and spotify soundtrack
@@ -79,12 +82,14 @@
     var messageLine = 0.60;
     var queueButtonText = "Click for game queue";
     var queueButtonTop = 0.65;
+    // var rejoinButtonText = "Rejoin a game";
+    // var rejoinButtonTop = 0.72;
     var buttonFontPx = 30;
     var titleText = "Cartolan - Trade Winds";
     var titleFontPx = 30;
     var titleLine = 0.7;
     var titleBottom = 0.75;
-    var blurbText = "It is the age of exploration, an age of sails and trails and treasures from the far side of the world. Race your Adventurers out on expeditions, riding the winds to earn rewards by completing the far edges of the map. Develop trade routes by placing a network of Inns to give Adventurers rest, letting them quickly navigate to exotic lands and collect treasure for your vault back at the Capital. Perhaps you'll also find the Mythical City on the far side of the world and start exploration anew. If you can earn fast enough, then you might even buy an unassailable global monopoly. But remember, there are rivals for your glory, and they may not be above a little piracy!"
+    var blurbText = "As the old powers surrounding your Home City look hungrily at controlling the mysterious Silk Road, innovations in harnessing wind and water offer your Culture a chance to connect this wider world of trade partners first. Start a new age of exploration for fair trade, to leave a different legacy than rapacious colonisation. Race your Adventurers out with silk and lacquer wings, effortlessly riding trade winds or striving against them and packing overland. Earn rewards by expanding your city's shared atlas, whether joining old maps or drawing anew. Establish trade routes by recruiting Innkeepers along your way, giving future Adventurers rest so they can quickly revisit exotic ports and trade for the silks that give your Home City's edge. Perhaps you'll even discover the Mythical City and a second home far away. But always remember, there are rival cultures even within your city, and they may not be above a little piracy! Only the culture that gathers silks fastest can weave a different future."
     var blurbFontPx = 20;
     var blurbTop = 0.75;
     var tableFontPx = 16;
@@ -95,10 +100,13 @@
     var canvas;
     var context;
     var websocket;
+    var gameVis = null;
 
     var backing = new Image();
     backing.onload = function () { backing.loaded = true; console.log("Background image loaded.")}; //make this backing image available to redraw
     var splash = true; //keep track of whether a splash screen is being drawn
+    var lobbyShown = false;
+    var lobbyClickAreas = [];
 
     //Create some utility functions...
     //Function to check for mobiles, to tailor content to smaller displays
@@ -269,45 +277,19 @@
           if (input === "") { input = "BLANK" };
           console.log("input: " + input);
           this.send("TEXT[00100]" + input);
-        } else if (decomposed[0] === 'IMAGE') { //this is a base64 image to render
+        } else if (decomposed[0] === 'LIST') {
+          var _games = JSON.parse(decomposed[1]);
+          console.log("Lobby list received: " + _games.length + " game(s).");
+          if (typeof window.drawLobbyTable === 'function') { window.drawLobbyTable(_games); }
+        } else if (decomposed[0] === 'STATE') { //this is a JSON game state to render
           splash = false; //make sure that splash screen contents stop rendering
-          var img = new Image();
-          console.log("Image received.");
-          //                        download(decomposed[1], "test.png");
-          //                        img.src = "data:image/png;base64, "+btoa(decomposed[1]);
-          
-          img.onload = function () {
-            //If the user has asked not to queue moves then clear the history of clicks
-            if (!context.queueMoves) {
-              myGameArea.clear();
-            }
-            //Render differently on mobile and desktop, to maximise mobile play area by removing the jagged border around the parchment backing image
-            if (detectMob()) {
-              console.log("Displaying play area for mobile");
-              //if (backing.loaded) {
-              //  context.drawImage(backing, backing.width * bgndMargin, backing.height * bgndMargin, 1 - bgndMargin, 1 - bgndMargin, 0, 0, canvas.width, canvas.height,);
-              //  console.log("background drawn to canvas.");
-              //}
-              ////                            context.fillStyle = "red";
-              //                            context.fillRect(0, 0, 100, 100);
-              context.drawImage(img, 0, 0);
-              console.log("Image drawn to canvas. ");
-            } else {
-              console.log("Displaying play area for desktop");
-              if (backing.loaded) {
-                context.drawImage(backing, 0, 0, canvas.width, canvas.height);
-                console.log("background drawn to canvas.");
-              }
-              //                            context.fillStyle = "red";
-              //                            context.fillRect(0, 0, 100, 100);
-              context.drawImage(img, backing.insideLeft, backing.insideTop, backing.insideWidth, backing.insideHeight);
-              console.log("Image drawn to canvas. ");
-            };
-          };
-          //                        img.src = "data:image/png;base64, "+btoa(decomposed[1]);
-          imageString = decomposed[1].toString().substring(1).replace(/'/g, "");
-          //                        console.log(imageString);
-          img.src = "data:image/png;base64, " + imageString;
+          console.log("State received.");
+          const state = JSON.parse(decomposed[1]);
+          if (gameVis === null) {
+            gameVis = new GameVisualisation(canvas, context);
+            gameVis.sendFn = send;
+          }
+          gameVis.applyState(state);
         } else {
           console.log("Received message couldn't be processed.");
         };
@@ -347,13 +329,16 @@
       myGameArea.start();
       
       //Introduce a function that can be called internally or externally to draw a table of queued games in preparetion
+      var newButton = [0,0,0,0]
       function updateQueue(queueTable) {
         var x = Math.floor(canvas.width / 2);
         var y = 0;
         tableWidth = Math.floor(canvas.width / 3);
         rowHeight = 16;
         colSpacing = 5;
-        drawTable(context, queueTable, x, y, tableWidth, rowHeight, colSpacing)
+        //Clear other content first
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        drawTable(context, queueTable, x, y, tableWidth, rowHeight, colSpacing);
         //Print a message prompting interaction with the table(s)
         context.font = messageFontPx.toString() + "px Calibri";
         lineHeight = messageFontPx * ptpxConversion;
@@ -397,74 +382,236 @@
       if (!detectMob()) {
         document.fonts.load(messageFontPx.toString() + 'px Calibri').then(drawSplash);
       }
-      //Prompt user to click before connecting to game server and launching popups
+      //Prompt user to click before connecting to the lobby
       var x = canvas.width / 2;
       var y = canvas.height * messageLine;
       context.font = messageFontPx.toString() + "px Calibri";
-      text = "Click anywhere to Create/Join the next game";
+      context.fillStyle = "white";
+      context.textAlign = "center";
+      text = "Click anywhere to open the game lobby";
       lineHeight = messageFontPx * ptpxConversion;
       wrapText(context, text, x, y, maxwidth, lineHeight);
-      y = canvas.height * queueButtonTop;
-      var cornerRadius = 2;
-      context.font = buttonFontPx.toString() + "px Calibri";
-      var buttonSize = context.measureText(queueButtonText)
-      var buttonWidth = buttonSize.width;
-      var buttonHeight = buttonSize.actualBoundingBoxAscent + buttonSize.actualBoundingBoxDescent;
-      context.strokeStyle = "white";
-      //Draw a rectangular button to bring up the game queue
-      //roundRect(context, x - Math.round(buttonWidth / 2), y - buttonSize.actualBoundingBoxAscent - cornerRadius, buttonWidth, buttonHeight, cornerRadius).stroke();
-      //context.fillText(buttonText, x, y);
-      var listButton = [x - Math.round(buttonWidth / 2), y - buttonSize.actualBoundingBoxAscent - cornerRadius, x + buttonWidth, y + buttonHeight];
-      //Wait for player input
+      // // Draw the rejoin button (direct shortcut for returning players)
+      // y = canvas.height * rejoinButtonTop;
+      // context.font = buttonFontPx.toString() + "px Calibri";
+      // var rejoinMetrics = context.measureText(rejoinButtonText);
+      // var rejoinBtnPad = 8;
+      // var rejoinBtnX = x - Math.round(rejoinMetrics.width / 2) - rejoinBtnPad;
+      // var rejoinBtnY = y - rejoinMetrics.actualBoundingBoxAscent - rejoinBtnPad;
+      // var rejoinBtnW = rejoinMetrics.width + rejoinBtnPad * 2;
+      // var rejoinBtnH = rejoinMetrics.actualBoundingBoxAscent + rejoinMetrics.actualBoundingBoxDescent + rejoinBtnPad * 2;
+      // context.strokeStyle = "white";
+      // roundRect(context, rejoinBtnX, rejoinBtnY, rejoinBtnW, rejoinBtnH, 4).stroke();
+      // context.fillStyle = "white";
+      // context.fillText(rejoinButtonText, x, y);
+      // Transform rejoin button from canvas pixels to myGameArea coordinate space
+      // var _gaScale = 1 - 2 * bgndMargin;
+      // var rejoinButton = [
+      //   (rejoinBtnX               - backing.insideLeft) / _gaScale,
+      //   (rejoinBtnY               - backing.insideTop)  / _gaScale,
+      //   (rejoinBtnX + rejoinBtnW  - backing.insideLeft) / _gaScale,
+      //   (rejoinBtnY + rejoinBtnH  - backing.insideTop)  / _gaScale,
+      // ];
+
+      function drawLobbyTable(gamesList) {
+        lobbyShown = true;
+        lobbyClickAreas = [];
+        var W = canvas.width, H = canvas.height;
+        var pad = 12;
+        var tLeft  = Math.round(W * 0.04);
+        var tRight = Math.round(W * 0.96);
+        var tWidth = tRight - tLeft;
+        var rowH   = Math.max(38, Math.round(H * 0.07));
+        var _gs    = 1 - 2 * bgndMargin;
+        // Background overlay
+        context.fillStyle = "rgba(0,0,20,0.93)";
+        context.fillRect(0, 0, W, H);
+        // Title
+        context.fillStyle = "white";
+        context.textAlign = "center";
+        context.font = "bold " + (tableFontPx + 10).toString() + "px Calibri";
+        var lobbyTitleY = Math.round(H * 0.10);
+        context.fillText("Game Lobby", W / 2, lobbyTitleY);
+        context.font = (tableFontPx - 2).toString() + "px Calibri";
+        context.fillStyle = "rgba(255,255,255,0.65)";
+        context.fillText("Click a game to join, or start a new one below", W / 2, lobbyTitleY + Math.round(rowH * 0.65));
+        // Column x positions (canvas pixels)
+        var colType    = tLeft;
+        var colStatus  = tLeft + Math.round(tWidth * 0.18);
+        var colPlayers = tLeft + Math.round(tWidth * 0.38);
+        // Header row
+        var headerY = Math.round(H * 0.22);
+        context.fillStyle = "rgba(255,255,255,0.18)";
+        context.fillRect(tLeft, headerY - Math.round(rowH * 0.75), tWidth, rowH);
+        context.fillStyle = "white";
+        context.textAlign = "left";
+        context.font = "bold " + tableFontPx.toString() + "px Calibri";
+        context.fillText("Type",    colType    + pad, headerY);
+        context.fillText("Status",  colStatus  + pad, headerY);
+        context.fillText("Players", colPlayers + pad, headerY);
+        // Game rows
+        var rowY = headerY + rowH + 4;
+        gamesList.forEach(function(game, idx) {
+          var rowTop = rowY - Math.round(rowH * 0.75);
+          context.fillStyle = idx % 2 === 0 ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.11)";
+          context.fillRect(tLeft, rowTop, tWidth, rowH);
+          context.textAlign = "left";
+          context.font = tableFontPx.toString() + "px Calibri";
+          context.fillStyle = game.status === "waiting" ? "#aaffaa" : "#aaaaff";
+          context.fillText(game.game_type, colType + pad, rowY);
+          context.fillText(game.status === "waiting" ? "Waiting" : "In Progress", colStatus + pad, rowY);
+          var maxPW = tRight - colPlayers - pad * 2;
+          var playerText = game.slots.map(function(s) {
+            if (s.type === "human") return s.name;
+            if (s.type === "bot")   return "[" + s.name + "]";
+            return "[open]";
+          }).join(", ");
+          context.fillStyle = "white";
+          while (context.measureText(playerText).width > maxPW && playerText.length > 3) {
+            playerText = playerText.slice(0, -4) + "...";
+          }
+          context.fillText(playerText, colPlayers + pad, rowY);
+          lobbyClickAreas.push({
+            x1: (tLeft  - backing.insideLeft) / _gs,
+            y1: (rowTop - backing.insideTop)  / _gs,
+            x2: (tRight - backing.insideLeft) / _gs,
+            y2: (rowTop + rowH - backing.insideTop) / _gs,
+            game: game
+          });
+          rowY += rowH + 2;
+        });
+        // "New Game" button
+        context.font = "bold " + (tableFontPx + 2).toString() + "px Calibri";
+        var btnText = "Start New Game";
+        var btnMeasure = context.measureText(btnText);
+        var btnPad = 14;
+        var btnW = btnMeasure.width + btnPad * 4;
+        var btnH = rowH;
+        var btnX = Math.round((W - btnW) / 2);
+        var btnY = rowY + 10;
+        context.fillStyle = "rgba(80,180,80,0.25)";
+        context.fillRect(btnX, btnY, btnW, btnH);
+        context.strokeStyle = "#88ff88";
+        context.lineWidth = 1.5;
+        context.strokeRect(btnX, btnY, btnW, btnH);
+        context.fillStyle = "#88ff88";
+        context.textAlign = "center";
+        context.fillText(btnText, W / 2, btnY + Math.round(btnH * 0.68));
+        lobbyClickAreas.push({
+          x1: (btnX        - backing.insideLeft) / _gs,
+          y1: (btnY        - backing.insideTop)  / _gs,
+          x2: (btnX + btnW - backing.insideLeft) / _gs,
+          y2: (btnY + btnH - backing.insideTop)  / _gs,
+          game: null
+        });
+        // Footer hint
+        context.fillStyle = "rgba(255,255,255,0.4)";
+        context.font = (tableFontPx - 4).toString() + "px Calibri";
+        context.fillText("Click outside the table to refresh  •  Bots shown as [name]", W / 2, btnY + btnH + 26);
+      }
+      window.drawLobbyTable = drawLobbyTable; // expose to onMessage in openWS
+
       function waiting() {
-        //Wait for an initial click by the player before communicating with the server
+        if (!splash) { return; } // game has started; stop polling for lobby/splash clicks
         if (myGameArea.clicked) {
-          console.log("Click detected. Proceeding with prompts...");
           myGameArea.clicked = false;
-          //Check whether the click was within the button for seeing the game lists and render these
-          if (!detectMob() && myGameArea.x >= listButton[0] && myGameArea.x <= listButton[2]
-            && myGameArea.y >= listButton[1] && myGameArea.y <= listButton[3]) {
-            //Clear a space for the table, in place of the media
-            this.context.clearRect(0, 0, this.canvas.width, canvas.height *(messageLine + titleLine)/2);
-            //Once connected, draw the initial table
-            waitForConnection(updateTable, 10);
-            //Regularly check for any clicks and check whether these corresponded to rows in the table
-            this.table_interval = setInterval(updateTable, 5000);
-          } else if (!detectMob() && myGameArea.y < canvas.height * mediaBottom) {
-            //Play or pause the video if the clicks are within the video height
+          // ── Lobby is visible: dispatch on click areas ──────────────────────────
+          if (lobbyShown) {
+            var handled = false;
+            for (var i = 0; i < lobbyClickAreas.length; i++) {
+              var area = lobbyClickAreas[i];
+              if (myGameArea.x >= area.x1 && myGameArea.x <= area.x2
+                  && myGameArea.y >= area.y1 && myGameArea.y <= area.y2) {
+                handled = true;
+                if (area.game === null) {
+                  // New Game
+                  lobbyShown = false;
+                  context.clearRect(0, 0, canvas.width, canvas.height);
+                  context.fillStyle = "white";
+                  context.textAlign = "center";
+                  context.font = messageFontPx.toString() + "px Arial";
+                  wrapText(context, "Configuring new game...", canvas.width / 2, canvas.height * messageLine, Math.round(canvas.width * heightShare), messageFontPx * ptpxConversion);
+                  send("START[00100]" + myGameArea.canvas.width + "[55555]" + myGameArea.canvas.height);
+                } else if (area.game.status === "waiting") {
+                  // Join a specific queued game
+                  lobbyShown = false;
+                  context.clearRect(0, 0, canvas.width, canvas.height);
+                  context.fillStyle = "white";
+                  context.textAlign = "center";
+                  context.font = messageFontPx.toString() + "px Arial";
+                  wrapText(context, "Joining game...", canvas.width / 2, canvas.height * messageLine, Math.round(canvas.width * heightShare), messageFontPx * ptpxConversion);
+                  var _gid = area.game.game_id;
+                  send("JOIN[00100]" + myGameArea.canvas.width + "[55555]" + myGameArea.canvas.height + "[55555]" + _gid);
+                } else {
+                  // Active game with bots — ask which player to rejoin as
+                  var bots = area.game.slots.filter(function(s) { return s.type === "bot"; });
+                  var hint = bots.length > 0 ? "\n(bot slots: " + bots.map(function(b) { return b.name; }).join(", ") + ")" : "";
+                  var rn = prompt("Enter the name you were playing as:" + hint);
+                  if (rn) {
+                    lobbyShown = false;
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    context.fillStyle = "white";
+                    context.textAlign = "center";
+                    context.font = messageFontPx.toString() + "px Arial";
+                    wrapText(context, "Rejoining as " + rn + "...", canvas.width / 2, canvas.height * messageLine, Math.round(canvas.width * heightShare), messageFontPx * ptpxConversion);
+                    var _rn2 = rn;
+                    send("REJOIN[00100]" + myGameArea.canvas.width + "[55555]" + myGameArea.canvas.height + "[55555]" + _rn2);
+                  }
+                }
+                break;
+              }
+            }
+            if (!handled) {
+              // Click outside any row — refresh the lobby
+              send("LOBBY[00100]" + myGameArea.canvas.width + "[55555]" + myGameArea.canvas.height);
+            }
+            setTimeout(waiting, 300);
+            return;
+          }
+          // // ── Splash: rejoin button ──────────────────────────────────────────────
+          // if (!detectMob() && myGameArea.x >= rejoinButton[0] && myGameArea.x <= rejoinButton[2]
+          //     && myGameArea.y >= rejoinButton[1] && myGameArea.y <= rejoinButton[3]) {
+          //   var rejoinName = prompt("Enter the name you were playing as:");
+          //   if (rejoinName) {
+          //     if (!myGameArea.connected) openWS();
+          //     context.clearRect(0, 0, canvas.width, canvas.height);
+          //     context.fillStyle = "white";
+          //     context.textAlign = "center";
+          //     context.font = messageFontPx.toString() + "px Arial";
+          //     wrapText(context, "Rejoining as " + rejoinName + "...", canvas.width / 2, canvas.height * messageLine, Math.round(canvas.width * heightShare), messageFontPx * ptpxConversion);
+          //     var _rn = rejoinName;
+          //     waitForConnection(function () {
+          //       send("REJOIN[00100]" + myGameArea.canvas.width + "[55555]" + myGameArea.canvas.height + "[55555]" + _rn);
+          //     }, 100);
+          //   }
+          //   setTimeout(waiting, 300);
+          //   return;
+          // }
+          // ── Splash: video area ─────────────────────────────────────────────────
+          if (!detectMob() && myGameArea.y < canvas.height * mediaBottom) {
             playPauseClick();
             waiting();
-          } else {
-            //set up the websocket connection to the game server
+            return;
+          }
+          // ── Default: connect and open lobby ───────────────────────────────────
+          if (!myGameArea.connected) {
             openWS();
-            //Clear a space for the message, in place of the old message
-            if (!detectMob()) {
-              this.context.clearRect(0, video.height, this.canvas.width, canvas.height * (messageLine + titleLine) / 2);
-            } else {
-              this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-            }
-            //Print a message informing the user that something is happening
-            var x = canvas.width / 2;
-            var y = canvas.height * messageLine;
-            context.font = messageFontPx.toString() + "px Arial";
-            //                    context.fillText(text, x, y);
-            text = "Configuring game and waiting for everyone to join...";
-            wrapText(context, text, x, y, maxwidth, lineHeight);
-            //Start music playing
             var audio = document.getElementById("shanty");
             audio.volume = musicVolume;
             audio.play();
-            //Regularly check for any recorded clicks and report them to the server as input to the game
-            this.interval = setInterval(updateGameArea, 20);
-            console.log("Requesting to join a game from the server.");
-            //pass the play area dimensions to the server and join the queue for the next available game
-            waitForConnection(function () { send("START[00100]" + myGameArea.canvas.width + "[55555]" + myGameArea.canvas.height); }, 100)
-            //Reset the click coordinates
-            myGameArea.x = false;
-            myGameArea.y = false;
           }
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          context.fillStyle = "white";
+          context.textAlign = "center";
+          context.font = messageFontPx.toString() + "px Arial";
+          wrapText(context, "Loading lobby...", canvas.width / 2, canvas.height * messageLine, Math.round(canvas.width * heightShare), messageFontPx * ptpxConversion);
+          waitForConnection(function () {
+            send("LOBBY[00100]" + myGameArea.canvas.width + "[55555]" + myGameArea.canvas.height);
+          }, 100);
+          myGameArea.x = false;
+          myGameArea.y = false;
+          setTimeout(waiting, 300);
         } else {
-          //                        console.log("No click detected. Waiting further for input...");
           setTimeout(waiting, 300);
         }
       }
@@ -518,19 +665,6 @@
       }
     }
 
-    function updateTable() {
-      console.log("Requesting the table of current games");
-      //@TODO check whether there has been a click inside one of the table rows
-      if (startGame.tableCorners[0] < myGameArea.x && myGameArea.x < startGame.tableCorners[2]
-        && startGame.tableCorners[1] < myGameArea.y && myGameArea.y < startGame.tableCorners[3]) {
-
-        clearInterval(table_interval); //Stop further requests for table refreshes
-        //@TODO relay the game joining request to the server
-      } else {
-        //Request a refresh of the game table from the server
-        send("LOBBY[00100]BLANK");
-      }
-    }
 
     // Solution taken from blindman67: https://stackoverflow.com/questions/4429440/html5-display-video-inside-canvas
     // This code is from the example document on stackoverflow documentation. See HTML for link to the example.
@@ -647,11 +781,13 @@
           <script src="https://www.google-analytics.com/analytics.js" async></script>-->
 
   <p style="text-align: center;font-size: larger">
+    <a href="javascript:window.location.reload()">Return to lobby</a>
+    &nbsp;&nbsp;&nbsp;&nbsp;
     <a href="https://docs.google.com/document/d/1LuAe_V7xUiPdksBD5XowbvPdK9tO_SFwECsiqNrPXLY/edit?usp=sharing" target="_blank">Game rules</a>
     &nbsp;&nbsp;&nbsp;&nbsp;
     <a href="https://open.spotify.com/playlist/4HAbxzg1trnO2bn2aaSdMj" target="_blank">Music (spotify)</a>
     &nbsp;&nbsp;&nbsp;&nbsp;
-    <a href="mailto:delwddrylliwr@gmail.com" target="_blank">Feedback</a>
+    <a href="mailto:cartolan.tw@gmail.com" target="_blank">Feedback</a>
     &nbsp;&nbsp;&nbsp;&nbsp;
     <audio controls autoplay id="shanty">
       <source src="./audio/cartolan_shanty.mp3" type="audio/mpeg">

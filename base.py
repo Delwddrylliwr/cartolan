@@ -83,10 +83,11 @@ class Game:
         #swap its attributes for the deep copy's - so that restoring in the 
         #middle of an Adventurer's move doesn't break references around it
         for player in adventurers:
+            backup_adventurers = self.adventurers.get(player, [])
             for adventurer in adventurers[player]:
                 adventurer_num = adventurers[player].index(adventurer)
-                if len(self.adventurers[player]) > adventurer_num:
-                    restored_copy = self.adventurers[player][adventurer_num]
+                if len(backup_adventurers) > adventurer_num:
+                    restored_copy = backup_adventurers[adventurer_num]
     #                print("Restoring attributes of "+str(adventurer)+" from backup "+str(restored_copy)+"but keeping the reference.")
                     adventurer.__dict__.update(restored_copy.__dict__)
     #                #Because the adventurers came from the deep-copied game they will have references to the "copy" that has been abandoned
@@ -99,7 +100,7 @@ class Game:
                 else:
                     #If this adventurer wasn't in the backup, then discard it
                     adventurers[player].pop(adventurer)
-            for agent in self.agents[player]:
+            for agent in self.agents.get(player, []):
                 #Because the agents came from the deep-copied game they will have references to the "copy" that has been abandoned
                 agent.game = self        
 #        print("Replacing the new replica of the game's Adventurer's list, "+str(self.adventurers)+", with the original full of original Adventurer references, "+str(adventurers))
@@ -166,6 +167,9 @@ class Player:
         '''placeholder for responding to the state of the game'''
         pass
 
+    def to_json(self):
+        return {"name": self.name}
+
 class Token:
     '''A template for actual tokens used in play.
     
@@ -208,7 +212,10 @@ class Card:
         if isinstance(other, Card):
             return not self.card_id == other.card_id
         else: return True
-        
+
+    def to_json(self):
+        return {"card_type": self.card_type, "card_id": self.card_id}
+
 #    def __deepcopy__(self, memo):
 #        '''Excludes creation of new version from deep copying, copying only the reference
 #        '''
@@ -260,6 +267,16 @@ class Adventurer(Token):
         '''placeholder for attacking other tokens in Regular and Advanced modes'''
         pass
 
+    def to_json(self):
+        return {
+            "player_name": self.player.name,
+            "longitude": self.current_tile.tile_position.longitude if self.current_tile else None,
+            "latitude": self.current_tile.tile_position.latitude if self.current_tile else None,
+            "wealth": self.wealth,
+            "route": [[t.tile_position.longitude, t.tile_position.latitude] for t in self.route],
+            "turn_route": [[t.tile_position.longitude, t.tile_position.latitude] for t in self.turn_route],
+        }
+
 class Agent(Token):
     '''A template for actual Agent tokens used in different game modes.
     
@@ -280,6 +297,15 @@ class Agent(Token):
     def manage_trade(self, adventurer):
         '''placeholder for agents involved in trade on a tile'''
         pass
+
+    def to_json(self):
+        return {
+            "player_name": self.player.name,
+            "longitude": self.current_tile.tile_position.longitude if self.current_tile else None,
+            "latitude": self.current_tile.tile_position.latitude if self.current_tile else None,
+            "wealth": self.wealth,
+            "is_dispossessed": None,
+        }
 
 
 class TilePosition: 
@@ -345,7 +371,25 @@ class Tile:
         if isinstance(other, Tile):
             return not self.tile_id == other.tile_id
         else: return True
-        
+
+    def to_json(self):
+        e = self.tile_edges
+        uc = 't' if e.upwind_clock_water else 'f'
+        ua = 't' if e.upwind_anti_water else 'f'
+        dc = 't' if e.downwind_clock_water else 'f'
+        da = 't' if e.downwind_anti_water else 'f'
+        wonder = 't' if self.is_wonder else 'f'
+        return {
+            "tile_id": self.tile_id,
+            "tile_name": uc + ua + dc + da + wonder,
+            "wind_north": self.wind_direction.north,
+            "wind_east": self.wind_direction.east,
+            "longitude": self.tile_position.longitude,
+            "latitude": self.tile_position.latitude,
+            "dropped_wealth": self.dropped_wealth,
+            "tile_back": self.tile_back,
+        }
+
 #    def __deepcopy__(self, memo):
 #        '''Excludes creation of new version from deep copying, copying only the reference
 #        '''
@@ -574,6 +618,13 @@ class TilePile:
         '''Randomises the order of tiles in the pile'''
         random.shuffle(self.tiles)
 
+    def to_json(self):
+        return {
+            "tile_back": self.tile_back,
+            "tile_count": len(self.tiles),
+            "tiles": [t.to_json() for t in self.tiles],
+        }
+
 class CityTile(Tile):
     '''A template for Tiles representing cities in the game Cartolan
     
@@ -617,3 +668,8 @@ class CityTile(Tile):
     def buy_agents(self, adventurer):
         '''placeholder for letting players buy another Agent using wealth from their Vault'''
         return None
+
+    def to_json(self):
+        d = super().to_json()
+        d["tile_name"] = "capital" if self.is_capital else "mythical"
+        return d
