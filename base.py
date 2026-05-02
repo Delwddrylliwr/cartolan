@@ -213,7 +213,7 @@ class Card:
         else: return True
 
     def to_json(self):
-        return {"card_type": self.card_type}
+        return {"card_type": self.card_type, "card_id": self.card_id}
 
 #    def __deepcopy__(self, memo):
 #        '''Excludes creation of new version from deep copying, copying only the reference

@@ -102,6 +102,7 @@ class ClientSocket(WebSocket):
     '''
     INPUT_DELAY = 0.1  # delay time between checking for input, in seconds
     TIMEOUT_DELAY = 5  # delay time between heartbeats, after which loop will stop keeping the socket alive
+    ABANDON_TIMEOUT = 300  # seconds to wait for reconnection before closing an empty game
 
     width = DEFAULT_WIDTH
     height = DEFAULT_HEIGHT
@@ -494,6 +495,17 @@ class ClientSocket(WebSocket):
         self.game.turn = 0
         self.game.game_over = False
         while not self.game.game_over:
+            # Pause while all clients are absent; close if ABANDON_TIMEOUT elapses
+            while game_id in games and games[game_id].get("all_disconnected_at") is not None:
+                elapsed = time.time() - games[game_id]["all_disconnected_at"]
+                if elapsed >= self.ABANDON_TIMEOUT:
+                    print("Game " + str(game_id) + ": no players for "
+                          + str(self.ABANDON_TIMEOUT) + "s, closing.")
+                    games.pop(game_id, None)
+                    return False
+                time.sleep(1)
+            if game_id not in games:
+                return False
             self.game.turn += 1
             self.game.game_over = self.game.play_round()
 
@@ -761,6 +773,8 @@ class ClientSocket(WebSocket):
                 if vis and vis in game_data.get("visuals", []):
                     game_data["visuals"].remove(vis)
                 game_data["clients"].remove(self)
+                if not game_data["clients"]:
+                    game_data["all_disconnected_at"] = time.time()
                 break
 
         client_players.pop(self, None)
@@ -808,8 +822,9 @@ class ClientSocket(WebSocket):
         players[(game_id, player_name)] = player
         self.swap_player(game_id, bot_player, player)
 
-        # Register this client with the game
+        # Register this client with the game and clear any abandonment timer
         games[game_id]["clients"].append(self)
+        games[game_id].pop("all_disconnected_at", None)
         client_players[self] = [player]
 
         # Create a new visualisation for the rejoining client and add it to the shared peer list

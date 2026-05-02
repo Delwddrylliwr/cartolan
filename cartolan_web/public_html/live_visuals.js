@@ -130,24 +130,26 @@ class GameVisualisation {
     // Clickable areas registered during render for click dispatch
     this._clickableAreas = [];
 
-    // Card type currently shown in full-screen preview (null = none)
+    // Card type and id currently shown in full-screen preview (null = none)
     this._previewedCardType = null;
+    this._previewedCardId   = null;
 
     // Route display mode: 'focus' (current/viewed player only), 'all', or 'none'
     this._routesMode = 'all';
 
     // Image caches
-    this._tileSourceImages = {};  // tile_id → HTMLImageElement
+    this._tileSourceImages = {};  // filename → HTMLImageElement
+    this._tileFilenames = {};  // tile_id → deterministically chosen filename
     this._highlightImages  = {};  // highlight_type → HTMLImageElement
     this._meterImages      = {};  // meter_name → HTMLImageElement
-    this._cardImages       = {};  // card_type → HTMLImageElement
+    this._cardImages       = {};  // filename → HTMLImageElement
     this._offerImages      = {};  // src url → HTMLImageElement (for offer overlay)
 
     // tile_name → [filename, ...] populated by _fetchTileManifest()
     this._tileVariants = {};
     // card_type → [filename, ...] populated by _fetchCardManifest()
     this._cardVariants = {};
-    // card_type → chosen filename (cached so the image stays stable across re-renders)
+    // card_type → chosen filename (fallback when server card_images mapping is absent)
     this._cardFilenames = {};
 
     // Optional send callback — set by caller after construction (e.g. gameVis.sendFn = send)
@@ -278,6 +280,7 @@ class GameVisualisation {
       .then(manifest => {
         this._tileVariants = manifest;
         this._tileSourceImages = {};
+        this._tileFilenames = {};
         if (this.state) this._render();
       })
       .catch(() => {});
@@ -294,8 +297,11 @@ class GameVisualisation {
       .catch(() => {});
   }
 
-  // Returns a stable filename for a card type, picking randomly from the manifest on first use.
-  _cardFilename(cardType) {
+  // Returns the filename for a specific card instance, using the server-assigned mapping when
+  // available and falling back to a random per-type selection from the manifest otherwise.
+  _cardFilename(cardId, cardType) {
+    const serverMap = this.state && this.state.card_images;
+    if (serverMap && serverMap[cardId]) return serverMap[cardId];
     if (!this._cardFilenames[cardType]) {
       const variants = this._cardVariants[cardType];
       this._cardFilenames[cardType] = variants && variants.length
@@ -305,33 +311,49 @@ class GameVisualisation {
     return this._cardFilenames[cardType];
   }
 
-  // Returns a cached HTMLImageElement for a tile object, picking a random variant on
-  // first use. Keyed by tile_id so each tile object (placed or unplaced) gets its own
-  // stable image across all re-renders.
+  // Returns a deterministic filename for a tile instance based on a hash of its tile_id.
+  // The same tile_id always maps to the same variant on every client, requiring no server coordination.
+  _tileFilename(tile) {
+    const id = tile.tile_id;
+    if (this._tileFilenames[id]) return this._tileFilenames[id];
+    const variants = this._tileVariants[tile.tile_name];
+    let filename;
+    if (!variants || !variants.length) {
+      filename = tile.tile_name + '.jpg';
+    } else if (!id) {
+      filename = variants[0];
+    } else {
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) {
+        hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+      }
+      filename = variants[hash % variants.length];
+    }
+    this._tileFilenames[id] = filename;
+    return filename;
+  }
+
+  // Returns a cached HTMLImageElement for a tile object, keyed by filename.
   _tileSourceImage(tile) {
-    const key = tile.tile_id;
-    if (!this._tileSourceImages[key]) {
-      const variants = this._tileVariants[tile.tile_name];
-      const filename = variants && variants.length
-        ? variants[Math.floor(Math.random() * variants.length)]
-        : tile.tile_name + '.jpg';
+    const filename = this._tileFilename(tile);
+    if (!this._tileSourceImages[filename]) {
       const img = new Image();
       img.src = GameVisualisation.TILE_PATH + filename;
       img.onload = () => this._render();
-      this._tileSourceImages[key] = img;
+      this._tileSourceImages[filename] = img;
     }
-    return this._tileSourceImages[key];
+    return this._tileSourceImages[filename];
   }
 
-  // Returns a cached HTMLImageElement for a card_type, loading on first use.
-  _cardSourceImage(cardType) {
-    if (!this._cardImages[cardType]) {
+  // Returns a cached HTMLImageElement for a filename, loading on first use.
+  _cardImage(filename) {
+    if (!this._cardImages[filename]) {
       const img = new Image();
-      img.src = GameVisualisation.CARDS_PATH + cardType + '.png';
+      img.src = GameVisualisation.CARDS_PATH + filename;
       img.onload = () => this._render();
-      this._cardImages[cardType] = img;
+      this._cardImages[filename] = img;
     }
-    return this._cardImages[cardType];
+    return this._cardImages[filename];
   }
 
   // ── Draw helpers ──────────────────────────────────────────────────────────
@@ -363,7 +385,7 @@ class GameVisualisation {
   _drawCardAt(card, x, y, w, h) {
     const ctx = this.context;
     const GV  = GameVisualisation;
-    const img = this._cardSourceImage(card.card_type);
+    const img = this._cardImage(this._cardFilename(card.card_id, card.card_type));
     if (img.complete && img.naturalWidth > 0) {
       ctx.drawImage(img, x, y, w, h);
     } else {
@@ -386,6 +408,7 @@ class GameVisualisation {
     // Any canvas click dismisses the card preview
     if (this._previewedCardType !== null) {
       this._previewedCardType = null;
+      this._previewedCardId   = null;
       this._render();
       return;
     }
@@ -738,13 +761,13 @@ class GameVisualisation {
     const cards = [];
     const cadreCard = (s.assigned_cadres || {})[s.viewed_player_name];
     if (cadreCard) {
-      cards.push({ cardType: cadreCard.card_type, action: 'CARDSEL', data: 'cadre' });
+      cards.push({ cardType: cadreCard.card_type, cardId: cadreCard.card_id, action: 'CARDSEL', data: 'cadre' });
     }
     (viewedAdv.discovery_cards || []).forEach((card, idx) => {
-      cards.push({ cardType: card.card_type, action: 'CARDSEL', data: String(idx) });
+      cards.push({ cardType: card.card_type, cardId: card.card_id, action: 'CARDSEL', data: String(idx) });
     });
     if (viewedAdv.character_card) {
-      cards.push({ cardType: viewedAdv.character_card.card_type, action: 'CHARSEL', data: '' });
+      cards.push({ cardType: viewedAdv.character_card.card_type, cardId: viewedAdv.character_card.card_id, action: 'CHARSEL', data: '' });
     }
 
     if (cards.length === 0) { el.innerHTML = ''; return; }
@@ -756,9 +779,9 @@ class GameVisualisation {
     cards.forEach((card, i) => {
       const title    = esc(GV.CARD_TITLES[card.cardType] || '');
       const body     = esc(GV.CARD_TEXTS[card.cardType]  || card.cardType);
-      const filename = this._cardFilename(card.cardType);
+      const filename = this._cardFilename(card.cardId, card.cardType);
       html += `<div style="position:absolute;top:${i * headerH}px;left:0;width:${innerW}px;height:${cardH}px;overflow:hidden;cursor:pointer;z-index:${i + 1}"
-                   data-action="${esc(card.action)}" data-data="${esc(card.data)}" data-card-type="${esc(card.cardType)}">
+                   data-action="${esc(card.action)}" data-data="${esc(card.data)}" data-card-type="${esc(card.cardType)}" data-card-id="${esc(card.cardId)}">
         <img src="${GV.CARDS_PATH}${esc(filename)}"
              data-title="${title}" data-body="${body}"
              style="width:100%;height:${cardH}px;object-fit:contain;display:block">
@@ -786,7 +809,10 @@ class GameVisualisation {
     el.querySelectorAll('[data-card-type]').forEach(div => {
       div.addEventListener('pointerdown', () => {
         const cardType = div.dataset.cardType;
-        this._previewedCardType = (this._previewedCardType === cardType) ? null : cardType;
+        const cardId   = div.dataset.cardId;
+        const toggling = this._previewedCardId === cardId;
+        this._previewedCardType = toggling ? null : cardType;
+        this._previewedCardId   = toggling ? null : cardId;
         this._render();
       });
     });
@@ -800,6 +826,7 @@ class GameVisualisation {
     // Offers take priority — clear preview if they appear
     if ((s.offered_cards && s.offered_cards.length) || (s.offered_tiles && s.offered_tiles.length)) {
       this._previewedCardType = null;
+      this._previewedCardId   = null;
       return;
     }
     const W        = this.canvas.width;
@@ -813,7 +840,7 @@ class GameVisualisation {
     const x        = Math.round((W - itemW) / 2);
     const y        = Math.max(margin + 2 * fontSize, Math.round((H - itemH) / 2));
     const cardType = this._previewedCardType;
-    const filename = this._cardFilename(cardType);
+    const filename = this._cardFilename(this._previewedCardId, cardType);
     const src      = GV.CARDS_PATH + filename;
 
     ctx.fillStyle = 'rgba(0,0,0,0.65)';
@@ -904,7 +931,7 @@ class GameVisualisation {
 
       if (isCards) {
         const cardType = item.card_type;
-        const filename = this._cardFilename(cardType);
+        const filename = this._cardFilename(item.card_id, cardType);
         const src      = GV.CARDS_PATH + filename;
         if (!this._offerImages[src]) {
           const img = new Image();

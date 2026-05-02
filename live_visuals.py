@@ -1648,6 +1648,47 @@ class WebServerVisualisation(GameVisualisation):
         self.action_rects = []
         self.offered_cards = None  # set by draw_card_offers, included in serialised state
         self.offered_tiles = None  # set by draw_tile_offers, included in serialised state
+        # Image mappings are stored on self.game so all client viz instances share one assignment.
+        if not hasattr(self.game, '_viz_card_images'):
+            self.game._viz_card_images = {}
+            self.game._viz_card_type_cursors = {}
+            self.game._viz_card_variants = self._load_card_manifest()
+
+    # ── Card image mapping ────────────────────────────────────────────────────
+
+    def _load_card_manifest(self):
+        manifest_path = os.path.join(os.path.dirname(__file__),
+                                     'cartolan_web', 'public_html', 'img', 'cards', 'card_manifest.json')
+        try:
+            with open(manifest_path) as f:
+                return json.load(f)
+        except Exception:
+            return {}
+
+    def _assign_card_image(self, card):
+        images = self.game._viz_card_images
+        if card.card_id in images:
+            return
+        variants = self.game._viz_card_variants.get(card.card_type, [])
+        if not variants:
+            images[card.card_id] = card.card_type + '.png'
+            return
+        cursors = self.game._viz_card_type_cursors
+        cursor = cursors.get(card.card_type, 0)
+        images[card.card_id] = variants[cursor % len(variants)]
+        cursors[card.card_type] = cursor + 1
+
+    def _assign_all_card_images(self):
+        if hasattr(self.game, 'assigned_cadres'):
+            for card in self.game.assigned_cadres.values():
+                if card is not None:
+                    self._assign_card_image(card)
+        for advs in self.game.adventurers.values():
+            for adv in advs:
+                if hasattr(adv, 'character_card') and adv.character_card is not None:
+                    self._assign_card_image(adv.character_card)
+                for card in getattr(adv, 'discovery_cards', []):
+                    self._assign_card_image(card)
 
     # ── pygame-free overrides ─────────────────────────────────────────────────
 
@@ -1694,6 +1735,8 @@ class WebServerVisualisation(GameVisualisation):
     def draw_undo_button(self): pass
     def draw_cards(self): pass
     def draw_card_offers(self, cards):
+        for card in cards:
+            self._assign_card_image(card)
         self.offered_cards = [c.to_json() for c in cards]
     def draw_tile_offers(self, tiles):
         self.offered_tiles = [t.to_json() for t in tiles]
@@ -1704,6 +1747,7 @@ class WebServerVisualisation(GameVisualisation):
 
     def serialize_state(self):
         '''Assembles the complete game and UI state as a JSON-serialisable dict.'''
+        self._assign_all_card_images()
         state = self.game.to_json()
         state["player_colours"] = {p.name: c for p, c in self.player_colours.items()}
         current_adv = self.current_adventurer
@@ -1719,6 +1763,7 @@ class WebServerVisualisation(GameVisualisation):
         state["prompt"] = self.prompt_text
         state["offered_cards"] = self.offered_cards or []
         state["offered_tiles"] = self.offered_tiles or []
+        state["card_images"] = self.game._viz_card_images
         state["auto_actions"] = {
             player.name: dict(player.auto_actions)
             for player in self.client_players

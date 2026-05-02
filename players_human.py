@@ -353,6 +353,8 @@ class PlayerHuman(Player):
         game_vis.get_input_coords(adventurer)
         game_vis.clear_prompt()
         
+        if self not in game.adventurers:
+            return  # swapped out while awaiting turn acknowledgement
         if isinstance(game, GameAdvanced):
             if game.assigned_cadres.get(self) is None:
                 game.choose_cadre(self)
