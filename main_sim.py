@@ -9,6 +9,7 @@ import random
 from game import GameBeginner, GameRegular, GameAdvanced
 from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
 from players_heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
+from players_ann import PlayerFeedFwd
 from base import Tile, WindDirection, TileEdges
 from static_visuals import PlayAreaVisualisation, PlayStatsVisualisation
 
@@ -28,7 +29,7 @@ GAME_MODES = { 'Beginner':{'game_type':GameBeginner, 'player_set':{"blue":Player
                                                                         , "red":PlayerRegularTrader
                                                                         , "yellow":PlayerRegularRouter
                                                                       , "orange":PlayerRegularPirate}}
-                  }    
+                  }
 MOVEMENT_RULES = ['initial', 'budgetted']
 EXPLORATION_RULES = ['clockwise', 'continuous']
 NUM_PLAYERS_OPTIONS = [2, 3, 4]
@@ -36,20 +37,20 @@ NUM_PLAYERS_OPTIONS = [2, 3, 4]
 #First some global functions to set up the game area
 def setup_tiles(players, game_mode, movement_rules, exploration_rules, mythical_city):
     '''Part of game setup for Cartolan, this places the intital tiles ready for play
-    
+
     Arguments:
     List of Cartolan.Player for the Players involved in the game
     Cartolan.Game for the game that these tiles are being laid for
     String giving the movement rules variant that will apply for this game
     String giving the exploration rules variant that will apply for this game
     '''
-    
+
     game = game_mode(players, movement_rules, exploration_rules)
 #     exec("CityTile" +game_mode+ "(game, True, True).place_tile(0,0)")
     game.CITY_TYPE(game, WindDirection(True,True), TileEdges(True,True,True,True), True, True).place_tile(0,0)
 #     capital_tile = CityTileBeginner(game, True, True)
 #     capital_tile.place_tile(0,0)
-    
+
     #place surrounding water tiles
 #     if len(players) == 2:
     if True:
@@ -67,13 +68,13 @@ def setup_tiles(players, game_mode, movement_rules, exploration_rules, mythical_
         Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(1, 0) #east
         Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, -1) #south
         Tile(game, "water", WindDirection(False,False), TileEdges(True,True,True,True), False).place_tile(-1, 0) #west
-         
+
     print("Placed the Capital tile, and surrounding water tiles")
     return game
 
 def setup_adventurers(players, game_mode, movement_rules, exploration_rules, mythical_city):
     '''Part of game setup for Cartolan, this places the intital Adventurer tokens for each player
-    
+
     Arguments:
     List of Cartolan.Player for the Players involved in the game
     Cartolan.Game for the game that these tiles are being laid for
@@ -81,20 +82,20 @@ def setup_adventurers(players, game_mode, movement_rules, exploration_rules, myt
     String giving the exploration rules variant that will apply for this game
     '''
     game = setup_tiles(players, game_mode, movement_rules, exploration_rules, mythical_city)
-    
+
     for player in players:
 #         exec("Adventurer" +game_mode+ "(game, player, game.cities[0])") #this should probably work, because it doesn't need to create a local
         print("adding an adventurer for " +str(player.colour)+ " player, who already has " +str(len(game.adventurers[player]))+ " adventurers")
 #         AdventurerBeginner(game, player, game.cities[0])
         game.ADVENTURER_TYPE(game, player, game.cities[0])
-    
+
     print("Placed starting adventurer for each player")
-    
+
     return game
 
 def setup_simulation(players, game_mode, movement_rules, exploration_rules, mythical_city = True):
     '''The final part of game setup for Cartolan, this chooses a random play order for the players involved
-    
+
     Arguments:
     List of Cartolan.Player for the Players involved in the game
     Cartolan.Game for the game that these tiles are being laid for
@@ -102,13 +103,13 @@ def setup_simulation(players, game_mode, movement_rules, exploration_rules, myth
     String giving the exploration rules variant that will apply for this game
     '''
     game = setup_adventurers(players, game_mode, movement_rules, exploration_rules, mythical_city)
-    
+
     game.setup_tile_pile("water")
     if game_mode in [GameRegular, GameAdvanced]:
         game.setup_tile_pile("land")
         if mythical_city:
             game.tile_piles["land"].tiles.append(game.CITY_TYPE(game, WindDirection(True,True), TileEdges(False,False,False,False), False, True))
-        
+
     #turn order has been handled by the parent setup
 #     game.players = random.shuffle(game.players)
     print("Randomly chose " +str(players[0].colour)+ " player to start")
@@ -118,7 +119,7 @@ def setup_simulation(players, game_mode, movement_rules, exploration_rules, myth
 #Now the various classes for differnt player combinations
 class Simulations():
     """Run simulations of the game Cartolan."""
-    
+
     def __init__(self):
         self.game_mode = GAME_MODE
         self.movement_rule = MOVEMENT_RULE
@@ -130,22 +131,22 @@ class Simulations():
 
     def click_run_sims(self, event):
         self.run_sims()
-        
+
     def select_mode(self, label):
         self.game_mode = label
-        
+
     def select_movement(self, label):
         self.movement_rule = label
-    
+
     def select_exploration(self, label):
         self.exploration_rule = label
-    
+
     def set_num_players(self, label):
         self.num_players = int(label)
-    
+
     def set_num_sims(self, value):
         self.num_games = int(value)
-    
+
     def setup_players(self):
         players = []
 #             num_players = random.choice(num_players_options)
@@ -155,7 +156,7 @@ class Simulations():
             players.append(self.game_modes[self.game_mode]["player_set"][player_colour](player_colour))
         return players
 
-        
+
     def run_sims(self):
         '''Method to run through a series of simulations, triggered by a UI button press'''
         #determine logging
@@ -177,11 +178,11 @@ class Simulations():
                                                 , "num_adventurers_p1", "num_adventurers_p2"
                                                 , "num_adventurers_p3", "num_adventurers_p4"
                                                 , "num_agents_p1", "num_agents_p2", "num_agents_p3", "num_agents_p4"
-                                                , "avg_route_p1", "avg_route_p2", "avg_route_p3", "avg_route_p4" 
+                                                , "avg_route_p1", "avg_route_p2", "avg_route_p3", "avg_route_p4"
                                                 , "play_area", "players"])
         play_areas = {}
         player_sets = {}
-        
+
         #retain the leftover tile distributions
         remaining_tile_edges = []
 
@@ -223,7 +224,7 @@ class Simulations():
                     return name[name.find("Regular")+len("Regular"):]
                 else:
                     return name[name.find("Player")+len("Player"):]
-            
+
             if game.wealth_difference > 0 and self.num_players ==2:
                 self.sim_stats = self.sim_stats.append( {"simulation_id":sim_id, "num_players":self.num_players
                                     , "win_type":game.win_type, "turns":game.turn
@@ -238,7 +239,7 @@ class Simulations():
                                     , "winning_player_agents":len(game.agents[game.winning_player])
                                     , "winning_player_adventurers":len(game.adventurers[game.winning_player])
                                     , "exploration_attempts":game.exploration_attempts
-                                    , "failed_explorations":game.num_failed_explorations 
+                                    , "failed_explorations":game.num_failed_explorations
                                     , "wealth_p1":game.players[0].vault_wealth
                                     , "wealth_p2":game.players[1].vault_wealth
                                     , "num_adventurers_p1":len(game.adventurers[players[0]])
@@ -262,7 +263,7 @@ class Simulations():
                                     , "winning_player_agents":len(game.agents[game.winning_player])
                                     , "winning_player_adventurers":len(game.adventurers[game.winning_player])
                                     , "exploration_attempts":game.exploration_attempts
-                                    , "failed_explorations":game.num_failed_explorations 
+                                    , "failed_explorations":game.num_failed_explorations
                                     , "wealth_p1":game.players[0].vault_wealth
                                     , "wealth_p2":game.players[1].vault_wealth
                                     , "wealth_p3":game.players[2].vault_wealth
@@ -290,7 +291,7 @@ class Simulations():
                                     , "winning_player_agents":len(game.agents[game.winning_player])
                                     , "winning_player_adventurers":len(game.adventurers[game.winning_player])
                                     , "exploration_attempts":game.exploration_attempts
-                                    , "failed_explorations":game.num_failed_explorations 
+                                    , "failed_explorations":game.num_failed_explorations
                                     , "wealth_p1":game.players[0].vault_wealth, "wealth_p2":game.players[1].vault_wealth
                                     , "wealth_p3":game.players[2].vault_wealth, "wealth_p4":game.players[3].vault_wealth
                                     , "num_adventurers_p1":len(game.adventurers[game.players[0]])
@@ -308,7 +309,7 @@ class Simulations():
                                               }, ignore_index=True)
             play_areas[sim_id] = game.play_area
             player_sets[sim_id] = game.players
-            
+
             for tile_pile in game.tile_piles.values():
                 for tile in tile_pile.tiles:
                     tile_edges = tile.tile_edges
@@ -348,7 +349,7 @@ class Simulations():
 #         play_stats_visualisation.discards_comparison()
         play_stats_visualisation.remaining_tiles_distribution(remaining_tile_edges)
         play_stats_visualisation.fig.tight_layout(pad=2.0)
-        
+
 
         def prep_visuals(sim_id_to_vis, title):
             play_area_to_vis = play_areas[sim_id_to_vis]
@@ -366,7 +367,7 @@ class Simulations():
             v_dimension = max_latitude - min_latitude
             v_origin = abs(min_latitude)
             dimensions = [h_dimension + 1, v_dimension + 1]
-            origin = [h_origin, v_origin] 
+            origin = [h_origin, v_origin]
             #render the play area and routes
             game_vis = PlayAreaVisualisation(dimensions, origin, title)
 #             game_vis_med_wealth_difference.draw_play_area(play_area_to_vis, play_area_to_vis)
@@ -376,115 +377,116 @@ class Simulations():
             game_vis.draw_routes(player_sets[sim_id_to_vis])
             print("Determined that the dimensions for the "+title+" are "+ str(h_dimension)+", "+str(v_dimension))
             print("Determined that the origin positions for the "+title+" are "+ str(h_origin)+", "+str(v_origin))
-            
-        
+
+
         # Let's look at the final layout and paths of the game with the median wealth difference, if one exists:
         if self.sim_stats["wealth_difference_final"].median() in self.sim_stats["wealth_difference_final"].values:
-            sim_id_med_wealth_difference = self.sim_stats[self.sim_stats["wealth_difference_final"] 
+            sim_id_med_wealth_difference = self.sim_stats[self.sim_stats["wealth_difference_final"]
                                                   == self.sim_stats["wealth_difference_final"].median()]["simulation_id"].values[0]
             prep_visuals(sim_id_med_wealth_difference, "How the median wealth difference game progressed")
-        
+
         # Let's also look at the games with maximum and minimum wealth differences
-        sim_id_max_wealth_difference = self.sim_stats[self.sim_stats["wealth_difference_final"] 
+        sim_id_max_wealth_difference = self.sim_stats[self.sim_stats["wealth_difference_final"]
                                                   == self.sim_stats["wealth_difference_final"].max()]["simulation_id"].values[0]
         prep_visuals(sim_id_max_wealth_difference, "How the maximum wealth difference game progressed")
-        
-        sim_id_min_wealth_difference = self.sim_stats[self.sim_stats["wealth_difference_final"] 
+
+        sim_id_min_wealth_difference = self.sim_stats[self.sim_stats["wealth_difference_final"]
                                                   == self.sim_stats["wealth_difference_final"].min()]["simulation_id"].values[0]
         prep_visuals(sim_id_min_wealth_difference, "How the minimum wealth difference game progressed")
-        
+
         pyplot.show()
 
-         
-# class AISimulations(Simulations):
-#     AI_PLAYER_COLOURS = ["green", "brown", "pink", "purple"]
-    
-#     def __init__(self):
-#         super().__init__()
-#         self.num_feed_fwd = 1
-#         self.num_players = 4
-        
-#         self.train = True
-        
-#         #Instantiate the AI players, who will be reused between individual games
-#         #Add the specified number of AI players
-#         self.feed_fwd_players = []
-#         for AI_index in range(self.num_feed_fwd):
-#             AI_player = PlayerFeedFwd(self.AI_PLAYER_COLOURS[AI_index], train=self.train)
-#             AI_player.build_network(self.game_modes[self.game_mode]["game_type"])
-#             self.feed_fwd_players.append(AI_player)
-    
-#     def setup_players(self):
-#         import random
-#         players = []
-#         #Add the specified number of AI players
-#         for AI_index in range(self.num_feed_fwd):
-#             player = self.feed_fwd_players[AI_index]
-#             players.append(player)
-#             #Reset the player in all respects except the AI parameters
-#             player.vault_wealth = 0
-#             player.adventurers = []
-#             player.agents = []
-#             player.locations_to_avoid = []
-#             player.attack_history = []
-#             player.player_to_mimic = random.choice(list(self.game_modes[self.game_mode]["player_set"].values()))  #each game a different class of heuristical player will be mimicked
-        
-#         #Fill the rest with random heuristical players
-#         player_colours = random.sample(list(self.game_modes[self.game_mode]["player_set"]),self.num_players - len(players))
-#         for player_colour in player_colours:
-#             #player_colour = random.choice(player_set)
-#             players.append(self.game_modes[self.game_mode]["player_set"][player_colour](player_colour))
-#         return players
-        
-        
+
+class AISimulations(Simulations):
+    '''Runs training simulations in which a PlayerFeedFwd agent plays against heuristical
+    opponents, learning via DQN experience replay across many games.
+
+    Model weights and replay memory persist across games; only game-specific tracking
+    state is reset between games. Use the parent Simulations.run_sims() with a trained
+    model to collect detailed play statistics and visualisations.
+    '''
+    AI_PLAYER_COLOURS = ["green", "brown", "pink", "purple"]
+
+    def __init__(self):
+        super().__init__()
+        self.num_feed_fwd = 1  # number of AI players in each game; must be < num_players
+
+        # Instantiate AI players once — model weights and replay memory span all games
+        self.feed_fwd_players = []
+        for ai_idx in range(self.num_feed_fwd):
+            ai_player = PlayerFeedFwd(self.AI_PLAYER_COLOURS[ai_idx])
+            ai_player.active_training = True
+            ai_player.build_network(self.game_modes[self.game_mode]["game_type"])
+            self.feed_fwd_players.append(ai_player)
+
+    def setup_players(self):
+        '''Returns a fresh player list for one game, resetting per-game AI state.
+
+        Model weights and replay memory are intentionally preserved so the agent
+        continues learning across games.
+        '''
+        players = []
+        for ai_player in self.feed_fwd_players:
+            # Reset game-specific tracking; model weights and memory persist
+            ai_player.vault_wealth = 0
+            ai_player.attack_history = []
+            ai_player.best_vault_wealth = 0
+            ai_player.best_vault_turn = 0
+            ai_player.best_chest_wealths = {}
+            ai_player.best_chest_turns = {}
+            ai_player.whimsy_probability = 1  # restart from full exploration each game
+            players.append(ai_player)
+
+        # Fill remaining seats with a random selection of heuristical opponents
+        opponent_colours = random.sample(
+            list(self.game_modes[self.game_mode]["player_set"]),
+            self.num_players - len(players),
+        )
+        for colour in opponent_colours:
+            players.append(self.game_modes[self.game_mode]["player_set"][colour](colour))
+        return players
+
+    def run_sims(self):
+        '''Runs training games and calls replay_training() after every game.
+
+        In-game training (triggered inside continue_turn on positive reward) is
+        supplemented by a full end-of-game replay pass so the model also learns
+        from loss experiences and from low-reward stretches that never triggered
+        mid-game training.
+        '''
+        sys.stdout = open("./logs/cartolan_ann_log.txt", "w")
+
+        for sim_id in range(self.num_games):
+            print("\n--- ANN training game " + str(sim_id + 1) + "/" + str(self.num_games) + " ---")
+
+            players = self.setup_players()
+            game = setup_simulation(
+                players,
+                self.game_modes[self.game_mode]["game_type"],
+                self.movement_rule,
+                self.exploration_rule,
+                self.mythical_city,
+            )
+            game.start_game()
+
+            # End-of-game training pass: replays the full memory buffer regardless
+            # of whether any in-game positive reward triggered training during play.
+            for ai_player in self.feed_fwd_players:
+                result = "WIN" if game.winning_player == ai_player else "LOSS/DRAW"
+                print("  " + ai_player.name + ": " + result
+                      + ", vault wealth: " + str(ai_player.vault_wealth)
+                      + ", memory: " + str(len(ai_player.memory)) + " experiences")
+                if len(ai_player.memory) > 0:
+                    ai_player.replay_training()
+                    ai_player.model.save_weights(ai_player.SAVED_MODEL_PATH)
+
+        sys.stdout = sys.__stdout__
+        print("Training complete: "
+              + str(self.num_games) + " games, "
+              + str(self.num_feed_fwd) + " AI player(s)")
+
 
 # class InteractiveAISimulation(InteractiveSimulation):
-#     AI_PLAYER_COLOURS = ["green", "brown", "pink", "purple"]
-    
-#     def __init__(self):
-#         super().__init__()
-#         self.num_players = 4
-#         self.num_human_players = 0
-#         self.num_feed_fwd = 1
-        
-#         self.train = True
-        
-#         #Instantiate the AI players, who will be reused between individual games
-#         #Add the specified number of AI players
-#         self.feed_fwd_players = []
-#         for AI_index in range(self.num_feed_fwd):
-#             AI_player = PlayerFeedFwd(self.AI_PLAYER_COLOURS[AI_index], train=self.train)
-#             AI_player.build_network(self.game_modes[self.game_mode]["game_type"])
-#             self.feed_fwd_players.append(AI_player)
-        
-#     def setup_players(self):
-#         import random
-        
-#         #add AI computer players
-#         #Add the specified number of AI players
-#         for AI_index in range(self.num_feed_fwd):
-#             player = self.feed_fwd_players[AI_index]
-#             self.players.append(player)
-#             #Reset the player in all respects except the AI parameters
-#             player.vault_wealth = 0
-#             player.adventurers = []
-#             player.agents = []
-#             player.locations_to_avoid = []
-#             player.attack_history = []
-#             player.player_to_mimic = random.choice(list(self.GAME_MODES[self.game_mode]["player_set"].values())) #each game a different class of heuristical player will be mimicked
-        
-#         #Add human and heuristical computer players
-#         super().setup_players()
-        
-#     #@TODO at end of game, make sure an extra reward is registered and record the network weights to file
-#     def play_game(self):
-#         pass
-    
-#     def run(display_option, speed, params):
-#         pygame.init()
-#         agent = DQNAgent(params)
-        
-
-#         record = 0
-#         while counter_games < params['episodes']:
-            
+#     @TODO wire up once the pygame-based InteractiveSimulation frontend is in place.
+#     Follows the same pattern as AISimulations: build_network once in __init__,
+#     reset per-game state in setup_players, call replay_training() at end of each game.

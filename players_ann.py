@@ -2,512 +2,610 @@
 Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
-from keras.optimizers import Adam
 import keras
+from keras import layers
+from keras.optimizers import Adam
 import random
-import numpy
-import pandas
-from operator import add
+import numpy as np
 import collections
 
-#The artificial neural network state will need to be hard stored, rather than retraining each time the notebook is run
+from base import Player
+
 
 class PlayerFeedFwd(Player):
     def __init__(self, colour):
         super().__init__(colour)
-        
-        #Now for the AI-specific constant parameters
+
         self.VAULT_INCREASE_REWARD = 1
         self.CHEST_INCREASE_REWARD = 5
-        self.GAME_WIN_REWARD = 100 #Significantly higher than the proxy rewards, because it's unclear they will lead to sensible long term winning strategies, although they might be positive milestone objectives
-        self.FUTURE_REWARD_DISCOUNT = 0.9 #Exponential discount factor for future rewards, as used in the decomposition of the game into single time period decisions, giving rise to the recursive Bellman equation that the Neural Net approximates
+        self.GAME_WIN_REWARD = 100
+        self.FUTURE_REWARD_DISCOUNT = 0.9
         self.OPTIMISER_LEARNING_RATE = 0.0005
-        self.WHIMSY_REDUCTION_PER_TURN = 0.1 #The rate at which random behaviour declines each turn, hyperbolically
-        self.MIMICRY_REDUCTION_PER_TURN = 0.05 #The rate at which mimicing behaviour declines each turn, hyperbolically
+        self.WHIMSY_REDUCTION_PER_TURN = 0.1
+        self.MIMICRY_REDUCTION_PER_TURN = 0.05
         self.FIRST_LAYER_SIZE = 120
         self.SECOND_LAYER_SIZE = 120
         self.SAVED_MODEL_PATH = "/ann_models/"
         self.LOAD_OLD_MODEL = True
         self.MEMORY_SIZE = 2500
         self.REPLAY_BATCH_SIZE = 32
-        
-        #Various trackers of game history will be needed
-        self.attack_history = [] #An attack history is needed to play Regular mode games
+
+        self.attack_history = []
         self.best_vault_wealth = 0
         self.best_vault_turn = 0
-        self.best_chest_wealths = [0] * game.MAX_ADVENTURERS
-        self.best_chest_turns = [0] * game.MAX_ADVENTURERS
-        
-        #Other variables will be needed for the realisation of Q-learning
-        self.short_memory = numpy.array([])
-        self.whimsy_probability = 1 #The probability of performing a random action rather than that suggested by the ANN response function
-        self.mimicry_probability = 1 #The probability of performaing an action as if a heuristical player rather than based on the ANN model
+        # Keyed by adventurer to avoid needing MAX_ADVENTURERS at init time
+        self.best_chest_wealths = {}
+        self.best_chest_turns = {}
+
+        self.short_memory = np.array([])
+        self.whimsy_probability = 1
+        self.mimicry_probability = 1
         self.player_to_mimic = None
         self.actual = []
-        self.memory = collections.deque(self.MEMORY_SIZE)
+        self.memory = collections.deque(maxlen=self.MEMORY_SIZE)
         self.predicted_continuation_values = None
-        
-        #We'll translate network outputs into various decisions:
-        self.move_map = {0:"self.move(n)", 1:"self.move(e)", 2:"self.move(s)", 3:"self.move(w)", 4:"self.wait()"}
-        
-        #@TODO it would make sense to keep track of game parameters themselves as part of the identity of the AI's long term memory, as otherwise state vectors will make no sense to it
+        self.model = None
+
+        # Direction keys passed to adventurer.move(); index aligns with move_network output
+        self.move_map = {0: 'n', 1: 'e', 2: 's', 3: 'w', 4: 'wait'}
+
+        # Local observation window hyperparameters
+        # Window is (2*WINDOW_RADIUS+1)^2 tiles centered on each adventurer
+        self.WINDOW_RADIUS = 3  # 7x7 grid
+        # Feature slots per tile in the window (see get_local_window for layout):
+        #   10 base tile features + 4 agent features + 2 adventurer-count features
+        self.WINDOW_TILE_BASE_FEATURES = 10
+        self.WINDOW_TILE_AGENT_FEATURES = 4
+        self.WINDOW_TILE_ADVENTURER_FEATURES = 2
+        self.FEATURES_PER_WINDOW_TILE = (
+            self.WINDOW_TILE_BASE_FEATURES
+            + self.WINDOW_TILE_AGENT_FEATURES
+            + self.WINDOW_TILE_ADVENTURER_FEATURES
+        )  # = 16
+
+        # CNN filter counts for the shared spatial encoder applied to each window
+        self.CNN_FILTERS_1 = 32
+        self.CNN_FILTERS_2 = 64
+
+    def _player_relative_index(self, player, game, own_player):
+        '''Returns the turn-order-relative index of a player as seen by own_player.
+
+        0 = own_player, 1 = next player in turn order, 2 = player after that, etc.
+        Used to give the ANN a consistent "self vs others" framing regardless of seat position.
+        '''
+        own_idx = game.players.index(own_player)
+        p_idx = game.players.index(player)
+        return (p_idx - own_idx) % len(game.players)
+
+    def get_local_window(self, adventurer):
+        '''Builds a fixed-size feature vector for the play area around one adventurer.
+
+        The window is (2*WINDOW_RADIUS+1)^2 tiles centered on the adventurer's current
+        position. Tiles outside the discovered play area are encoded as all-zeros (unexplored).
+
+        Each tile cell occupies FEATURES_PER_WINDOW_TILE consecutive floats:
+          offset  0: explored (1.0) / unexplored (0.0)
+          offset  1: upwind-clockwise edge is water
+          offset  2: upwind-anticlockwise edge is water
+          offset  3: downwind-clockwise edge is water
+          offset  4: downwind-anticlockwise edge is water
+          offset  5: wind points north
+          offset  6: wind points east
+          offset  7: tile is a wonder
+          offset  8: tile back is land (vs water)
+          offset  9: city type  (0.0=none, 0.5=mythical city, 1.0=capital)
+          offset 10: an agent is present
+          offset 11: agent owner relative index (0=own, 1=next opponent, …)
+          offset 12: agent wealth
+          offset 13: agent is dispossessed
+          offset 14: count of own adventurers on this tile
+          offset 15: count of opponent adventurers on this tile
+
+        Arguments
+        adventurer is a Cartolan.Adventurer whose current_tile provides the window centre.
+        '''
+        game = adventurer.game
+        own_player = adventurer.player
+        center_lon = adventurer.current_tile.tile_position.longitude
+        center_lat = adventurer.current_tile.tile_position.latitude
+
+        window_side = 2 * self.WINDOW_RADIUS + 1
+        window = np.zeros(window_side * window_side * self.FEATURES_PER_WINDOW_TILE)
+
+        cell_idx = 0
+        for dx in range(-self.WINDOW_RADIUS, self.WINDOW_RADIUS + 1):
+            for dy in range(-self.WINDOW_RADIUS, self.WINDOW_RADIUS + 1):
+                tile = game.play_area.get(center_lon + dx, {}).get(center_lat + dy)
+                offset = cell_idx * self.FEATURES_PER_WINDOW_TILE
+                if tile is not None:
+                    e = tile.tile_edges
+                    window[offset + 0] = 1.0  # explored
+                    window[offset + 1] = float(e.upwind_clock_water)
+                    window[offset + 2] = float(e.upwind_anti_water)
+                    window[offset + 3] = float(e.downwind_clock_water)
+                    window[offset + 4] = float(e.downwind_anti_water)
+                    window[offset + 5] = float(tile.wind_direction.north)
+                    window[offset + 6] = float(tile.wind_direction.east)
+                    window[offset + 7] = float(tile.is_wonder)
+                    window[offset + 8] = float(tile.tile_back == 'land')
+                    # City type: 1.0=capital, 0.5=mythical city, 0.0=not a city
+                    if hasattr(tile, 'is_capital'):
+                        window[offset + 9] = 1.0 if tile.is_capital else 0.5
+
+                    # Agent on this tile (at most one per tile)
+                    agent = tile.agent
+                    if agent is not None:
+                        window[offset + 10] = 1.0
+                        window[offset + 11] = float(
+                            self._player_relative_index(agent.player, game, own_player))
+                        window[offset + 12] = float(agent.wealth)
+                        window[offset + 13] = float(getattr(agent, 'is_dispossessed', False))
+
+                    # Adventurer counts on this tile, split own vs opponent
+                    window[offset + 14] = float(
+                        sum(1 for a in tile.adventurers if a.player == own_player))
+                    window[offset + 15] = float(
+                        sum(1 for a in tile.adventurers if a.player != own_player))
+
+                cell_idx += 1
+
+        return window
 
     def build_network(self, game_type):
-        '''Specifies the topology of the networks behind various decision models for the player.
-        
+        '''Specifies the topology of the network behind various decision models for the player.
+
         Arguments
-        game is a Cartolan.Game from which game parameters can be read.
+        game_type is a Cartolan.Game subclass from which game parameters can be read.
         '''
-        #We'll use the same base layers for all decisions, to interpret the game situation, and then a different final layer for each
-        state_input = keras.Input(shape=( # dimensions are, with oponents in order of play after self: 
-                                          1 #, AI player's wealth, might need 32 bit int if game lasts a long time, although probably much less
-                                          , 3 #, moves since resting (3xInt) only need 3 bits for 0-4
-                                          , 4 #, current tile edges (4xBool)
-                                          , 2 #, current tile wind direction (2xBool)
-                                          , 6 #, preceding three tile positions (6xInt)
-                                          , 1 #, Adventurer index (1xInt) only need 2 bits for 1-3
-                                          , game_type.MAX_ADVENTURERS #, own wealth scores (3xInt) might need 32 bit int if game lasts a long time, although probably much less
-                                          , 2*game_type.MAX_ADVENTURERS #, own adventurer positions (6xInt) only need 8 bits for -180-180
-                                          , 5*game_type.MAX_AGENTS #, own agent wealth (5xInt)
-                                          , 10*game_type.MAX_AGENTS #, own agent positions (10xInt)
-                                          , 3 #, opponent Vault wealth
-                                          , 3*game_type.MAX_ADVENTURERS #, opponent adventurer wealth scores (12xInt)
-                                          , 9*game_type.MAX_ADVENTURERS #, opponent Adventurer pirate tokens (9xBool)
-                                          , 3*2*game_type.MAX_ADVENTURERS #, opponent Adventurer positions (18xInt)
-                                          , 3*game_type.MAX_AGENTS #, oponent agent wealth (15xInt)
-                                          , 3*game_type.MAX_AGENTS #, opponent agents dispossessed status (15xBool)
-                                          , 3*2*game_type.MAX_AGENTS #, opponent agent positions (30xInt)
-                                         ) 
-                                   , dtype = (int32, int8, bool, bool, int8, int8, int32, int8, int32, int8, int32, int32, bool, int8, int32, bool, int8) # data types as listed above
-                                  ) 
-        base_network = layers.Dense(output_dim=self.FIRST_LAYER_SIZE, activation='relu')(state_input)
+        window_side = 2 * self.WINDOW_RADIUS + 1
+        window_features_per_adventurer = window_side ** 2 * self.FEATURES_PER_WINDOW_TILE
+        window_features_total = window_features_per_adventurer * game_type.MAX_ADVENTURERS
+        global_state_size = (
+            1                                   # vault wealth
+            + 3                                 # moves since resting
+            + 4                                 # current tile edges
+            + 2                                 # current tile wind direction
+            + 6                                 # preceding three tile positions
+            + 1                                 # adventurer index (which adventurer is deciding)
+            + game_type.MAX_ADVENTURERS         # own adventurer wealth
+            + 2 * game_type.MAX_ADVENTURERS     # own adventurer positions
+            + game_type.MAX_AGENTS              # own agent wealth
+            + 2 * game_type.MAX_AGENTS          # own agent positions
+            + 3                                 # opponent vault wealth (up to 3 opponents)
+            + 3 * game_type.MAX_ADVENTURERS     # opponent adventurer wealth
+            + 3 * game_type.MAX_ADVENTURERS     # opponent adventurer pirate tokens
+            + 2 * 3 * game_type.MAX_ADVENTURERS # opponent adventurer positions
+            + 3 * game_type.MAX_AGENTS          # opponent agent wealth
+            + 3 * game_type.MAX_AGENTS          # opponent agent dispossessed status
+            + 2 * 3 * game_type.MAX_AGENTS      # opponent agent positions
+        )
+        total_state_size = window_features_total + global_state_size
+
+        # Single flat input; windows occupy the first window_features_total elements,
+        # global scalars occupy the remainder.
+        state_input = keras.Input(shape=(total_state_size,), name='state')
+
+        # --- Shared CNN spatial encoder ---
+        # The same convolutional filters are applied to every adventurer's window so the
+        # network learns tile-pattern detectors once and reuses them across all adventurers.
+        # Each (7x7x16) window → Conv → Conv → GlobalAveragePooling → 64-d encoding.
+        shared_conv1 = layers.Conv2D(
+            self.CNN_FILTERS_1, kernel_size=3, padding='same', activation='relu',
+            name='shared_conv1')
+        shared_conv2 = layers.Conv2D(
+            self.CNN_FILTERS_2, kernel_size=3, padding='same', activation='relu',
+            name='shared_conv2')
+        shared_pool = layers.GlobalAveragePooling2D(name='shared_pool')
+
+        window_encodings = []
+        for i in range(game_type.MAX_ADVENTURERS):
+            start = i * window_features_per_adventurer
+            end = (i + 1) * window_features_per_adventurer
+            # Slice this adventurer's flat window out of the state vector
+            window_flat = state_input[:, start:end]
+            # Reshape to (batch, height, width, channels) for Conv2D
+            window_2d = layers.Reshape(
+                (window_side, window_side, self.FEATURES_PER_WINDOW_TILE),
+                name=f'reshape_window_{i}'
+            )(window_flat)
+            x = shared_conv1(window_2d)
+            x = shared_conv2(x)
+            x = shared_pool(x)  # → (batch, CNN_FILTERS_2)
+            window_encodings.append(x)
+
+        # Slice the global scalar features (everything after the window block)
+        global_features = state_input[:, window_features_total:]
+
+        # Concatenate all window encodings with the global state, then feed dense layers.
+        # Combined size: MAX_ADVENTURERS * CNN_FILTERS_2 + global_state_size
+        combined = layers.Concatenate(name='combined')(window_encodings + [global_features])
+        base_network = layers.Dense(units=self.FIRST_LAYER_SIZE, activation='relu')(combined)
         base_network = layers.Dropout(0.1)(base_network)
-        base_network = layers.Dense(output_dim=self.SECOND_LAYER_SIZE, activation='relu')(base_network)
+        base_network = layers.Dense(units=self.SECOND_LAYER_SIZE, activation='relu')(base_network)
         base_network = layers.Dropout(0.1)(base_network)
         opt = Adam(self.OPTIMISER_LEARNING_RATE)
-    
-        #One output layer for deciding movement between the four cardinal compass directions and waiting in place
-        move_network = layers.Dense(output_dim=5, activation='softmax')(base_network)
-        #One output layer for deciding whether or not to trade at a given Wonder 
-        trade_network = layers.Dense(output_dim=1, activation='sigmoid')(base_network)
-        #One output layer for deciding whether or not to rest at a given Agent
-        rest_network = layers.Dense(output_dim=1, activation='sigmoid')(base_network)
-        #One output layer for deciding whether or not to collect wealth from a given Agent
-        collect_network = layers.Dense(output_dim=1, activation='sigmoid')(base_network)
-        #One output layer for deciding whether or not to place an Agent on a newly discovered tile 
-        place_network = layers.Dense(output_dim=1, activation='sigmoid')(base_network)
-        #One output layer for deciding whether or not to attack a given Adventurer or Agent 
-        attack_network = layers.Dense(output_dim= 3*(game_type.MAX_ADVENTURERS + game_type.MAX_ADVENTURERS), activation='sigmoid')(base_network) #there will be a different attack decision for each opposing Adventurer and Agent to allow for pirate tokens and dispossessions
-        #One output layer for deciding whether or not to restore a dispossessed Agent
-        restore_network = layers.Dense(output_dim=1, activation='sigmoid')(base_network)
-        #One output layer for deciding how much wealth to keep in the adventurers chest when banking the rest at a city - using exponential activation to allow for a subtle decision at low numbers
-        bank_network = layers.Dense(output_dim=1, activation='exponential')(base_network)
-        #One output layer for deciding whether or not to recruit an Adventurer from a city 
-        buy_adventurer_network = layers.Dense(output_dim=1, activation='linear')(base_network) 
-#         #One output layer for deciding whether or not to recruit an Agent from the Capital and the coordinates at which to place them # @TODO look into what activation function might be best for choosing a location in a grid
-#         buy_agent_network = layers.Dense(output_dim=3, dtype=(int8) activation='linear')(base_network)
-#         #One output layer for deciding whether to move an Agent if placing a new one with the maximum number already recruited, and the choice of Agent to move
-#         move_agent_network = layers.Dense(output_dim=game.MAX_AGENTS+1, activation='softmax')(base_network)
-        
-        #Compile the combined model
+
+        move_network = layers.Dense(units=5, activation='softmax')(base_network)
+        trade_network = layers.Dense(units=1, activation='sigmoid')(base_network)
+        rest_network = layers.Dense(units=1, activation='sigmoid')(base_network)
+        collect_network = layers.Dense(units=1, activation='sigmoid')(base_network)
+        place_network = layers.Dense(units=1, activation='sigmoid')(base_network)
+        attack_network = layers.Dense(
+            units=3 * (game_type.MAX_ADVENTURERS + game_type.MAX_AGENTS),
+            activation='sigmoid'
+        )(base_network)
+        restore_network = layers.Dense(units=1, activation='sigmoid')(base_network)
+        bank_network = layers.Dense(units=1, activation='exponential')(base_network)
+        buy_adventurer_network = layers.Dense(units=1, activation='sigmoid')(base_network)
+
         model = keras.Model(
             inputs=[state_input],
-            outputs=[move_network, trade_network, rest_network, collect_network, place_network, attack_network, restore_network, bank_network, buy_adventurer_network
-#                      , buy_agent_network, move_agent_network #with no awareness of the overall play area, there is no point giving the AI this option except to suplant opponents' dispossessed Agents @TODO
-                    ],
+            outputs=[move_network, trade_network, rest_network, collect_network,
+                     place_network, attack_network, restore_network, bank_network,
+                     buy_adventurer_network],
         )
-        
-        #@TODO match models to game parameters
-        #Import saved network parametrisation, rather than starting from scratch.
+        model.compile(optimizer=opt, loss='mse')
+
         if self.LOAD_OLD_MODEL:
-            model.load(self.saved_models_path)
-            print("Previous model loaded")
-    
-    
+            try:
+                model.load_weights(self.SAVED_MODEL_PATH)
+                print("Previous model loaded")
+            except Exception:
+                print("No saved model found, starting fresh")
+
+        self.model = model
+
     def get_state(self, adventurer):
-        '''Compiles information about the current game situation that feeds into the AI's learning
-        
+        '''Compiles information about the current game situation for the ANN.
+
         Arguments
-        adventurer is a Cartolan.Adventurer representing the game token for which the AI is making decisions
+        adventurer is a Cartolan.Adventurer representing the token for which a decision is needed.
         '''
-        
-        #Shorten the reference to some key data
         current_tile = adventurer.current_tile
         own_adventurers = adventurer.player.adventurers
         own_agents = adventurer.player.agents
         players = adventurer.game.players
         game = adventurer.game
-        
-        #Compile a list of own adventurers' wealth
-        state_own_adventurers_wealth = [0] * game.MAX_ADVENTURERS # Start out with a vector of zeroes, even if there isn't an Adventurer to represent: for the AI they will appear to hold no wealth until they exist
-        #Compile a list of own adventurers' positions
-        state_own_adventurers_positions = [0] * (2 * game.MAX_ADVENTURERS) # Start out with a vector of zeroes, even if there isn't an Adventurer to represent: for the AI they will appear to wait at the origin until they exist
+
+        state_own_adventurers_wealth = [0] * game.MAX_ADVENTURERS
+        state_own_adventurers_positions = [0] * (2 * game.MAX_ADVENTURERS)
         for own_adventurer in own_adventurers:
-            # Overwrite zero with Chest wealth once adventurers have been brought into the game
-            state_own_adventurers_wealth[own_adventurers.index(own_adventurer)] = own_adventurer.wealth
-            # Overwrite zeroes with coordinates once adventurers have been brought into the game
-            state_own_adventurers_positions[2 * own_adventurers.index(own_adventurer)] = own_adventurer.current_tile.tile_position.longitude
-            state_own_adventurers_positions[2 * own_adventurers.index(own_adventurer) + 1] = own_adventurer.current_tile.tile_position.latitude
-        
-        #Compile a list of own agents' wealth
-        state_own_agents_wealth = [0] * game.MAX_AGENTS # Start out with a vector of zeroes, even if there isn't an Adventurer to represent: for the AI they will appear to hold no wealth until they exist
-        #Compile a list of own agents' positions
-        state_own_agents_positions = [0] * (2 * game.MAX_AGENTS) # Start out with a vector of zeroes, even if there isn't an Adventurer to represent: for the AI they will appear to wait at the origin until they exist
+            idx = own_adventurers.index(own_adventurer)
+            state_own_adventurers_wealth[idx] = own_adventurer.wealth
+            state_own_adventurers_positions[2 * idx] = own_adventurer.current_tile.tile_position.longitude
+            state_own_adventurers_positions[2 * idx + 1] = own_adventurer.current_tile.tile_position.latitude
+
+        state_own_agents_wealth = [0] * game.MAX_AGENTS
+        state_own_agents_positions = [0] * (2 * game.MAX_AGENTS)
         for own_agent in own_agents:
-            # Overwrite zero with Chest wealth once adventurers have been brought into the game
-            state_own_agents_wealth[own_agents.index(own_agent)] = own_agent.wealth
-            # Overwrite zeroes with coordinates once adventurers have been brought into the game
-            state_own_agents_positions[2 * own_agents.index(own_agents)] = own_agent.current_tile.tile_position.longitude
-            state_own_agents_positions[2 * own_agents.index(own_agents) + 1] = own_agent.current_tile.tile_position.latitude
-        
-        #Compile a list of opponents' Vault wealths, listing opponents in the order they will play after this turn, to ease comparison for the AI (given that turn order doesn't seem to be a strong determinant of game position)
-        # we're assuming that the AI can safely treat games with fewer opponents the same as with wealthless opponents (although behaviour can still respond to adventurer wealth) 
-        state_opp_vault_wealths = [0] * 3 # Start out with a vector of zeroes, even if there isn't a Player to represent: for the AI they will appear to have no wealth: 
-        #Compile a list of opponents' Adventurers' wealths, listing opponents in the order they will play after this turn, to ease comparison for the AI (given that turn order doesn't seem to be a strong determinant of game position)
-        # we're assuming that the AI can safely treat Adventurers at the origin with no wealth as if they haven't been purchased yet, this may lead to some blips in behaviour as opponents get their adventurers to a city and bank
-        state_opp_adventurers_wealths = [0] * (3 * game.MAX_ADVENTURERS) # Start out with a vector of zeroes, even if there isn't an Adventurer to represent: for the AI they will appear to have no wealth in their Chest until they exist: 
-        #Compile a list of opponents' Adventurers' pirate statuses, listing opponents in the order they will play after this turn, to ease comparison for the AI (given that turn order doesn't seem to be a strong determinant of game position)
-        state_opp_adventurers_pirates = [0] * (3 * game.MAX_ADVENTURERS) # Start out with a vector of zeroes, even if there isn't an Adventurer to represent: for the AI they will appear to not be pirates until they exist
-        #Compile a list of opponents' Adventurers' positions, listing opponents in the order they will play after this turn, to ease comparison for the AI (given that turn order doesn't seem to be a strong determinant of game position)
-        state_opp_adventurers_positions = [0] * (2 * 3 * game.MAX_ADVENTURERS) # Start out with a vector of zeroes, even if there isn't an Adventurer to represent: for the AI they will appear to wait at the origin until they exist
-        #Compile a list of opponents' Agents' wealths, listing opponents in the order they will play after this turn, to ease comparison for the AI (given that turn order doesn't seem to be a strong determinant of game position)
-        state_opp_agents_wealths = [0] * (3 * game.MAX_AGENTS) # Start out with a vector of zeroes, even if there isn't an Agent to represent: for the AI they will appear to have no wealth until they exist
-        #Compile a list of opponents' Adventurers' pirate statuses, listing opponents in the order they will play after this turn, to ease comparison for the AI (given that turn order doesn't seem to be a strong determinant of game position)
-        state_opp_agents_dispossessed = [0] * (3 * game.MAX_AGENTS) # Start out with a vector of zeroes, even if there isn't an Agent to represent: for the AI they will appear to not be dispossessed until they exist
-        #Compile a list of opponents' Adventurers' positions, listing opponents in the order they will play after this turn, to ease comparison for the AI (given that turn order doesn't seem to be a strong determinant of game position)
-        state_opp_agents_positions = [0] * (2 * 3 * game.MAX_AGENTS) # Start out with a vector of zeroes, even if there isn't an Agent to represent: for the AI they will appear to wait at the origin until they exist
-        #Keep track of own index, so that other players' psoitions in play order can be judged
+            idx = own_agents.index(own_agent)
+            state_own_agents_wealth[idx] = own_agent.wealth
+            state_own_agents_positions[2 * idx] = own_agent.current_tile.tile_position.longitude
+            state_own_agents_positions[2 * idx + 1] = own_agent.current_tile.tile_position.latitude
+
+        state_opp_vault_wealths = [0] * 3
+        state_opp_adventurers_wealths = [0] * (3 * game.MAX_ADVENTURERS)
+        state_opp_adventurers_pirates = [0] * (3 * game.MAX_ADVENTURERS)
+        state_opp_adventurers_positions = [0] * (2 * 3 * game.MAX_ADVENTURERS)
+        state_opp_agents_wealths = [0] * (3 * game.MAX_AGENTS)
+        state_opp_agents_dispossessed = [0] * (3 * game.MAX_AGENTS)
+        state_opp_agents_positions = [0] * (2 * 3 * game.MAX_AGENTS)
+
         own_index = players.index(self)
         opponent_index = 0
-        if not len(players) == own_index:
-            for later_opponent_index in range(own_index + 1, len(players)):
-                # Overwrite zeroes with wealth scores, starting with opponents later in the play order - that is, playing more immediately after the AI
-                state_opp_vault_wealths[opponent_index] = players[later_opponent_index].vault_wealth
-                # Overwrite zeroes with wealth scores, pirate statuses, and positions, once adventurers have been brought into the game, starting with players later than the AI in play order
-                opp_adventurers = players[later_opponent_index].adventurers
-                for opp_adventurer in opp_adventurers:
-                    opp_adventurer_index = opp_adventurers.index(opp_adventurer)
-                    state_opp_adventurers_wealths[3 * opponent_index + opp_adventurer_index] = opp_adventurer.wealth
-                    state_opp_adventurers_pirates[3 * opponent_index + opp_adventurer_index] = opp_adventurer.pirate_token
-                    state_opp_adventurers_positions[2 * 3 * opponent_index + opp_adventurer_index] = opp_adventurer.current_tile.tile_position.longitude
-                    state_opp_adventurers_positions[2 * 3 * opponent_index + opp_adventurer_index + 1] = opp_adventurer.current_tile.tile_position.latitude
-                # Overwrite zeroes with wealth scores, dispossessed statuses, and positions once Agents have been brought into the game, starting with players later than the AI in play order
-                opp_agents = players[later_opponent_index].agents
-                for opp_agent in opp_agents:
-                    opp_agent_index = opp_agents.index(opp_agent)
-                    state_opp_agents_wealths[3 * opponent_index + opp_agent_index] = opp_agent.wealth
-                    state_opp_agents_dispossessed[3 * opponent_index + opp_agent_index] = opp_agent.is_dispossessed
-                    state_opp_agents_positions[2 * 3 * opponent_index + opp_agent_index] = opp_agent.current_tile.tile_position.longitude
-                    state_opp_agents_positions[2 * 3 * opponent_index + opp_agent_index + 1] = opp_agent.current_tile.tile_position.latitude
-                opponent_index += 1
-        for earlier_opponent_index in range(0, own_index):
-            # Overwrite zeroes with wealth scores, now for opponents earlier in the play order - that is, playing less immediately after the AI
-            # Overwrite zeroes with coordinates once adventurers have been brought into the game, starting with players later than the AI in play order
-            state_opp_vault_wealths[opponent_index] = players[earlier_opponent_index].vault_wealth
-            # Overwrite zeroes with coordinates once adventurers have been brought into the game, now going through players earlier than the AI in play order
-            opp_adventurers = players[earlier_opponent_index].adventurers
+
+        def encode_opponent(player_index):
+            nonlocal opponent_index
+            p = players[player_index]
+            state_opp_vault_wealths[opponent_index] = p.vault_wealth
+            opp_adventurers = game.adventurers.get(p, [])
             for opp_adventurer in opp_adventurers:
-                opp_adventurer_index = opp_adventurers.index(opp_adventurer)
-                state_opp_adventurers_wealths[3 * opponent_index + opp_adventurer_index] = opp_adventurer.wealth
-                state_opp_adventurers_pirates[3 * opponent_index + opp_adventurer_index] = opp_adventurer.pirate_token
-                state_opp_adventurers_positions[2 * 3 * opponent_index + opp_adventurer_index] = opp_adventurer.current_tile.tile_position.longitude
-                state_opp_adventurers_positions[2 * 3 * opponent_index + opp_adventurer_index + 1] = opp_adventurer.current_tile.tile_position.latitude
-            # Overwrite zeroes with wealth scores, dispossessed statuses, and positions once Agents have been brought into the game, now for players earlier than the AI in play order
-            opp_agents = players[later_opponent_index].agents
+                oa_idx = opp_adventurers.index(opp_adventurer)
+                flat = 3 * opponent_index + oa_idx
+                state_opp_adventurers_wealths[flat] = opp_adventurer.wealth
+                state_opp_adventurers_pirates[flat] = int(getattr(opp_adventurer, 'pirate_token', False))
+                state_opp_adventurers_positions[2 * flat] = opp_adventurer.current_tile.tile_position.longitude
+                state_opp_adventurers_positions[2 * flat + 1] = opp_adventurer.current_tile.tile_position.latitude
+            opp_agents = game.agents.get(p, [])
             for opp_agent in opp_agents:
-                opp_agent_index = opp_agents.index(opp_agent)
-                state_opp_agents_wealths[3 * opponent_index + opp_agent_index] = opp_agent.wealth
-                state_opp_agents_dispossessed[3 * opponent_index + opp_agent_index] = opp_agent.is_nt_tile.tile_position.longitude
-                state_opp_agents_positions[2 * 3 * opponent_index + opp_agent_index + 1] = opp_agent.current_tile.tile_position.latitude
-            opponent_index += 1       
-        
-        
-        state = [
-              numpy.asarray([adventurer.player.vault_wealth]) #, AI player's wealth, might need 32 bit int if game lasts a long time, although probably much less
-              , numpy.asarray([adventurer.downwind_moves, adventurer.upwind_moves, adventurer.land_moves]) #, moves since resting (3xInt) only need 3 bits for 0-4
-              , numpy.asarray([current_tile.tile_edges.upwind_clock_water, current_tile.tile_edges.upwind_anti_water, current_tile.tile_edges.downwind_clock_water, current_tile.tile_edges.downwind_anti_water]) #, current tile edges (4xBool)
-              , numpy.asarray([current_tile.wind_direction.north, current_tile.wind_direction.east]) #, current tile wind direction (2xBool)
-              , 6 #, preceding three tile positions (6xInt)
-              , numpy.asarray([own_adventurers.index(adventurer)]) #, Adventurer index (1xInt) only need 2 bits for 1-3
-              , numpy.asarray(state_own_adventurers_wealth) #, own wealth scores (3xInt)
-              , numpy.asarray(state_own_adventurers_positions) #, own adventurer positions (6xInt) treated as at the Capital (0,0) if they don't yet exist
-              , numpy.asarray(state_own_agents_wealth) #, own agent wealth (5xInt) treated as 0 if they don't yet exist
-              , numpy.asarray(state_own_agents_positions) #, own agent positions (10xInt)  treated as at the Capital (0,0) if they don't yet exist
-              , numpy.asarray(state_opp_vault_wealths) #, opponent Vault wealth (3xInt)
-              , numpy.asarray(state_opp_adventurers_wealths) #, opponent Adventurer wealth scores (9xInt)
-              , numpy.asarray(state_opp_adventurers_pirates) #, opponent Adventurer pirate tokens (9xBool)
-              , numpy.asarray(state_opp_adventurers_positions) #, opponent Adventurer positions (18xInt)
-              , numpy.asarray(state_opp_agents_wealths) #, oponent agent wealth (15xInt)
-              , numpy.asarray(state_opp_agents_dispossessed) #, opponent agents dispossessed status (15xBool)
-              , numpy.asarray(state_opp_agents_positions) #, opponent agent positions (30xInt)
-        ]
-        
+                oa_idx = opp_agents.index(opp_agent)
+                flat = 3 * opponent_index + oa_idx
+                state_opp_agents_wealths[flat] = opp_agent.wealth
+                state_opp_agents_dispossessed[flat] = int(getattr(opp_agent, 'is_dispossessed', False))
+                state_opp_agents_positions[2 * flat] = opp_agent.current_tile.tile_position.longitude
+                state_opp_agents_positions[2 * flat + 1] = opp_agent.current_tile.tile_position.latitude
+            opponent_index += 1
+
+        for later_idx in range(own_index + 1, len(players)):
+            encode_opponent(later_idx)
+        for earlier_idx in range(0, own_index):
+            encode_opponent(earlier_idx)
+
+        preceding_positions = [0] * 6  # @TODO encode last three tile positions from adventurer.route
+
+        # Build one local observation window per adventurer slot.
+        # Slots for adventurers not yet in play are zero-padded so the state vector
+        # has a fixed length regardless of how many adventurers have been recruited.
+        all_own_adventurers = game.adventurers.get(adventurer.player, [])
+        window_size = (2 * self.WINDOW_RADIUS + 1) ** 2 * self.FEATURES_PER_WINDOW_TILE
+        windows = []
+        for slot in range(game.MAX_ADVENTURERS):
+            if slot < len(all_own_adventurers):
+                windows.append(self.get_local_window(all_own_adventurers[slot]))
+            else:
+                windows.append(np.zeros(window_size))
+
+        state = np.concatenate([
+            *windows,
+            [adventurer.player.vault_wealth],
+            [adventurer.downwind_moves, adventurer.upwind_moves, adventurer.land_moves],
+            [current_tile.tile_edges.upwind_clock_water, current_tile.tile_edges.upwind_anti_water,
+             current_tile.tile_edges.downwind_clock_water, current_tile.tile_edges.downwind_anti_water],
+            [current_tile.wind_direction.north, current_tile.wind_direction.east],
+            preceding_positions,
+            [own_adventurers.index(adventurer)],
+            state_own_adventurers_wealth,
+            state_own_adventurers_positions,
+            state_own_agents_wealth,
+            state_own_agents_positions,
+            state_opp_vault_wealths,
+            state_opp_adventurers_wealths,
+            state_opp_adventurers_pirates,
+            state_opp_adventurers_positions,
+            state_opp_agents_wealths,
+            state_opp_agents_dispossessed,
+            state_opp_agents_positions,
+        ]).astype(float)
+
         return state
-    
+
     def remember(self, state, action, reward, next_state, done):
-        '''Retains historic game state information for use in replay learning'''
-        action = [self.move, self.trade, self.rest, self.collect, self. ]
+        '''Retains historic game state information for use in replay learning.'''
         self.memory.append((state, action, reward, next_state, done))
 
     def replay_training(self):
-        '''Re-trains the neural network model on past events.
-        
-        Based on a Bellman equation for the game, where the Value of optimal subsequent play is estimated (and implicitly a policy for how to play) via a 
-        numerical approximation in proportion to the reward earned and the current estimate of future rewards earned based on sub-optimal current policy.
+        '''Re-trains the model on a random batch of past experiences (experience replay).
+
+        Based on a Bellman equation where the value of optimal subsequent play is estimated
+        via a numerical approximation using the current model on future states.
         '''
-        import random
-        #Subset the memory if it exceeds the batch size
         if len(self.memory) > self.REPLAY_BATCH_SIZE:
             batch = random.sample(self.memory, self.REPLAY_BATCH_SIZE)
         else:
-            batch = self.memory
+            batch = list(self.memory)
         for state, action, reward, next_state, done in batch:
             updated_Q_value = reward
             if not done:
-                updated_Q_value += self.FUTURE_REWARD_DISCOUNT * np.amax(self.model(next_state)) # future value of playing out the game after the immediate decision is estimated by the current model on the future state as recorded
-            updated_Q_values = self.model(state) # estimated future values of playing out the game under each possible action choice
-            # @TODO extend the below to deal with a list of outputs for each of the different output sets
-            updated_Q_values[0][np.argmax(action)] = updated_Q_value # replace the future value for the action that was taken with what the current model would now estimate
-            self.model.fit(np.array([state]), updated_Q_values, epochs=1, verbose=0)
+                # Use the move head (output 0) to estimate value of optimal continuation
+                next_preds = self.model(np.array([next_state]))
+                updated_Q_value += self.FUTURE_REWARD_DISCOUNT * np.amax(next_preds[0])
+            current_preds = self.model(np.array([state]))
+            # Build target output list, updating only the move head for the action taken
+            # @TODO extend to update all decision heads independently
+            targets = [np.array(p) for p in current_preds]
+            targets[0][0][action] = updated_Q_value
+            self.model.fit(np.array([state]), targets, epochs=1, verbose=0)
 
-#     def train_short_memory(self, state, action, reward, next_state, done):
-#         '''Updates neural network weight parameters during play to more optimally represent a policy for maximising rewards.
-        
-#         Based on a Bellman equation for the game, where the Value of optimal susequent play is estimated via a numerical 
-#         approximation in proportion to the reward earned and the current estimate of future rewards earned based on sub-optimal current policy.
-#         '''
-#         #While the game is still in progress, the Bellman value function is approximated by the latest reward training is actual plus expected
-#         if not done:
-#             target = reward + self.FUTURE_REWARD_DISCOUNT * np.amax(self.model.predict(next_state.reshape((1, 11)))[0]) 
-#         else:
-#             target = reward
-#         target_f = self.model(state)
-#         target_f[0][np.argmax(action)] = target
-#         self.model.fit(state.reshape((1, 11)), target_f, epochs=1, verbose=0)
-    
-    def continue_turn(self, adventurer):        
+    def continue_turn(self, adventurer):
         '''Houses the AI's movement decisions during a single turn.
-        
+
         Arguments
-        adventurer takes a Cartolan.Adventurer as the game token for which a decision is needed.
+        adventurer is a Cartolan.Adventurer representing the token being moved.
         '''
-        import random
-        
-        #Reset the reward for this move
         reward = 0
-        
-        #Set the degree of randomness to the AI's behaviour, which will help it explore the space of response functions
-        if not params['train']:
+
+        if not getattr(self, 'active_training', False):
             self.whimsy_probability = 0
         else:
-            # The randomness of actions will decline as the game progresses, to hopefully settle on optimal behaviour as in simulated annealing
-            self.whimsy_probability = 1.0/(1.0 + adventurer.turns_moved * self.WHIMSY_REDUCTION_PER_TURN)
-            self.mimicry_probability = 1.0/(1.0 + adventurer.turns_moved * self.MIMICRY_REDUCTION_PER_TURN)
-        
-        #Move while moves are still available
-        while adventurer.turns_moved < adventurer.game.turn:
-            #Update the state after the preceding move
-            state_old = self.get_state(adventurer)
-            
-            # perform random actions based on whimsicality, or choose the action based on the ANN
-            if random.random() < self.whimsy_probability:
-                move_choice = random.randint(0, len(self.move_map))
-                move = self.move_map[self.move_map.keys()[move_choice]]
-                print("Randomly chose a move of "+move)
-#             elif random.random() < self.mimicry_probability:
-#                     #@TODO as well as random actions, have the AI play like one of the heuristical players periodically
-#                     #@TODO will need to recover the moves that were made while mimicking the heuristical player
-            else:
-                #Suggest best action based on the old state
-                self.predicted_continuation_values = self.model(state_old)
-                move_choice = np.argmax(self.predicted_continuation_values[0]) #The final layer for movement is captured in the first output of the model
-                move = self.move_map[self.move_map.keys()[move_choice]]
-                print("The ANN chose a move of "+move)
+            self.whimsy_probability = 1.0 / (1.0 + adventurer.turns_moved * self.WHIMSY_REDUCTION_PER_TURN)
+            self.mimicry_probability = 1.0 / (1.0 + adventurer.turns_moved * self.MIMICRY_REDUCTION_PER_TURN)
 
-            #Get new state, after all of the subsequent trading/placing/attacking decisions will have been made as part of the call to the Adventurer's .move method
-            eval(move)
-            self.move = move_choice #Record the move made so that it can be included in the memory
+        while adventurer.turns_moved < adventurer.game.turn:
+            state_old = self.get_state(adventurer)
+
+            if random.random() < self.whimsy_probability:
+                move_choice = random.randint(0, len(self.move_map) - 1)
+                print("Randomly chose direction: " + self.move_map[move_choice])
+            else:
+                self.predicted_continuation_values = self.model(np.array([state_old]))
+                move_choice = int(np.argmax(self.predicted_continuation_values[0]))
+                print("ANN chose direction: " + self.move_map[move_choice])
+
+            direction = self.move_map[move_choice]
+            if direction == 'wait':
+                adventurer.wait()
+            else:
+                adventurer.move(direction)
+
             state_new = self.get_state(adventurer)
 
-            #Check for an increase in the greatest vault wealth attained so far and reward discounted by how long it took to achieve this increase
             vault_wealth_increase = self.vault_wealth - self.best_vault_wealth
             if vault_wealth_increase > 0:
-                reward += self.VAULT_INCREASE_REWARD * vault_wealth_increase / (abs(adventurer.turns_moved - self.best_vault_turn)+1)
-                #Remember the current Vault wealth for future comparison of gains
+                reward += self.VAULT_INCREASE_REWARD * vault_wealth_increase / (
+                    abs(adventurer.turns_moved - self.best_vault_turn) + 1)
                 self.best_vault_wealth = self.vault_wealth
                 self.best_vault_turn = adventurer.turns_moved
-                #As the Vault wealth increasing now will mean this Adventurer has banked it, reset the expectation for the Adventurer
-            Similarly for this Adventurer
-            chest_wealth_increase = adventurer.wealth - self.best_chest_wealths[self.adventurers.index(adventurer)]
+
+            # Similarly for this adventurer's chest wealth
+            if adventurer not in self.best_chest_wealths:
+                self.best_chest_wealths[adventurer] = 0
+                self.best_chest_turns[adventurer] = 0
+            chest_wealth_increase = adventurer.wealth - self.best_chest_wealths[adventurer]
             if chest_wealth_increase > 0:
-                reward += self.CHEST_INCREASE_REWARD * chest_wealth_increase / (abs(adventurer.turns_moved - self.best_chest_turns[self.adventurers.index(adventurer)])+1)
-                #Remember the current Chest wealth for future comparison of gains
-                self.best_chest_wealths[self.adventurers.index(adventurer)] = adventurer.wealth
-                self.best_chest_turns[self.adventurers.index(adventurer)] = adventurer.turns_moved
-            
-            #Record the current circumstances for use in replay learning when a positive state is attained
-            self.remember(state_old, reward, state_new)
-            
-            #Check win conditions and reward considerably more than the proxies if victorious
-            if adventurer.game.game_over:
+                reward += self.CHEST_INCREASE_REWARD * chest_wealth_increase / (
+                    abs(adventurer.turns_moved - self.best_chest_turns[adventurer]) + 1)
+                self.best_chest_wealths[adventurer] = adventurer.wealth
+                self.best_chest_turns[adventurer] = adventurer.turns_moved
+
+            done = adventurer.game.game_over
+            if done:
+                # Apply terminal reward before remember() so the final experience
+                # stored in the replay buffer includes the win/loss signal.
                 if adventurer.game.winning_player == self:
                     reward += self.GAME_WIN_REWARD * adventurer.game.wealth_difference
-            
-            #Use the positive reward to estimate long term value and learn 
-            if self.active_training and reward > 0:
-                #Use replay memory to reinforce everything learned this particular game, given that it might have ultimately contributed to the victory
-                self.replay_training(self.memory, self.replay_batch_size)
-                #Retain the revised parameters
-                self.model.save_weights(weights_path)
+                else:
+                    reward -= self.GAME_WIN_REWARD
+            self.remember(state_old, move_choice, reward, state_new, done)
+
+            if getattr(self, 'active_training', False) and reward > 0:
+                self.replay_training()
+                self.model.save_weights(self.SAVED_MODEL_PATH)
 
         return True
-    
+
     def check_trade(self, adventurer, tile):
         '''Gives the AI's decision whether to trade at a Wonder tile.
-        
+
         Arguments
-        adventurer takes a Cartolan.Adventurer as the game token for which a decision is needed.
+        adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
+        tile is the Wonder tile being visited.
         '''
-        import random
-        
-        # perform random actions based on whimsicality, or choose the action based on the ANN
         if random.random() < self.whimsy_probability:
-            trade = (random.random() > 0.5)
-            trade_choice = 
-            print("Randomly chose a trade response of "+str(trade))
-#             elif random.random() < self.mimicry_probability:
-#                     #@TODO as well as random actions, have the AI play like one of the heuristical players periodically
-#                     #@TODO will need to recover the moves that were made while mimicking the heuristical player
+            trade = random.random() > 0.5
+            print("Randomly chose trade: " + str(trade))
         else:
-            #Suggest best action based on the old state
-            self.predicted_continuation_values = self.model(state_old)
-            trade_choice = np.argmax(self.predicted_continuation_values[0]) #The final layer for movement is captured in the first output of the model
-            move = self.move_map[self.move_map.keys()[move_choice]]
-            print("The ANN chose a move of "+move)# perform random actions based on whimsicality, or choose the action based on the ANN
-        if random.random() < self.whimsy_probability:
-            trade = (random.random() > 0.5)
-            print("Randomly chose a trade response of "+str(trade))
-        else:
-            #Suggest best action based on the old state
-            prediction = self.trade_model(self.get_state(adventurer))
-            trade = (np.argmax(prediction[0]) > 0.5)
-            print("The ANN chose a trade response of "+str(trade))
-        self.trade = trade
+            prediction = self.model(np.array([self.get_state(adventurer)]))
+            trade = prediction[1][0][0] > 0.5  # output index 1 = trade_network
+            print("ANN chose trade: " + str(trade))
         return trade
-    
-    def check_collect_wealth(self, agent):
+
+    def check_collect_wealth(self, adventurer, agent):
         '''Gives the AI's decision whether to collect wealth from an Agent.
-        
+
         Arguments
-        adventurer takes a Cartolan.Adventurer as the game token for which a decision is needed.
+        adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
+        agent is the Agent token being visited.
         '''
-        import random
-        
-        # perform random actions based on whimsicality, or choose the action based on the ANN
         if random.random() < self.whimsy_probability:
-            collect = (random.random() > 0.5)
-            print("Randomly chose a collect response of "+str(collect))
+            collect = random.random() > 0.5
+            print("Randomly chose collect: " + str(collect))
         else:
-            #Suggest best action based on the old state
-            prediction = self.collect_model(self.get_state(adventurer))
-            collect = (np.argmax(prediction[0]) > 0.5)
-            print("The ANN chose a collect response of "+str(collect))
-        self.collect = collect
+            prediction = self.model(np.array([self.get_state(adventurer)]))
+            collect = prediction[3][0][0] > 0.5  # output index 3 = collect_network
+            print("ANN chose collect: " + str(collect))
         return collect
-    
+
     def check_rest(self, adventurer, agent):
         '''Gives the AI's decision whether to rest at an Agent.
-        
+
         Arguments
-        adventurer takes a Cartolan.Adventurer as the game token for which a decision is needed.
+        adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
+        agent is the Agent token being visited.
         '''
-        import random
-        
-        # perform random actions based on whimsicality, or choose the action based on the ANN
         if random.random() < self.whimsy_probability:
-            rest = (random.random() > 0.5)
-            print("Randomly rest a collect response of "+str(rest))
+            rest = random.random() > 0.5
+            print("Randomly chose rest: " + str(rest))
         else:
-            #Suggest best action based on the old state
-            prediction = self.rest_model(self.get_state(adventurer))
-            rest = (np.argmax(prediction[0]) > 0.5)
-            print("The ANN chose a rest response of "+str(rest))
-        self.rest = rest
+            prediction = self.model(np.array([self.get_state(adventurer)]))
+            rest = prediction[2][0][0] > 0.5  # output index 2 = rest_network
+            print("ANN chose rest: " + str(rest))
         return rest
-        
-    
+
     def check_bank_wealth(self, adventurer, report="Player is being asked whether to bank wealth"):
-        '''Gives the AI's decision how much wealth to deposit when visiting a city.
-        
+        '''Gives the AI's decision how much wealth to keep in the chest when banking at a city.
+
+        Returns an int: the amount of wealth to retain in the chest (the rest is banked).
+
         Arguments
-        adventurer takes a Cartolan.Adventurer as the game token for which a decision is needed.
+        adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
         '''
-        import random
-        
-        # perform random actions based on whimsicality, or choose the action based on the ANN
         if random.random() < self.whimsy_probability:
-            collect = (random.random() > 0.5)
-            print("Randomly chose a collect response of "+str(collect))
+            keep = random.randint(0, adventurer.wealth) if adventurer.wealth > 0 else 0
+            print("Randomly chose to keep: " + str(keep))
         else:
-            #Suggest best action based on the old state
-            prediction = self.collect_model(self.get_state(adventurer))
-            collect = (np.argmax(prediction[0]) > 0.5)
-            print("The ANN chose a collect response of "+str(collect))
-        self.collect = collect
-        return collect
-    
+            prediction = self.model(np.array([self.get_state(adventurer)]))
+            keep = max(0, min(int(prediction[7][0][0]), adventurer.wealth))  # output index 7 = bank_network
+            print("ANN chose to keep: " + str(keep))
+        return keep
+
     def check_buy_adventurer(self, adventurer, report="Player is being asked whether to buy an Adventurer"):
-        '''Gives the AI's decision whether to buy another Adventurer when visiting a city.
-        
+        '''Gives the AI's decision whether to recruit a new Adventurer when visiting a city.
+
         Arguments
-        adventurer takes a Cartolan.Adventurer as the game token for which a decision is needed.
+        adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
         '''
+        if random.random() < self.whimsy_probability:
+            recruit = random.random() > 0.5
+            print("Randomly chose recruit: " + str(recruit))
+        else:
+            prediction = self.model(np.array([self.get_state(adventurer)]))
+            recruit = prediction[8][0][0] > 0.5  # output index 8 = buy_adventurer_network
+            print("ANN chose recruit: " + str(recruit))
         return recruit
-    
+
     def check_place_agent(self, adventurer):
         '''Gives the AI's decision whether to place an Agent when discovering a new tile.
-        
+
         Arguments
-        adventurer takes a Cartolan.Adventurer as the game token for which a decision is needed.
+        adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
         '''
+        if random.random() < self.whimsy_probability:
+            place = random.random() > 0.5
+            print("Randomly chose place agent: " + str(place))
+        else:
+            prediction = self.model(np.array([self.get_state(adventurer)]))
+            place = prediction[4][0][0] > 0.5  # output index 4 = place_network
+            print("ANN chose place agent: " + str(place))
         return place
-    
+
     def check_buy_agent(self, adventurer, report="Player has been offered to buy an agent by a city"):
-        '''Gives the AI's decision whether to place an Agent on an existing tile while visiting a city.
-        
-        Arguments
-        adventurer takes a Cartolan.Adventurer as the game token for which a decision is needed.
+        '''Gives the AI's decision whether to place an Agent on an existing tile from a city.
+
+        Returns None while the ANN lacks awareness of the full play area.
         '''
-        return None # While the AI is not aware of the tiles across the play area, there is no point in trying to give any decision here @TODO except perhaps to usurp opponents' Agents
-    
+        return None  # @TODO enable once play area map is included in state
+
     def check_move_agent(self, adventurer):
-        '''Gives the AI's decision about what Agent to move if placing an Agent when it has already reached the limit.
-        
-        Arguments
-        adventurer takes a Cartolan.Adventurer as the game token for which a decision is needed.
+        '''Gives the AI's decision about which Agent to move when at the placement limit.
+
+        Returns None while the ANN lacks awareness of the full play area.
         '''
-        return None # While the AI is not aware of the tiles across the play area, there is no point in trying to give any decision here @TODO except perhaps to usurp opponents' Agents
-    
+        return None  # @TODO enable once play area map is included in state
+
     def check_attack_adventurer(self, adventurer, other_adventurer):
-        '''Gives the AI's decision whether to attack another player's Adventurer when on the same tile.
-        
+        '''Gives the AI's decision whether to attack another player's Adventurer.
+
         Arguments
-        adventurer takes a Cartolan.Adventurer as the game token for which a decision is needed.
+        adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
+        other_adventurer is the opposing Adventurer on the same tile.
         '''
+        if random.random() < self.whimsy_probability:
+            attack = random.random() > 0.5
+            print("Randomly chose attack adventurer: " + str(attack))
+        else:
+            prediction = self.model(np.array([self.get_state(adventurer)]))
+            attack = prediction[5][0][0] > 0.5  # output index 5 = attack_network
+            print("ANN chose attack adventurer: " + str(attack))
         return attack
-    
+
     def check_attack_agent(self, adventurer, agent):
-        '''Gives the AI's decision to attach another player's Agent when on its tile.
-        
+        '''Gives the AI's decision whether to attack another player's Agent.
+
         Arguments
-        adventurer takes a Cartolan.Adventurer as the game token for which a decision is needed.
+        adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
+        agent is the opposing Agent on the tile.
         '''
+        if random.random() < self.whimsy_probability:
+            attack = random.random() > 0.5
+            print("Randomly chose attack agent: " + str(attack))
+        else:
+            prediction = self.model(np.array([self.get_state(adventurer)]))
+            attack = prediction[5][0][0] > 0.5  # output index 5 = attack_network
+            print("ANN chose attack agent: " + str(attack))
         return attack
-    
+
     def check_restore_agent(self, adventurer, agent):
-        '''Gives the AI's decision to restore a dispossessed Agent when the Adventurer visits its tile.
-        
+        '''Gives the AI's decision whether to restore a dispossessed Agent.
+
         Arguments
-        adventurer takes a Cartolan.Adventurer as the game token for which a decision is needed.
+        adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
+        agent is the player's dispossessed Agent on the tile.
         '''
+        if random.random() < self.whimsy_probability:
+            restore = random.random() > 0.5
+            print("Randomly chose restore: " + str(restore))
+        else:
+            prediction = self.model(np.array([self.get_state(adventurer)]))
+            restore = prediction[6][0][0] > 0.5  # output index 6 = restore_network
+            print("ANN chose restore: " + str(restore))
         return restore
