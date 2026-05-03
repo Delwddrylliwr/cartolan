@@ -40,7 +40,12 @@ class AdventurerBeginner(Adventurer):
         self.cost_agent_exploring = game.cost_agent_exploring
         self.cost_agent_from_city = game.cost_agent_from_city
         self.cost_adventurer = game.cost_adventurer
-        
+        self.agent_on_existing = game.agent_on_existing
+        self.last_exploration_adjacents = 0
+        self.num_companions = 0
+        self.max_companions = game.max_companions
+        self.cost_companion = game.cost_companion
+
         #Some variables that determine valid moves
         self.downwind_moves = 0
         self.upwind_moves = 0
@@ -60,6 +65,10 @@ class AdventurerBeginner(Adventurer):
         self.bought_adventurer = 0
         self.bought_agent = 0 #@TODO this variable may need to store different information
         self.moved_agent = None #@TODO this variable may need to store different information
+
+    @property
+    def num_characters(self):
+        return self.num_companions + 1
 
     def to_json(self):
         d = super().to_json()
@@ -190,6 +199,12 @@ class AdventurerBeginner(Adventurer):
         if self.current_tile.is_wonder:
             if self.player.check_trade(self, self.current_tile):
                 self.trade(self.current_tile)
+        if self.agent_on_existing and self.check_tile_available(self.current_tile):
+            if self.wealth >= self.cost_agent_from_city:
+                cost_exploring = self.cost_agent_exploring
+                self.cost_agent_exploring = self.cost_agent_from_city
+                self.place_agent()
+                self.cost_agent_exploring = cost_exploring
         
     def end_turn(self):
         '''Resets in-turn trackers, and return discarded tiles to the main piles
@@ -364,10 +379,12 @@ class AdventurerBeginner(Adventurer):
         else:
             num_adjacent_land -= 1
         
+        #Store total for use by discover() when awarding manuscripts
+        self.last_exploration_adjacents = num_adjacent_water + num_adjacent_land
         #Calculate the score this represents
         exploration_value = self.value_fill_map_gap[num_adjacent_water][num_adjacent_land]
         print(self.player.name+" the gap in the  map is adjacent to " +str(num_adjacent_water)
-              + " water tiles and " +str(num_adjacent_land)+ " land tiles, and is worth " 
+              + " water tiles and " +str(num_adjacent_land)+ " land tiles, and is worth "
               +str(exploration_value))
         return exploration_value
     
@@ -545,9 +562,9 @@ class AdventurerBeginner(Adventurer):
             return False
         
        # collect appropriate wealth into Chest
-        print("Adventurer is trading on tile " 
+        print("Adventurer is trading on tile "
                   +str(tile.tile_position.longitude)+ "," +str(tile.tile_position.latitude))
-        self.wealth += self.value_trade
+        self.wealth += self.value_trade * self.num_characters
         
         # keep track of visiting this Wonder
         self.wonders_visited.append(tile)
@@ -604,8 +621,8 @@ class AdventurerBeginner(Adventurer):
         '''checks whether the Adventurer can rest on this tile'''
         # check whether there is an agent on the tile# can the adventurer afford rest here?
         if isinstance(token, Agent):
-            if ((token.player == self.player 
-                or self.wealth >= token.cost_agent_rest)
+            if ((token.player == self.player
+                or self.wealth >= token.cost_agent_rest * self.num_characters)
                 and token not in self.agents_rested):
                 return True
         return False
@@ -721,9 +738,10 @@ class AgentBeginner(Agent):
         
         #check whether Adventurer is from same player and charge if other player
         if not adventurer.player == self.player:
-            # pay as necessary
-            adventurer.wealth -= self.cost_agent_rest
-            self.wealth += self.cost_agent_rest
+            # pay as necessary — cost scales with the number of characters travelling
+            rest_cost = self.cost_agent_rest * adventurer.num_characters
+            adventurer.wealth -= rest_cost
+            self.wealth += rest_cost
         
         # reset move count
         adventurer.downwind_moves = 0
@@ -888,6 +906,24 @@ class CityTileBeginner(CityTile):
                      +str(tile.tile_position.longitude)+","+str(tile.tile_position.latitude))
         return True
 
+    def hire_companion(self, adventurer):
+        '''Offers the visiting Adventurer the chance to hire a Companion, scaling future trade and rest costs.
+
+        Args:
+            adventurer: the visiting Adventurer
+        '''
+        while (adventurer.num_companions < adventurer.max_companions
+               and adventurer.game.player_wealths[adventurer.player] >= adventurer.cost_companion):
+            if adventurer.player.check_hire_companion(adventurer):
+                adventurer.game.player_wealths[adventurer.player] -= adventurer.cost_companion
+                adventurer.num_companions += 1
+                print(adventurer.player.name + " hired a Companion (now "
+                      + str(adventurer.num_companions) + " companions, "
+                      + str(adventurer.num_characters) + " characters total)")
+            else:
+                return False
+        return True
+
     def offer_purchases(self, adventurer):
         '''Manages the sequence of purchasing options for players when their Adventurer reaches a city.
 
@@ -895,7 +931,9 @@ class CityTileBeginner(CityTile):
             adventurer: the visiting Adventurer
         '''
         self.buy_adventurers(adventurer)
-        self.buy_agents(adventurer)
+        if adventurer.game.agents_from_city:
+            self.buy_agents(adventurer)
+        self.hire_companion(adventurer)
 
 class WonderTile(Tile):
      def __init__(self, game, tile_back = "water"

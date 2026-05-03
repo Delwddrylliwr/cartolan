@@ -162,10 +162,14 @@ class Player:
     def continue_move(self, adventurer):
         '''placeholder for responding to the state of the game by choosing movement for an adventurer'''
         pass
-        
+
     def continue_turn(self, adventurer):
         '''placeholder for responding to the state of the game'''
         pass
+
+    def check_hire_companion(self, adventurer):
+        '''placeholder — subclasses override to allow hiring Companions at cities'''
+        return False
 
     def to_json(self):
         return {"name": self.name}

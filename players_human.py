@@ -667,6 +667,23 @@ class PlayerHuman(Player):
         else:
             return False
 
+    def check_hire_companion(self, adventurer, report="Player is being asked whether to hire a Companion"):
+        print(report)
+        if self.undone:
+            print("automatically responding false to action")
+            return False
+        actions = {}
+        action_type = "buy"
+        actions[action_type] = [[adventurer.current_tile.tile_position.longitude
+                    , adventurer.current_tile.tile_position.latitude]]
+        prompt = ("If you want your Adventurer to hire a Companion for "
+                             + str(adventurer.game.cost_companion)
+                             + " Silk then click the City, otherwise click elsewhere.")
+        if self.check_action(adventurer, action_type, actions, prompt):
+            return True
+        else:
+            return False
+
     # Let the player choose whether to place an agent when offered
     def check_place_agent(self, adventurer):
         actions = {}

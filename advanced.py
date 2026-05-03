@@ -115,6 +115,7 @@ class AdventurerAdvanced(AdventurerRegular):
         #Prepare to hold cards
         self.character_card = None
         self.discovery_cards = []
+        self.companion_cards = []
         #Randomly draw a Character card
         #let the player choose between multiple character cards if the game visual is already started
         if self.game.game_started:
@@ -184,12 +185,67 @@ class AdventurerAdvanced(AdventurerRegular):
         #     if not peers[0].num_chest_tiles == self.num_chest_tiles:
         #         peers[0].num_chest_tiles = self.num_chest_tiles
     
+    def _offer_manuscript_choice(self):
+        '''Draws a filtered set of manuscript options, lets the player choose one, and applies it.
+        Returns True if a card was awarded, False if none were available.
+        '''
+        available_cards = self.game.discovery_cards
+        rejected_cards = []
+        card_options = []
+        while len(card_options) < self.game.num_discovery_choices[self.player] and available_cards:
+            new_card = available_cards.pop(random.randint(0, len(available_cards) - 1))
+            # Reject cards whose one-time buffs duplicate something the Adventurer already has
+            duplicate = False
+            for buff_attr in new_card.buffs:
+                if new_card.buffs[buff_attr]["buff_type"] == "new":
+                    if buff_attr in self.character_card.buffs:
+                        duplicate = True
+                        break
+                    for existing_card in self.discovery_cards + self.companion_cards:
+                        if buff_attr in existing_card.buffs:
+                            duplicate = True
+                            break
+            if duplicate:
+                rejected_cards.append(new_card)
+            else:
+                card_options.append(new_card)
+        awarded = False
+        if card_options:
+            chosen_card = self.player.choose_card(self, card_options)
+            card_options.remove(chosen_card)
+            self.discover_card(chosen_card)
+            awarded = True
+        available_cards += card_options   # return unchosen options to the deck
+        available_cards += rejected_cards  # return unsuitable cards to the deck
+        return awarded
+
+    def add_companion_card(self):
+        '''Draws a character card for a newly hired Companion and applies its buffs to this Adventurer.
+        '''
+        character_cards = self.game.character_cards
+        card_options = random.sample(character_cards, k=self.game.num_character_choices[self.player])
+        companion_card = self.player.choose_card(self, card_options)
+        character_cards.remove(companion_card)
+        self.companion_cards.append(companion_card)
+        companion_card.apply_buffs(self)
+        self.replenish_chest_tiles()
+
+    def discover(self, tile):
+        '''Extends Regular to award manuscript cards when filling well-connected gaps.'''
+        super().discover(tile)
+        if not isinstance(self.current_tile, CityTileRegular):
+            manuscripts = self.game.value_fill_gap_manuscripts[self.last_exploration_adjacents]
+            for _ in range(manuscripts):
+                self._offer_manuscript_choice()
+        return True
+
     def can_rest(self, token):
         '''checks whether the Adventurer can rest with an Agent on this tile'''
         restable = False
+        scaled_cost = self.game.cost_agent_rest * self.num_characters
         #Make sure that wealth isn't a barrier when free rests are available
         if self.free_rests > 0:
-            self.wealth += self.game.cost_agent_rest
+            self.wealth += scaled_cost
         if super().can_rest(token):
 #            print("Deemed that could rest with Agent")
             restable = True
@@ -199,8 +255,8 @@ class AdventurerAdvanced(AdventurerRegular):
               and token not in self.agents_rested
               and not token == self):
 #            print("Checking if can rest with an Adventurer")
-            if (token.player == self.player 
-                or (self.wealth >= self.game.cost_agent_rest
+            if (token.player == self.player
+                or (self.wealth >= scaled_cost
                 and not self.pirate_token)
                 or (self.free_rests > 0
                 and not self.pirate_token)):
@@ -210,7 +266,7 @@ class AdventurerAdvanced(AdventurerRegular):
 #            print("Deemed rest was impossible with "+token.__class__.__name__)
             restable = False
         if self.free_rests > 0:
-            self.wealth -= self.game.cost_agent_rest
+            self.wealth -= scaled_cost
         return restable
         
     def trade(self, tile):
@@ -225,13 +281,14 @@ class AdventurerAdvanced(AdventurerRegular):
     
     def rest(self, token):
         '''Extends Regular to allow for resting with Adventurers in some circumstances
-        
+
         Arguments:
             token accepts a Cartolan Token
         '''
+        scaled_cost = self.game.cost_agent_rest * self.num_characters
         #Ensure that wealth isn't a barrier when free rests are available
         if self.free_rests > 0:
-            self.wealth += self.game.cost_agent_rest
+            self.wealth += scaled_cost
         if isinstance(token, AgentAdvanced):
             rested = token.give_rest(self)
 #        print("Make sure that the adventurer is equipped with the right method")
@@ -240,15 +297,15 @@ class AdventurerAdvanced(AdventurerRegular):
 #            token.give_rest = AgentAdvanced.give_rest
 #            return token.give_rest(self)
             rested = AgentBeginner.give_rest(token, self)
-        else: 
+        else:
             rested = False
         #Remove any wealth compensation for free rest
         if self.free_rests > 0:
             if rested and not token.player == self.player:
                 self.free_rests -= 1
-                token.wealth -= self.game.cost_agent_rest #If the rest was free then the Inn shouldn't be rewarded
+                token.wealth -= scaled_cost  #If the rest was free then the Inn shouldn't be rewarded
             else:
-                self.wealth -= self.game.cost_agent_rest
+                self.wealth -= scaled_cost
         return rested
     
     def attack(self, token):
@@ -280,19 +337,13 @@ class AdventurerAdvanced(AdventurerRegular):
             return False
         
     def interact_tile(self):
-        '''Extends the Regular, to allow placing Agents on existing tiles for some Adventurer buffs
+        '''Extends to allow same-turn resting after placing an agent (rest_after_placing buff)
         '''
         super().interact_tile()
-        if self.agent_on_existing and self.check_tile_available(self.current_tile):
-            #An agent can still be placed on this existing tile, but at the cost of placing from the city
-            cost_exploring = self.game.cost_agent_exploring
-            cost_existing = self.game.cost_agent_from_city
-            if self.wealth >= cost_existing:
-                self.cost_agent_exploring = cost_existing
-#                self.place_agent()
-                if super().place_agent() and self.rest_after_placing:
-                    self.agents_rested.remove(self.current_tile.agent)
-                self.cost_agent_exploring = cost_exploring
+        if (self.rest_after_placing
+                and self.current_tile.agent is not None
+                and self.current_tile.agent in self.agents_rested):
+            self.agents_rested.remove(self.current_tile.agent)
         # if (self.transfers_to_agents 
         #     and len(self.game.agents[self.player]) > 0 
         #     and self.wealth > 0):
@@ -386,6 +437,7 @@ class AdventurerAdvanced(AdventurerRegular):
         d.update({
             "character_card": self.character_card.to_json() if self.character_card else None,
             "discovery_cards": [c.to_json() for c in self.discovery_cards],
+            "companion_cards": [c.to_json() for c in self.companion_cards],
         })
         return d
 
@@ -409,13 +461,14 @@ class AgentAdvanced(AgentRegular):
         '''Extends Regular mode to allow buffs from cards
         '''
         if AgentRegular.give_rest(self, adventurer):
+            rest_cost = self.game.cost_agent_rest * adventurer.num_characters
             if self.resting_refurnishes and adventurer.pirate_token:
                 print("Agent is refurnishing Adventurer, getting rid of their Pirate token.")
                 adventurer.pirate_token = False
             if self.transfer_agent_earnings and self.wealth > 0:
                 print("Agent is moving income from providing rest directly to player's Vault")
-                self.game.player_wealths[self.player] += self.game.cost_agent_rest
-                self.wealth -= self.game.cost_agent_rest
+                self.game.player_wealths[self.player] += rest_cost
+                self.wealth -= rest_cost
             if adventurer.rechoose_at_agents and adventurer.wealth > self.game.cost_refresh_maps:
                 print("Agent is offering Adventurer the chance to swap all their Chest maps.")
                 if adventurer.player.check_buy_maps(adventurer):
@@ -423,9 +476,9 @@ class AgentAdvanced(AgentRegular):
                     adventurer.rechoose_chest_tiles()
             if adventurer.num_free_rests > 0:
                 print("Agent is refunding Adventurer for free rest perk,")
-                adventurer.wealth += self.game.cost_agent_rest
-                self.wealth -= self.game.cost_agent_rest
-                adventurer.num_free_rests -= 1 #a free rest has been used up
+                adventurer.wealth += rest_cost
+                self.wealth -= rest_cost
+                adventurer.num_free_rests -= 1  #a free rest has been used up
             return True
         else:
             return False
@@ -456,11 +509,22 @@ class AgentAdvanced(AgentRegular):
 class CityTileAdvanced(CityTileRegular):
     '''Extends to replenish Chest Tiles, and offer purchase of refreshed chest tiles
     '''
+    def hire_companion(self, adventurer):
+        '''Extends base hire to also draw a character card for the new Companion.
+        '''
+        companions_before = adventurer.num_companions
+        super().hire_companion(adventurer)
+        for _ in range(adventurer.num_companions - companions_before):
+            adventurer.add_companion_card()
+        return adventurer.num_companions > companions_before
+
     def offer_purchases(self, adventurer):
        '''Extends to allow rule changes from cards
        '''
        self.buy_adventurers(adventurer)
-       self.buy_agents(adventurer)
+       self.hire_companion(adventurer)
+       if adventurer.game.agents_from_city:
+           self.buy_agents(adventurer)
        self.buy_manuscripts(adventurer)
        self.buy_maps(adventurer)
 
@@ -472,36 +536,12 @@ class CityTileAdvanced(CityTileRegular):
         '''
         print(
             "Offering " + adventurer.player.name + "'s adventurer the chance to upgrade the Adventurer with a Discovery/Manuscript card")
-        available_cards = self.game.discovery_cards
-        rejected_cards = []
-        while (available_cards
+        while (self.game.discovery_cards
                and adventurer.game.player_wealths[adventurer.player] >= self.game.cost_tech
                and adventurer.player.check_buy_tech(adventurer)):
-
             print(adventurer.player.name + "'s has chosen to buy a Manuscript card")
-            card_options = []
-            # Offer several cards, but only those which don't duplicate another one time card buff the Adventurer already has
-            while (len(card_options) < self.game.num_discovery_choices[adventurer.player]
-                   and available_cards):
-                new_tech_card = available_cards.pop(random.randint(0, len(available_cards) - 1))
-                # Check whether this is a one off perk and then whether its a duplicate, returning it and drawing another if so
-                for buff_attr in new_tech_card.buffs:
-                    if new_tech_card.buffs[buff_attr]["buff_type"] == "new":
-                        if buff_attr in adventurer.character_card.buffs:
-                            rejected_cards.append(new_tech_card)
-                            break
-                        for existing_card in adventurer.discovery_cards:
-                            if buff_attr in existing_card.buffs:
-                                rejected_cards.append(new_tech_card)
-                                break
-                card_options.append(new_tech_card)
-            if card_options:  # Providing there were some valid discovery cards still available, let the player choose
-                chosen_card = adventurer.player.choose_card(adventurer, card_options)
-                card_options.remove(chosen_card)
-                adventurer.discover_card(chosen_card)
+            if adventurer._offer_manuscript_choice():
                 adventurer.game.player_wealths[adventurer.player] -= self.game.cost_tech
-            available_cards += card_options  # Return the remaining options to the deck
-            available_cards += rejected_cards  # Return the cards that weren't suitable to the Discovery deck
 
     def buy_maps(self, adventurer):
         '''Extends the parent with the potential for a free refresh of maps.

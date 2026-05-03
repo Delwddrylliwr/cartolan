@@ -487,7 +487,9 @@ class CityTileRegular(CityTileBeginner):
             adventurer: the visiting Adventurer
         '''
         self.buy_adventurers(adventurer)
-        self.buy_agents(adventurer)
+        self.hire_companion(adventurer)
+        if adventurer.game.agents_from_city:
+            self.buy_agents(adventurer)
         self.buy_maps(adventurer)
 
 class AgentRegular(AgentBeginner):

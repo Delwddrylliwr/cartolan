@@ -766,6 +766,9 @@ class GameVisualisation {
     (viewedAdv.discovery_cards || []).forEach((card, idx) => {
       cards.push({ cardType: card.card_type, cardId: card.card_id, action: 'CARDSEL', data: String(idx) });
     });
+    (viewedAdv.companion_cards || []).forEach((card, idx) => {
+      cards.push({ cardType: card.card_type, cardId: card.card_id, action: 'COMPSEL', data: String(idx) });
+    });
     if (viewedAdv.character_card) {
       cards.push({ cardType: viewedAdv.character_card.card_type, cardId: viewedAdv.character_card.card_id, action: 'CHARSEL', data: '' });
     }
@@ -1232,19 +1235,28 @@ class GameVisualisation {
       y += headerH;
     }
 
-    // Character and discovery cards
+    // Character, companion, and discovery cards
     const hasCards = viewedAdv.character_card
-                  || (viewedAdv.discovery_cards && viewedAdv.discovery_cards.length > 0);
+                  || (viewedAdv.discovery_cards && viewedAdv.discovery_cards.length > 0)
+                  || (viewedAdv.companion_cards && viewedAdv.companion_cards.length > 0);
     if (hasCards) {
       ctx.fillStyle = GV.PLAIN_TEXT_COLOUR;
       ctx.fillText(`Adventurer #${(s.viewed_adventurer_index || 0) + 1} cards:`, 0, y);
       y += fontSize;
 
-      // Discovery cards — stacked so only header strip shows except for last
+      // Discovery cards — stacked so only header strip shows
       (viewedAdv.discovery_cards || []).forEach((card, idx) => {
         this._drawCardAt(card, 0, y, cardW, cardH);
         const headerH = Math.round(cardH * GV.CARD_HEADER_SHARE);
         this._clickableAreas.push({ x: 0, y, w: cardW, h: headerH, action: 'CARDSEL', data: String(idx) });
+        y += headerH;
+      });
+
+      // Companion cards — stacked so only header strip shows
+      (viewedAdv.companion_cards || []).forEach((card, idx) => {
+        this._drawCardAt(card, 0, y, cardW, cardH);
+        const headerH = Math.round(cardH * GV.CARD_HEADER_SHARE);
+        this._clickableAreas.push({ x: 0, y, w: cardW, h: headerH, action: 'COMPSEL', data: String(idx) });
         y += headerH;
       });
 

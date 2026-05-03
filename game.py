@@ -61,17 +61,23 @@ class GameBeginner(Game):
         self.discard_piles = {"water":TilePile("water",[])}
         
         #Inherit instance level constants from config
+        self.game_winning_vault = BeginnerConfig.GAME_WINNING_VAULT
         self.game_winning_difference = BeginnerConfig.GAME_WINNING_DIFFERENCE
         
         self.value_trade = BeginnerConfig.VALUE_TRADE
         self.value_complete_map = BeginnerConfig.VALUE_COMPLETE_MAP
         self.value_discover_wonder = BeginnerConfig.VALUE_DISCOVER_WONDER
         self.value_fill_map_gap = BeginnerConfig.VALUE_FILL_MAP_GAP
+        self.value_fill_gap_manuscripts = BeginnerConfig.VALUE_FILL_GAP_MANUSCRIPTS
             
         self.cost_adventurer = BeginnerConfig.COST_ADVENTURER
         self.cost_agent_exploring = BeginnerConfig.COST_AGENT_EXPLORING
         self.cost_agent_from_city = BeginnerConfig.COST_AGENT_FROM_CITY
         self.cost_agent_rest = BeginnerConfig.COST_AGENT_REST
+        self.agents_from_city = BeginnerConfig.AGENTS_FROM_CITY
+        self.agent_on_existing = BeginnerConfig.AGENT_ON_EXISTING
+        self.max_companions = BeginnerConfig.MAX_COMPANIONS
+        self.cost_companion = BeginnerConfig.COST_COMPANION
         
         self.max_exploration_attempts = BeginnerConfig.MAX_EXPLORATION_ATTEMPTS
         self.max_downwind_moves = BeginnerConfig.MAX_DOWNWIND_MOVES
@@ -226,7 +232,13 @@ class GameBeginner(Game):
             elif self.max_wealth - self.player_wealths[player] < self.wealth_difference:
                     self.wealth_difference = self.max_wealth - self.player_wealths[player]
         
-        if self.wealth_difference > self.game_winning_difference:
+        if self.game_winning_vault is not None and self.max_wealth >= self.game_winning_vault:
+            print("won by reaching vault threshold")
+            self.win_type = "vault threshold"
+            self.game_over = True
+            return True
+
+        if self.game_winning_difference is not None and self.wealth_difference > self.game_winning_difference:
             print("won by wealth difference")
             self.win_type = "wealth difference"
             self.game_over = True
