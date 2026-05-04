@@ -168,11 +168,13 @@ class PlayerFeedFwd(Player):
             + 6                                 # preceding three tile positions
             + 1                                 # adventurer index (which adventurer is deciding)
             + game_type.MAX_ADVENTURERS         # own adventurer wealth
+            + game_type.MAX_ADVENTURERS         # own adventurer companions
             + 2 * game_type.MAX_ADVENTURERS     # own adventurer positions
             + game_type.MAX_AGENTS              # own agent wealth
             + 2 * game_type.MAX_AGENTS          # own agent positions
             + 3                                 # opponent vault wealth (up to 3 opponents)
             + 3 * game_type.MAX_ADVENTURERS     # opponent adventurer wealth
+            + 3 * game_type.MAX_ADVENTURERS     # opponent adventurer companions
             + 3 * game_type.MAX_ADVENTURERS     # opponent adventurer pirate tokens
             + 2 * 3 * game_type.MAX_ADVENTURERS # opponent adventurer positions
             + 3 * game_type.MAX_AGENTS          # opponent agent wealth
@@ -268,10 +270,12 @@ class PlayerFeedFwd(Player):
         game = adventurer.game
 
         state_own_adventurers_wealth = [0] * game.MAX_ADVENTURERS
+        state_own_adventurers_companions = [0] * game.MAX_ADVENTURERS
         state_own_adventurers_positions = [0] * (2 * game.MAX_ADVENTURERS)
         for own_adventurer in own_adventurers:
             idx = own_adventurers.index(own_adventurer)
             state_own_adventurers_wealth[idx] = own_adventurer.wealth
+            state_own_adventurers_companions[idx] = getattr(own_adventurer, 'num_companions', 0)
             state_own_adventurers_positions[2 * idx] = own_adventurer.current_tile.tile_position.longitude
             state_own_adventurers_positions[2 * idx + 1] = own_adventurer.current_tile.tile_position.latitude
 
@@ -285,6 +289,7 @@ class PlayerFeedFwd(Player):
 
         state_opp_vault_wealths = [0] * 3
         state_opp_adventurers_wealths = [0] * (3 * game.MAX_ADVENTURERS)
+        state_opp_adventurers_companions = [0] * (3 * game.MAX_ADVENTURERS)
         state_opp_adventurers_pirates = [0] * (3 * game.MAX_ADVENTURERS)
         state_opp_adventurers_positions = [0] * (2 * 3 * game.MAX_ADVENTURERS)
         state_opp_agents_wealths = [0] * (3 * game.MAX_AGENTS)
@@ -303,6 +308,7 @@ class PlayerFeedFwd(Player):
                 oa_idx = opp_adventurers.index(opp_adventurer)
                 flat = 3 * opponent_index + oa_idx
                 state_opp_adventurers_wealths[flat] = opp_adventurer.wealth
+                state_opp_adventurers_companions[flat] = getattr(opp_adventurer, 'num_companions', 0)
                 state_opp_adventurers_pirates[flat] = int(getattr(opp_adventurer, 'pirate_token', False))
                 state_opp_adventurers_positions[2 * flat] = opp_adventurer.current_tile.tile_position.longitude
                 state_opp_adventurers_positions[2 * flat + 1] = opp_adventurer.current_tile.tile_position.latitude
@@ -345,11 +351,13 @@ class PlayerFeedFwd(Player):
             preceding_positions,
             [own_adventurers.index(adventurer)],
             state_own_adventurers_wealth,
+            state_own_adventurers_companions,
             state_own_adventurers_positions,
             state_own_agents_wealth,
             state_own_agents_positions,
             state_opp_vault_wealths,
             state_opp_adventurers_wealths,
+            state_opp_adventurers_companions,
             state_opp_adventurers_pirates,
             state_opp_adventurers_positions,
             state_opp_agents_wealths,
