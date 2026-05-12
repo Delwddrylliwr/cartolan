@@ -99,7 +99,7 @@ class ClientSocket(WebSocket):
                                                /\                \/
                                               Player <- Adventurer/Agent
     
-    '''
+    """
     INPUT_DELAY = 0.1  # delay time between checking for input, in seconds
     TIMEOUT_DELAY = 5  # delay time between heartbeats, after which loop will stop keeping the socket alive
     ABANDON_TIMEOUT = 300  # seconds to wait for reconnection before closing an empty game
