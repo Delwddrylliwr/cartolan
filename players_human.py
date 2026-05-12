@@ -247,11 +247,17 @@ class PlayerHuman(Player):
             if self not in game.adventurers:
                 return False  # disconnected mid-wait; unfreeze the game thread
             player_input = game_vis.get_input_coords(adventurer)
+            if player_input.get("timeout"):
+                adventurer.wait()
+                return True
         print("Player's input:")
         print(player_input)
         #Recieve input for menu actions that change player preferences, while no coordinates are received
-        while (player_input.get("move") is None 
+        while (player_input.get("move") is None
                and player_input.get("abandon") is None):
+            if player_input.get("timeout"):
+                adventurer.wait()
+                return True
             if player_input.get("route") is not None:
                 if adventurer.current_tile in player_input["route"]:
                     self.follow_route = player_input["route"][:] #Copy the other player's route rather than referncing the list (which would then mean modifying it and disrupting the visuals)
@@ -270,6 +276,9 @@ class PlayerHuman(Player):
                     return self.continue_move(adventurer)
                 else:
                     player_input = game_vis.get_input_coords(adventurer)
+                    if player_input.get("timeout"):
+                        adventurer.wait()
+                        return True
             elif player_input.get("undo") is not None:
                 print("The Adventurer's turn has been reset and we need to go back to the start of the turn.")
                 self.undone = True
@@ -301,6 +310,9 @@ class PlayerHuman(Player):
                 if self not in game.adventurers:
                     return False  # disconnected mid-wait; unfreeze the game thread
                 player_input = game_vis.get_input_coords(adventurer)
+                if player_input.get("timeout"):
+                    adventurer.wait()
+                    return True
                 print("Player's input:")
                 print(player_input)
 
@@ -503,12 +515,20 @@ class PlayerHuman(Player):
 #        player_input = None
 #        while not player_input:
         player_input = game_vis.get_input_coords(adventurer)
+        if player_input.get("timeout"):
+            self.follow_route = []
+            self.destination = None
+            return False
 #        print("Player's input:")
 #        print(player_input)
         #Check if this was a menu click, respond and gather another
-        while (player_input.get(action_type) is None 
+        while (player_input.get(action_type) is None
                and player_input.get("move") is None
                and player_input.get("Nothing") is None):
+            if player_input.get("timeout"):
+                self.follow_route = []
+                self.destination = None
+                return False
             if player_input.get("undo") is not None:
                 #We'll want to refuse any actions and get to the end of the Adventurer's current move-action cycle in order to reset
                 self.undone = True
@@ -538,6 +558,10 @@ class PlayerHuman(Player):
 
             #Seek input again
             player_input = game_vis.get_input_coords(adventurer)
+            if player_input.get("timeout"):
+                self.follow_route = []
+                self.destination = None
+                return False
         if player_input.get(action_type) is not None:
             action_coords = player_input.get(action_type)
             print(self.name.capitalize()+" chose the coordinates of the tile where their Adventurer can "+action_type)

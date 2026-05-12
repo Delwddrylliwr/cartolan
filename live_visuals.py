@@ -1592,12 +1592,14 @@ class WebServerVisualisation(GameVisualisation):
     TEMP_FILENAME_LEN = 6
     TEMP_FILE_EXTENSION = ".png"
     INPUT_DELAY = 0.1 #delay time between checking for input, in seconds
-    
+    MOVE_TIME_LIMIT = 30  # seconds per input prompt; separate from Pygame's constant
+
     def __init__(self, game, peer_visuals, player_colours, client, width, height):
         self.peer_visuals = peer_visuals
         self.client = client
         self.width, self.height = width, height
         self.client_players = []
+        self._move_deadline = None
         super().__init__(game, peer_visuals, player_colours)
     
     def init_GUI(self):
@@ -1770,6 +1772,8 @@ class WebServerVisualisation(GameVisualisation):
             for player in self.client_players
             if hasattr(player, 'auto_actions')
         }
+        state["move_deadline"] = int(self._move_deadline * 1000) if self._move_deadline else None
+        state["move_timer_limit"] = self.MOVE_TIME_LIMIT
         return state
 
     def update_web_display(self):
@@ -2012,19 +2016,25 @@ class WebServerVisualisation(GameVisualisation):
         #Make sure that the current adventurer is up to date
         if self.current_adventurer is None:
             self.start_turn(adventurer)
+        #Set deadline before sending state so the client receives it in the first push
+        self._move_deadline = time.time() + self.MOVE_TIME_LIMIT
         #Update the visuals to prompt input
         self.update_web_display()
         #Update the visuals for the remote players who aren't active
         self.refresh_peers(adventurer)
-        
+
         coords = None
         while coords is None:
+            if time.time() >= self._move_deadline:
+                self._move_deadline = None
+                return {"timeout": True}
             coords = self.client.get_coords()
             if coords is not None:
                 if isinstance(coords, dict):
                     # Semantic message already parsed by handleMessage
                     result = self._dispatch_semantic(coords, adventurer)
                     if result is not None:
+                        self._move_deadline = None
                         return result
                     coords = None  # keep polling if dispatch returned nothing actionable
                 else:
@@ -2038,12 +2048,14 @@ class WebServerVisualisation(GameVisualisation):
                                     , int(highlight_rect[1]) + int(highlight_rect[3]))):
                                 longitude = int(math.ceil((horizontal - self.play_area_start)/self.tile_size)) - self.origin[0] - 1
                                 latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
+                                self._move_deadline = None
                                 return {highlight_type:[longitude, latitude]}
                     coords = None
             #Check for input from the other clients to their visuals and update their view
             self.check_peer_input()
             if self.check_peers_undo():
                 print("Confirmed with all clients that turn can be undone.")
+                self._move_deadline = None
                 return {"undo":"undo"}
             #Wait before checking again
             time.sleep(self.INPUT_DELAY)

@@ -32,7 +32,7 @@ class GameVisualisation {
   static CARD_BODY_START     = 0.7;
   static CARD_RATIO          = 1.75;
   static PROMPT_POSITION     = [0.0, 0.95];
-  static PROMPT_FONT_SCALE   = 0.05;
+  static PROMPT_FONT_SCALE   = 0.04;
   static TOGGLE_HIGHLIGHTS   = ['buy_rest', 'attack', 'rest'];
 
   // ── Colours ───────────────────────────────────────────────────────────────
@@ -157,6 +157,16 @@ class GameVisualisation {
     // Optional send callback — set by caller after construction (e.g. gameVis.sendFn = send)
     this.sendFn = null;
 
+    // Move timer — animated by a setInterval when a deadline is active
+    this._timerInterval = null;
+    this.moveDeadline   = null;
+    this.moveTimerLimit = 30;
+
+    // Asset loading progress
+    this._pendingAssets        = 0;
+    this._totalAssetsRequested = 0;
+    this._totalAssetsLoaded    = 0;
+
     // Wrap canvas in a relative container so the scores overlay can sit on top
     const wrapper = document.createElement('div');
     wrapper.style.cssText = 'position:relative;display:block;line-height:0';
@@ -193,8 +203,25 @@ class GameVisualisation {
 
   applyState(state) {
     this.state = state;
+    // Update timer state before _render() so _drawTimerBar() sees the new deadline
+    this.moveDeadline   = state.move_deadline || null;
+    this.moveTimerLimit = state.move_timer_limit || 30;
     this._recalcLayout();
     this._render();
+
+    if (this._timerInterval) {
+      clearInterval(this._timerInterval);
+      this._timerInterval = null;
+    }
+    if (this.moveDeadline && this.moveDeadline > Date.now()) {
+      this._timerInterval = setInterval(() => {
+        if (!this.moveDeadline || Date.now() >= this.moveDeadline) {
+          clearInterval(this._timerInterval);
+          this._timerInterval = null;
+        }
+        this._render();
+      }, 500);
+    }
   }
 
   // ── Layout calculation ────────────────────────────────────────────────────
@@ -277,26 +304,30 @@ class GameVisualisation {
   }
 
   _fetchTileManifest() {
+    this._pendingAssets++; this._totalAssetsRequested++;
     fetch(GameVisualisation.TILE_PATH + 'tile_manifest.json')
       .then(r => r.json())
       .then(manifest => {
         this._tileVariants = manifest;
         this._tileSourceImages = {};
         this._tileFilenames = {};
+        this._pendingAssets--; this._totalAssetsLoaded++;
         if (this.state) this._render();
       })
-      .catch(() => {});
+      .catch(() => { this._pendingAssets--; this._totalAssetsLoaded++; });
   }
 
   _fetchCardManifest() {
+    this._pendingAssets++; this._totalAssetsRequested++;
     fetch(GameVisualisation.CARDS_PATH + 'card_manifest.json')
       .then(r => r.json())
       .then(manifest => {
         this._cardVariants = manifest;
         this._cardFilenames = {};  // evict cached selections so new variants are picked
+        this._pendingAssets--; this._totalAssetsLoaded++;
         if (this.state) this._render();
       })
-      .catch(() => {});
+      .catch(() => { this._pendingAssets--; this._totalAssetsLoaded++; });
   }
 
   // Returns the filename for a specific card instance, using the server-assigned mapping when
@@ -339,9 +370,11 @@ class GameVisualisation {
   _tileSourceImage(tile) {
     const filename = this._tileFilename(tile);
     if (!this._tileSourceImages[filename]) {
+      this._pendingAssets++; this._totalAssetsRequested++;
       const img = new Image();
       img.src = GameVisualisation.TILE_PATH + filename;
-      img.onload = () => this._render();
+      img.onload  = () => { this._pendingAssets--; this._totalAssetsLoaded++; this._render(); };
+      img.onerror = () => { this._pendingAssets--; this._totalAssetsLoaded++; };
       this._tileSourceImages[filename] = img;
     }
     return this._tileSourceImages[filename];
@@ -350,9 +383,11 @@ class GameVisualisation {
   // Returns a cached HTMLImageElement for a filename, loading on first use.
   _cardImage(filename) {
     if (!this._cardImages[filename]) {
+      this._pendingAssets++; this._totalAssetsRequested++;
       const img = new Image();
       img.src = GameVisualisation.CARDS_PATH + filename;
-      img.onload = () => this._render();
+      img.onload  = () => { this._pendingAssets--; this._totalAssetsLoaded++; this._render(); };
+      img.onerror = () => { this._pendingAssets--; this._totalAssetsLoaded++; };
       this._cardImages[filename] = img;
     }
     return this._cardImages[filename];
@@ -378,7 +413,7 @@ class GameVisualisation {
     } else {
       ctx.fillStyle = tile.tile_back === 'water' ? '#336699' : '#669933';
       ctx.fillRect(-size / 2, -size / 2, size, size);
-      img.onload = () => this._render();
+      // onload already set by _tileSourceImage() — overwiting it here would break tracking
     }
     ctx.restore();
   }
@@ -497,7 +532,44 @@ class GameVisualisation {
     this._drawPrompt();
     this._drawOffersPanel();
     this._drawCardPreview();
+    this._drawTimerBar();
     console.log(this._clickableAreas);
+  }
+
+  _drawTimerBar() {
+    const ctx      = this.context;
+    const barH     = 8;
+    const barLeft  = this.playAreaStart;
+    const barWidth = this.rightMenuStart - this.playAreaStart;
+    const barTop   = this.canvas.height - barH;
+
+    if (this.moveDeadline) {
+      const remaining = this.moveDeadline - Date.now();
+      if (remaining > 0) {
+        const fraction = Math.min(1, remaining / (this.moveTimerLimit * 1000));
+        const r = Math.round(255 * (1 - fraction));
+        const g = Math.round(255 * fraction);
+        ctx.fillStyle = `rgb(${r},${g},0)`;
+        ctx.fillRect(barLeft, barTop, barWidth * fraction, barH);
+        return;
+      }
+    }
+
+    if (this._pendingAssets > 0) {
+      const fraction = this._totalAssetsRequested > 0
+        ? this._totalAssetsLoaded / this._totalAssetsRequested : 0;
+      // dark trough
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(barLeft, barTop, barWidth, barH);
+      // blue fill
+      ctx.fillStyle = 'rgb(80,160,255)';
+      ctx.fillRect(barLeft, barTop, barWidth * fraction, barH);
+      // label
+      const fontSize = barH * 1.8;
+      ctx.font = `${fontSize}px sans-serif`;
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.fillText('Loading assets…', barLeft + 4, barTop - 2);
+    }
   }
 
   // ── Draw methods ──────────────────────────────────────────────────────────
