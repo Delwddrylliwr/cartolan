@@ -266,7 +266,10 @@ class PlayerBeginnerExplorer(Player):
             return False
         
         if adventurer.game.player_wealths[adventurer.player] > adventurer.game.cost_adventurer:
-            #Check whether player has won compared to wealthiest opponent 
+            winning_difference = adventurer.game.game_winning_difference
+            if winning_difference is None:
+                return self._check_purchase_worthwhile(adventurer, adventurer.game.cost_adventurer)
+            #Check whether player has won compared to wealthiest opponent
             wealthiest_opponent_wealth = 0
             #Check whether any opponent is in a position to win based just on their incoming wealth, if an Adventurer were hired
             opponent_near_win = False
@@ -277,17 +280,61 @@ class PlayerBeginnerExplorer(Player):
                     player_chest_wealth = 0
                     for other_adventurer in adventurer.game.adventurers[player]:
                         player_chest_wealth += other_adventurer.wealth
-                    if (adventurer.game.player_wealths[player] + player_chest_wealth 
-                        > adventurer.game.game_winning_difference + adventurer.game.player_wealths[adventurer.player] - adventurer.game.cost_adventurer):
+                    if (adventurer.game.player_wealths[player] + player_chest_wealth
+                        > winning_difference + adventurer.game.player_wealths[adventurer.player] - adventurer.game.cost_adventurer):
                         opponent_near_win = True
-            #Don't hire if player has won compared to wealthiest opponent 
-            if adventurer.game.player_wealths[adventurer.player] > wealthiest_opponent_wealth + adventurer.game.game_winning_difference:
+            #Don't hire if player has won compared to wealthiest opponent
+            if adventurer.game.player_wealths[adventurer.player] > wealthiest_opponent_wealth + winning_difference:
                 return False
             #Hire if no opponent can then win based on their incoming wealth
             if not opponent_near_win:
-                return True    
+                return True
         return False
     
+    def _check_purchase_worthwhile(self, adventurer, cost):
+        '''Shared vault-threshold guard used when game_winning_difference is None.
+        Returns False if the purchase gap to win is smaller than the cost, or if any
+        opponent can already reach the win threshold with their current total wealth.
+        '''
+        game = adventurer.game
+        winning_vault = game.game_winning_vault
+        if winning_vault is None:
+            return True
+        my_vault = game.player_wealths[adventurer.player]
+        # Don't spend if the gap remaining is smaller than the cost — better to just bank
+        if winning_vault - my_vault <= cost:
+            return False
+        # Don't spend if an opponent can already win with their current vault + chest wealth
+        for player in game.players:
+            if player is not self:
+                opp_total = game.player_wealths[player] + sum(a.wealth for a in game.adventurers[player])
+                if opp_total >= winning_vault:
+                    return False
+        return True
+
+    def check_hire_companion(self, adventurer):
+        if random.random() > self.p_buy_adventurer:
+            return False
+        if adventurer.game.player_wealths[adventurer.player] >= adventurer.cost_companion:
+            winning_difference = adventurer.game.game_winning_difference
+            if winning_difference is None:
+                return self._check_purchase_worthwhile(adventurer, adventurer.cost_companion)
+            wealthiest_opponent_wealth = 0
+            opponent_near_win = False
+            for player in adventurer.game.players:
+                if player is not self:
+                    if adventurer.game.player_wealths[player] > wealthiest_opponent_wealth:
+                        wealthiest_opponent_wealth = adventurer.game.player_wealths[player]
+                    player_chest_wealth = sum(a.wealth for a in adventurer.game.adventurers[player])
+                    if (adventurer.game.player_wealths[player] + player_chest_wealth
+                            > winning_difference + adventurer.game.player_wealths[adventurer.player] - adventurer.cost_companion):
+                        opponent_near_win = True
+            if adventurer.game.player_wealths[adventurer.player] > wealthiest_opponent_wealth + winning_difference:
+                return False
+            if not opponent_near_win:
+                return True
+        return False
+
     # never place an agent when offered
     def check_place_agent(self, adventurer):
         return False
@@ -718,9 +765,12 @@ class PlayerAdvancedExplorer(PlayerRegularExplorer):
         
         print(self.name+" is deciding whether to buy a Manuscript card")
         if adventurer.game.player_wealths[adventurer.player] >= adventurer.game.cost_tech:
-            #Check whether player has won compared to wealthiest opponent 
+            winning_difference = adventurer.game.game_winning_difference
+            if winning_difference is None:
+                return self._check_purchase_worthwhile(adventurer, adventurer.game.cost_tech)
+            #Check whether player has won compared to wealthiest opponent
             wealthiest_opponent_wealth = 0
-            #Check whether any opponent is in a position to win based just on their incoming wealth, if an Adventurer were hired
+            #Check whether any opponent is in a position to win based just on their incoming wealth, if tech is bought
             opponent_near_win = False
             for player in adventurer.game.players:
                 if player is not self:
@@ -729,15 +779,15 @@ class PlayerAdvancedExplorer(PlayerRegularExplorer):
                     player_chest_wealth = 0
                     for other_adventurer in adventurer.game.adventurers[player]:
                         player_chest_wealth += other_adventurer.wealth
-                    if (adventurer.game.player_wealths[player] + player_chest_wealth 
-                        > adventurer.game.game_winning_difference + adventurer.game.player_wealths[adventurer.player] - adventurer.game.cost_tech):
+                    if (adventurer.game.player_wealths[player] + player_chest_wealth
+                        > winning_difference + adventurer.game.player_wealths[adventurer.player] - adventurer.game.cost_tech):
                         opponent_near_win = True
-            #Don't buy if player has won compared to wealthiest opponent 
-            if adventurer.game.player_wealths[adventurer.player] > wealthiest_opponent_wealth + adventurer.game.game_winning_difference:
+            #Don't buy if player has won compared to wealthiest opponent
+            if adventurer.game.player_wealths[adventurer.player] > wealthiest_opponent_wealth + winning_difference:
                 return False
-            #Hire if no opponent can then win based on their incoming wealth
+            #Buy if no opponent can then win based on their incoming wealth
             if not opponent_near_win:
-                return True    
+                return True
         return False
     
     def choose_card(self, adventurer, cards):
