@@ -70,6 +70,7 @@ class GameVisualisation {
 
   // ── Card display text (mirrored from live_visuals.py) ────────────────────
   static CARD_TITLES = {
+    'companion':     "Companion",
     'com+rests':     "The Intrepid Academy",
     'com+transfers': "The Great Company",
     'com+earning':   "The Merchants' Guild",
@@ -78,6 +79,7 @@ class GameVisualisation {
     'com+pool':      "Order of the Lightbrary",
   };
   static CARD_TEXTS = {
+    'companion':     "Scales trade earnings and rest costs by one character.",
     'adv+agents':    "Can place and immediately rest with Inns on existing tiles, for 3 treasure.",
     'adv+attack':    "Needs only win or draw Rock, Paper, Scissors to attack successfully.",
     'adv+bank':      "Can transfer treasure to your Inns when visiting anyone's Inn.",
@@ -403,6 +405,33 @@ class GameVisualisation {
 
   // ── Click dispatch ────────────────────────────────────────────────────────
 
+  _pixelToTile(x, y) {
+    const lon = Math.floor((x - this.playAreaStart) / this.tileSize) - this.origin[0];
+    const lat = this.dimensions[1] - this.origin[1] - 1 - Math.floor(y / this.tileSize);
+    return [lon, lat];
+  }
+
+  _findRouteTarget(x, y) {
+    const s = this.state;
+    if (!s || this._routesMode === 'none') return null;
+    const [lon, lat] = this._pixelToTile(x, y);
+    for (const playerName of s.players) {
+      if (this._routesMode === 'focus'
+          && playerName !== s.current_player_name
+          && playerName !== s.viewed_player_name) continue;
+      const advs = s.adventurers[playerName] || [];
+      for (let advIdx = 0; advIdx < advs.length; advIdx++) {
+        const route = advs[advIdx].route || [];
+        for (const [rLon, rLat] of route) {
+          if (rLon === lon && rLat === lat) {
+            return { player: playerName, advIdx, lon, lat };
+          }
+        }
+      }
+    }
+    return null;
+  }
+
   _handleClick(x, y) {
     if (!this.sendFn || !this.state) return;
     // Any canvas click dismisses the card preview
@@ -424,9 +453,14 @@ class GameVisualisation {
         return;
       }
     }
-    // Fallback: general play area click (start game / clear action opportunities)
+    // Fallback: play area click — check for a route tile first, otherwise generic play signal
     if (x >= this.playAreaStart && x < this.rightMenuStart) {
-      this.sendFn('PLAY[00100]');
+      const rt = this._findRouteTarget(x, y);
+      if (rt) {
+        this.sendFn(`ROUTEFOLLOW[00100]${rt.player}[55555]${rt.advIdx}[44444]${rt.lon}[66666]${rt.lat}`);
+      } else {
+        this.sendFn('PLAY[00100]');
+      }
     }
   }
 
@@ -1124,11 +1158,44 @@ class GameVisualisation {
       const tx = x + (idx % GV.MENU_TILE_COLS) * ts;
       const ty = y + Math.floor(idx / GV.MENU_TILE_COLS) * ts;
       this._drawTileAt(tile, tx + border / 2, ty + border / 2, ts - border);
-      ctx.strokeStyle = idx === viewedAdv.preferred_tile_num
-        ? GV.CHEST_HIGHLIGHT_COLOUR : GV.PLAIN_TEXT_COLOUR;
+
+      const isSelected = idx === viewedAdv.preferred_tile_num;
+      ctx.strokeStyle = isSelected ? GV.CHEST_HIGHLIGHT_COLOUR : GV.PLAIN_TEXT_COLOUR;
       ctx.lineWidth = 2;
       ctx.strokeRect(tx, ty, ts, ts);
       ctx.lineWidth = 1;
+
+      if (isSelected) {
+        // On the selected tile only: draw rotation corner zones at bottom-left and bottom-right
+        const az = Math.round(ts * 0.35); // corner zone side length
+        const as = Math.round(az * 0.4);  // arrow triangle half-size
+        // Left corner background + left-pointing arrow (anticlockwise)
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(tx, ty + ts - az, az, az);
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        const lx = tx + az * 0.5, ly = ty + ts - az * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(lx - as, ly);
+        ctx.lineTo(lx + as * 0.6, ly - as);
+        ctx.lineTo(lx + as * 0.6, ly + as);
+        ctx.closePath();
+        ctx.fill();
+        // Right corner background + right-pointing arrow (clockwise)
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(tx + ts - az, ty + ts - az, az, az);
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        const rx = tx + ts - az * 0.5, ry = ty + ts - az * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(rx + as, ry);
+        ctx.lineTo(rx - as * 0.6, ry - as);
+        ctx.lineTo(rx - as * 0.6, ry + as);
+        ctx.closePath();
+        ctx.fill();
+        // Register corner zones before the full-tile CHEST zone so they take priority
+        this._clickableAreas.push({ x: tx,           y: ty + ts - az, w: az, h: az, action: 'CHESTL', data: String(idx) });
+        this._clickableAreas.push({ x: tx + ts - az, y: ty + ts - az, w: az, h: az, action: 'CHESTR', data: String(idx) });
+      }
+      // Full tile click = select (or deselect if already selected); lower priority than corner zones above
       this._clickableAreas.push({ x: tx, y: ty, w: ts, h: ts, action: 'CHEST', data: String(idx) });
     });
 

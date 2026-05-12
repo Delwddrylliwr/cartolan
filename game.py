@@ -212,9 +212,13 @@ class GameBeginner(Game):
             print() #to help log readability
             
     
-    def check_win_conditions(self):
-        '''Checks whether the win conditions have been satisfied so that the game should end'''
-        #the end conditions for a game are one player having a certain margin more wealth in their Vault, or one of the tile piles being emptied
+    def update_standings(self):
+        '''Recomputes max_wealth, wealth_difference, and totals from current vault wealth.
+
+        wealth_difference is the gap between the leading player's vault wealth and the
+        next-closest player's vault wealth.  It is always updated regardless of which
+        win condition is active, so it can be used as a performance metric independently.
+        '''
         self.max_wealth = 0
         self.total_vault_wealth = 0
         self.total_chest_wealth = 0
@@ -223,14 +227,16 @@ class GameBeginner(Game):
             self.total_vault_wealth += self.player_wealths[player]
             for adventurer in self.adventurers[player]:
                 self.total_chest_wealth += adventurer.wealth
-            # is this player wealthier than the wealthiest player checked so far?
             if self.player_wealths[player] > self.max_wealth:
                 self.wealth_difference = self.player_wealths[player] - self.max_wealth
                 self.max_wealth = self.player_wealths[player]
                 self.winning_player = player
-            # if this player is behind in wealth, are they still closer than anyone else?
             elif self.max_wealth - self.player_wealths[player] < self.wealth_difference:
-                    self.wealth_difference = self.max_wealth - self.player_wealths[player]
+                self.wealth_difference = self.max_wealth - self.player_wealths[player]
+
+    def check_win_conditions(self):
+        '''Checks whether the win conditions have been satisfied so that the game should end'''
+        self.update_standings()
         
         if self.game_winning_vault is not None and self.max_wealth >= self.game_winning_vault:
             print("won by reaching vault threshold")

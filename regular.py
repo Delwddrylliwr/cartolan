@@ -44,6 +44,8 @@ class AdventurerRegular(AdventurerBeginner):
         self.chest_tiles = self.choose_tiles(self.num_chest_tiles)
         #Keep track of which of these should be tried for movement
         self.preferred_tile_num = None
+        #Track manual clockwise rotation offsets (int 0-3) per chest tile, applied on top of wind-matching
+        self.chest_tile_offsets = [0] * len(self.chest_tiles)
     
     
     def choose_pile(self, compass_point):
@@ -196,27 +198,42 @@ class AdventurerRegular(AdventurerBeginner):
 #        return moved
     
     def match_chest_directions(self):
-        '''Rotates all chest tiles to match the current tile's wind direction, for visualisation only.
+        '''Rotates all chest tiles to match the current tile's wind direction, then applies any manual offsets.
         '''
-        for chest_tile in self.chest_tiles:
-            while not (chest_tile.wind_direction.north == self.current_tile.wind_direction.north and 
+        for i, chest_tile in enumerate(self.chest_tiles):
+            while not (chest_tile.wind_direction.north == self.current_tile.wind_direction.north and
                        chest_tile.wind_direction.east == self.current_tile.wind_direction.east):
+                chest_tile.rotate_tile_clock()
+            offset = self.chest_tile_offsets[i] if i < len(self.chest_tile_offsets) else 0
+            for _ in range(offset):
                 chest_tile.rotate_tile_clock()
     
     def explore(self, tile_pile, discard_pile, longitude, latitude, compass_point_moving):
         '''Extends exploration to allow tiles to be used from the Adventurer's Chest
         '''
-        #check if there is a chest tile selected and try to place this
+        #check if there is a chest tile selected and try to place it
         if isinstance(self.preferred_tile_num, int):
             preferred_tile = self.chest_tiles[self.preferred_tile_num]
-            #establish what edges adjoin the given space
             adjoining_edges_water = self.get_adjoining_edges(longitude, latitude)
-            #try to place the tile
-            if self.rotate_and_place(preferred_tile, longitude, latitude, compass_point_moving, adjoining_edges_water):
-                self.chest_tiles.pop(self.preferred_tile_num)
-                self.preferred_tile_num = None
-                return True          
-        #If there was no tile selected or this wouldn't fit, then explore normally, drawing a random tile
+            tile_idx = self.preferred_tile_num
+            offset = self.chest_tile_offsets[tile_idx] if tile_idx < len(self.chest_tile_offsets) else 0
+            if offset != 0:
+                # Player manually rotated this tile: only succeed if it fits in its displayed orientation
+                if self.place_tile_exact(preferred_tile, longitude, latitude, compass_point_moving, adjoining_edges_water):
+                    self.chest_tiles.pop(tile_idx)
+                    self.chest_tile_offsets.pop(tile_idx)
+                    self.preferred_tile_num = None
+                    return True
+                self.game.num_failed_explorations += 1
+                return False
+            else:
+                # No manual rotation: use the standard auto-rotating placement
+                if self.rotate_and_place(preferred_tile, longitude, latitude, compass_point_moving, adjoining_edges_water):
+                    self.chest_tiles.pop(tile_idx)
+                    self.chest_tile_offsets.pop(tile_idx)
+                    self.preferred_tile_num = None
+                    return True
+        #If there was no tile selected, or the unrotated chest tile didn't fit, explore normally
         return super().explore(tile_pile, discard_pile, longitude, latitude, compass_point_moving)
         
     def replenish_chest_tiles(self):
@@ -224,8 +241,10 @@ class AdventurerRegular(AdventurerBeginner):
         '''
         #Count how many tiles they are short of the max chest tiles
         num_tiles_to_choose = self.num_chest_tiles - len(self.chest_tiles)
-        #Add this many extra tiles to their chest
-        self.chest_tiles += self.choose_tiles(num_tiles_to_choose)
+        #Add this many extra tiles to their chest, with zero manual rotation offsets
+        new_tiles = self.choose_tiles(num_tiles_to_choose)
+        self.chest_tiles += new_tiles
+        self.chest_tile_offsets += [0] * len(new_tiles)
     
     def rechoose_chest_tiles(self):
         '''Checks whether the player will pay to replace all an Adventurer's chest tiles
@@ -245,6 +264,7 @@ class AdventurerRegular(AdventurerBeginner):
                 for rejected_tile in tile_options:
                     self.return_to_pile(rejected_tile)
         self.chest_tiles = new_chest_tiles
+        self.chest_tile_offsets = [0] * len(new_chest_tiles)
 
     def return_to_pile(self, tile):
         '''Identifies the pile associated with a particular tile and returns it there
@@ -437,6 +457,7 @@ class AdventurerRegular(AdventurerBeginner):
             "chest_tiles": [t.to_json() for t in self.chest_tiles],
             "preferred_tile_num": self.preferred_tile_num,
             "num_chest_tiles": self.num_chest_tiles,
+            "chest_tile_offsets": list(self.chest_tile_offsets),
         })
         return d
 

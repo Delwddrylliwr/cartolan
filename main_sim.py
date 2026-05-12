@@ -3,6 +3,7 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
 import sys
+import os
 from matplotlib import pyplot
 import pandas
 import random
@@ -14,12 +15,12 @@ from base import Tile, WindDirection, TileEdges
 from static_visuals import PlayAreaVisualisation, PlayStatsVisualisation
 
 #Default parameters
-GAME_MODE = "Regular"
+GAME_MODE = "Beginner"
 MOVEMENT_RULE = "initial" #"budgetted"
-EXPLORATION_RULE = "clockwise" #,"continuous"
+EXPLORATION_RULE = "continuous" #"clockwise" #,
 MYTHICAL_CITY = True
 NUM_PLAYERS = 2
-NUM_GAMES = 10
+NUM_GAMES = 1000
 # Option sets and corresponding information
 GAME_MODES = { 'Beginner':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeginnerExplorer
                                                                         , "red":PlayerBeginnerTrader
@@ -58,18 +59,18 @@ def setup_tiles(players, game_mode, movement_rules, exploration_rules, mythical_
         Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(1, 0) #east
         Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, -1) #south
         Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(-1, 0) #west
-    elif mythical_city and len(players) == 3:
-        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, 1) #north
-        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(1, 0) #east
-        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, -1) #south
-        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(-1, 0) #west
-    elif len(players) == 4 or (not mythical_city and len(players) == 3):
-        Tile(game, "water", WindDirection(False,False), TileEdges(True,True,True,True), False).place_tile(0, 1) #north
-        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(1, 0) #east
-        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, -1) #south
-        Tile(game, "water", WindDirection(False,False), TileEdges(True,True,True,True), False).place_tile(-1, 0) #west
+    # elif mythical_city and len(players) == 3:
+    #     Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, 1) #north
+    #     Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(1, 0) #east
+    #     Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, -1) #south
+    #     Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(-1, 0) #west
+    # elif len(players) == 4 or (not mythical_city and len(players) == 3):
+    #     Tile(game, "water", WindDirection(False,False), TileEdges(True,True,True,True), False).place_tile(0, 1) #north
+    #     Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(1, 0) #east
+    #     Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, -1) #south
+    #     Tile(game, "water", WindDirection(False,False), TileEdges(True,True,True,True), False).place_tile(-1, 0) #west
 
-    print("Placed the Capital tile, and surrounding water tiles")
+    # print("Placed the Capital tile, and surrounding water tiles")
     return game
 
 def setup_adventurers(players, game_mode, movement_rules, exploration_rules, mythical_city):
@@ -85,11 +86,11 @@ def setup_adventurers(players, game_mode, movement_rules, exploration_rules, myt
 
     for player in players:
 #         exec("Adventurer" +game_mode+ "(game, player, game.cities[0])") #this should probably work, because it doesn't need to create a local
-        print("adding an adventurer for " +str(player.colour)+ " player, who already has " +str(len(game.adventurers[player]))+ " adventurers")
+        # print("adding an adventurer for " +str(player.name))
 #         AdventurerBeginner(game, player, game.cities[0])
         game.ADVENTURER_TYPE(game, player, game.cities[0])
 
-    print("Placed starting adventurer for each player")
+    # print("Placed starting adventurer for each player")
 
     return game
 
@@ -112,7 +113,7 @@ def setup_simulation(players, game_mode, movement_rules, exploration_rules, myth
 
     #turn order has been handled by the parent setup
 #     game.players = random.shuffle(game.players)
-    print("Randomly chose " +str(players[0].colour)+ " player to start")
+    # print("Randomly chose " +str(players[0].name)+ " player to start")
     return game
 
 
@@ -120,13 +121,13 @@ def setup_simulation(players, game_mode, movement_rules, exploration_rules, myth
 class Simulations():
     """Run simulations of the game Cartolan."""
 
-    def __init__(self):
+    def __init__(self, num_games=NUM_GAMES):
         self.game_mode = GAME_MODE
         self.movement_rule = MOVEMENT_RULE
         self.exploration_rule = EXPLORATION_RULE
         self.mythical_city = MYTHICAL_CITY
         self.num_players = NUM_PLAYERS
-        self.num_games = NUM_GAMES
+        self.num_games = num_games
         self.game_modes = GAME_MODES
 
     def click_run_sims(self, event):
@@ -407,9 +408,10 @@ class AISimulations(Simulations):
     '''
     AI_PLAYER_COLOURS = ["green", "brown", "pink", "purple"]
 
-    def __init__(self):
-        super().__init__()
-        self.num_feed_fwd = 1  # number of AI players in each game; must be < num_players
+    def __init__(self, num_games=NUM_GAMES, num_feed_fwd=1, verbose=False):
+        super().__init__(num_games)
+        self.num_feed_fwd = num_feed_fwd  # number of AI players in each game; must be < num_players
+        self.verbose = verbose  # if False, suppresses per-move output and prints one line per game
 
         # Instantiate AI players once — model weights and replay memory span all games
         self.feed_fwd_players = []
@@ -425,6 +427,7 @@ class AISimulations(Simulations):
         Model weights and replay memory are intentionally preserved so the agent
         continues learning across games.
         '''
+        self.num_players = random.choice(NUM_PLAYERS_OPTIONS)
         players = []
         for ai_player in self.feed_fwd_players:
             # Reset game-specific tracking; model weights and memory persist
@@ -442,8 +445,16 @@ class AISimulations(Simulations):
             list(self.game_modes[self.game_mode]["player_set"]),
             self.num_players - len(players),
         )
-        for colour in opponent_colours:
-            players.append(self.game_modes[self.game_mode]["player_set"][colour](colour))
+        opponents = [
+            self.game_modes[self.game_mode]["player_set"][colour](colour)
+            for colour in opponent_colours
+        ]
+
+        # Assign a random opponent as the mimic target for each AI player
+        for ai_player in self.feed_fwd_players:
+            ai_player.player_to_mimic = random.choice(opponents) if opponents else None
+
+        players.extend(opponents)
         return players
 
     def run_sims(self):
@@ -453,12 +464,14 @@ class AISimulations(Simulations):
         supplemented by a full end-of-game replay pass so the model also learns
         from loss experiences and from low-reward stretches that never triggered
         mid-game training.
+
+        When verbose=False (default), all per-move output is suppressed and a
+        single summary line is printed to the real stdout for each game.
         '''
-        sys.stdout = open("./logs/cartolan_ann_log.txt", "w")
+        real_stdout = sys.__stdout__
+        devnull = open(os.devnull, 'w')
 
         for sim_id in range(self.num_games):
-            print("\n--- ANN training game " + str(sim_id + 1) + "/" + str(self.num_games) + " ---")
-
             players = self.setup_players()
             game = setup_simulation(
                 players,
@@ -467,23 +480,40 @@ class AISimulations(Simulations):
                 self.exploration_rule,
                 self.mythical_city,
             )
+
+            if not self.verbose:
+                sys.stdout = devnull
             game.start_game()
+            sys.stdout = real_stdout
 
             # End-of-game training pass: replays the full memory buffer regardless
             # of whether any in-game positive reward triggered training during play.
+            summary_parts = [f"game {sim_id + 1}/{self.num_games}  turns={game.turn}  #players={self.num_players}\n"]
             for ai_player in self.feed_fwd_players:
-                result = "WIN" if game.winning_player == ai_player else "LOSS/DRAW"
-                print("  " + ai_player.name + ": " + result
-                      + ", vault wealth: " + str(ai_player.vault_wealth)
-                      + ", memory: " + str(len(ai_player.memory)) + " experiences")
+                result = "WIN" if game.winning_player == ai_player else "LOSS"
+                vault = game.player_wealths.get(ai_player, 0)
+                epsilon = max(ai_player.EPSILON_MIN,
+                              ai_player.EPSILON_DECAY_PER_GAME ** ai_player.games_played)
+                mimicry = max(ai_player.MIMICRY_FLOOR,
+                              ai_player.MIMICRY_DECAY_PER_GAME ** ai_player.games_played)
+                mimic_name = getattr(ai_player.player_to_mimic, 'name', 'none')
+                summary_parts.append(
+                    f"{ai_player.name}: {result} vault={vault}"
+                    f" gap={game.wealth_difference} mem={len(ai_player.memory)}"
+                    f" epsilon={epsilon:.3f} mu={mimicry:.3f}({mimic_name})\n"
+                )
                 if len(ai_player.memory) > 0:
+                    if not self.verbose:
+                        sys.stdout = devnull
                     ai_player.replay_training()
-                    ai_player.model.save_weights(ai_player.SAVED_MODEL_PATH)
+                    sys.stdout = real_stdout
+                ai_player.games_played += 1
+                ai_player.model.save_weights(ai_player.SAVED_MODEL_PATH)
 
-        sys.stdout = sys.__stdout__
-        print("Training complete: "
-              + str(self.num_games) + " games, "
-              + str(self.num_feed_fwd) + " AI player(s)")
+            print("  ".join(summary_parts))
+
+        devnull.close()
+        print(f"Training complete: {self.num_games} games, {self.num_feed_fwd} AI player(s)")
 
 
 # class InteractiveAISimulation(InteractiveSimulation):

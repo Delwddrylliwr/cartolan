@@ -2,6 +2,7 @@
 Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
+import os
 import keras
 from keras import layers
 from keras.optimizers import Adam
@@ -13,19 +14,24 @@ from base import Player
 
 
 class PlayerFeedFwd(Player):
-    def __init__(self, colour):
-        super().__init__(colour)
+    def __init__(self, name):
+        super().__init__(name)
 
         self.VAULT_INCREASE_REWARD = 1
-        self.CHEST_INCREASE_REWARD = 5
-        self.GAME_WIN_REWARD = 100
-        self.FUTURE_REWARD_DISCOUNT = 0.9
+        self.CHEST_INCREASE_REWARD = 2
+        self.GAME_WIN_REWARD = 10
+        self.FUTURE_REWARD_DISCOUNT = 0.95   # must be high for long-horizon games (~80 turns)
         self.OPTIMISER_LEARNING_RATE = 0.0005
-        self.WHIMSY_REDUCTION_PER_TURN = 0.1
-        self.MIMICRY_REDUCTION_PER_TURN = 0.05
+        self.WHIMSY_REDUCTION_PER_TURN = 0.01
+        self.MIMICRY_REDUCTION_PER_TURN = 0.01
+        self.EPSILON_DECAY_PER_GAME = 0.995   # global exploration decay across training games
+        self.EPSILON_MIN = 0.05              # floor: always keep 5% random exploration
+        self.MIMICRY_DECAY_PER_GAME = 0.999  # global mimicry decay; slower than epsilon
+        self.MIMICRY_FLOOR = 0.05            # minimum mimicry probability
+        self.TRAIN_EVERY_N_MOVES = 5         # trigger a replay pass every N moves
         self.FIRST_LAYER_SIZE = 120
         self.SECOND_LAYER_SIZE = 120
-        self.SAVED_MODEL_PATH = "/ann_models/"
+        self.SAVED_MODEL_PATH = "ann_models/model.weights.h5"
         self.LOAD_OLD_MODEL = True
         self.MEMORY_SIZE = 2500
         self.REPLAY_BATCH_SIZE = 32
@@ -37,9 +43,13 @@ class PlayerFeedFwd(Player):
         self.best_chest_wealths = {}
         self.best_chest_turns = {}
 
+        self.games_played = 0         # global counter; drives epsilon decay
+        self.moves_since_last_train = 0
         self.short_memory = np.array([])
         self.whimsy_probability = 1
+        self.randomised_latest_move = False
         self.mimicry_probability = 1
+        self.mimicked_latest_move = False
         self.player_to_mimic = None
         self.actual = []
         self.memory = collections.deque(maxlen=self.MEMORY_SIZE)
@@ -239,14 +249,17 @@ class PlayerFeedFwd(Player):
         restore_network = layers.Dense(units=1, activation='sigmoid')(base_network)
         bank_network = layers.Dense(units=1, activation='exponential')(base_network)
         buy_adventurer_network = layers.Dense(units=1, activation='sigmoid')(base_network)
+        hire_companion_network = layers.Dense(units=1, activation='sigmoid')(base_network)
 
         model = keras.Model(
             inputs=[state_input],
             outputs=[move_network, trade_network, rest_network, collect_network,
                      place_network, attack_network, restore_network, bank_network,
-                     buy_adventurer_network],
+                     buy_adventurer_network, hire_companion_network],
         )
         model.compile(optimizer=opt, loss='mse')
+
+        os.makedirs(os.path.dirname(self.SAVED_MODEL_PATH), exist_ok=True)
 
         if self.LOAD_OLD_MODEL:
             try:
@@ -264,10 +277,10 @@ class PlayerFeedFwd(Player):
         adventurer is a Cartolan.Adventurer representing the token for which a decision is needed.
         '''
         current_tile = adventurer.current_tile
-        own_adventurers = adventurer.player.adventurers
-        own_agents = adventurer.player.agents
-        players = adventurer.game.players
         game = adventurer.game
+        own_adventurers = game.adventurers.get(adventurer.player, [])
+        own_agents = game.agents.get(adventurer.player, [])
+        players = game.players
 
         state_own_adventurers_wealth = [0] * game.MAX_ADVENTURERS
         state_own_adventurers_companions = [0] * game.MAX_ADVENTURERS
@@ -302,11 +315,11 @@ class PlayerFeedFwd(Player):
         def encode_opponent(player_index):
             nonlocal opponent_index
             p = players[player_index]
-            state_opp_vault_wealths[opponent_index] = p.vault_wealth
+            state_opp_vault_wealths[opponent_index] = game.player_wealths.get(p, 0)
             opp_adventurers = game.adventurers.get(p, [])
             for opp_adventurer in opp_adventurers:
                 oa_idx = opp_adventurers.index(opp_adventurer)
-                flat = 3 * opponent_index + oa_idx
+                flat = game.MAX_ADVENTURERS * opponent_index + oa_idx
                 state_opp_adventurers_wealths[flat] = opp_adventurer.wealth
                 state_opp_adventurers_companions[flat] = getattr(opp_adventurer, 'num_companions', 0)
                 state_opp_adventurers_pirates[flat] = int(getattr(opp_adventurer, 'pirate_token', False))
@@ -315,7 +328,7 @@ class PlayerFeedFwd(Player):
             opp_agents = game.agents.get(p, [])
             for opp_agent in opp_agents:
                 oa_idx = opp_agents.index(opp_agent)
-                flat = 3 * opponent_index + oa_idx
+                flat = game.MAX_AGENTS * opponent_index + oa_idx
                 state_opp_agents_wealths[flat] = opp_agent.wealth
                 state_opp_agents_dispossessed[flat] = int(getattr(opp_agent, 'is_dispossessed', False))
                 state_opp_agents_positions[2 * flat] = opp_agent.current_tile.tile_position.longitude
@@ -343,7 +356,7 @@ class PlayerFeedFwd(Player):
 
         state = np.concatenate([
             *windows,
-            [adventurer.player.vault_wealth],
+            [game.player_wealths.get(adventurer.player, 0)],
             [adventurer.downwind_moves, adventurer.upwind_moves, adventurer.land_moves],
             [current_tile.tile_edges.upwind_clock_water, current_tile.tile_edges.upwind_anti_water,
              current_tile.tile_edges.downwind_clock_water, current_tile.tile_edges.downwind_anti_water],
@@ -376,23 +389,30 @@ class PlayerFeedFwd(Player):
 
         Based on a Bellman equation where the value of optimal subsequent play is estimated
         via a numerical approximation using the current model on future states.
+        Uses a single vectorised fit() call over the whole batch rather than one per sample.
         '''
         if len(self.memory) > self.REPLAY_BATCH_SIZE:
             batch = random.sample(self.memory, self.REPLAY_BATCH_SIZE)
         else:
             batch = list(self.memory)
-        for state, action, reward, next_state, done in batch:
-            updated_Q_value = reward
+
+        states = np.array([exp[0] for exp in batch])
+        next_states = np.array([exp[3] for exp in batch])
+
+        # Two forward passes over the whole batch — much cheaper than N single-sample passes
+        current_preds = [p.numpy() for p in self.model(states)]
+        next_move_values = self.model(next_states)[0].numpy()  # only move head needed
+
+        # Build target arrays: copy current predictions, then update only the chosen action
+        # @TODO extend to update all decision heads independently
+        targets = current_preds
+        for i, (_, action, reward, _, done) in enumerate(batch):
+            updated_Q = reward
             if not done:
-                # Use the move head (output 0) to estimate value of optimal continuation
-                next_preds = self.model(np.array([next_state]))
-                updated_Q_value += self.FUTURE_REWARD_DISCOUNT * np.amax(next_preds[0])
-            current_preds = self.model(np.array([state]))
-            # Build target output list, updating only the move head for the action taken
-            # @TODO extend to update all decision heads independently
-            targets = [np.array(p) for p in current_preds]
-            targets[0][0][action] = updated_Q_value
-            self.model.fit(np.array([state]), targets, epochs=1, verbose=0)
+                updated_Q += self.FUTURE_REWARD_DISCOUNT * np.amax(next_move_values[i])
+            targets[0][i][action] = updated_Q
+
+        self.model.fit(states, targets, epochs=1, verbose=0)
 
     def continue_turn(self, adventurer):
         '''Houses the AI's movement decisions during a single turn.
@@ -401,37 +421,76 @@ class PlayerFeedFwd(Player):
         adventurer is a Cartolan.Adventurer representing the token being moved.
         '''
         reward = 0
+        #For the first turn of a new game reset all the wealth trackers
+        if adventurer.turns_moved == 0:
+            self.best_vault_wealth = 0
+            self.best_vault_turn = 0
+            self.best_chest_wealths[adventurer] = 0
+            self.best_chest_turns[adventurer] = 0
 
         if not getattr(self, 'active_training', False):
             self.whimsy_probability = 0
         else:
-            self.whimsy_probability = 1.0 / (1.0 + adventurer.turns_moved * self.WHIMSY_REDUCTION_PER_TURN)
-            self.mimicry_probability = 1.0 / (1.0 + adventurer.turns_moved * self.MIMICRY_REDUCTION_PER_TURN)
+            # Global epsilon decays with games_played so exploration reduces as training progresses.
+            # Within each game it also decays with turns_moved so the agent exploits more late-game.
+            global_epsilon = max(self.EPSILON_MIN, self.EPSILON_DECAY_PER_GAME ** self.games_played)
+            self.whimsy_probability = global_epsilon #/ ( 1.0 + adventurer.turns_moved * self.WHIMSY_REDUCTION_PER_TURN)
+            global_mimicry = max(self.MIMICRY_FLOOR,
+                                 self.MIMICRY_DECAY_PER_GAME ** self.games_played)
+            self.mimicry_probability = global_mimicry #/ (1.0 + adventurer.turns_moved * self.MIMICRY_REDUCTION_PER_TURN)
+
+        _DELTA_TO_MOVE = {(0, 1): 0, (1, 0): 1, (0, -1): 2, (-1, 0): 3, (0, 0): 4}
 
         while adventurer.turns_moved < adventurer.game.turn:
+            reward = 0  # reset per move so each experience has only that move's reward
+
             state_old = self.get_state(adventurer)
 
             if random.random() < self.whimsy_probability:
-                move_choice = random.randint(0, len(self.move_map) - 1)
-                print("Randomly chose direction: " + self.move_map[move_choice])
+                if (self.player_to_mimic is not None
+                        and hasattr(self.player_to_mimic, 'continue_move')
+                        and random.random() < self.mimicry_probability):
+                    # Let the heuristic execute one move; deduce direction from position delta
+                    pos_lon = adventurer.current_tile.tile_position.longitude
+                    pos_lat = adventurer.current_tile.tile_position.latitude
+                    self.player_to_mimic.locations_to_avoid = [[pos_lon, pos_lat]]
+                    self.player_to_mimic.continue_move(adventurer)
+                    dx = adventurer.current_tile.tile_position.longitude - pos_lon
+                    dy = adventurer.current_tile.tile_position.latitude - pos_lat
+                    move_choice = _DELTA_TO_MOVE.get((dx, dy), 4)
+                    print("Mimicked move: " + self.move_map[move_choice])
+                    self.mimicked_latest_move = True
+                    self.randomised_latest_move = False
+                else:
+                    move_choice = random.randint(0, len(self.move_map) - 1)
+                    direction = self.move_map[move_choice]
+                    if direction == 'wait':
+                        adventurer.wait()
+                    else:
+                        adventurer.move(direction)
+                    print("Randomly chose direction: " + self.move_map[move_choice])
+                    self.randomised_latest_move = True
+                    self.mimicked_latest_move = False
             else:
                 self.predicted_continuation_values = self.model(np.array([state_old]))
                 move_choice = int(np.argmax(self.predicted_continuation_values[0]))
+                direction = self.move_map[move_choice]
+                if direction == 'wait':
+                    adventurer.wait()
+                else:
+                    adventurer.move(direction)
                 print("ANN chose direction: " + self.move_map[move_choice])
-
-            direction = self.move_map[move_choice]
-            if direction == 'wait':
-                adventurer.wait()
-            else:
-                adventurer.move(direction)
+                self.mimicked_latest_move = False
+                self.randomised_latest_move = False
 
             state_new = self.get_state(adventurer)
 
-            vault_wealth_increase = self.vault_wealth - self.best_vault_wealth
+            current_vault = adventurer.game.player_wealths.get(self, 0)
+            vault_wealth_increase = current_vault - self.best_vault_wealth
             if vault_wealth_increase > 0:
                 reward += self.VAULT_INCREASE_REWARD * vault_wealth_increase / (
                     abs(adventurer.turns_moved - self.best_vault_turn) + 1)
-                self.best_vault_wealth = self.vault_wealth
+                self.best_vault_wealth = current_vault
                 self.best_vault_turn = adventurer.turns_moved
 
             # Similarly for this adventurer's chest wealth
@@ -450,16 +509,26 @@ class PlayerFeedFwd(Player):
                 # Apply terminal reward before remember() so the final experience
                 # stored in the replay buffer includes the win/loss signal.
                 if adventurer.game.winning_player == self:
-                    reward += self.GAME_WIN_REWARD * adventurer.game.wealth_difference
+                    reward += self.GAME_WIN_REWARD
                 else:
                     reward -= self.GAME_WIN_REWARD
             self.remember(state_old, move_choice, reward, state_new, done)
 
-            if getattr(self, 'active_training', False) and reward > 0:
-                self.replay_training()
-                self.model.save_weights(self.SAVED_MODEL_PATH)
+            if getattr(self, 'active_training', False) and len(self.memory) >= self.REPLAY_BATCH_SIZE:
+                self.moves_since_last_train += 1
+                if self.moves_since_last_train >= self.TRAIN_EVERY_N_MOVES:
+                    self.replay_training()
+                    self.moves_since_last_train = 0
 
         return True
+
+    def check_deposit(self, adventurer, maximum, minimum=0, report=''):
+        '''Bank all available chest wealth.'''
+        return maximum
+
+    def check_travel_money(self, adventurer, maximum, default):
+        '''Pay no travel toll by default.'''
+        return default
 
     def check_trade(self, adventurer, tile):
         '''Gives the AI's decision whether to trade at a Wonder tile.
@@ -469,24 +538,40 @@ class PlayerFeedFwd(Player):
         tile is the Wonder tile being visited.
         '''
         if random.random() < self.whimsy_probability:
-            trade = random.random() > 0.5
-            print("Randomly chose trade: " + str(trade))
+            if (self.player_to_mimic is not None
+                    and hasattr(self.player_to_mimic, 'check_trade')
+                    and random.random() < self.mimicry_probability):
+                trade = self.player_to_mimic.check_trade(adventurer, tile)
+                print("Mimicked trade: " + str(trade))
+            else:
+                trade = random.random() > 0.5
+                print("Randomly chose trade: " + str(trade))
         else:
             prediction = self.model(np.array([self.get_state(adventurer)]))
             trade = prediction[1][0][0] > 0.5  # output index 1 = trade_network
             print("ANN chose trade: " + str(trade))
         return trade
 
-    def check_collect_wealth(self, adventurer, agent):
+    def check_collect_wealth(self, agent):
         '''Gives the AI's decision whether to collect wealth from an Agent.
 
         Arguments
-        adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
         agent is the Agent token being visited.
         '''
+        adventurer = next(
+            (a for a in agent.current_tile.adventurers if a.player == self), None
+        )
+        if adventurer is None or self.model is None:
+            return random.random() > 0.5
         if random.random() < self.whimsy_probability:
-            collect = random.random() > 0.5
-            print("Randomly chose collect: " + str(collect))
+            if (self.player_to_mimic is not None
+                    and hasattr(self.player_to_mimic, 'check_collect_wealth')
+                    and random.random() < self.mimicry_probability):
+                collect = self.player_to_mimic.check_collect_wealth(agent)
+                print("Mimicked collect: " + str(collect))
+            else:
+                collect = random.random() > 0.5
+                print("Randomly chose collect: " + str(collect))
         else:
             prediction = self.model(np.array([self.get_state(adventurer)]))
             collect = prediction[3][0][0] > 0.5  # output index 3 = collect_network
@@ -501,8 +586,14 @@ class PlayerFeedFwd(Player):
         agent is the Agent token being visited.
         '''
         if random.random() < self.whimsy_probability:
-            rest = random.random() > 0.5
-            print("Randomly chose rest: " + str(rest))
+            if (self.player_to_mimic is not None
+                    and hasattr(self.player_to_mimic, 'check_rest')
+                    and random.random() < self.mimicry_probability):
+                rest = self.player_to_mimic.check_rest(adventurer, agent)
+                print("Mimicked rest: " + str(rest))
+            else:
+                rest = random.random() > 0.5
+                print("Randomly chose rest: " + str(rest))
         else:
             prediction = self.model(np.array([self.get_state(adventurer)]))
             rest = prediction[2][0][0] > 0.5  # output index 2 = rest_network
@@ -533,8 +624,14 @@ class PlayerFeedFwd(Player):
         adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
         '''
         if random.random() < self.whimsy_probability:
-            recruit = random.random() > 0.5
-            print("Randomly chose recruit: " + str(recruit))
+            if (self.player_to_mimic is not None
+                    and hasattr(self.player_to_mimic, 'check_buy_adventurer')
+                    and random.random() < self.mimicry_probability):
+                recruit = self.player_to_mimic.check_buy_adventurer(adventurer)
+                print("Mimicked recruit: " + str(recruit))
+            else:
+                recruit = random.random() > 0.5
+                print("Randomly chose recruit: " + str(recruit))
         else:
             prediction = self.model(np.array([self.get_state(adventurer)]))
             recruit = prediction[8][0][0] > 0.5  # output index 8 = buy_adventurer_network
@@ -548,8 +645,14 @@ class PlayerFeedFwd(Player):
         adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
         '''
         if random.random() < self.whimsy_probability:
-            place = random.random() > 0.5
-            print("Randomly chose place agent: " + str(place))
+            if (self.player_to_mimic is not None
+                    and hasattr(self.player_to_mimic, 'check_place_agent')
+                    and random.random() < self.mimicry_probability):
+                place = self.player_to_mimic.check_place_agent(adventurer)
+                print("Mimicked place agent: " + str(place))
+            else:
+                place = random.random() > 0.5
+                print("Randomly chose place agent: " + str(place))
         else:
             prediction = self.model(np.array([self.get_state(adventurer)]))
             place = prediction[4][0][0] > 0.5  # output index 4 = place_network
@@ -578,8 +681,14 @@ class PlayerFeedFwd(Player):
         other_adventurer is the opposing Adventurer on the same tile.
         '''
         if random.random() < self.whimsy_probability:
-            attack = random.random() > 0.5
-            print("Randomly chose attack adventurer: " + str(attack))
+            if (self.player_to_mimic is not None
+                    and hasattr(self.player_to_mimic, 'check_attack_adventurer')
+                    and random.random() < self.mimicry_probability):
+                attack = self.player_to_mimic.check_attack_adventurer(adventurer, other_adventurer)
+                print("Mimicked attack adventurer: " + str(attack))
+            else:
+                attack = random.random() > 0.5
+                print("Randomly chose attack adventurer: " + str(attack))
         else:
             prediction = self.model(np.array([self.get_state(adventurer)]))
             attack = prediction[5][0][0] > 0.5  # output index 5 = attack_network
@@ -594,8 +703,14 @@ class PlayerFeedFwd(Player):
         agent is the opposing Agent on the tile.
         '''
         if random.random() < self.whimsy_probability:
-            attack = random.random() > 0.5
-            print("Randomly chose attack agent: " + str(attack))
+            if (self.player_to_mimic is not None
+                    and hasattr(self.player_to_mimic, 'check_attack_agent')
+                    and random.random() < self.mimicry_probability):
+                attack = self.player_to_mimic.check_attack_agent(adventurer, agent)
+                print("Mimicked attack agent: " + str(attack))
+            else:
+                attack = random.random() > 0.5
+                print("Randomly chose attack agent: " + str(attack))
         else:
             prediction = self.model(np.array([self.get_state(adventurer)]))
             attack = prediction[5][0][0] > 0.5  # output index 5 = attack_network
@@ -610,10 +725,37 @@ class PlayerFeedFwd(Player):
         agent is the player's dispossessed Agent on the tile.
         '''
         if random.random() < self.whimsy_probability:
-            restore = random.random() > 0.5
-            print("Randomly chose restore: " + str(restore))
+            if (self.player_to_mimic is not None
+                    and hasattr(self.player_to_mimic, 'check_restore_agent')
+                    and random.random() < self.mimicry_probability):
+                restore = self.player_to_mimic.check_restore_agent(adventurer, agent)
+                print("Mimicked restore: " + str(restore))
+            else:
+                restore = random.random() > 0.5
+                print("Randomly chose restore: " + str(restore))
         else:
             prediction = self.model(np.array([self.get_state(adventurer)]))
             restore = prediction[6][0][0] > 0.5  # output index 6 = restore_network
             print("ANN chose restore: " + str(restore))
         return restore
+
+    def check_hire_companion(self, adventurer):
+        '''Gives the AI's decision whether to hire a companion card when visiting a city.
+
+        Arguments
+        adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
+        '''
+        if random.random() < self.whimsy_probability:
+            if (self.player_to_mimic is not None
+                    and hasattr(self.player_to_mimic, 'check_hire_companion')
+                    and random.random() < self.mimicry_probability):
+                hire = self.player_to_mimic.check_hire_companion(adventurer)
+                print("Mimicked hire companion: " + str(hire))
+            else:
+                hire = random.random() > 0.5
+                print("Randomly chose hire companion: " + str(hire))
+        else:
+            prediction = self.model(np.array([self.get_state(adventurer)]))
+            hire = prediction[9][0][0] > 0.5  # output index 9 = hire_companion_network
+            print("ANN chose hire companion: " + str(hire))
+        return hire

@@ -511,7 +511,8 @@ class ClientSocket(WebSocket):
 
         # Inform all clients that the game has ended
         win_message = self.game.winning_player.name + " won the game"
-        if self.game.wealth_difference >= self.game.game_winning_difference:
+        if (self.game.game_winning_difference is not None
+                and self.game.wealth_difference >= self.game.game_winning_difference):
             win_message += " by buying a global monopoly with their extra wealth"
         else:
             win_message += " as the richest when the world map was completed"
@@ -713,10 +714,37 @@ class ClientSocket(WebSocket):
                 print(str(self.coords_buffer))
             except:
                 self.coords_buffer = None
+        elif protocode == ("CHESTL"):
+            print("Chest tile rotate anticlockwise received from client.")
+            try:
+                self.coords_buffer = {'chest_rotate_anti': int(msg)}
+            except:
+                self.coords_buffer = None
+        elif protocode == ("CHESTR"):
+            print("Chest tile rotate clockwise received from client.")
+            try:
+                self.coords_buffer = {'chest_rotate_clock': int(msg)}
+            except:
+                self.coords_buffer = None
         elif protocode == ("TOGGLE"):
             self.coords_buffer = {'toggle': msg.strip()}
         elif protocode == ("ROUTES"):
             self.coords_buffer = {'routes_toggle': True}
+        elif protocode == ("ROUTEFOLLOW"):
+            print("Route follow input received from client.")
+            try:
+                player_part, rest = msg.split('[55555]')
+                adv_str, coord_rest = rest.split('[44444]')
+                lon_str, lat_str = coord_rest.split('[66666]')
+                self.coords_buffer = {
+                    'route_follow': {
+                        'player': player_part.strip(),
+                        'adv_idx': int(adv_str),
+                        'dest': [int(lon_str), int(lat_str)],
+                    }
+                }
+            except:
+                self.coords_buffer = None
         elif protocode == ("UNDO"):
             self.coords_buffer = {'undo_request': True}
         elif protocode == ("FOCUS"):

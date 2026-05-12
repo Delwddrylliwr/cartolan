@@ -94,6 +94,20 @@ class PlayerHuman(Player):
                     elif preferred_tile < len(adventurer.chest_tiles):
                         adventurer.preferred_tile_num = preferred_tile
                     game_vis.draw_chest_tiles()
+                chest_rotate_anti = gui_input.get("chest_rotate_anti")
+                if isinstance(chest_rotate_anti, int) and chest_rotate_anti < len(adventurer.chest_tiles):
+                    print("Player rotating chest tile #"+str(chest_rotate_anti+1)+" anticlockwise")
+                    adventurer.chest_tile_offsets[chest_rotate_anti] = (adventurer.chest_tile_offsets[chest_rotate_anti] - 1) % 4
+                    adventurer.preferred_tile_num = chest_rotate_anti
+                    adventurer.match_chest_directions()
+                    game_vis.draw_chest_tiles()
+                chest_rotate_clock = gui_input.get("chest_rotate_clock")
+                if isinstance(chest_rotate_clock, int) and chest_rotate_clock < len(adventurer.chest_tiles):
+                    print("Player rotating chest tile #"+str(chest_rotate_clock+1)+" clockwise")
+                    adventurer.chest_tile_offsets[chest_rotate_clock] = (adventurer.chest_tile_offsets[chest_rotate_clock] + 1) % 4
+                    adventurer.preferred_tile_num = chest_rotate_clock
+                    adventurer.match_chest_directions()
+                    game_vis.draw_chest_tiles()
             if isinstance(adventurer, AdventurerAdvanced):
                 game_vis.draw_cards()
     
@@ -687,8 +701,11 @@ class PlayerHuman(Player):
     # Let the player choose whether to place an agent when offered
     def check_place_agent(self, adventurer):
         actions = {}
-        if self.undone: 
+        if self.undone:
             print("automatically responding false to action")
+            return False
+        if self.follow_route:
+            print("Following route — automatically declining to hire Inn")
             return False
         # self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
         action_type = "buy"

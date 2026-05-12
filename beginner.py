@@ -84,6 +84,8 @@ class AdventurerBeginner(Adventurer):
             "num_chest_tiles": None,
             "character_card": None,
             "discovery_cards": None,
+            "companion_cards": [{"card_type": "companion", "card_id": f"companion_{i}"}
+                                 for i in range(self.num_companions)],
         })
         return d
 
@@ -413,6 +415,22 @@ class AdventurerBeginner(Adventurer):
             #Feed back to the calling function that the tile wouldn't place under any suitable rotation
             return False
         
+    def place_tile_exact(self, potential_tile, longitude, latitude, compass_point_moving, adjoining_edges_water):
+        '''Place a tile in its exact current orientation without allowing any rotation.
+        Returns True and awards wealth if the tile fits; returns False otherwise.
+        '''
+        compass_points = ["n", "e", "s", "w"]
+        edge_matches = True
+        while edge_matches and len(compass_points) > 0:
+            cp = compass_points.pop()
+            edge_matches = (adjoining_edges_water[cp] is None or
+                            adjoining_edges_water[cp] == potential_tile.compass_edge_water(cp))
+        if edge_matches:
+            potential_tile.place_tile(longitude, latitude)
+            self.wealth += self.get_exploration_value(adjoining_edges_water, compass_point_moving)
+            return True
+        return False
+
     def rotated_tile_fits(self, potential_tile, compass_point_moving, adjoining_edges_water):
         '''Check whether a given tile will fit into an adjacent space to the Adventurer
         '''

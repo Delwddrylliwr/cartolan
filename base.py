@@ -406,7 +406,7 @@ class Tile:
         int longitude
         int latitude
         '''
-        print("Placing tile " +str(longitude)+", "+str(latitude))
+        # print("Placing tile " +str(longitude)+", "+str(latitude))
         play_area = self.game.play_area
         if play_area.get(longitude) is None:
             play_area[longitude] = {latitude:self}

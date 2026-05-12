@@ -2054,6 +2054,10 @@ class WebServerVisualisation(GameVisualisation):
         '''Translates a semantic dict from the browser into a get_input_coords return value.'''
         if 'preferred_tile' in sem:
             return sem
+        if 'chest_rotate_anti' in sem:
+            return sem
+        if 'chest_rotate_clock' in sem:
+            return sem
         if 'toggle' in sem:
             return sem
         if 'routes_toggle' in sem:
@@ -2074,6 +2078,18 @@ class WebServerVisualisation(GameVisualisation):
                         self.viewed_player_colour = self.player_colours.get(p, 'white')
                     break
             return {"update_visuals":"update_visuals"}
+        if 'route_follow' in sem:
+            rf = sem['route_follow']
+            dest_lon, dest_lat = rf['dest']
+            for player in self.game.players:
+                if player.name == rf['player']:
+                    advs = self.game.adventurers.get(player, [])
+                    if rf['adv_idx'] < len(advs):
+                        route_tiles = list(advs[rf['adv_idx']].route)
+                        if route_tiles:
+                            return {'route': route_tiles, 'destination': [dest_lon, dest_lat]}
+                    break
+            return {"update_visuals": "update_visuals"}
         if 'play' in sem:
             return {"Nothing": "Nothing"}
         # highlight_type: [lon, lat] — direct game move/action from JS
