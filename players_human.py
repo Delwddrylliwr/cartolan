@@ -94,6 +94,20 @@ class PlayerHuman(Player):
                     elif preferred_tile < len(adventurer.chest_tiles):
                         adventurer.preferred_tile_num = preferred_tile
                     game_vis.draw_chest_tiles()
+                chest_rotate_anti = gui_input.get("chest_rotate_anti")
+                if isinstance(chest_rotate_anti, int) and chest_rotate_anti < len(adventurer.chest_tiles):
+                    print("Player rotating chest tile #"+str(chest_rotate_anti+1)+" anticlockwise")
+                    adventurer.chest_tile_offsets[chest_rotate_anti] = (adventurer.chest_tile_offsets[chest_rotate_anti] - 1) % 4
+                    adventurer.preferred_tile_num = chest_rotate_anti
+                    adventurer.match_chest_directions()
+                    game_vis.draw_chest_tiles()
+                chest_rotate_clock = gui_input.get("chest_rotate_clock")
+                if isinstance(chest_rotate_clock, int) and chest_rotate_clock < len(adventurer.chest_tiles):
+                    print("Player rotating chest tile #"+str(chest_rotate_clock+1)+" clockwise")
+                    adventurer.chest_tile_offsets[chest_rotate_clock] = (adventurer.chest_tile_offsets[chest_rotate_clock] + 1) % 4
+                    adventurer.preferred_tile_num = chest_rotate_clock
+                    adventurer.match_chest_directions()
+                    game_vis.draw_chest_tiles()
             if isinstance(adventurer, AdventurerAdvanced):
                 game_vis.draw_cards()
     
@@ -116,11 +130,13 @@ class PlayerHuman(Player):
     
     def continue_move(self, adventurer):
         '''Offers the user available moves, translates their mouse input into movement, and updates visuals.
-        
+
         Arguments
         adventurer takes a Cartolan.Adventurer
         '''
         game = adventurer.game
+        if self not in game.adventurers:
+            return False  # swapped out; let continue_turn's guard handle cleanup
         game_vis = self.games[game.game_id]["game_vis"]
         
         #If a route is being followed, then try to proceed to the next tile until hitting a city
@@ -203,8 +219,8 @@ class PlayerHuman(Player):
         #prompt the player to choose a tile to move on to
         print("Prompting the "+self.name+" for input")
 #        game_vis.clear_prompt()
-        prompt = ("Click which tile you would like "+str(self.name)+"'s Adventurer #" 
-                                       +str(game.adventurers[self].index(adventurer)+1) 
+        prompt = ("Click which tile you would like "+str(self.name)+"'s Adventurer #"
+                                       +str(game.adventurers[adventurer.player].index(adventurer)+1)
                                        +" to move to?")
         if game_vis.drawn_routes:
             prompt += " Or select a route to follow."
@@ -228,12 +244,20 @@ class PlayerHuman(Player):
         #Carry out the player's chosen move
         player_input = {"Nothing":"Nothing"}
         while player_input.get("Nothing") is not None:
+            if self not in game.adventurers:
+                return False  # disconnected mid-wait; unfreeze the game thread
             player_input = game_vis.get_input_coords(adventurer)
+            if player_input.get("timeout"):
+                adventurer.wait()
+                return True
         print("Player's input:")
         print(player_input)
         #Recieve input for menu actions that change player preferences, while no coordinates are received
-        while (player_input.get("move") is None 
+        while (player_input.get("move") is None
                and player_input.get("abandon") is None):
+            if player_input.get("timeout"):
+                adventurer.wait()
+                return True
             if player_input.get("route") is not None:
                 if adventurer.current_tile in player_input["route"]:
                     self.follow_route = player_input["route"][:] #Copy the other player's route rather than referncing the list (which would then mean modifying it and disrupting the visuals)
@@ -252,6 +276,9 @@ class PlayerHuman(Player):
                     return self.continue_move(adventurer)
                 else:
                     player_input = game_vis.get_input_coords(adventurer)
+                    if player_input.get("timeout"):
+                        adventurer.wait()
+                        return True
             elif player_input.get("undo") is not None:
                 print("The Adventurer's turn has been reset and we need to go back to the start of the turn.")
                 self.undone = True
@@ -280,7 +307,12 @@ class PlayerHuman(Player):
                 game_vis.draw_discard_pile()
                 game_vis.draw_undo_button()
                 #Seek input again
+                if self not in game.adventurers:
+                    return False  # disconnected mid-wait; unfreeze the game thread
                 player_input = game_vis.get_input_coords(adventurer)
+                if player_input.get("timeout"):
+                    adventurer.wait()
+                    return True
                 print("Player's input:")
                 print(player_input)
 
@@ -326,6 +358,8 @@ class PlayerHuman(Player):
         adventurer is a Cartolan.Adventurer
         '''
         game = adventurer.game
+        if self not in game.adventurers:
+            return  # this player was replaced by a bot mid-game
         game_vis = self.games[game.game_id]["game_vis"]
         adventurers = game.adventurers[self]
         adventurer_number = adventurers.index(adventurer)
@@ -345,6 +379,8 @@ class PlayerHuman(Player):
         game_vis.get_input_coords(adventurer)
         game_vis.clear_prompt()
         
+        if self not in game.adventurers:
+            return  # swapped out while awaiting turn acknowledgement
         if isinstance(game, GameAdvanced):
             if game.assigned_cadres.get(self) is None:
                 game.choose_cadre(self)
@@ -358,6 +394,8 @@ class PlayerHuman(Player):
         
         #Move while moves are still available
         while adventurer.turns_moved < adventurer.game.turn:
+            if self not in game.adventurers:
+                return  # swapped out mid-turn; bot takes over next round
             print(self.name.capitalize()+"'s Adventurer #"+str(adventurers.index(adventurer)+1)+" is still able to move.")
             self.continue_move(adventurer)
             #If undo has been invoked then restore the game state from the start of the turn
@@ -477,12 +515,20 @@ class PlayerHuman(Player):
 #        player_input = None
 #        while not player_input:
         player_input = game_vis.get_input_coords(adventurer)
+        if player_input.get("timeout"):
+            self.follow_route = []
+            self.destination = None
+            return False
 #        print("Player's input:")
 #        print(player_input)
         #Check if this was a menu click, respond and gather another
-        while (player_input.get(action_type) is None 
+        while (player_input.get(action_type) is None
                and player_input.get("move") is None
                and player_input.get("Nothing") is None):
+            if player_input.get("timeout"):
+                self.follow_route = []
+                self.destination = None
+                return False
             if player_input.get("undo") is not None:
                 #We'll want to refuse any actions and get to the end of the Adventurer's current move-action cycle in order to reset
                 self.undone = True
@@ -512,6 +558,10 @@ class PlayerHuman(Player):
 
             #Seek input again
             player_input = game_vis.get_input_coords(adventurer)
+            if player_input.get("timeout"):
+                self.follow_route = []
+                self.destination = None
+                return False
         if player_input.get(action_type) is not None:
             action_coords = player_input.get(action_type)
             print(self.name.capitalize()+" chose the coordinates of the tile where their Adventurer can "+action_type)
@@ -655,11 +705,31 @@ class PlayerHuman(Player):
         else:
             return False
 
+    def check_hire_companion(self, adventurer, report="Player is being asked whether to hire a Companion"):
+        print(report)
+        if self.undone:
+            print("automatically responding false to action")
+            return False
+        actions = {}
+        action_type = "buy"
+        actions[action_type] = [[adventurer.current_tile.tile_position.longitude
+                    , adventurer.current_tile.tile_position.latitude]]
+        prompt = ("If you want your Adventurer to hire a Companion for "
+                             + str(adventurer.game.cost_companion)
+                             + " Silk then click the City, otherwise click elsewhere.")
+        if self.check_action(adventurer, action_type, actions, prompt):
+            return True
+        else:
+            return False
+
     # Let the player choose whether to place an agent when offered
     def check_place_agent(self, adventurer):
         actions = {}
-        if self.undone: 
+        if self.undone:
             print("automatically responding false to action")
+            return False
+        if self.follow_route:
+            print("Following route — automatically declining to hire Inn")
             return False
         # self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
         action_type = "buy"
@@ -889,7 +959,7 @@ class PlayerHuman(Player):
             game_vis.draw_cards()
         
         #prompt the player to input
-        print("Prompting "+self.name+" for input")
+        print("Prompting "+self.name+" for input to choose a card")
 #            game_vis.clear_prompt()
         game_vis.give_prompt(prompt)
         game_vis.draw_card_offers(cards)
@@ -919,7 +989,7 @@ class PlayerHuman(Player):
             game_vis.draw_cards()
         
         #prompt the player to input
-        print("Prompting "+self.name+" for input")
+        print("Prompting "+self.name+" for input to choose a tile")
 #            game_vis.clear_prompt()
         game_vis.give_prompt(prompt)
         game_vis.draw_tile_offers(tiles)

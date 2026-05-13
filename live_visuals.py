@@ -7,15 +7,14 @@ import pygame
 #import pygame_menu
 import sys
 import os
+import json
 import time
-import base64
-import random
-import string
+import json
 from collections import deque
 #from PodSixNet.Connection import ConnectionListener, connection
 #from time import sleep
-from base import Player, CityTile #, TileEdges, WindDirection
-from regular import DisasterTile, AdventurerRegular, AgentRegular #, MythicalTileRegular
+from base import Player, CityTile, Game, Tile, Card, Agent, Adventurer  # , TileEdges, WindDirection
+from regular import AdventurerRegular, AgentRegular, DisasterTile  # , MythicalTileRegular
 from advanced import AdventurerAdvanced
 from game import GameBeginner, GameRegular, GameAdvanced
 # from players_human import PlayerHuman
@@ -825,8 +824,8 @@ class GameVisualisation():
         '''
         '''
 #        print("Clearing out the list of valid moves")
-        for highlight_type in self.highlight_library:
-            self.highlights[highlight_type] = []
+        # for highlight_type in self.highlight_library:
+        #     self.highlights[highlight_type] = []
     
     def draw_tokens(self):
         '''Illustrates the current location of Adventurers and Agents in a game, along with their paths over the last turn
@@ -1570,10 +1569,8 @@ class GameVisualisation():
         return False
     
     def close(self):
-        '''Elegantly closes the application down.
-        '''
-        pygame.quit()
-        sys.exit()
+        '''Closes the server-side visualisation (no pygame to shut down).'''
+        pass
         
     def finished(self):
         self.window.blit(self.gameover if not self.local_win else self.winningscreen, (0,0))
@@ -1595,73 +1592,195 @@ class WebServerVisualisation(GameVisualisation):
     TEMP_FILENAME_LEN = 6
     TEMP_FILE_EXTENSION = ".png"
     INPUT_DELAY = 0.1 #delay time between checking for input, in seconds
-    
+    MOVE_TIME_LIMIT = 30  # seconds per input prompt; separate from Pygame's constant
+
     def __init__(self, game, peer_visuals, player_colours, client, width, height):
         self.peer_visuals = peer_visuals
         self.client = client
         self.width, self.height = width, height
         self.client_players = []
+        self._move_deadline = None
+        self._client_ready = False  # set True when client sends READY after loading assets
         super().__init__(game, peer_visuals, player_colours)
     
     def init_GUI(self):
-        print("Initialising the pygame window and GUI")
-        pygame.init()
-        self.window = pygame.Surface((self.width, self.height), pygame.SRCALPHA, 32)
-        self.window.fill(self.BACKGROUND_COLOUR) #fill the screen with a background colour/transparency
-        print("Initialising visual scale variables, to fit window of size "+str(self.width)+"x"+str(self.height))
-        self.tile_size = self.height // self.dimensions[1]
-        #We'll have a different tile size for dicards and menu highlights
+        '''Computes layout constants needed for serialisation; no pygame rendering.'''
+        print("Initialising layout for web server visualisation (no pygame), window "
+              + str(self.width) + "x" + str(self.height))
+        # Layout variables mirrored in the JS _recalcLayout()
         self.play_area_width = round(self.width * (1 - self.LEFT_MENU_SCALE - self.RIGHT_MENU_SCALE))
         self.play_area_start = round(self.width * self.LEFT_MENU_SCALE)
         self.right_menu_width = round(self.width * self.RIGHT_MENU_SCALE)
         self.right_menu_start = self.play_area_start + self.play_area_width
-        self.right_text_start = self.MOVE_COUNT_POSITION[0] * self.width #All text indicators in the right menu will follow the same indent
+        self.right_text_start = self.MOVE_COUNT_POSITION[0] * self.width
         self.menu_highlight_size = round(self.RIGHT_MENU_SCALE * self.width) // len(self.TOGGLE_HIGHLIGHTS)
         self.menu_route_thickness = self.ROUTE_THICKNESS
         self.menu_spacing = self.menu_route_thickness
         self.menu_tile_size = round(self.RIGHT_MENU_SCALE * self.width) // self.MENU_TILE_COLS
-        #Before sizing against the horizontal dimension, we'll work out how much space the menus will take away
-        self.play_area_width = round(self.width * (1 - self.LEFT_MENU_SCALE - self.RIGHT_MENU_SCALE))
-        self.play_area_start = round(self.width * self.LEFT_MENU_SCALE)
-        #Tiles will be scaled to fit the smaller dimension
-        if self.play_area_width < self.tile_size * self.dimensions[0]:
-            self.tile_size = self.play_area_width // self.dimensions[0]
-        #Where piracy is possible, we'll have a different tile size for 
         self.offer_tile_size = round(self.OFFER_SCALE * self.width)
-        self.token_size = int(round(self.TOKEN_SCALE * self.tile_size)) #token size will be proportional to the tiles
+        dim_h = max(self.dimensions[1], 1)
+        dim_w = max(self.dimensions[0], 1)
+        self.tile_size = self.height // dim_h
+        if self.play_area_width < self.tile_size * dim_w:
+            self.tile_size = self.play_area_width // dim_w
+        self.token_size = int(round(self.TOKEN_SCALE * self.tile_size))
         self.outline_width = math.ceil(self.TOKEN_OUTLINE_SCALE * self.token_size)
-        self.token_font = pygame.font.SysFont(None, round(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
-        self.scores_font = pygame.font.SysFont(None, round(self.height * self.SCORES_FONT_SCALE)) #the font size for scores will be proportionate to the window size
-        self.card_font = pygame.font.SysFont(None, round(self.height * self.CARD_FONT_SCALE)) #the font size for scores will be proportionate to the window size
-        self.prompt_font = pygame.font.SysFont(None, round(self.height * self.PROMPT_FONT_SCALE)) #the font size for prompt will be proportionate to the window size
-        self.prompt_position = [self.play_area_start + self.PROMPT_POSITION[0]*self.width
-                                , self.PROMPT_POSITION[1]*self.height]
-        pygame.font.init()
         self.prompt_text = ""
-        #Make sure that the GUI menus are drawn on the correct sides from the start
+        # Placeholder rect bounds (not used for click-detection with JS client)
         self.scores_rect = (0, 0, 0, 0)
+        self.score_rects = []
         self.stack_rect = (0, 0, 0, 0)
         self.current_move_count = None
-        self.move_count_rect = (self.MOVE_COUNT_POSITION[0]*self.width, self.MOVE_COUNT_POSITION[1]*self.height, 0, round(self.height * self.SCORES_FONT_SCALE))
-        self.toggles_rect = (self.right_menu_start, self.move_count_rect[1]+self.move_count_rect[3]+round(self.height * self.SCORES_FONT_SCALE) + self.menu_highlight_size, 0, self.menu_tile_size+round(self.height * self.SCORES_FONT_SCALE))
-        self.chest_rect = (self.right_menu_start, self.toggles_rect[1]+self.toggles_rect[3]+round(self.height * self.SCORES_FONT_SCALE), 0, self.menu_tile_size)
-        self.piles_rect = (self.right_menu_start, self.toggles_rect[1]+self.toggles_rect[3]+round(self.height * self.SCORES_FONT_SCALE), 0, 0)
-        
-        #Import images
-        self.init_graphics()
-    
+        self.move_count_rect = (self.right_menu_start, 0, 0,
+                                round(self.height * self.SCORES_FONT_SCALE) + self.menu_tile_size)
+        self.toggles_rect = (self.right_menu_start,
+                              self.move_count_rect[1] + self.move_count_rect[3]
+                              + round(self.height * self.SCORES_FONT_SCALE) + self.menu_highlight_size,
+                              self.right_menu_width,
+                              self.menu_tile_size + round(self.height * self.SCORES_FONT_SCALE))
+        self.chest_rect = (self.right_menu_start,
+                           self.toggles_rect[1] + self.toggles_rect[3]
+                           + round(self.height * self.SCORES_FONT_SCALE),
+                           self.right_menu_width, self.menu_tile_size)
+        self.piles_rect = (self.right_menu_start,
+                           self.chest_rect[1] + self.chest_rect[3], 0, 0)
+        self.undo_rect = (self.width, self.height, 0, 0)
+        self.adventurer_centres = []
+        self.agent_rects = []
+        self.highlight_rects = {}
+        self.drawn_routes = []
+        self.action_rects = []
+        self.offered_cards = None  # set by draw_card_offers, included in serialised state
+        self.offered_tiles = None  # set by draw_tile_offers, included in serialised state
+        # Image mappings are stored on self.game so all client viz instances share one assignment.
+        if not hasattr(self.game, '_viz_card_images'):
+            self.game._viz_card_images = {}
+            self.game._viz_card_type_cursors = {}
+            self.game._viz_card_variants = self._load_card_manifest()
+
+    # ── Card image mapping ────────────────────────────────────────────────────
+
+    def _load_card_manifest(self):
+        manifest_path = os.path.join(os.path.dirname(__file__),
+                                     'cartolan_web', 'public_html', 'img', 'cards', 'card_manifest.json')
+        try:
+            with open(manifest_path) as f:
+                return json.load(f)
+        except Exception:
+            return {}
+
+    def _assign_card_image(self, card):
+        images = self.game._viz_card_images
+        if card.card_id in images:
+            return
+        variants = self.game._viz_card_variants.get(card.card_type, [])
+        if not variants:
+            images[card.card_id] = card.card_type + '.png'
+            return
+        cursors = self.game._viz_card_type_cursors
+        cursor = cursors.get(card.card_type, 0)
+        images[card.card_id] = variants[cursor % len(variants)]
+        cursors[card.card_type] = cursor + 1
+
+    def _assign_all_card_images(self):
+        if hasattr(self.game, 'assigned_cadres'):
+            for card in self.game.assigned_cadres.values():
+                if card is not None:
+                    self._assign_card_image(card)
+        for advs in self.game.adventurers.values():
+            for adv in advs:
+                if hasattr(adv, 'character_card') and adv.character_card is not None:
+                    self._assign_card_image(adv.character_card)
+                for card in getattr(adv, 'discovery_cards', []):
+                    self._assign_card_image(card)
+
+    # ── pygame-free overrides ─────────────────────────────────────────────────
+
+    def rescale_as_needed(self):
+        '''Updates grid dimensions and origin without touching pygame graphics.'''
+        min_lon = min_lat = 0
+        max_lon = max_lat = 0
+        for lon in self.game.play_area:
+            min_lon = min(min_lon, lon)
+            max_lon = max(max_lon, lon)
+            for lat in self.game.play_area[lon]:
+                min_lat = min(min_lat, lat)
+                max_lat = max(max_lat, lat)
+        self.dimensions[0] = max_lon - min_lon + 1 + 2 * self.DIMENSION_BUFFER
+        self.dimensions[1] = max_lat - min_lat + 1 + 2 * self.DIMENSION_BUFFER
+        self.origin[0] = -min_lon + self.DIMENSION_BUFFER
+        self.origin[1] = -min_lat + self.DIMENSION_BUFFER
+
+    def give_prompt(self, prompt_text):
+        '''Stores the prompt text; rendering is done client-side.'''
+        self.prompt_text = prompt_text
+
+    def draw_move_options(self, highlight_coords={}):
+        '''Updates self.highlights from highlight_coords; no pygame rendering.'''
+        self.highlight_rects = {}
+        for ht in self.highlights:
+            coords = highlight_coords.get(ht)
+            self.highlights[ht] = coords if coords else []
+
+    def clear_move_options(self):
+        for ht in self.highlights:
+            self.highlights[ht] = []
+
+    def draw_play_area(self): pass
+    def draw_tokens(self): pass
+    def draw_routes(self): pass
+    def draw_scores(self): pass
+    def draw_move_count(self): pass
+    def draw_toggle_menu(self, fixed_responses={}): pass
+    def draw_routes_menu(self): pass
+    def draw_chest_tiles(self): pass
+    def draw_tile_piles(self): pass
+    def draw_discard_pile(self): pass
+    def draw_undo_button(self): pass
+    def draw_cards(self): pass
+    def draw_card_offers(self, cards):
+        for card in cards:
+            self._assign_card_image(card)
+        self.offered_cards = [c.to_json() for c in cards]
+    def draw_tile_offers(self, tiles):
+        self.offered_tiles = [t.to_json() for t in tiles]
+    def draw_prompt(self): pass
+    def clear_prompt(self): self.prompt_text = ""
+
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def serialize_state(self):
+        '''Assembles the complete game and UI state as a JSON-serialisable dict.'''
+        self._assign_all_card_images()
+        state = self.game.to_json()
+        state["player_colours"] = {p.name: c for p, c in self.player_colours.items()}
+        current_adv = self.current_adventurer
+        viewed_adv = self.viewed_adventurer
+        state["current_player_name"] = current_adv.player.name if current_adv else None
+        state["current_adventurer_index"] = self.current_adventurer_number
+        state["viewed_player_name"] = viewed_adv.player.name if viewed_adv else None
+        state["viewed_adventurer_index"] = self.viewed_adventurer_number
+        state["highlights"] = {ht: coords for ht, coords in self.highlights.items() if coords}
+        state["draw_all_routes"] = self.draw_all_routes
+        state["undo_agreed"] = self.undo_agreed
+        state["undo_asked"] = any(pv.undo_agreed for pv in self.peer_visuals if pv is not self)
+        state["prompt"] = self.prompt_text
+        state["offered_cards"] = self.offered_cards or []
+        state["offered_tiles"] = self.offered_tiles or []
+        state["card_images"] = self.game._viz_card_images
+        state["auto_actions"] = {
+            player.name: dict(player.auto_actions)
+            for player in self.client_players
+            if hasattr(player, 'auto_actions')
+        }
+        state["move_deadline"] = int(self._move_deadline * 1000) if self._move_deadline else None
+        state["move_timer_limit"] = self.MOVE_TIME_LIMIT
+        return state
+
     def update_web_display(self):
-        '''For this client visualisation in particular, send out an image of the play area.
-        '''
-#        pygame.display.flip()
-        #generate a random filename, to avoid thread conflicts
-        randname = ( ''.join(random.choice(string.ascii_lowercase) for i in range(self.TEMP_FILENAME_LEN)) )
-        #@TODO could reduce file size and latency by compressing into a lossy jpg
-        pygame.image.save(self.window, randname + self.TEMP_FILE_EXTENSION)
-        out = open(randname + self.TEMP_FILE_EXTENSION,"rb").read()
-        self.client.sendMessage("IMAGE[00100]"+str(base64.b64encode(out)))
-        print("data sent to client at "+str(self.client.address))
-        os.remove(randname + self.TEMP_FILE_EXTENSION)
+        '''Sends the current game state as JSON to this client.'''
+        self.client.sendMessage("STATE[00100]" + json.dumps(self.serialize_state()))
+        print("State sent to client at " + str(self.client.address))
     
     def get_input_value(self, adventurer, prompt_text, maximum, minimum = 0):
         '''Sends a prompt to the player, and waits for numerical input.
@@ -1707,68 +1826,23 @@ class WebServerVisualisation(GameVisualisation):
                 game_vis.update_web_display()
     
     def refresh_visual(self, choices=None, input_type="move"):
-        '''Updates all elements of this visual, as required when not the active player
-        '''
-        #Update visuals to keep them informed of action
-        self.draw_play_area()
-        self.draw_tokens()
-        self.draw_routes()
-        #Draw the right menu items
-        if not input_type in ["choose_company", "choose_character"]:
-            self.draw_move_count()
-            self.draw_toggle_menu()
-            self.draw_routes_menu()
-            if isinstance(self.current_adventurer, AdventurerRegular):
-                if not input_type == "choose_tile": #Don't draw the chest tiles when the players are first picking companies and adventurers 
-                    self.draw_chest_tiles()
-            self.draw_tile_piles()
-            self.draw_discard_pile()
-        #Draw the left menu items and any offers over the top
-        self.draw_scores()
-        if isinstance(self.current_adventurer, AdventurerAdvanced):
-            self.draw_cards()
-            #If offers are being made then draw these on top of everything else
-            if choices is not None:
-                if input_type=="choose_tile":
-                    self.draw_tile_offers(choices)
-                else:
-                    self.draw_card_offers(choices)
-        self.draw_undo_button()
-        #Prompt the player
+        '''Sends the current game state to this peer; rendering is done client-side.'''
+        adv = self.current_adventurer
+        if adv is None:
+            return
         if input_type == "move":
-            prompt = self.current_adventurer.player.name+" is moving their Adventurer #"+str(self.current_adventurer_number+1)
+            prompt = adv.player.name + " is moving their Adventurer #" + str(self.current_adventurer_number + 1)
         elif input_type == "text":
-            prompt = self.current_adventurer.player.name+" is choosing a Silk amount for their Adventurer #"+str(self.current_adventurer_number+1)
+            prompt = adv.player.name + " is choosing a Silk amount for their Adventurer #" + str(self.current_adventurer_number + 1)
         elif input_type == "choose_tile":
-            prompt = self.current_adventurer.player.name+" is choosing a tile for their Adventurer #"+str(self.current_adventurer_number+1)
+            prompt = adv.player.name + " is choosing a tile for their Adventurer #" + str(self.current_adventurer_number + 1)
         elif input_type == "choose_discovery":
-            prompt = self.current_adventurer.player.name+" is choosing a Manuscript card for their Adventurer #"+str(self.current_adventurer_number+1)
+            prompt = adv.player.name + " is choosing a Manuscript card for their Adventurer #" + str(self.current_adventurer_number + 1)
         elif input_type == "choose_company":
-            prompt = self.current_adventurer.player.name+" is choosing their Cadre card"
+            prompt = adv.player.name + " is choosing their Cadre card"
         else:
-            prompt = self.current_adventurer.player.name+" is choosing a Character card for their Adventurer #"+str(self.current_adventurer_number+1)
+            prompt = adv.player.name + " is choosing a Character card for their Adventurer #" + str(self.current_adventurer_number + 1)
         self.give_prompt(prompt)
-        # Draw the right menu items
-        if not input_type in ["choose_company", "choose_character"]:
-            self.draw_move_count()
-            if isinstance(self.current_adventurer, AdventurerRegular):
-                if not input_type == "choose_tile":  # Don't draw the chest tiles when the players are first picking companies and adventurers
-                    self.draw_chest_tiles()
-            self.draw_tile_piles()
-            self.draw_discard_pile()
-            self.draw_undo_button()
-        # Draw the left menu items and any offers over the top
-        self.draw_scores()
-        if isinstance(self.current_adventurer, AdventurerAdvanced):
-            self.draw_cards()
-            # If offers are being made then draw these on top of everything else
-            if choices is not None:
-                if input_type == "choose_tile":
-                    self.draw_tile_offers(choices)
-                else:
-                    self.draw_card_offers(choices)
-        #Draw any showcase tiles that have been selecgted from the play area
-        self.draw_showcase_tile()
     
     def check_peer_input(self):
         '''Cycles through remote players besides the active one, checking whether clicks have been registered and updating their private visuals accordingly
@@ -1778,7 +1852,16 @@ class WebServerVisualisation(GameVisualisation):
             if not self.client == game_vis.client and game_vis not in checked_visuals:
                 checked_visuals.append(game_vis)
                 coords = game_vis.client.get_coords()
-                if coords is not None:
+                if coords is None:
+                    continue
+                if isinstance(coords, dict):
+                    if 'ready' in coords:
+                        game_vis._client_ready = True
+                    else:
+                        result = game_vis._dispatch_semantic(coords, game_vis.current_adventurer)
+                        if result is not None:
+                            game_vis.update_web_display()
+                elif isinstance(coords, list) and len(coords) == 2:
                     horizontal, vertical = coords
                     if game_vis.check_update_focus(horizontal, vertical):
                         game_vis.refresh_visual()
@@ -1943,50 +2026,30 @@ class WebServerVisualisation(GameVisualisation):
         #Make sure that the current adventurer is up to date
         if self.current_adventurer is None:
             self.start_turn(adventurer)
-        #Update the visuals to prompt input
+        #Only start the countdown once the client has finished loading assets
+        self._move_deadline = time.time() + self.MOVE_TIME_LIMIT if self._client_ready else None
+        #Update the visuals to prompt input (deadline included so client sees it immediately)
         self.update_web_display()
         #Update the visuals for the remote players who aren't active
         self.refresh_peers(adventurer)
-        
+
         coords = None
         while coords is None:
+            if self._move_deadline is not None and time.time() >= self._move_deadline:
+                self._move_deadline = None
+                return {"timeout": True}
             coords = self.client.get_coords()
             if coords is not None:
-                horizontal, vertical = coords
-                #check whether the click was within the Chest menu, and return the index within the chest
-                if (horizontal in range(int(self.chest_rect[0])
-                        , int(self.chest_rect[0]) + int(self.chest_rect[2]))
-                    and vertical in range(int(self.chest_rect[1])
-                        , int(self.chest_rect[1]) + int(self.chest_rect[3]))):
-#                    print("Player chose coordinates within the menu")
-                    menu_row = (vertical - int(self.chest_rect[1])) // self.menu_tile_size
-                    menu_column = (horizontal - int(self.chest_rect[0])) // self.menu_tile_size
-                    return {"preferred_tile":self.MENU_TILE_COLS * menu_row + menu_column}
-                #Check whether the click was within the toggle menu, and update the index of the selected card
-                elif (horizontal in range(int(self.toggles_rect[0]), int(self.toggles_rect[0] + self.toggles_rect[2]))
-                    and vertical in range(int(self.toggles_rect[1]), int(self.toggles_rect[1] + self.toggles_rect[3]))):
-#                    print("Player chose coordinates within the toggle menu, with vertical: "+str(vertical))
-                    #Check which highlight was clicked and return it
-                    for highlight in self.action_rects:
-                        highlight_rect = highlight[0]
-                        if (horizontal in range(int(highlight_rect[0])
-                                , int(highlight_rect[0]) + int(highlight_rect[2]))
-                            and vertical in range(int(highlight_rect[1])
-                                , int(highlight_rect[1]) + int(highlight_rect[3]))):
-#                            print("Identified coordinates within one of the auto-response toggles.")
-                            return {"toggle":highlight[1]}
-                    #If the click wasn't in the rect around one of the highlight options, then assume it was a click to toggle route drawing
-                    self.draw_all_routes = not self.draw_all_routes
-                    return {"update_visuals":"update_visuals"} 
-                #Check whether the click was irrelevant to gameplay but changes the focus of the active player's visuals
-                elif self.check_update_focus(horizontal, vertical):
-                    return {"update_visuals":"update_visuals"}
-                #Check whether the unod button was clicked
-                elif self.check_undo(horizontal, vertical):
-                    self.refresh_peers(adventurer) #Update peers' displays to show that the undo request has been made
-                    return {"update_cards":"update_cards"} #Get the player to prompt again and refresh their own visuals              
+                if isinstance(coords, dict):
+                    # Semantic message already parsed by handleMessage
+                    result = self._dispatch_semantic(coords, adventurer)
+                    if result is not None:
+                        self._move_deadline = None
+                        return result
+                    coords = None  # keep polling if dispatch returned nothing actionable
                 else:
-                    #Otherwise check whether the click was within a highlighted cell and return the coordinates
+                    # Legacy pixel-coordinate fallback (should not occur with JS client)
+                    horizontal, vertical = coords
                     for highlight_type in self.highlight_rects:
                         for highlight_rect in self.highlight_rects[highlight_type]:
                             if (horizontal in range(int(highlight_rect[0])
@@ -1995,29 +2058,69 @@ class WebServerVisualisation(GameVisualisation):
                                     , int(highlight_rect[1]) + int(highlight_rect[3]))):
                                 longitude = int(math.ceil((horizontal - self.play_area_start)/self.tile_size)) - self.origin[0] - 1
                                 latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
-#                                print("Identified coordinates within a highlighted option.")
+                                self._move_deadline = None
                                 return {highlight_type:[longitude, latitude]}
-                    #Also check whether the click was on a drawn route
-                    for route in self.drawn_routes:
-                        for segment in route[0]:
-                            if (horizontal in range(int(segment[0] - self.ROUTE_THICKNESS)
-                                , int(segment[0]) + int(segment[2] + self.ROUTE_THICKNESS))
-                            and vertical in range(int(segment[1] - self.ROUTE_THICKNESS)
-                                , int(segment[1]) + int(segment[3] + self.ROUTE_THICKNESS))):
-                                longitude = int(math.ceil((horizontal - self.play_area_start)/self.tile_size)) - self.origin[0] - 1
-                                latitude = self.dimensions[1] - int(math.ceil((vertical)/self.tile_size)) - self.origin[1]
-#                                print("Identified coordinates on a route of length "+str(len(route[1])))
-                                return {"route":route[1], "destination":[longitude, latitude]}
-#                coords = None
+                    coords = None
             #Check for input from the other clients to their visuals and update their view
             self.check_peer_input()
             if self.check_peers_undo():
                 print("Confirmed with all clients that turn can be undone.")
+                self._move_deadline = None
                 return {"undo":"undo"}
-            #Wait before checking again            
+            #Wait before checking again
             time.sleep(self.INPUT_DELAY)
-        
+
         return {"Nothing":"Nothing"}
+
+    def _dispatch_semantic(self, sem, adventurer):
+        '''Translates a semantic dict from the browser into a get_input_coords return value.'''
+        if 'preferred_tile' in sem:
+            return sem
+        if 'chest_rotate_anti' in sem:
+            return sem
+        if 'chest_rotate_clock' in sem:
+            return sem
+        if 'toggle' in sem:
+            return sem
+        if 'routes_toggle' in sem:
+            self.draw_all_routes = not self.draw_all_routes
+            return {"update_visuals":"update_visuals"}
+        if 'undo_request' in sem:
+            self.undo_agreed = not self.undo_agreed
+            self.refresh_peers(adventurer)
+            return {"update_cards":"update_cards"}
+        if 'focus' in sem:
+            player_name, adv_idx = sem['focus']
+            for p in self.game.players:
+                if p.name == player_name:
+                    advs = self.game.adventurers[p]
+                    if adv_idx < len(advs):
+                        self.viewed_adventurer = advs[adv_idx]
+                        self.viewed_adventurer_number = adv_idx
+                        self.viewed_player_colour = self.player_colours.get(p, 'white')
+                    break
+            return {"update_visuals":"update_visuals"}
+        if 'route_follow' in sem:
+            rf = sem['route_follow']
+            dest_lon, dest_lat = rf['dest']
+            for player in self.game.players:
+                if player.name == rf['player']:
+                    advs = self.game.adventurers.get(player, [])
+                    if rf['adv_idx'] < len(advs):
+                        route_tiles = list(advs[rf['adv_idx']].route)
+                        if route_tiles:
+                            return {'route': route_tiles, 'destination': [dest_lon, dest_lat]}
+                    break
+            return {"update_visuals": "update_visuals"}
+        if 'play' in sem:
+            return {"Nothing": "Nothing"}
+        if 'ready' in sem:
+            self._client_ready = True
+            self._move_deadline = time.time() + self.MOVE_TIME_LIMIT
+            self.update_web_display()
+            return None  # keep polling; client now has a fresh deadline
+        # highlight_type: [lon, lat] — direct game move/action from JS
+        return sem if sem else None
 
     def get_input_choice(self, adventurer, cards, offer_type="card"):
         '''Sends an image of the latest play area, accepts input only from this visual's players.
@@ -2043,23 +2146,13 @@ class WebServerVisualisation(GameVisualisation):
             input_type = "choose_tile"
         self.refresh_peers(adventurer, choices=cards, input_type=input_type)
         
-        coords = None
-        while coords is None:
+        while True:
             coords = self.client.get_coords()
-            if coords is not None:
-                horizontal, vertical = coords
-                #check whether the click was within each of the card areas, and return the index
-                for offer_rect in self.offer_rects:
-                    if (horizontal in range(int(offer_rect[0])
-                            , int(offer_rect[0]) + int(offer_rect[2]))
-                        and vertical in range(int(offer_rect[1])
-                            , int(offer_rect[1]) + int(offer_rect[3]))):
-#                        print("Player chose coordinates within a card")
-                        selected_index = self.offer_rects.index(offer_rect)
-                        return selected_index
-                coords = None #Let them try again
-            #Check for input from the other clients to their visuals and update their view
+            if isinstance(coords, dict) and 'offer_select' in coords:
+                idx = coords['offer_select']
+                if 0 <= idx < len(cards):
+                    self.offered_cards = None
+                    self.offered_tiles = None
+                    return idx
             self.check_peer_input()
             time.sleep(self.INPUT_DELAY)
-        
-        return False

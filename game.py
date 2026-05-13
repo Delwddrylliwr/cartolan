@@ -61,17 +61,23 @@ class GameBeginner(Game):
         self.discard_piles = {"water":TilePile("water",[])}
         
         #Inherit instance level constants from config
+        self.game_winning_vault = BeginnerConfig.GAME_WINNING_VAULT
         self.game_winning_difference = BeginnerConfig.GAME_WINNING_DIFFERENCE
         
         self.value_trade = BeginnerConfig.VALUE_TRADE
         self.value_complete_map = BeginnerConfig.VALUE_COMPLETE_MAP
         self.value_discover_wonder = BeginnerConfig.VALUE_DISCOVER_WONDER
         self.value_fill_map_gap = BeginnerConfig.VALUE_FILL_MAP_GAP
+        self.value_fill_gap_manuscripts = BeginnerConfig.VALUE_FILL_GAP_MANUSCRIPTS
             
         self.cost_adventurer = BeginnerConfig.COST_ADVENTURER
         self.cost_agent_exploring = BeginnerConfig.COST_AGENT_EXPLORING
         self.cost_agent_from_city = BeginnerConfig.COST_AGENT_FROM_CITY
         self.cost_agent_rest = BeginnerConfig.COST_AGENT_REST
+        self.agents_from_city = BeginnerConfig.AGENTS_FROM_CITY
+        self.agent_on_existing = BeginnerConfig.AGENT_ON_EXISTING
+        self.max_companions = BeginnerConfig.MAX_COMPANIONS
+        self.cost_companion = BeginnerConfig.COST_COMPANION
         
         self.max_exploration_attempts = BeginnerConfig.MAX_EXPLORATION_ATTEMPTS
         self.max_downwind_moves = BeginnerConfig.MAX_DOWNWIND_MOVES
@@ -206,9 +212,13 @@ class GameBeginner(Game):
             print() #to help log readability
             
     
-    def check_win_conditions(self):
-        '''Checks whether the win conditions have been satisfied so that the game should end'''
-        #the end conditions for a game are one player having a certain margin more wealth in their Vault, or one of the tile piles being emptied
+    def update_standings(self):
+        '''Recomputes max_wealth, wealth_difference, and totals from current vault wealth.
+
+        wealth_difference is the gap between the leading player's vault wealth and the
+        next-closest player's vault wealth.  It is always updated regardless of which
+        win condition is active, so it can be used as a performance metric independently.
+        '''
         self.max_wealth = 0
         self.total_vault_wealth = 0
         self.total_chest_wealth = 0
@@ -217,16 +227,24 @@ class GameBeginner(Game):
             self.total_vault_wealth += self.player_wealths[player]
             for adventurer in self.adventurers[player]:
                 self.total_chest_wealth += adventurer.wealth
-            # is this player wealthier than the wealthiest player checked so far?
             if self.player_wealths[player] > self.max_wealth:
                 self.wealth_difference = self.player_wealths[player] - self.max_wealth
                 self.max_wealth = self.player_wealths[player]
                 self.winning_player = player
-            # if this player is behind in wealth, are they still closer than anyone else?
             elif self.max_wealth - self.player_wealths[player] < self.wealth_difference:
-                    self.wealth_difference = self.max_wealth - self.player_wealths[player]
+                self.wealth_difference = self.max_wealth - self.player_wealths[player]
+
+    def check_win_conditions(self):
+        '''Checks whether the win conditions have been satisfied so that the game should end'''
+        self.update_standings()
         
-        if self.wealth_difference > self.game_winning_difference:
+        if self.game_winning_vault is not None and self.max_wealth >= self.game_winning_vault:
+            print("won by reaching vault threshold")
+            self.win_type = "vault threshold"
+            self.game_over = True
+            return True
+
+        if self.game_winning_difference is not None and self.wealth_difference > self.game_winning_difference:
             print("won by wealth difference")
             self.win_type = "wealth difference"
             self.game_over = True
@@ -249,6 +267,27 @@ class GameBeginner(Game):
                 return True
         
         return False
+
+    def to_json(self):
+        play_area = {}
+        for lon in self.play_area:
+            play_area[str(lon)] = {}
+            for lat in self.play_area[lon]:
+                play_area[str(lon)][str(lat)] = self.play_area[lon][lat].to_json()
+        return {
+            "game_mode": "Beginner",
+            "turn": self.turn,
+            "winning_player": self.winning_player.name if self.winning_player else None,
+            "wealth_difference": self.wealth_difference,
+            "play_area": play_area,
+            "players": [p.name for p in self.players],
+            "player_wealths": {p.name: w for p, w in self.player_wealths.items()},
+            "adventurers": {p.name: [a.to_json() for a in advs] for p, advs in self.adventurers.items()},
+            "agents": {p.name: [a.to_json() for a in agts] for p, agts in self.agents.items()},
+            "tile_piles": {back: pile.to_json() for back, pile in self.tile_piles.items()},
+            "discard_piles": {back: pile.to_json() for back, pile in self.discard_piles.items()},
+            "num_tiles": self.NUM_TILES,
+        }
 
 
 class GameRegular(GameBeginner):
@@ -301,8 +340,13 @@ class GameRegular(GameBeginner):
         self.dropped_wealth = 0
         for tile in self.disaster_tiles:
             self.dropped_wealth += tile.dropped_wealth
-        
+
         return super().check_win_conditions()
+
+    def to_json(self):
+        d = super().to_json()
+        d["game_mode"] = "Regular"
+        return d
 
 
 class GameAdvanced(GameRegular):
@@ -362,6 +406,7 @@ class GameAdvanced(GameRegular):
         self.num_free_rests = AdvancedConfig.NUM_FREE_RESTS
         
         #Set up the decks of cards
+        self.card_count = 0
         self.cadre_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.CADRE_CARDS] #a copy that can be modified independent of the config file
         self.character_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.CHARACTER_CARDS] #a copy that can be modified independent of the config file
         self.discovery_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.MANUSCRIPT_CARDS] #a copy that can be modified independent of the config file
@@ -382,6 +427,16 @@ class GameAdvanced(GameRegular):
         self.assigned_cadres[player].apply_buffs(player) #for all Adventurers and Agents created after this point
         for adventurer in self.adventurers[player]: #For all existing Adventurers
             self.assigned_cadres[player].apply_buffs(adventurer)
-        
+
+    def to_json(self):
+        d = super().to_json()
+        d["game_mode"] = "Advanced"
+        d["assigned_cadres"] = {
+            p.name: card.to_json()
+            for p, card in self.assigned_cadres.items()
+            if card is not None
+        }
+        return d
+
 #    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
 #        super().__init__(players, movement_rules, exploration_rules)
