@@ -31,7 +31,7 @@ class BeginnerConfig:
     VALUE_COMPLETE_MAP = 0                # no bonus for exhausting the tile pile
 
     #Costs of buying
-    COST_ADVENTURER = 10
+    COST_ADVENTURER = 15
     COST_AGENT_EXPLORING = 0  # free to hire an Inn on a newly placed tile
     COST_AGENT_FROM_CITY = 5  # 5 Silks to hire an Inn on an existing tile
     COST_AGENT_REST = 1       # per character, when resting at an opponent's Inn
@@ -68,7 +68,7 @@ class RegularConfig:
     DEFENCE_ROUNDS = 1
     
 class AdvancedConfig:
-    COST_TECH = 3
+    COST_TECH = 5
     
     NUM_CADRE_CHOICES = 2
     NUM_CHARACTER_CHOICES = 2

@@ -767,6 +767,9 @@ class ClientSocket(WebSocket):
         ##           self.socket.send(str(msg))
         elif protocode == ("PLAY"):
             self.coords_buffer = {'play': True}
+        elif protocode == ("READY"):
+            print("Client signals assets loaded and ready.")
+            self.coords_buffer = {'ready': True}
 
     def handleConnected(self):
         """On initial connection, establish client details

@@ -184,6 +184,7 @@ class GameVisualisation {
     this._pendingAssets        = 0;
     this._totalAssetsRequested = 0;
     this._totalAssetsLoaded    = 0;
+    this._gameReady            = false;  // true once all initial assets are loaded
 
     // Wrap canvas in a relative container so the scores overlay can sit on top
     const wrapper = document.createElement('div');
@@ -260,6 +261,12 @@ class GameVisualisation {
         }
         this._render();
       }, 500);
+    }
+
+    // If all assets already cached (e.g. page refresh), signal ready immediately
+    if (!this._gameReady && this._pendingAssets === 0 && this.sendFn) {
+      this._gameReady = true;
+      this.sendFn('READY[00100]');
     }
   }
 
@@ -350,10 +357,10 @@ class GameVisualisation {
         this._tileVariants = manifest;
         this._tileSourceImages = {};
         this._tileFilenames = {};
-        this._pendingAssets--; this._totalAssetsLoaded++;
         if (this.state) this._render();
+        this._onAssetLoaded();
       })
-      .catch(() => { this._pendingAssets--; this._totalAssetsLoaded++; });
+      .catch(() => { this._onAssetLoaded(); });
   }
 
   _fetchCardManifest() {
@@ -363,10 +370,10 @@ class GameVisualisation {
       .then(manifest => {
         this._cardVariants = manifest;
         this._cardFilenames = {};  // evict cached selections so new variants are picked
-        this._pendingAssets--; this._totalAssetsLoaded++;
         if (this.state) this._render();
+        this._onAssetLoaded();
       })
-      .catch(() => { this._pendingAssets--; this._totalAssetsLoaded++; });
+      .catch(() => { this._onAssetLoaded(); });
   }
 
   // Returns the filename for a specific card instance, using the server-assigned mapping when
@@ -412,8 +419,8 @@ class GameVisualisation {
       this._pendingAssets++; this._totalAssetsRequested++;
       const img = new Image();
       img.src = GameVisualisation.TILE_PATH + filename;
-      img.onload  = () => { this._pendingAssets--; this._totalAssetsLoaded++; this._render(); };
-      img.onerror = () => { this._pendingAssets--; this._totalAssetsLoaded++; };
+      img.onload  = () => { this._onAssetLoaded(); this._render(); };
+      img.onerror = () => { this._onAssetLoaded(); };
       this._tileSourceImages[filename] = img;
     }
     return this._tileSourceImages[filename];
@@ -425,8 +432,8 @@ class GameVisualisation {
       this._pendingAssets++; this._totalAssetsRequested++;
       const img = new Image();
       img.src = GameVisualisation.CARDS_PATH + filename;
-      img.onload  = () => { this._pendingAssets--; this._totalAssetsLoaded++; this._render(); };
-      img.onerror = () => { this._pendingAssets--; this._totalAssetsLoaded++; };
+      img.onload  = () => { this._onAssetLoaded(); this._render(); };
+      img.onerror = () => { this._onAssetLoaded(); };
       this._cardImages[filename] = img;
     }
     return this._cardImages[filename];
@@ -507,7 +514,7 @@ class GameVisualisation {
   }
 
   _handleClick(x, y) {
-    if (!this.sendFn || !this.state) return;
+    if (!this.sendFn || !this.state || !this._gameReady) return;
     // Any canvas click dismisses the card preview
     if (this._previewedCardType !== null) {
       this._previewedCardType = null;
@@ -535,6 +542,15 @@ class GameVisualisation {
       } else {
         this.sendFn('PLAY[00100]');
       }
+    }
+  }
+
+  _onAssetLoaded() {
+    this._pendingAssets--;
+    this._totalAssetsLoaded++;
+    if (this._pendingAssets === 0 && !this._gameReady && this.sendFn && this.state) {
+      this._gameReady = true;
+      this.sendFn('READY[00100]');
     }
   }
 
@@ -604,7 +620,7 @@ class GameVisualisation {
     const barWidth = this.rightMenuStart - this.playAreaStart;
     const barTop   = this.canvas.height - barH;
 
-    if (this.moveDeadline) {
+    if (this.moveDeadline && this._gameReady) {
       const remaining = this.moveDeadline - Date.now();
       if (remaining > 0) {
         const fraction = Math.min(1, remaining / (this.moveTimerLimit * 1000));

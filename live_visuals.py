@@ -1600,6 +1600,7 @@ class WebServerVisualisation(GameVisualisation):
         self.width, self.height = width, height
         self.client_players = []
         self._move_deadline = None
+        self._client_ready = False  # set True when client sends READY after loading assets
         super().__init__(game, peer_visuals, player_colours)
     
     def init_GUI(self):
@@ -1851,7 +1852,16 @@ class WebServerVisualisation(GameVisualisation):
             if not self.client == game_vis.client and game_vis not in checked_visuals:
                 checked_visuals.append(game_vis)
                 coords = game_vis.client.get_coords()
-                if coords is not None and isinstance(coords, list) and len(coords) == 2:
+                if coords is None:
+                    continue
+                if isinstance(coords, dict):
+                    if 'ready' in coords:
+                        game_vis._client_ready = True
+                    else:
+                        result = game_vis._dispatch_semantic(coords, game_vis.current_adventurer)
+                        if result is not None:
+                            game_vis.update_web_display()
+                elif isinstance(coords, list) and len(coords) == 2:
                     horizontal, vertical = coords
                     if game_vis.check_update_focus(horizontal, vertical):
                         game_vis.refresh_visual()
@@ -2016,16 +2026,16 @@ class WebServerVisualisation(GameVisualisation):
         #Make sure that the current adventurer is up to date
         if self.current_adventurer is None:
             self.start_turn(adventurer)
-        #Set deadline before sending state so the client receives it in the first push
-        self._move_deadline = time.time() + self.MOVE_TIME_LIMIT
-        #Update the visuals to prompt input
+        #Only start the countdown once the client has finished loading assets
+        self._move_deadline = time.time() + self.MOVE_TIME_LIMIT if self._client_ready else None
+        #Update the visuals to prompt input (deadline included so client sees it immediately)
         self.update_web_display()
         #Update the visuals for the remote players who aren't active
         self.refresh_peers(adventurer)
 
         coords = None
         while coords is None:
-            if time.time() >= self._move_deadline:
+            if self._move_deadline is not None and time.time() >= self._move_deadline:
                 self._move_deadline = None
                 return {"timeout": True}
             coords = self.client.get_coords()
@@ -2104,6 +2114,11 @@ class WebServerVisualisation(GameVisualisation):
             return {"update_visuals": "update_visuals"}
         if 'play' in sem:
             return {"Nothing": "Nothing"}
+        if 'ready' in sem:
+            self._client_ready = True
+            self._move_deadline = time.time() + self.MOVE_TIME_LIMIT
+            self.update_web_display()
+            return None  # keep polling; client now has a fresh deadline
         # highlight_type: [lon, lat] — direct game move/action from JS
         return sem if sem else None
 
