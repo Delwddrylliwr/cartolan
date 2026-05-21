@@ -457,9 +457,104 @@ class GameVisualisation {
     if (img.complete && img.naturalWidth > 0) {
       ctx.drawImage(img, -size / 2, -size / 2, size, size);
     } else {
-      ctx.fillStyle = tile.tile_back === 'water' ? '#336699' : '#669933';
-      ctx.fillRect(-size / 2, -size / 2, size, size);
-      // onload already set by _tileSourceImage() — overwiting it here would break tracking
+      const n       = tile.tile_name;
+      const isCity   = n === 'capital' || n === 'mythical';
+      const isWonder = !isCity && n[4] === 't';
+      const WATER = '#336699', LAND = '#669933', WHITE = '#ffffff';
+      const half = size / 2;
+
+      if (isCity) {
+        ctx.fillStyle = n === 'capital' ? WATER : LAND;
+        ctx.fillRect(-half, -half, size, size);
+      } else {
+        const edgeTop    = n[3] === 't';  // downwind_anti  = North in NE baseline
+        const edgeRight  = n[2] === 't';  // downwind_clock = East
+        const edgeBottom = n[1] === 't';  // upwind_anti    = South
+        const edgeLeft   = n[0] === 't';  // upwind_clock   = West
+        const tris = [
+          { pts: [[ 0, 0], [-half, -half], [ half, -half]], water: edgeTop    },
+          { pts: [[ 0, 0], [ half, -half], [ half,  half]], water: edgeRight  },
+          { pts: [[ 0, 0], [ half,  half], [-half,  half]], water: edgeBottom },
+          { pts: [[ 0, 0], [-half,  half], [-half, -half]], water: edgeLeft   },
+        ];
+        for (const { pts, water } of tris) {
+          ctx.beginPath();
+          ctx.moveTo(...pts[0]);
+          ctx.lineTo(...pts[1]);
+          ctx.lineTo(...pts[2]);
+          ctx.closePath();
+          ctx.fillStyle = water ? WATER : LAND;
+          ctx.fill();
+        }
+      }
+
+      // Corner indicator — top-right in NE baseline = actual downwind corner after rotation
+      const pad  = size * 0.05;
+      const tip  = { x:  half - pad,      y: -half + pad      };
+      const tail = { x:  half - pad * 7,  y: -half + pad * 7  };
+      const aw   = size * 0.09;
+      const cr   = size * 0.28;
+      const cx   = half - pad * 4;
+      const cy   = -half + pad * 4;
+
+      if (isCity) {
+        const outerR = cr, innerR = cr * 0.38;
+        ctx.beginPath();
+        for (let i = 0; i < 16; i++) {
+          const angle = (i * Math.PI / 8) - Math.PI / 2;
+          const r = i % 2 === 0 ? outerR : innerR;
+          const px = cx + Math.cos(angle) * r;
+          const py = cy + Math.sin(angle) * r;
+          i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fillStyle = WHITE;
+        ctx.fill();
+      } else if (isWonder) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+        ctx.fillStyle = WHITE;
+        ctx.fill();
+
+        const dx = (tip.x - tail.x) / Math.hypot(tip.x - tail.x, tip.y - tail.y);
+        const dy = (tip.y - tail.y) / Math.hypot(tip.x - tail.x, tip.y - tail.y);
+        const al = cr * 0.55, hw = cr * 0.28;
+        const at = { x: cx + dx * al, y: cy + dy * al };
+        const ab = { x: cx - dx * al, y: cy - dy * al };
+
+        ctx.strokeStyle = WATER;
+        ctx.lineWidth = size * 0.03;
+        ctx.beginPath();
+        ctx.moveTo(ab.x, ab.y);
+        ctx.lineTo(at.x - dx * al * 0.5, at.y - dy * al * 0.5);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(at.x, at.y);
+        ctx.lineTo(at.x - dx * hw * 1.4 + dy * hw, at.y - dy * hw * 1.4 - dx * hw);
+        ctx.lineTo(at.x - dx * hw * 1.4 - dy * hw, at.y - dy * hw * 1.4 + dx * hw);
+        ctx.closePath();
+        ctx.fillStyle = WATER;
+        ctx.fill();
+      } else {
+        const dx = (tip.x - tail.x) / Math.hypot(tip.x - tail.x, tip.y - tail.y);
+        const dy = (tip.y - tail.y) / Math.hypot(tip.x - tail.x, tip.y - tail.y);
+
+        ctx.strokeStyle = WHITE;
+        ctx.lineWidth = size * 0.03;
+        ctx.beginPath();
+        ctx.moveTo(tail.x, tail.y);
+        ctx.lineTo(tip.x - dx * aw * 1.5, tip.y - dy * aw * 1.5);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(tip.x, tip.y);
+        ctx.lineTo(tip.x - dx * aw * 2 + dy * aw, tip.y - dy * aw * 2 - dx * aw);
+        ctx.lineTo(tip.x - dx * aw * 2 - dy * aw, tip.y - dy * aw * 2 + dx * aw);
+        ctx.closePath();
+        ctx.fillStyle = WHITE;
+        ctx.fill();
+      }
     }
     ctx.restore();
   }
