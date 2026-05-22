@@ -1764,7 +1764,7 @@ class WebServerVisualisation(GameVisualisation):
         state["draw_all_routes"] = self.draw_all_routes
         state["undo_agreed"] = self.undo_agreed
         state["undo_asked"] = any(pv.undo_agreed for pv in self.peer_visuals if pv is not self)
-        state["prompt"] = self.prompt_text
+        state["prompt"] = "Loading assets, please wait..." if not self._client_ready else self.prompt_text
         state["offered_cards"] = self.offered_cards or []
         state["offered_tiles"] = self.offered_tiles or []
         state["card_images"] = self.game._viz_card_images
@@ -2074,6 +2074,8 @@ class WebServerVisualisation(GameVisualisation):
 
     def _dispatch_semantic(self, sem, adventurer):
         '''Translates a semantic dict from the browser into a get_input_coords return value.'''
+        if not self._client_ready and 'ready' not in sem:
+            return None  # discard game input until client has finished loading assets
         if 'preferred_tile' in sem:
             return sem
         if 'chest_rotate_anti' in sem:

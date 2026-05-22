@@ -402,9 +402,10 @@ class GameVisualisation {
     } else if (!id) {
       filename = variants[0];
     } else {
+      const idStr = String(id);
       let hash = 0;
-      for (let i = 0; i < id.length; i++) {
-        hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+      for (let i = 0; i < idStr.length; i++) {
+        hash = (hash * 31 + idStr.charCodeAt(i)) >>> 0;
       }
       filename = variants[hash % variants.length];
     }
@@ -492,8 +493,8 @@ class GameVisualisation {
       const pad  = size * 0.05;
       const tip  = { x:  half - pad,      y: -half + pad      };
       const tail = { x:  half - pad * 7,  y: -half + pad * 7  };
-      const aw   = size * 0.09;
-      const cr   = size * 0.28;
+      const aw   = size * 0.06;
+      const cr   = size * 0.18;
       const cx   = half - pad * 4;
       const cy   = -half + pad * 4;
 
