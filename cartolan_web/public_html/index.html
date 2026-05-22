@@ -77,10 +77,7 @@
 
     var heightShare = 0.9; //implement a margin below the canvas for a link to the game manual and spotify soundtrack
     var listRefreshDelay = 3000; //the number of miliseconds between sending requests for updated gane lists
-    var mediaShare = 0.5; //tune how much of the initial canvas will be taken up by graphics (not on mobile)
-    var mediaSource = "./img/cartolan_instructions.mp4"; //point to the image or video that users will be met with on first load
     var messageFontPx = 40;
-    var mediaBottom = 0.55; //determine the placement of the prompt or main user information message, as a share of the canvas
     var messageLine = 0.60;
     var queueButtonText = "Click for game queue";
     var queueButtonTop = 0.65;
@@ -212,7 +209,7 @@
 
     //Now the main function and closures for communicating with the server and rendering the page
     function openWS() {
-      websocket = new WebSocket("ws:" + serverAddress);
+      websocket = new WebSocket("ws://" + serverAddress);
       websocket.binaryType = "arraybuffer";
       websocket.onmessage = function (evt) { onMessage(evt); };
       websocket.onerror = function (evt) { onError(evt); };
@@ -259,12 +256,8 @@
             document.fonts.load(messageFontPx.toString() + 'px Calibri').then(this.startGame.drawSplash);
           }
           //Clear a space for the message, in place of the old message
-          if (!detectMob()) {
-            this.context.clearRect(0, video.height, this.canvas.width, canvas.height * (messageLine + titleLine) / 2);
-          } else {
-            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-          }
-            //Print a message informing the user that something is happening
+          this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+          //Print a message informing the user that something is happening
           context.font = messageFontPx.toString()+"px Arial";
           var text = "Configuring game and waiting for everyone to join... (has " + decomposed[1] + " players)";
           //                    context.fillText(text, x, y);
@@ -313,7 +306,7 @@
     function waitForConnection(callback, interval) {
       setTimeout(
         function () {
-          if (websocket.readyState === 1) {
+          if (websocket && websocket.readyState === 1) {
             console.log("Connection is made")
             if (callback != null) {
               callback();
@@ -589,18 +582,9 @@
           //   setTimeout(waiting, 300);
           //   return;
           // }
-          // ── Splash: video area ─────────────────────────────────────────────────
-          if (!detectMob() && myGameArea.y < canvas.height * mediaBottom) {
-            playPauseClick();
-            waiting();
-            return;
-          }
           // ── Default: connect and open lobby ───────────────────────────────────
           if (!myGameArea.connected) {
             openWS();
-            var audio = document.getElementById("shanty");
-            audio.volume = musicVolume;
-            audio.play();
           }
           context.clearRect(0, 0, canvas.width, canvas.height);
           context.fillStyle = "white";
@@ -668,106 +652,6 @@
     }
 
 
-    // Solution taken from blindman67: https://stackoverflow.com/questions/4429440/html5-display-video-inside-canvas
-    // This code is from the example document on stackoverflow documentation. See HTML for link to the example.
-    // This code is almost identical to the example. Mute has been added and a media source. Also added some error handling in case the media load fails and a link to fix IE9+ and Edge support.
-    // Code by Blindman67.
-
-    if (!detectMob()) {
-      var videoContainer; // object to hold video and associated info
-      var video = document.createElement("video"); // create a video element
-      video.src = mediaSource;
-      // the video will now begin to load.
-      // As some additional info is needed we will place the video in a
-      // containing object for convenience
-      video.autoPlay = false; // ensure that the video does not auto play
-      video.loop = true; // set the video to loop.
-      //video.muted = muted;
-      videoContainer = {  // we will add properties as needed
-        video: video,
-        ready: false,
-      };
-      //video.oncanplay = readyToPlayVideo; // set the event to present the video for playing
-      video.onloadeddata = readyToPlayVideo; // set the event to present the video for playing
-    }
-   
-    function readyToPlayVideo(event) { // this is a referance to the video
-      // the video may not match the canvas size so find a scale to fit
-      videoContainer.scale = Math.min(
-        canvas.width / this.videoWidth,
-        canvas.height * mediaBottom / this.videoHeight);
-      videoContainer.ready = true;
-      //Play video automatically on load
-      videoContainer.video.paused = false;
-      // the video can be played so hand it off to the display function
-      requestAnimationFrame(updateVideo);
-      ////// add instruction
-      //document.createElement("playPause").textContent = "Click video to play/pause.";
-      //document.querySelector(".mute").textContent = "Mute";
-    }
-
-    function updateVideo() {
-      if (splash) {
-        // Clear the area where the video is drawn (down to the main user message)
-        context.clearRect(0, 0, canvas.width, canvas.height * mediaBottom);
-        // only draw if loaded and ready
-        if (videoContainer !== undefined && videoContainer.ready) {
-          // find the top left of the video on the canvas
-          //video.muted = muted;
-          var scale = videoContainer.scale;
-          var vidH = videoContainer.video.videoHeight;
-          var vidW = videoContainer.video.videoWidth;
-          //var top = canvas.height / 2 - (vidH / 2) * scale;
-          var top = 0;
-          var left = canvas.width / 2 - (vidW / 2) * scale;
-          // now just draw the video the correct size
-          context.drawImage(videoContainer.video, left, top, vidW * scale, vidH * scale);
-          if (videoContainer.video.paused) { // if not playing show the paused screen 
-            drawPlayIcon(left, top, vidW*scale, vidH*scale);
-          }
-        }
-        // all done for display 
-        // request the next frame in 1/60th of a second, unless the splash screen is no longer being drawn
-        requestAnimationFrame(updateVideo);
-      }
-    }
-
-    function drawPlayIcon(left, top, width, height) {
-      context.fillStyle = "black";  // darken display
-      context.globalAlpha = 0.5;
-      context.fillRect(left, top, width, height);
-      context.fillStyle = "#DDD"; // colour of play icon
-      context.globalAlpha = 0.75; // partly transparent
-      context.beginPath(); // create the path for the icon
-      var size = (height / 2) * 0.5;  // the size of the icon
-      context.moveTo(left + width / 2 + size / 2, top + height / 2); // start at the pointy end
-      context.lineTo(left + width / 2 - size / 2, top + height / 2 + size);
-      context.lineTo(left + width / 2 - size / 2, top + height / 2 - size);
-      context.closePath();
-      context.fill();
-      context.globalAlpha = 1; // restore alpha
-    }
-
-    function playPauseClick() {
-      if (videoContainer !== undefined && videoContainer.ready) {
-        if (videoContainer.video.paused) {
-          videoContainer.video.play();
-        } else {
-          videoContainer.video.pause();
-        }
-      }
-    }
-    function videoMute() {
-      muted = !muted;
-      if (muted) {
-        document.querySelector(".mute").textContent = "Mute";
-      } else {
-        document.querySelector(".mute").textContent = "Sound on";
-      }
-    }
-    // register the event
-    //canvas.addEventListener("click", playPauseClick);
-    //document.querySelector(".mute").addEventListener("click", videoMute)
   </script>
 
   <!--         Google Analytics: change UA-XXXXX-Y to be your site's ID.
@@ -790,7 +674,7 @@
     <a href="https://open.spotify.com/playlist/4HAbxzg1trnO2bn2aaSdMj" target="_blank">Music (spotify)</a>
     &nbsp;&nbsp;&nbsp;&nbsp;
     <a href="mailto:cartolan.tw@gmail.com" target="_blank">Feedback</a>
-    &nbsp;&nbsp;&nbsp;&nbsp;
+    <!-- &nbsp;&nbsp;&nbsp;&nbsp; -->
     <!-- <audio controls autoplay id="shanty">
       <source src="./audio/cartolan_shanty.mp3" type="audio/mpeg">
       Your browser does not support the audio element.
