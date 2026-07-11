@@ -612,7 +612,7 @@ class AdventurerBeginner(Adventurer):
             
             #check whether the player actually wants to place an inn, even if they have to move an existing one
             if self.player.check_hire_inn(self):
-                if len(self.game.inns[self.player]) >= self.game.MAX_INNS:
+                if len(self.game.inns[self.player]) >= self.game.max_inns:
                     inn = self.player.check_move_inn(self)
                     if inn is None:
                         return False

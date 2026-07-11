@@ -1135,7 +1135,7 @@ class GameVisualisation():
         for tile_back in self.game.tile_piles:
             tiles = self.game.tile_piles[tile_back].tiles
             tile_count = len(tiles)
-            pile_size = self.game.NUM_TILES[tile_back]
+            pile_size = self.game.num_pile_tiles[tile_back]
             pile_share = 1 - tile_count/pile_size
             tile_meter = pygame.Surface((self.menu_tile_size, round(pile_share*self.menu_tile_size)))
             tile_meter.set_alpha(self.METER_OPACITY)

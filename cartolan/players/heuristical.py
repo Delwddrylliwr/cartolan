@@ -6,10 +6,14 @@ from cartolan.players.base import Player
 from cartolan.core.tiles import CityTile
 from cartolan.editions.advanced import AdventurerAdvanced
 from cartolan.editions.modes import GameAdvanced
-from cartolan.rules.game_config import BeginnerConfig, RegularConfig, AdvancedConfig
 import random
 
 class PlayerBeginnerExplorer(Player):    
+    #CPU behaviour tuning
+    P_DEVIATE = 0.1 #The probability of randomly deviating from the heuristic
+    P_BUY_ADVENTURER = 0.5 #The probability of spending Vault silks on further Adventurers when affordable
+    RETURN_CITY_ATTR = "cost_adventurer" #The cost attribute compared against Chest silks when deciding to head home
+
     '''A virtual player for Cartolan that makes decisions favouring exploration
 
     This crude computer player will always move away from the Capital while its Chest has less than the points difference and then towards the Capital once it has collected enough silks
@@ -31,9 +35,9 @@ class PlayerBeginnerExplorer(Player):
     '''
     def __init__(self, name):
         super().__init__(name)
-        self.p_deviate = BeginnerConfig.P_DEVIATE #some randomness for artificial player behaviour to avoid rutts
-        self.p_buy_adventurer = BeginnerConfig.P_BUY_ADVENTURER
-        self.return_city_attr = BeginnerConfig.RETURN_CITY_ATTR #Set a criterion for returning to bank silks
+        self.p_deviate = self.P_DEVIATE #some randomness for artificial player behaviour to avoid rutts
+        self.p_buy_adventurer = self.P_BUY_ADVENTURER
+        self.return_city_attr = self.RETURN_CITY_ATTR #Set a criterion for returning to bank silks
     
     def check_location_to_avoid(self, longitude, latitude):
         '''Compares coordinates to a list to avoid'''
@@ -267,7 +271,7 @@ class PlayerBeginnerExplorer(Player):
             return False
         
         if adventurer.game.vault_silks[adventurer.player] > adventurer.game.cost_adventurer:
-            winning_difference = adventurer.game.game_winning_difference
+            winning_difference = adventurer.game.winning_silks_difference
             if winning_difference is None:
                 return self._check_purchase_worthwhile(adventurer, adventurer.game.cost_adventurer)
             #Check whether player has won compared to wealthiest opponent
@@ -293,12 +297,12 @@ class PlayerBeginnerExplorer(Player):
         return False
     
     def _check_purchase_worthwhile(self, adventurer, cost):
-        '''Shared vault-threshold guard used when game_winning_difference is None.
+        '''Shared vault-threshold guard used when winning_silks_difference is None.
         Returns False if the purchase gap to win is smaller than the cost, or if any
         opponent can already reach the win threshold with their current total silks.
         '''
         game = adventurer.game
-        winning_vault = game.game_winning_vault
+        winning_vault = game.winning_vault_silks
         if winning_vault is None:
             return True
         my_vault = game.vault_silks[adventurer.player]
@@ -317,7 +321,7 @@ class PlayerBeginnerExplorer(Player):
         if random.random() > self.p_buy_adventurer:
             return False
         if adventurer.game.vault_silks[adventurer.player] >= adventurer.cost_companion:
-            winning_difference = adventurer.game.game_winning_difference
+            winning_difference = adventurer.game.winning_silks_difference
             if winning_difference is None:
                 return self._check_purchase_worthwhile(adventurer, adventurer.cost_companion)
             wealthiest_opponent_silks = 0
@@ -393,7 +397,7 @@ class PlayerBeginnerTrader(PlayerBeginnerExplorer):
         else:
             if self.next_inn_num.get(adventurer) is not None:
                 print("As a Trader, "+self.name+" has visited all their "+str(self.next_inn_num.get(adventurer)+1)+" Inns")
-            if (adventurer.silks < getattr(adventurer.game, self.return_city_attr) and len(inns) < adventurer.game.MAX_INNS):
+            if (adventurer.silks < getattr(adventurer.game, self.return_city_attr) and len(inns) < adventurer.game.max_inns):
                 self.explore_best_space(adventurer)
 #                   self.explore_above_distance(adventurer, adventurer.latest_city, adventurer.game.CITY_DOMAIN_RADIUS)
             else:
@@ -422,7 +426,7 @@ class PlayerBeginnerTrader(PlayerBeginnerExplorer):
     # if this is a trade port then always place an inn when offered
     def check_hire_inn(self, adventurer):
         inns = adventurer.game.inns[self]
-        if len(inns) < adventurer.current_tile.game.MAX_INNS and adventurer.current_tile.has_trade_port:
+        if len(inns) < adventurer.current_tile.game.max_inns and adventurer.current_tile.has_trade_port:
             print(self.name+" is placing an Inn where they can trade.")
             return True
         else:
@@ -489,7 +493,7 @@ class PlayerBeginnerRouter(PlayerBeginnerTrader):
     def check_hire_inn(self, adventurer):
         inns = adventurer.game.inns[self]
         #if this would otherwise be the last move this turn, then place an inn
-        if len(inns) < adventurer.game.MAX_INNS and not adventurer.can_move(None):
+        if len(inns) < adventurer.game.max_inns and not adventurer.can_move(None):
             print(self.name+" is placing an Inn where they have struggled to move.")
             return True
         else:
@@ -744,10 +748,13 @@ class PlayerRegularPirate(PlayerRegularExplorer):
 class PlayerAdvancedExplorer(PlayerRegularExplorer):
     '''Extends Regular to incorporate buying cards.
     '''
+    P_BUY_MANUSCRIPT = 0.25 #The probability of spending Vault silks on Manuscript cards when affordable
+    RETURN_CITY_ATTR = "cost_manuscript"
+
     def __init__(self, name):
         super().__init__(name)
-        self.p_buy_manuscript = AdvancedConfig.P_BUY_MANUSCRIPT
-        self.return_city_attr = AdvancedConfig.RETURN_CITY_ATTR
+        self.p_buy_manuscript = self.P_BUY_MANUSCRIPT
+        self.return_city_attr = self.RETURN_CITY_ATTR
     
     def continue_turn(self, adventurer):
         if isinstance(adventurer.game, GameAdvanced):
@@ -766,7 +773,7 @@ class PlayerAdvancedExplorer(PlayerRegularExplorer):
         
         print(self.name+" is deciding whether to buy a Manuscript card")
         if adventurer.game.vault_silks[adventurer.player] >= adventurer.game.cost_manuscript:
-            winning_difference = adventurer.game.game_winning_difference
+            winning_difference = adventurer.game.winning_silks_difference
             if winning_difference is None:
                 return self._check_purchase_worthwhile(adventurer, adventurer.game.cost_manuscript)
             #Check whether player has won compared to wealthiest opponent
@@ -803,8 +810,8 @@ class PlayerAdvancedTrader(PlayerRegularTrader, PlayerAdvancedExplorer):
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
-        self.p_buy_manuscript = AdvancedConfig.P_BUY_MANUSCRIPT
-        self.return_city_attr = AdvancedConfig.RETURN_CITY_ATTR
+        self.p_buy_manuscript = self.P_BUY_MANUSCRIPT
+        self.return_city_attr = self.RETURN_CITY_ATTR
     
 class PlayerAdvancedRouter(PlayerRegularRouter, PlayerAdvancedExplorer):    
     '''A virtual player for Regular Cartolan that favours maximising trade value
@@ -812,8 +819,8 @@ class PlayerAdvancedRouter(PlayerRegularRouter, PlayerAdvancedExplorer):
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
-        self.p_buy_manuscript = AdvancedConfig.P_BUY_MANUSCRIPT
-        self.return_city_attr = AdvancedConfig.RETURN_CITY_ATTR
+        self.p_buy_manuscript = self.P_BUY_MANUSCRIPT
+        self.return_city_attr = self.RETURN_CITY_ATTR
     
 class PlayerAdvancedPirate(PlayerRegularPirate, PlayerAdvancedExplorer):    
     '''A virtual player for Regular Cartolan that favours maximising trade value
@@ -821,6 +828,6 @@ class PlayerAdvancedPirate(PlayerRegularPirate, PlayerAdvancedExplorer):
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
-        self.p_buy_manuscript = AdvancedConfig.P_BUY_MANUSCRIPT
-        self.return_city_attr = AdvancedConfig.RETURN_CITY_ATTR
+        self.p_buy_manuscript = self.P_BUY_MANUSCRIPT
+        self.return_city_attr = self.RETURN_CITY_ATTR
     

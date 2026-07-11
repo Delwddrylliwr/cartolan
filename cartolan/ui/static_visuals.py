@@ -508,7 +508,7 @@ class PlayAreaVisualisation:
         for header_num in range(0, max_num_adventurers+1):
             cell = silks_table[(0, header_num)]
             cell.get_text().set_family("Comic Sans MS")
-        silks_table.auto_set_column_width(col=range(0,self.game.MAX_INNS+1))
+        silks_table.auto_set_column_width(col=range(0,self.game.max_inns+1))
         for player in players:
             cell = silks_table[(players.index(player)+1,0)]
             cell.get_text().set_family("Comic Sans MS")
@@ -611,7 +611,7 @@ class PlayAreaVisualisation:
 #        scores = [["Vault silks", "Adventurer\n #1 silks", "Adventurer\n #2 silks", "Adventurer\n #3 silks"]]
 #        pyplot.sca(self.scoreax)
 #        silks_table = pyplot.table(cellText=scores, edges="open", loc='top left')
-#        silks_table.auto_set_column_width(col=range(0,players[0].adventurers[0].game.MAX_INNS+1))
+#        silks_table.auto_set_column_width(col=range(0,players[0].adventurers[0].game.max_inns+1))
 #        for player in players:
 #            cell = silks_table.add_cell(players.index(player)+1, 0, width=5, height=5
 ##                                          , fontproperties={"color":player.colour, "fontsize":20} #Set row colours to match player colours, and enlarge the first column's text size

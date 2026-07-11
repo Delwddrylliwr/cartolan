@@ -180,7 +180,7 @@ class PlayerFeedFwd(Player):
         _require_keras()
         window_side = 2 * self.WINDOW_RADIUS + 1
         window_features_per_adventurer = window_side ** 2 * self.FEATURES_PER_WINDOW_TILE
-        window_features_total = window_features_per_adventurer * game_type.MAX_ADVENTURERS
+        window_features_total = window_features_per_adventurer * game_type.RULESET.max_adventurers
         global_state_size = (
             1                                   # vault silks
             + 3                                 # moves since resting
@@ -188,19 +188,19 @@ class PlayerFeedFwd(Player):
             + 2                                 # current tile wind direction
             + 6                                 # preceding three tile positions
             + 1                                 # adventurer index (which adventurer is deciding)
-            + game_type.MAX_ADVENTURERS         # own adventurer silks
-            + game_type.MAX_ADVENTURERS         # own adventurer companions
-            + 2 * game_type.MAX_ADVENTURERS     # own adventurer positions
-            + game_type.MAX_INNS              # own inn silks
-            + 2 * game_type.MAX_INNS          # own inn positions
+            + game_type.RULESET.max_adventurers         # own adventurer silks
+            + game_type.RULESET.max_adventurers         # own adventurer companions
+            + 2 * game_type.RULESET.max_adventurers     # own adventurer positions
+            + game_type.RULESET.max_inns              # own inn silks
+            + 2 * game_type.RULESET.max_inns          # own inn positions
             + 3                                 # opponent vault silks (up to 3 opponents)
-            + 3 * game_type.MAX_ADVENTURERS     # opponent adventurer silks
-            + 3 * game_type.MAX_ADVENTURERS     # opponent adventurer companions
-            + 3 * game_type.MAX_ADVENTURERS     # opponent adventurer pirate tokens
-            + 2 * 3 * game_type.MAX_ADVENTURERS # opponent adventurer positions
-            + 3 * game_type.MAX_INNS          # opponent inn silks
-            + 3 * game_type.MAX_INNS          # opponent inn ransacked status
-            + 2 * 3 * game_type.MAX_INNS      # opponent inn positions
+            + 3 * game_type.RULESET.max_adventurers     # opponent adventurer silks
+            + 3 * game_type.RULESET.max_adventurers     # opponent adventurer companions
+            + 3 * game_type.RULESET.max_adventurers     # opponent adventurer pirate tokens
+            + 2 * 3 * game_type.RULESET.max_adventurers # opponent adventurer positions
+            + 3 * game_type.RULESET.max_inns          # opponent inn silks
+            + 3 * game_type.RULESET.max_inns          # opponent inn ransacked status
+            + 2 * 3 * game_type.RULESET.max_inns      # opponent inn positions
         )
         total_state_size = window_features_total + global_state_size
 
@@ -221,7 +221,7 @@ class PlayerFeedFwd(Player):
         shared_pool = layers.GlobalAveragePooling2D(name='shared_pool')
 
         window_encodings = []
-        for i in range(game_type.MAX_ADVENTURERS):
+        for i in range(game_type.RULESET.max_adventurers):
             start = i * window_features_per_adventurer
             end = (i + 1) * window_features_per_adventurer
             # Slice this adventurer's flat window out of the state vector
@@ -254,7 +254,7 @@ class PlayerFeedFwd(Player):
         collect_network = layers.Dense(units=1, activation='sigmoid')(base_network)
         place_network = layers.Dense(units=1, activation='sigmoid')(base_network)
         attack_network = layers.Dense(
-            units=3 * (game_type.MAX_ADVENTURERS + game_type.MAX_INNS),
+            units=3 * (game_type.RULESET.max_adventurers + game_type.RULESET.max_inns),
             activation='sigmoid'
         )(base_network)
         restore_network = layers.Dense(units=1, activation='sigmoid')(base_network)
@@ -293,9 +293,9 @@ class PlayerFeedFwd(Player):
         own_inns = game.inns.get(adventurer.player, [])
         players = game.players
 
-        state_own_adventurers_wealth = [0] * game.MAX_ADVENTURERS
-        state_own_adventurers_companions = [0] * game.MAX_ADVENTURERS
-        state_own_adventurers_positions = [0] * (2 * game.MAX_ADVENTURERS)
+        state_own_adventurers_wealth = [0] * game.max_adventurers
+        state_own_adventurers_companions = [0] * game.max_adventurers
+        state_own_adventurers_positions = [0] * (2 * game.max_adventurers)
         for own_adventurer in own_adventurers:
             idx = own_adventurers.index(own_adventurer)
             state_own_adventurers_wealth[idx] = own_adventurer.silks
@@ -303,8 +303,8 @@ class PlayerFeedFwd(Player):
             state_own_adventurers_positions[2 * idx] = own_adventurer.current_tile.tile_position.longitude
             state_own_adventurers_positions[2 * idx + 1] = own_adventurer.current_tile.tile_position.latitude
 
-        state_own_inns_wealth = [0] * game.MAX_INNS
-        state_own_inns_positions = [0] * (2 * game.MAX_INNS)
+        state_own_inns_wealth = [0] * game.max_inns
+        state_own_inns_positions = [0] * (2 * game.max_inns)
         for own_inn in own_inns:
             idx = own_inns.index(own_inn)
             state_own_inns_wealth[idx] = own_inn.silks
@@ -312,13 +312,13 @@ class PlayerFeedFwd(Player):
             state_own_inns_positions[2 * idx + 1] = own_inn.current_tile.tile_position.latitude
 
         state_opp_vault_silkss = [0] * 3
-        state_opp_adventurers_wealths = [0] * (3 * game.MAX_ADVENTURERS)
-        state_opp_adventurers_companions = [0] * (3 * game.MAX_ADVENTURERS)
-        state_opp_adventurers_pirates = [0] * (3 * game.MAX_ADVENTURERS)
-        state_opp_adventurers_positions = [0] * (2 * 3 * game.MAX_ADVENTURERS)
-        state_opp_inns_wealths = [0] * (3 * game.MAX_INNS)
-        state_opp_inns_ransacked = [0] * (3 * game.MAX_INNS)
-        state_opp_inns_positions = [0] * (2 * 3 * game.MAX_INNS)
+        state_opp_adventurers_wealths = [0] * (3 * game.max_adventurers)
+        state_opp_adventurers_companions = [0] * (3 * game.max_adventurers)
+        state_opp_adventurers_pirates = [0] * (3 * game.max_adventurers)
+        state_opp_adventurers_positions = [0] * (2 * 3 * game.max_adventurers)
+        state_opp_inns_wealths = [0] * (3 * game.max_inns)
+        state_opp_inns_ransacked = [0] * (3 * game.max_inns)
+        state_opp_inns_positions = [0] * (2 * 3 * game.max_inns)
 
         own_index = players.index(self)
         opponent_index = 0
@@ -330,7 +330,7 @@ class PlayerFeedFwd(Player):
             opp_adventurers = game.adventurers.get(p, [])
             for opp_adventurer in opp_adventurers:
                 oa_idx = opp_adventurers.index(opp_adventurer)
-                flat = game.MAX_ADVENTURERS * opponent_index + oa_idx
+                flat = game.max_adventurers * opponent_index + oa_idx
                 state_opp_adventurers_wealths[flat] = opp_adventurer.silks
                 state_opp_adventurers_companions[flat] = getattr(opp_adventurer, 'num_companions', 0)
                 state_opp_adventurers_pirates[flat] = int(getattr(opp_adventurer, 'pirate_token', False))
@@ -339,7 +339,7 @@ class PlayerFeedFwd(Player):
             opp_inns = game.inns.get(p, [])
             for opp_inn in opp_inns:
                 oa_idx = opp_inns.index(opp_inn)
-                flat = game.MAX_INNS * opponent_index + oa_idx
+                flat = game.max_inns * opponent_index + oa_idx
                 state_opp_inns_wealths[flat] = opp_inn.silks
                 state_opp_inns_ransacked[flat] = int(getattr(opp_inn, 'is_ransacked', False))
                 state_opp_inns_positions[2 * flat] = opp_inn.current_tile.tile_position.longitude
@@ -359,7 +359,7 @@ class PlayerFeedFwd(Player):
         all_own_adventurers = game.adventurers.get(adventurer.player, [])
         window_size = (2 * self.WINDOW_RADIUS + 1) ** 2 * self.FEATURES_PER_WINDOW_TILE
         windows = []
-        for slot in range(game.MAX_ADVENTURERS):
+        for slot in range(game.max_adventurers):
             if slot < len(all_own_adventurers):
                 windows.append(self.get_local_window(all_own_adventurers[slot]))
             else:

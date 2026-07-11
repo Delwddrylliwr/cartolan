@@ -3,6 +3,7 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
 import copy
+import random
 import uuid
 
 from cartolan.core.utils import replace_references
@@ -14,6 +15,19 @@ from cartolan.core.tiles import Tile, TilePile
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+class _GlobalRandom:
+    '''Deepcopy-safe view of the global random module, used as the default rng.'''
+
+    def __getattr__(self, name):
+        return getattr(random, name)
+
+    def __deepcopy__(self, memo):
+        return self
+
+
+GLOBAL_RNG = _GlobalRandom()
 
 
 class _SubscriberList(list):

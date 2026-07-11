@@ -4,7 +4,7 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 
 import os
 
-from cartolan.core.game import Game
+from cartolan.core.game import Game, GLOBAL_RNG
 from cartolan.core.tiles import Tile, TilePile, WindDirection, TileEdges
 from cartolan.editions.beginner import AdventurerBeginner, InnBeginner, CityTileBeginner, TradePortTile, HomeCityTileBeginner
 from cartolan.editions.regular import AdventurerRegular, InnRegular, CityTileRegular, DisasterTile, HomeCityTileRegular, MythicalCityTileRegular
@@ -12,7 +12,10 @@ from cartolan.editions.advanced import AdventurerAdvanced, InnAdvanced, CityTile
 import random
 import csv
 #bring in all the constants from the config file
-from cartolan.rules.game_config import BeginnerConfig, RegularConfig, AdvancedConfig
+import copy
+import dataclasses
+
+from cartolan.rules.ruleset import BEGINNER, REGULAR, ADVANCED
 
 import logging
 
@@ -42,16 +45,24 @@ class GameBeginner(Game):
     INN_TYPE = InnBeginner
     CITY_TYPE = CityTileBeginner
     
-    #Inherit class level constants from config file
-    NUM_TILES = BeginnerConfig.NUM_TILES
-    
-    MAX_ADVENTURERS = BeginnerConfig.MAX_ADVENTURERS
-    MAX_INNS = BeginnerConfig.MAX_INNS
-    
-    
-    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
+    #The rule values for this edition; instances mirror the fields as attributes
+    RULESET = BEGINNER
+
+
+    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous', rng=None):
         
         super().__init__(players)
+        
+        #Randomness source: defaults to the global random module; tests may pass
+        #a seeded random.Random instance for reproducibility
+        self.rng = rng if rng is not None else GLOBAL_RNG
+        
+        #Mirror rule values onto mutable instance attributes: the Ruleset is the
+        #single source of truth, but cards may modify per-token copies until the
+        #RuleView overlay replaces the setattr buff mechanism
+        self.ruleset = self.RULESET
+        for rule_field in dataclasses.fields(self.ruleset):
+            setattr(self, rule_field.name, copy.deepcopy(getattr(self.ruleset, rule_field.name)))
         
         if movement_rules in ["initial", "budgetted"]:
             self.movement_rules = movement_rules
@@ -65,30 +76,6 @@ class GameBeginner(Game):
 
         self.tile_piles = {"water":TilePile("water",[])}
         self.discard_piles = {"water":TilePile("water",[])}
-        
-        #Inherit instance level constants from config
-        self.game_winning_vault = BeginnerConfig.GAME_WINNING_VAULT
-        self.game_winning_difference = BeginnerConfig.GAME_WINNING_DIFFERENCE
-        
-        self.value_trade = BeginnerConfig.VALUE_TRADE
-        self.value_complete_map = BeginnerConfig.VALUE_COMPLETE_MAP
-        self.value_discover_port = BeginnerConfig.VALUE_DISCOVER_PORT
-        self.value_fill_map_gap = BeginnerConfig.VALUE_FILL_MAP_GAP
-        self.value_fill_gap_manuscripts = BeginnerConfig.VALUE_FILL_GAP_MANUSCRIPTS
-            
-        self.cost_adventurer = BeginnerConfig.COST_ADVENTURER
-        self.cost_inn_exploring = BeginnerConfig.COST_INN_EXPLORING
-        self.cost_inn_from_city = BeginnerConfig.COST_INN_FROM_CITY
-        self.cost_inn_rest = BeginnerConfig.COST_INN_REST
-        self.inns_from_city = BeginnerConfig.INNS_FROM_CITY
-        self.inn_on_existing = BeginnerConfig.INN_ON_EXISTING
-        self.max_companions = BeginnerConfig.MAX_COMPANIONS
-        self.cost_companion = BeginnerConfig.COST_COMPANION
-        
-        self.max_exploration_attempts = BeginnerConfig.MAX_EXPLORATION_ATTEMPTS
-        self.max_downwind_moves = BeginnerConfig.MAX_DOWNWIND_MOVES
-        self.max_land_moves = BeginnerConfig.MAX_LAND_MOVES
-        self.max_upwind_moves = BeginnerConfig.MAX_UPWIND_MOVES
         
         self.exploration_attempts = 0
         self.win_type = None
@@ -136,12 +123,12 @@ class GameBeginner(Game):
         
         #draw a suitable number of tiles from the deck for a pile
     #     num_tiles = len(players)*game.WATER_TILES_PER_PLAYER
-        num_tiles = self.NUM_TILES[tile_back]
+        num_tiles = self.num_pile_tiles[tile_back]
         tile_pile = self.tile_piles[tile_back]
-        for tile in random.sample(tiles, num_tiles):
+        for tile in self.rng.sample(tiles, num_tiles):
             tile_pile.add_tile(tile)
         
-        tile_pile.shuffle_tiles()
+        tile_pile.shuffle_tiles(self.rng)
         
         logger.debug("Built a " +tile_back+ " tile pile with " +str(len(self.tile_piles[tile_back].tiles))+ " tiles, and shuffled it")
     
@@ -169,7 +156,7 @@ class GameBeginner(Game):
             self.tile_piles.pop(tile_pile.tile_back)
             self.tile_piles[tile_pile.tile_back] = discard_pile
             tile_pile = self.tile_piles[tile_pile.tile_back]
-            discard_pile.shuffle_tiles()
+            discard_pile.shuffle_tiles(self.rng)
             logger.debug("Have replaced the main tile pile with the discard pile, and shuffled it,"
                   +" so that now there are " +str(len(self.tile_piles))+ " tile piles.")
             #Start a new discard pile
@@ -269,7 +256,7 @@ class GameBeginner(Game):
         adventurer.bought_adventurer += 1
 
         #keep checking whether the player has enough silks and wants to buy another adventurer until they refuse
-        while (len(self.adventurers[adventurer.player]) < self.MAX_ADVENTURERS
+        while (len(self.adventurers[adventurer.player]) < self.max_adventurers
                 and self.vault_silks[adventurer.player] >= adventurer.cost_adventurer):
             if adventurer.player.check_buy_adventurer(adventurer):
                 #take payment of silks from their Vault
@@ -306,7 +293,7 @@ class GameBeginner(Game):
             else:
                 #pick up an existing Inn from its tile if there are no other inns available
                 #otherwise get a new inn
-                if len(self.inns[adventurer.player]) >= self.MAX_INNS:
+                if len(self.inns[adventurer.player]) >= self.max_inns:
                     inn = adventurer.player.check_move_inn(adventurer)
                     if not inn is None:
                         logger.debug(adventurer.player.name+ " is recalling their inn from the tile at "
@@ -389,10 +376,10 @@ class GameBeginner(Game):
         '''
         self.update_standings()
 
-        if self.game_winning_vault is not None and self.max_vault_silks >= self.game_winning_vault:
+        if self.winning_vault_silks is not None and self.max_vault_silks >= self.winning_vault_silks:
             return "vault threshold"
 
-        if self.game_winning_difference is not None and self.silks_difference > self.game_winning_difference:
+        if self.winning_silks_difference is not None and self.silks_difference > self.winning_silks_difference:
             return "silks difference"
 
         for tile_pile in self.tile_piles.values():
@@ -442,7 +429,7 @@ class GameBeginner(Game):
             "inns": {p.name: [a.to_json() for a in agts] for p, agts in self.inns.items()},
             "tile_piles": {back: pile.to_json() for back, pile in self.tile_piles.items()},
             "discard_piles": {back: pile.to_json() for back, pile in self.discard_piles.items()},
-            "num_tiles": self.NUM_TILES,
+            "num_tiles": self.num_pile_tiles,
         }
 
 
@@ -462,27 +449,12 @@ class GameRegular(GameBeginner):
     INN_TYPE = InnRegular
     CITY_TYPE = CityTileRegular #no extra functionality needed until Advanced mode
 
-    #Inherit configurable class constants from config file
-    NUM_TILES = RegularConfig.NUM_TILES
+    RULESET = REGULAR
 
-    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous'):
-        super().__init__(players, movement_rules, exploration_rules)
-        #Inherit some instance constants from the config file
-        self.value_discover_port = RegularConfig.VALUE_DISCOVER_PORT
-        self.value_discover_city = RegularConfig.VALUE_DISCOVER_CITY
-        self.value_arrest = RegularConfig.VALUE_ARREST
-        self.value_ransack_inn = RegularConfig.VALUE_RANSACK_INN
-        self.cost_inn_restore = RegularConfig.COST_INN_RESTORE
-        self.cost_refresh_maps = RegularConfig.COST_REFRESH_MAPS
-        
-        self.attack_success_prob = RegularConfig.ATTACK_SUCCESS_PROB
-        self.defence_rounds = RegularConfig.DEFENCE_ROUNDS
-        
-        #Chest maps will now be carried
-        self.num_chest_maps = RegularConfig.NUM_CHEST_MAPS
-        self.num_tile_choices = {}
-        for player in players:
-            self.num_tile_choices[player] = RegularConfig.NUM_TILE_CHOICES
+    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous', rng=None):
+        super().__init__(players, movement_rules, exploration_rules, rng)
+        #Some rule values apply per player, so they can be modified by Culture cards
+        self.num_tile_choices = {player: self.ruleset.num_tile_choices for player in players}
         
         # a land tile pile is now needed
         self.tile_piles["land"] = TilePile("land",[])
@@ -556,11 +528,12 @@ class GameAdvanced(GameRegular):
     CITY_TYPE = CityTileAdvanced #no extra functionality needed until Advanced mode
     CARD_TYPE = CardAdvanced
 
-#    COST_BUY_TECH = 5
-    def __init__(self, players, movement_rules='initial', exploration_rules='continuous'):
-        #Get game level config variables
-        self.num_culture_choices = AdvancedConfig.NUM_CULTURE_CHOICES
-        #Get player level config variables
+    RULESET = ADVANCED
+
+    def __init__(self, players, movement_rules='initial', exploration_rules='continuous', rng=None):
+        super().__init__(players, movement_rules, exploration_rules, rng)
+        
+        #Some rule values apply per player, so they can be modified by Culture cards
         self.num_character_choices = {}
         self.num_manuscript_choices = {}
         self.value_inn_trade = {}
@@ -574,37 +547,23 @@ class GameAdvanced(GameRegular):
         #And a placeholder for players to choose a Culture/Company
         self.assigned_cultures = {}
         for player in players:
-            self.num_character_choices[player] = AdvancedConfig.NUM_CHARACTER_CHOICES
-            self.num_manuscript_choices[player] = AdvancedConfig.NUM_MANUSCRIPT_CHOICES
-            self.value_inn_trade[player] = AdvancedConfig.VALUE_INN_TRADE
-            self.rest_with_adventurers[player] = AdvancedConfig.REST_WITH_ADVENTURERS 
-            self.transfer_inn_earnings[player] = AdvancedConfig.TRANSFER_INN_EARNINGS
-            self.inns_arrest[player] = AdvancedConfig.INNS_ARREST
-            self.confiscate_silks[player] = AdvancedConfig.CONFISCATE_TREASURE
-            self.resting_refurnishes[player] = AdvancedConfig.RESTING_REFURNISHES
-            self.pool_maps[player] = AdvancedConfig.POOL_MAPS
-            self.rechoose_at_inns[player] = AdvancedConfig.RECHOOSE_AT_INNS
-            #And a placeholder for players to choose a Culture/Company
+            self.num_character_choices[player] = self.ruleset.num_character_choices
+            self.num_manuscript_choices[player] = self.ruleset.num_manuscript_choices
+            self.value_inn_trade[player] = self.ruleset.value_inn_trade
+            self.rest_with_adventurers[player] = self.ruleset.rest_with_adventurers
+            self.transfer_inn_earnings[player] = self.ruleset.transfer_inn_earnings
+            self.inns_arrest[player] = self.ruleset.inns_arrest
+            self.confiscate_silks[player] = self.ruleset.confiscate_silks
+            self.resting_refurnishes[player] = self.ruleset.resting_refurnishes
+            self.pool_maps[player] = self.ruleset.pool_maps
+            self.rechoose_at_inns[player] = self.ruleset.rechoose_at_inns
             self.assigned_cultures[player] = None
-        
-        #Get config variables to act as masters of Adventurer traits in case of modification
-        self.card_type_buffs = AdvancedConfig.CARD_TYPE_BUFFS
-        
-        self.cost_manuscript = AdvancedConfig.COST_MANUSCRIPT
-        
-        self.attacks_abandon = AdvancedConfig.ATTACKS_ABANDON
-        self.inn_on_existing = AdvancedConfig.INN_ON_EXISTING
-        self.rest_after_placing = AdvancedConfig.REST_AFTER_PLACING
-        self.transfers_to_inns = AdvancedConfig.TRANSFERS_TO_INNS
-        self.num_free_rests = AdvancedConfig.NUM_FREE_RESTS
         
         #Set up the decks of cards
         self.card_count = 0
-        self.culture_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.CULTURE_CARDS] #a copy that can be modified independent of the config file
-        self.character_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.CHARACTER_CARDS] #a copy that can be modified independent of the config file
-        self.manuscript_cards = [self.CARD_TYPE(self, card_type) for card_type in AdvancedConfig.MANUSCRIPT_CARDS] #a copy that can be modified independent of the config file
-        
-        super().__init__(players, movement_rules='initial', exploration_rules='continuous')
+        self.culture_cards = [self.CARD_TYPE(self, card_type) for card_type in self.ruleset.culture_cards]
+        self.character_cards = [self.CARD_TYPE(self, card_type) for card_type in self.ruleset.character_cards]
+        self.manuscript_cards = [self.CARD_TYPE(self, card_type) for card_type in self.ruleset.manuscript_cards]
         
     def hire_companion(self, adventurer):
         '''Extends base hire to also draw a character card for the new Companion.
@@ -659,7 +618,7 @@ class GameAdvanced(GameRegular):
         '''Lets the player choose a character card from a random subset
         '''
         culture_cards = self.culture_cards
-        card_options = random.sample(culture_cards, k=self.num_culture_choices)
+        card_options = self.rng.sample(culture_cards, k=self.num_culture_choices)
         logger.debug("Offering a selection of Culture cards:")
         for card in card_options:
             logger.debug(card.card_type)

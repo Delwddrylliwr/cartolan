@@ -316,9 +316,13 @@ class TilePile:
         else:
             return None
     
-    def shuffle_tiles(self):
-        '''Randomises the order of tiles in the pile'''
-        random.shuffle(self.tiles)
+    def shuffle_tiles(self, rng=random):
+        '''Randomises the order of tiles in the pile
+
+        Arguments:
+        rng: source of randomness; pass the game's rng for reproducible games
+        '''
+        rng.shuffle(self.tiles)
 
     def to_json(self):
         return {

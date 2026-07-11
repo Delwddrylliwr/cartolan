@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_game(game_type, players, movement_rules="initial",
-                exploration_rules="continuous", mythical_city=True):
+                exploration_rules="continuous", mythical_city=True, rng=None):
     '''Builds a ready-to-play game: initial tiles, one Adventurer per player, and tile piles.
 
     Arguments:
@@ -20,8 +20,9 @@ def create_game(game_type, players, movement_rules="initial",
     players: list of Cartolan.Player
     movement_rules / exploration_rules: rule variant strings
     mythical_city: whether to shuffle the Mythical City into the land pile
+    rng: optional seeded random.Random; defaults to the global random module
     '''
-    game = game_type(players, movement_rules, exploration_rules)
+    game = game_type(players, movement_rules, exploration_rules, rng=rng)
 
     #place the Capital tile with a water tile on each of its four sides, sharing the same wind
     game.CITY_TYPE(game, WindDirection(True, True), TileEdges(True, True, True, True),

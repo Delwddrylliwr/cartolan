@@ -19,7 +19,7 @@ class CardAdvanced(Card):
     '''
     def __init__(self, game, card_type):
         super().__init__(game, card_type)
-        self.buffs = game.card_type_buffs[card_type[3:]]
+        self.buffs = game.card_modifiers[card_type[3:]]
 
     #some supporting functions to deal with different attribute types
     def add(self, a, b):
@@ -144,7 +144,7 @@ class AdventurerAdvanced(AdventurerRegular):
         num_choices = min(self.game.num_character_choices[self.player], len(character_cards))
         if num_choices == 0: #the deck has run out, so no card can be assigned
             return
-        card_options = random.sample(character_cards, k=num_choices)
+        card_options = self.game.rng.sample(character_cards, k=num_choices)
         self.character_card = self.player.choose_card(self, card_options)
         character_cards.remove(self.character_card)
         #Take on the changes to rules based on the Character card
@@ -203,7 +203,7 @@ class AdventurerAdvanced(AdventurerRegular):
         rejected_cards = []
         card_options = []
         while len(card_options) < self.game.num_manuscript_choices[self.player] and available_cards:
-            new_card = available_cards.pop(random.randint(0, len(available_cards) - 1))
+            new_card = available_cards.pop(self.game.rng.randint(0, len(available_cards) - 1))
             # Reject cards whose one-time buffs duplicate something the Adventurer already has
             duplicate = False
             for buff_attr in new_card.buffs:
@@ -236,7 +236,7 @@ class AdventurerAdvanced(AdventurerRegular):
         num_choices = min(self.game.num_character_choices[self.player], len(character_cards))
         if num_choices == 0: #the deck has run out, so the new Companion goes without a card
             return
-        card_options = random.sample(character_cards, k=num_choices)
+        card_options = self.game.rng.sample(character_cards, k=num_choices)
         companion_card = self.player.choose_card(self, card_options)
         character_cards.remove(companion_card)
         self.companion_cards.append(companion_card)
@@ -327,7 +327,7 @@ class AdventurerAdvanced(AdventurerRegular):
         #If the target Adventurer has a defensive buff to force multiple rounds of attack then these need to be won first
         if isinstance(token, AdventurerAdvanced):
             for defence_round in range(0, token.defence_rounds-1):
-                if random.random() > self.attack_success_prob:
+                if self.game.rng.random() > self.attack_success_prob:
                     return False
         if super().attack(token):
             if isinstance(self.current_tile, CityTileRegular): #If on a city then there's no attacking
@@ -422,7 +422,7 @@ class AdventurerAdvanced(AdventurerRegular):
             inn = self.current_tile.inn
             if (inn.inns_arrest and not inn.is_ransacked 
                 and self.pirate_token and not inn.player == self.player):
-                if random.random() < self.game.attack_success_prob:
+                if self.game.rng.random() < self.game.attack_success_prob:
                     AdventurerAdvanced.arrest(inn, self) #The arrest function should only use common features of the common parent Token class
 #                   self.current_tile.inn.arrest(self) #The arrest function should only use common features of the common parent Token class
                     self.end_turn()

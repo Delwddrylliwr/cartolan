@@ -337,7 +337,7 @@ class AdventurerRegular(AdventurerBeginner):
         
         success = False
         # have opponent roll for defence, roll for attack, compare rolls
-        if random.random() < self.attack_success_prob:
+        if self.game.rng.random() < self.attack_success_prob:
             success = True
         
         # resolve conflict
