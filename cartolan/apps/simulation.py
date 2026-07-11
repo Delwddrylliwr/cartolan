@@ -94,15 +94,15 @@ class Simulations():
         self.sim_stats = pandas.DataFrame(columns = ["simulation_id", "num_players", "win_type", "turns"
                                                 , "remaining_water_tiles"
                                                 , "remaining_land_tiles"
-                                                , "total_wealth_final", "max_wealth_final", "wealth_difference_final"
+                                                , "total_silks_final", "max_vault_silks_final", "silks_difference_final"
                                                 , "winning_player_type", "winning_player_order", "winning_player_route"
-                                                , "winning_player_agents"
+                                                , "winning_player_inns"
                                                 , "winning_player_adventurers"
                                                 , "exploration_attempts", "failed_explorations"
-                                                , "wealth_p1", "wealth_p2", "wealth_p3", "wealth_p4"
+                                                , "silks_p1", "silks_p2", "silks_p3", "silks_p4"
                                                 , "num_adventurers_p1", "num_adventurers_p2"
                                                 , "num_adventurers_p3", "num_adventurers_p4"
-                                                , "num_agents_p1", "num_agents_p2", "num_agents_p3", "num_agents_p4"
+                                                , "num_inns_p1", "num_inns_p2", "num_inns_p3", "num_inns_p4"
                                                 , "avg_route_p1", "avg_route_p2", "avg_route_p3", "avg_route_p4"
                                                 , "play_area", "players"])
         play_areas = {}
@@ -150,83 +150,83 @@ class Simulations():
                 else:
                     return name[name.find("Player")+len("Player"):]
 
-            if game.wealth_difference > 0 and self.num_players ==2:
+            if game.silks_difference > 0 and self.num_players ==2:
                 self.sim_stats = append_row(self.sim_stats, {"simulation_id":sim_id, "num_players":self.num_players
                                     , "win_type":game.win_type, "turns":game.turn
                                     , "remaining_water_tiles":len(game.tile_piles["water"].tiles)+len(game.discard_piles["water"].tiles)
                                     , "remaining_land_tiles":len(game.tile_piles["land"].tiles)+len(game.discard_piles["land"].tiles)
-                                    , "total_wealth_final":game.total_vault_wealth
-                                    , "max_wealth_final":game.max_wealth
-                                    , "wealth_difference_final":game.wealth_difference
+                                    , "total_silks_final":game.total_vault_silks
+                                    , "max_vault_silks_final":game.max_vault_silks
+                                    , "silks_difference_final":game.silks_difference
                                     , "winning_player_type":player_strip(type(game.winning_player))
                                     , "winning_player_order":game.players.index(game.winning_player)+1
                                     , "winning_player_route":avg_route_length(game.winning_player, game)
-                                    , "winning_player_agents":len(game.agents[game.winning_player])
+                                    , "winning_player_inns":len(game.inns[game.winning_player])
                                     , "winning_player_adventurers":len(game.adventurers[game.winning_player])
                                     , "exploration_attempts":game.exploration_attempts
                                     , "failed_explorations":game.num_failed_explorations
-                                    , "wealth_p1":game.player_wealths[game.players[0]]
-                                    , "wealth_p2":game.player_wealths[game.players[1]]
+                                    , "silks_p1":game.vault_silks[game.players[0]]
+                                    , "silks_p2":game.vault_silks[game.players[1]]
                                     , "num_adventurers_p1":len(game.adventurers[players[0]])
                                     , "num_adventurers_p2":len(game.adventurers[players[1]])
-                                    , "num_agents_p1":len(game.agents[players[0]])
-                                    , "num_agents_p2":len(game.agents[players[1]])
+                                    , "num_inns_p1":len(game.inns[players[0]])
+                                    , "num_inns_p2":len(game.inns[players[1]])
                                     , "avg_route_p1":avg_route_length(players[0], game)
                                     , "avg_route_p2":avg_route_length(players[1], game)
                                               })
-            elif game.wealth_difference > 0 and self.num_players ==3:
+            elif game.silks_difference > 0 and self.num_players ==3:
                 self.sim_stats = append_row(self.sim_stats, {"simulation_id":sim_id, "num_players":self.num_players
                                     , "win_type":game.win_type, "turns":game.turn
                                     , "remaining_water_tiles":len(game.tile_piles["water"].tiles)+len(game.discard_piles["water"].tiles)
                                     , "remaining_land_tiles":len(game.tile_piles["land"].tiles)+len(game.discard_piles["land"].tiles)
-                                    , "total_wealth_final":game.total_vault_wealth
-                                    , "max_wealth_final":game.max_wealth
-                                    , "wealth_difference_final":game.wealth_difference
+                                    , "total_silks_final":game.total_vault_silks
+                                    , "max_vault_silks_final":game.max_vault_silks
+                                    , "silks_difference_final":game.silks_difference
                                     , "winning_player_type":player_strip(type(game.winning_player))
                                     , "winning_player_order":game.players.index(game.winning_player)+1
                                     , "winning_player_route":avg_route_length(game.winning_player, game)
-                                    , "winning_player_agents":len(game.agents[game.winning_player])
+                                    , "winning_player_inns":len(game.inns[game.winning_player])
                                     , "winning_player_adventurers":len(game.adventurers[game.winning_player])
                                     , "exploration_attempts":game.exploration_attempts
                                     , "failed_explorations":game.num_failed_explorations
-                                    , "wealth_p1":game.player_wealths[game.players[0]]
-                                    , "wealth_p2":game.player_wealths[game.players[1]]
-                                    , "wealth_p3":game.player_wealths[game.players[2]]
+                                    , "silks_p1":game.vault_silks[game.players[0]]
+                                    , "silks_p2":game.vault_silks[game.players[1]]
+                                    , "silks_p3":game.vault_silks[game.players[2]]
                                     , "num_adventurers_p1":len(game.adventurers[game.players[0]])
                                     , "num_adventurers_p2":len(game.adventurers[game.players[1]])
                                     , "num_adventurers_p3":len(game.adventurers[game.players[2]])
-                                    , "num_agents_p1":len(game.agents[game.players[0]])
-                                    , "num_agents_p2":len(game.agents[game.players[1]])
-                                    , "num_agents_p3":len(game.agents[game.players[2]])
+                                    , "num_inns_p1":len(game.inns[game.players[0]])
+                                    , "num_inns_p2":len(game.inns[game.players[1]])
+                                    , "num_inns_p3":len(game.inns[game.players[2]])
                                     , "avg_route_p1":avg_route_length(players[0], game)
                                     , "avg_route_p2":avg_route_length(players[1], game)
                                     , "avg_route_p3":avg_route_length(players[2], game)
                                               })
-            elif game.wealth_difference > 0 and self.num_players ==4:
+            elif game.silks_difference > 0 and self.num_players ==4:
                 self.sim_stats = append_row(self.sim_stats, {"simulation_id":sim_id, "num_players":self.num_players
                                     , "win_type":game.win_type, "turns":game.turn
                                     , "remaining_water_tiles":len(game.tile_piles["water"].tiles)+len(game.discard_piles["water"].tiles)
                                     , "remaining_land_tiles":len(game.tile_piles["land"].tiles)+len(game.discard_piles["land"].tiles)
-                                    , "total_wealth_final":game.total_vault_wealth
-                                    , "max_wealth_final":game.max_wealth
-                                    , "wealth_difference_final":game.wealth_difference
+                                    , "total_silks_final":game.total_vault_silks
+                                    , "max_vault_silks_final":game.max_vault_silks
+                                    , "silks_difference_final":game.silks_difference
                                     , "winning_player_type":player_strip(type(game.winning_player))
                                     , "winning_player_order":game.players.index(game.winning_player)+1
                                     , "winning_player_route":avg_route_length(game.winning_player, game)
-                                    , "winning_player_agents":len(game.agents[game.winning_player])
+                                    , "winning_player_inns":len(game.inns[game.winning_player])
                                     , "winning_player_adventurers":len(game.adventurers[game.winning_player])
                                     , "exploration_attempts":game.exploration_attempts
                                     , "failed_explorations":game.num_failed_explorations
-                                    , "wealth_p1":game.player_wealths[game.players[0]], "wealth_p2":game.player_wealths[game.players[1]]
-                                    , "wealth_p3":game.player_wealths[game.players[2]], "wealth_p4":game.player_wealths[game.players[3]]
+                                    , "silks_p1":game.vault_silks[game.players[0]], "silks_p2":game.vault_silks[game.players[1]]
+                                    , "silks_p3":game.vault_silks[game.players[2]], "silks_p4":game.vault_silks[game.players[3]]
                                     , "num_adventurers_p1":len(game.adventurers[game.players[0]])
                                     , "num_adventurers_p2":len(game.adventurers[game.players[1]])
                                     , "num_adventurers_p3":len(game.adventurers[game.players[2]])
                                     , "num_adventurers_p4":len(game.adventurers[game.players[3]])
-                                    , "num_agents_p1":len(game.agents[game.players[0]])
-                                    , "num_agents_p2":len(game.agents[game.players[1]])
-                                    , "num_agents_p3":len(game.agents[game.players[2]])
-                                    , "num_agents_p4":len(game.agents[game.players[3]])
+                                    , "num_inns_p1":len(game.inns[game.players[0]])
+                                    , "num_inns_p2":len(game.inns[game.players[1]])
+                                    , "num_inns_p3":len(game.inns[game.players[2]])
+                                    , "num_inns_p4":len(game.inns[game.players[3]])
                                     , "avg_route_p1":avg_route_length(players[0], game)
                                     , "avg_route_p2":avg_route_length(players[1], game)
                                     , "avg_route_p3":avg_route_length(players[2], game)
@@ -266,8 +266,8 @@ class Simulations():
         play_stats_visualisation.turns_to_win()
         play_stats_visualisation.player_type_comparison()
         play_stats_visualisation.player_order_comparison()
-        play_stats_visualisation.wealth_comparison()
-        # play_stats_visualisation.wealth_variance_comparison()
+        play_stats_visualisation.silks_comparison()
+        # play_stats_visualisation.silks_variance_comparison()
         play_stats_visualisation.route_comparison()
         play_stats_visualisation.token_comparison()
         play_stats_visualisation.tile_comparison()
@@ -295,35 +295,35 @@ class Simulations():
             origin = [h_origin, v_origin]
             #render the play area and routes
             game_vis = PlayAreaVisualisation(dimensions, origin, title)
-#             game_vis_med_wealth_difference.draw_play_area(play_area_to_vis, play_area_to_vis)
+#             game_vis_med_silks_difference.draw_play_area(play_area_to_vis, play_area_to_vis)
             game_vis.draw_play_area(play_area_to_vis)
-            #@TODO earlier agent positions seem to be ignored
+            #@TODO earlier inn positions seem to be ignored
             game_vis.draw_tokens(player_sets[sim_id_to_vis])
             game_vis.draw_routes(player_sets[sim_id_to_vis])
             print("Determined that the dimensions for the "+title+" are "+ str(h_dimension)+", "+str(v_dimension))
             print("Determined that the origin positions for the "+title+" are "+ str(h_origin)+", "+str(v_origin))
 
 
-        # Let's look at the final layout and paths of the game with the median wealth difference, if one exists:
-        if self.sim_stats["wealth_difference_final"].median() in self.sim_stats["wealth_difference_final"].values:
-            sim_id_med_wealth_difference = self.sim_stats[self.sim_stats["wealth_difference_final"]
-                                                  == self.sim_stats["wealth_difference_final"].median()]["simulation_id"].values[0]
-            prep_visuals(sim_id_med_wealth_difference, "How the median wealth difference game progressed")
+        # Let's look at the final layout and paths of the game with the median silks difference, if one exists:
+        if self.sim_stats["silks_difference_final"].median() in self.sim_stats["silks_difference_final"].values:
+            sim_id_med_silks_difference = self.sim_stats[self.sim_stats["silks_difference_final"]
+                                                  == self.sim_stats["silks_difference_final"].median()]["simulation_id"].values[0]
+            prep_visuals(sim_id_med_silks_difference, "How the median silks difference game progressed")
 
-        # Let's also look at the games with maximum and minimum wealth differences
-        sim_id_max_wealth_difference = self.sim_stats[self.sim_stats["wealth_difference_final"]
-                                                  == self.sim_stats["wealth_difference_final"].max()]["simulation_id"].values[0]
-        prep_visuals(sim_id_max_wealth_difference, "How the maximum wealth difference game progressed")
+        # Let's also look at the games with maximum and minimum silks differences
+        sim_id_max_vault_silks_difference = self.sim_stats[self.sim_stats["silks_difference_final"]
+                                                  == self.sim_stats["silks_difference_final"].max()]["simulation_id"].values[0]
+        prep_visuals(sim_id_max_vault_silks_difference, "How the maximum silks difference game progressed")
 
-        sim_id_min_wealth_difference = self.sim_stats[self.sim_stats["wealth_difference_final"]
-                                                  == self.sim_stats["wealth_difference_final"].min()]["simulation_id"].values[0]
-        prep_visuals(sim_id_min_wealth_difference, "How the minimum wealth difference game progressed")
+        sim_id_min_silks_difference = self.sim_stats[self.sim_stats["silks_difference_final"]
+                                                  == self.sim_stats["silks_difference_final"].min()]["simulation_id"].values[0]
+        prep_visuals(sim_id_min_silks_difference, "How the minimum silks difference game progressed")
 
         pyplot.show()
 
 
 class AISimulations(Simulations):
-    '''Runs training simulations in which a PlayerFeedFwd agent plays against heuristical
+    '''Runs training simulations in which a PlayerFeedFwd inn plays against heuristical
     opponents, learning via DQN experience replay across many games.
 
     Model weights and replay memory persist across games; only game-specific tracking
@@ -348,18 +348,18 @@ class AISimulations(Simulations):
     def setup_players(self):
         '''Returns a fresh player list for one game, resetting per-game AI state.
 
-        Model weights and replay memory are intentionally preserved so the agent
+        Model weights and replay memory are intentionally preserved so the inn
         continues learning across games.
         '''
         self.num_players = random.choice(NUM_PLAYERS_OPTIONS)
         players = []
         for ai_player in self.feed_fwd_players:
             # Reset game-specific tracking; model weights and memory persist
-            ai_player.vault_wealth = 0
+            ai_player.vault_silks = 0
             ai_player.attack_history = []
-            ai_player.best_vault_wealth = 0
+            ai_player.best_vault_silks = 0
             ai_player.best_vault_turn = 0
-            ai_player.best_chest_wealths = {}
+            ai_player.best_chest_silks = {}
             ai_player.best_chest_turns = {}
             ai_player.whimsy_probability = 1  # restart from full exploration each game
             players.append(ai_player)
@@ -415,7 +415,7 @@ class AISimulations(Simulations):
             summary_parts = [f"game {sim_id + 1}/{self.num_games}  turns={game.turn}  #players={self.num_players}\n"]
             for ai_player in self.feed_fwd_players:
                 result = "WIN" if game.winning_player == ai_player else "LOSS"
-                vault = game.player_wealths.get(ai_player, 0)
+                vault = game.vault_silks.get(ai_player, 0)
                 epsilon = max(ai_player.EPSILON_MIN,
                               ai_player.EPSILON_DECAY_PER_GAME ** ai_player.games_played)
                 mimicry = max(ai_player.MIMICRY_FLOOR,
@@ -423,7 +423,7 @@ class AISimulations(Simulations):
                 mimic_name = getattr(ai_player.player_to_mimic, 'name', 'none')
                 summary_parts.append(
                     f"{ai_player.name}: {result} vault={vault}"
-                    f" gap={game.wealth_difference} mem={len(ai_player.memory)}"
+                    f" gap={game.silks_difference} mem={len(ai_player.memory)}"
                     f" epsilon={epsilon:.3f} mu={mimicry:.3f}({mimic_name})\n"
                 )
                 if len(ai_player.memory) > 0:

@@ -12,7 +12,7 @@ class GameVisualisation {
   // ── Layout constants ──────────────────────────────────────────────────────
   static DIMENSION_BUFFER    = 1;
   static PLAYER_OFFSETS      = [[0.25, 0.25], [0.25, 0.75], [0.75, 0.25], [0.75, 0.75]];
-  static AGENT_OFFSET        = [0.5, 0.5];
+  static INN_OFFSET        = [0.5, 0.5];
   static ADVENTURER_OFFSETS  = [[0.0, 0.0], [0.1, -0.1], [-0.1, 0.1], [-0.1, -0.1], [0.1, 0.1]];
   static TILE_BORDER         = 0.02;
   static LEFT_MENU_SCALE     = 0.13;
@@ -22,7 +22,7 @@ class GameVisualisation {
   static OFFER_SCALE         = 0.15;
   static ROUTE_THICKNESS     = 4.0;
   static TOKEN_SCALE         = 0.15;
-  static AGENT_SCALE         = 1.75;
+  static INN_SCALE         = 1.75;
   static TOKEN_OUTLINE_SCALE = 0.25;
   static TOKEN_FONT_SCALE    = 0.2;
   static TOKEN_FONT_COLOURS  = { yellow: 'black' };
@@ -42,8 +42,8 @@ class GameVisualisation {
     attack:         'Attack here',
     rest:           'Rest at own Inn here',
     buy_rest:       'Pay to rest at Inn here',
-    move_agent:     'Move Inn from here',
-    agent_transfer: 'Transfer Silk to Inn here',
+    move_inn:     'Move Inn from here',
+    inn_transfer: 'Transfer Silk to Inn here',
     invalid:        'Cannot move here',
   };
 
@@ -82,44 +82,44 @@ class GameVisualisation {
     attack:         './img/highlights/option_attack.png',
     rest:           './img/highlights/option_rest.png',
     buy_rest:       './img/highlights/option_buy.png',
-    move_agent:     './img/highlights/option_valid_move.png',
-    agent_transfer: './img/highlights/option_buy.png',
+    move_inn:     './img/highlights/option_valid_move.png',
+    inn_transfer: './img/highlights/option_buy.png',
   };
 
   // ── Card display text (mirrored from live_visuals.py) ────────────────────
   static CARD_TITLES = {
     'companion':     "Companion",
-    'com+rests':     "The Intrepid Academy",
-    'com+transfers': "The Great Company",
-    'com+earning':   "The Merchants' Guild",
-    'com+arrest':    "The Harbour Authority",
-    'com+refurnish': "The Privateer Brethren",
-    'com+pool':      "Order of the Lightbrary",
+    'cul+rests':     "The Intrepid Academy",
+    'cul+transfers': "The Great Company",
+    'cul+earning':   "The Merchants' Guild",
+    'cul+arrest':    "The Harbour Authority",
+    'cul+refurnish': "The Privateer Brethren",
+    'cul+pool':      "Order of the Lightbrary",
   };
   static CARD_TEXTS = {
     'companion':     "Scales trade earnings and rest costs by one character.",
-    'adv+agents':    "Can place and immediately rest with Inns on existing tiles, for 3 treasure.",
-    'adv+attack':    "Needs only win or draw Rock, Paper, Scissors to attack successfully.",
-    'adv+bank':      "Can transfer treasure to your Inns when visiting anyone's Inn.",
-    'adv+damage':    "Successfully attacked Adventurers are returned to their last city, and Inns are fully removed.",
-    'adv+defence':   "Attacking opponents have to win Rock, Paper, Scissors twice to succeed.",
-    'adv+downwind':  "Can move up to three times riding the wind after tiring, each turn and after resting.",
-    'adv+upwind':    "Can move three times in any direction before getting tired, then one riding the wind, each turn or after resting.",
-    'adv+maps':      "Carries up to three map tiles in Chest.",
-    'dis+agents':    "This Adventurer can place Inns on existing tiles and immediately rest with them, for 3 treasure.",
-    'dis+attack':    "This Adventurer needs only win or draw Rock, Paper, Scissors to attack successfully.",
-    'dis+bank':      "This Adventurer can transfer treasure to your Inns when visiting anyone's Inn.",
-    'dis+damage':    "Successfully attacked Adventurers are returned to their last city, and Inns are removed.",
-    'dis+defence':   "Attacking opponents have to win an extra round of Rock, Paper, Scissors to succeed.",
-    'dis+downwind':  "This Adventurer can move once more riding the wind after tiring, each turn and after resting.",
-    'dis+upwind':    "This Adventurer can move once more before tiring, rather than after, each turn and after resting.",
-    'dis+maps':      "This Adventurer carries an extra map tile in their chest.",
-    'com+rests':     "Your Adventurers can rest with other Adventurers like Inns. Draw 3 Adventurers.",
-    'com+transfers': "Treasure earned by your Inns goes to your Vault. Draw 3 Manuscripts.",
-    'com+earning':   "Your Inns earn 1 treasure when opponents trade on their tile. Draw 3 Manuscripts.",
-    'com+arrest':    "Your Inns try to arrest pirates landing on their tile. Draw 3 Adventurers.",
-    'com+refurnish': "Your Adventurers can lose the pirate token by resting. Draw 3 Adventurers.",
-    'com+pool':      "Anyone's Inns can swap your Adventures' maps for 1 treasure. Draw 3 Manuscripts.",
+    'chr+inns':    "Can place and immediately rest with Inns on existing tiles, for 3 silks.",
+    'chr+attack':    "Needs only win or draw Rock, Paper, Scissors to attack successfully.",
+    'chr+bank':      "Can transfer silks to your Inns when visiting anyone's Inn.",
+    'chr+damage':    "Successfully attacked Adventurers are returned to their last city, and Inns are fully removed.",
+    'chr+defence':   "Attacking opponents have to win Rock, Paper, Scissors twice to succeed.",
+    'chr+downwind':  "Can move up to three times riding the wind after tiring, each turn and after resting.",
+    'chr+upwind':    "Can move three times in any direction before getting tired, then one riding the wind, each turn or after resting.",
+    'chr+maps':      "Carries up to three map tiles in Chest.",
+    'man+inns':    "This Adventurer can place Inns on existing tiles and immediately rest with them, for 3 silks.",
+    'man+attack':    "This Adventurer needs only win or draw Rock, Paper, Scissors to attack successfully.",
+    'man+bank':      "This Adventurer can transfer silks to your Inns when visiting anyone's Inn.",
+    'man+damage':    "Successfully attacked Adventurers are returned to their last city, and Inns are removed.",
+    'man+defence':   "Attacking opponents have to win an extra round of Rock, Paper, Scissors to succeed.",
+    'man+downwind':  "This Adventurer can move once more riding the wind after tiring, each turn and after resting.",
+    'man+upwind':    "This Adventurer can move once more before tiring, rather than after, each turn and after resting.",
+    'man+maps':      "This Adventurer carries an extra map tile in their chest.",
+    'cul+rests':     "Your Adventurers can rest with other Adventurers like Inns. Draw 3 Adventurers.",
+    'cul+transfers': "Silks earned by your Inns goes to your Vault. Draw 3 Manuscripts.",
+    'cul+earning':   "Your Inns earn 1 silks when opponents trade on their tile. Draw 3 Manuscripts.",
+    'cul+arrest':    "Your Inns try to arrest pirates landing on their tile. Draw 3 Adventurers.",
+    'cul+refurnish': "Your Adventurers can lose the pirate token by resting. Draw 3 Adventurers.",
+    'cul+pool':      "Anyone's Inns can swap your Adventures' maps for 1 silks. Draw 3 Manuscripts.",
   };
 
   // ── Constructor ───────────────────────────────────────────────────────────
@@ -459,13 +459,13 @@ class GameVisualisation {
       ctx.drawImage(img, -size / 2, -size / 2, size, size);
     } else {
       const n       = tile.tile_name;
-      const isCity   = n === 'capital' || n === 'mythical';
+      const isCity   = n === 'home_city' || n === 'mythical_city';
       const isWonder = !isCity && n[4] === 't';
       const WATER = '#336699', LAND = '#669933', WHITE = '#ffffff';
       const half = size / 2;
 
       if (isCity) {
-        ctx.fillStyle = n === 'capital' ? WATER : LAND;
+        ctx.fillStyle = n === 'home_city' ? WATER : LAND;
         ctx.fillRect(-half, -half, size, size);
       } else {
         const edgeTop    = n[3] === 't';  // downwind_anti  = North in NE baseline
@@ -763,14 +763,14 @@ class GameVisualisation {
 
         this._drawTileAt(tile, x, y, size);
 
-        if (tile.dropped_wealth > 0) {
+        if (tile.dropped_silks > 0) {
           const fontSize = Math.round(this.tileSize * GameVisualisation.TOKEN_FONT_SCALE);
           ctx.font      = `${fontSize}px ${GameVisualisation.MENU_FONT}`;
           ctx.textAlign = 'center';
           ctx.fillStyle = tile.tile_name.endsWith('t')
             ? GameVisualisation.WONDER_TEXT_COLOUR
             : GameVisualisation.PLAIN_TEXT_COLOUR;
-          ctx.fillText(String(tile.dropped_wealth), x + size / 2, y + size / 2);
+          ctx.fillText(String(tile.dropped_silks), x + size / 2, y + size / 2);
         }
       }
     }
@@ -859,25 +859,25 @@ class GameVisualisation {
         }
       });
 
-      for (const agent of (s.agents[playerName] || [])) {
-        if (agent.longitude === null || agent.latitude === null) continue;
-        const aOff    = GameVisualisation.AGENT_OFFSET;
-        const ax      = this._colToPixelX(agent.longitude) + aOff[0] * this.tileSize;
-        const ay      = this._rowToPixelY(agent.latitude)  + aOff[1] * this.tileSize;
-        const agentSz = GameVisualisation.AGENT_SCALE * this.tokenSize;
+      for (const inn of (s.inns[playerName] || [])) {
+        if (inn.longitude === null || inn.latitude === null) continue;
+        const aOff    = GameVisualisation.INN_OFFSET;
+        const ax      = this._colToPixelX(inn.longitude) + aOff[0] * this.tileSize;
+        const ay      = this._rowToPixelY(inn.latitude)  + aOff[1] * this.tileSize;
+        const innSz = GameVisualisation.INN_SCALE * this.tokenSize;
 
-        if (agent.is_dispossessed) {
+        if (inn.is_ransacked) {
           ctx.strokeStyle = colour;
           ctx.lineWidth   = this.outlineWidth;
-          ctx.strokeRect(ax, ay, agentSz, agentSz);
+          ctx.strokeRect(ax, ay, innSz, innSz);
         } else {
           ctx.fillStyle = colour;
-          ctx.fillRect(ax, ay, agentSz, agentSz);
+          ctx.fillRect(ax, ay, innSz, innSz);
         }
         ctx.textAlign    = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle    = labelColour;
-        ctx.fillText(String(agent.wealth), ax + agentSz / 2, ay + agentSz / 2);
+        ctx.fillText(String(inn.silks), ax + innSz / 2, ay + innSz / 2);
         ctx.textBaseline = 'alphabetic';
         ctx.textAlign    = 'left';
       }
@@ -980,16 +980,16 @@ class GameVisualisation {
 
     for (const playerName of s.players) {
       const colour    = s.player_colours[playerName];
-      const vault     = s.player_wealths[playerName];
+      const vault     = s.vault_silks[playerName];
       const advs      = s.adventurers[playerName] || [];
       const isCurrent = playerName === s.current_player_name;
       const ul        = isCurrent ? 'text-decoration:underline' : '';
       const cell      = `color:${esc(colour)};padding:${pad}px ${pad * 2}px;${ul}`;
 
       let name = esc(playerName);
-      if (playerName === s.winning_player) name += `&nbsp;(+${s.wealth_difference})`;
+      if (playerName === s.winning_player) name += `&nbsp;(+${s.silks_difference})`;
 
-      let advCells = advs.map(adv => `<td style="${cell}">${adv.wealth}</td>`).join('');
+      let advCells = advs.map(adv => `<td style="${cell}">${adv.silks}</td>`).join('');
       for (let i = advs.length; i < maxAdvs; i++) advCells += `<td></td>`;
 
       rows += `<tr data-player="${esc(playerName)}" data-adv="0" style="cursor:pointer">
@@ -1040,11 +1040,11 @@ class GameVisualisation {
 
     // Collect all cards in display order
     const cards = [];
-    const cadreCard = (s.assigned_cadres || {})[s.viewed_player_name];
-    if (cadreCard) {
-      cards.push({ cardType: cadreCard.card_type, cardId: cadreCard.card_id, action: 'CARDSEL', data: 'cadre' });
+    const cultureCard = (s.assigned_cultures || {})[s.viewed_player_name];
+    if (cultureCard) {
+      cards.push({ cardType: cultureCard.card_type, cardId: cultureCard.card_id, action: 'CARDSEL', data: 'culture' });
     }
-    (viewedAdv.discovery_cards || []).forEach((card, idx) => {
+    (viewedAdv.manuscript_cards || []).forEach((card, idx) => {
       cards.push({ cardType: card.card_type, cardId: card.card_id, action: 'CARDSEL', data: String(idx) });
     });
     (viewedAdv.companion_cards || []).forEach((card, idx) => {
@@ -1383,7 +1383,7 @@ class GameVisualisation {
     const fontSize = Math.round(h * GV.MENU_FONT_SCALE);
 
     const viewedAdv = (s.adventurers[s.viewed_player_name] || [])[s.viewed_adventurer_index] || null;
-    if (!viewedAdv || !viewedAdv.chest_tiles || viewedAdv.chest_tiles.length === 0) return;
+    if (!viewedAdv || !viewedAdv.chest_maps || viewedAdv.chest_maps.length === 0) return;
 
     ctx.font = `${fontSize}px ${GV.MENU_FONT}`;
     const x = this.rightMenuStart;
@@ -1395,7 +1395,7 @@ class GameVisualisation {
 
     const ts = this.menuTileSize;
     const border = Math.round(ts * GV.TILE_BORDER);
-    const maxChest = viewedAdv.num_chest_tiles || viewedAdv.chest_tiles.length;
+    const maxChest = viewedAdv.num_chest_maps || viewedAdv.chest_maps.length;
     const menuH = ts * Math.ceil(maxChest / GV.MENU_TILE_COLS);
 
     ctx.strokeStyle = GV.PLAIN_TEXT_COLOUR;
@@ -1403,12 +1403,12 @@ class GameVisualisation {
     ctx.strokeRect(x, y, this.rightMenuWidth, menuH);
     ctx.lineWidth = 1;
 
-    viewedAdv.chest_tiles.forEach((tile, idx) => {
+    viewedAdv.chest_maps.forEach((tile, idx) => {
       const tx = x + (idx % GV.MENU_TILE_COLS) * ts;
       const ty = y + Math.floor(idx / GV.MENU_TILE_COLS) * ts;
       this._drawTileAt(tile, tx + border / 2, ty + border / 2, ts - border);
 
-      const isSelected = idx === viewedAdv.preferred_tile_num;
+      const isSelected = idx === viewedAdv.chosen_map_index;
       ctx.strokeStyle = isSelected ? GV.CHEST_HIGHLIGHT_COLOUR : GV.PLAIN_TEXT_COLOUR;
       ctx.lineWidth = 2;
       ctx.strokeRect(tx, ty, ts, ts);
@@ -1540,29 +1540,29 @@ class GameVisualisation {
     let y = this.scoresBottomY + fontSize;
     const cardH = Math.round(cardW * 0.6);
 
-    // Cadre / Culture card (just header strip)
-    const cadreCard = (s.assigned_cadres || {})[s.viewed_player_name];
-    if (cadreCard) {
+    // Culture / Culture card (just header strip)
+    const cultureCard = (s.assigned_cultures || {})[s.viewed_player_name];
+    if (cultureCard) {
       ctx.fillStyle = s.player_colours[s.viewed_player_name] || GV.PLAIN_TEXT_COLOUR;
       ctx.fillText(`${s.viewed_player_name}'s Culture card:`, 0, y);
       y += fontSize;
-      this._drawCardAt(cadreCard, 0, y, cardW, cardH);
+      this._drawCardAt(cultureCard, 0, y, cardW, cardH);
       const headerH = Math.round(cardH * GV.CARD_HEADER_SHARE);
-      this._clickableAreas.push({ x: 0, y, w: cardW, h: headerH, action: 'CARDSEL', data: 'cadre', tooltip: 'Preview Culture card' });
+      this._clickableAreas.push({ x: 0, y, w: cardW, h: headerH, action: 'CARDSEL', data: 'culture', tooltip: 'Preview Culture card' });
       y += headerH;
     }
 
     // Character, companion, and discovery cards
     const hasCards = viewedAdv.character_card
-                  || (viewedAdv.discovery_cards && viewedAdv.discovery_cards.length > 0)
+                  || (viewedAdv.manuscript_cards && viewedAdv.manuscript_cards.length > 0)
                   || (viewedAdv.companion_cards && viewedAdv.companion_cards.length > 0);
     if (hasCards) {
       ctx.fillStyle = GV.PLAIN_TEXT_COLOUR;
       ctx.fillText(`Adventurer #${(s.viewed_adventurer_index || 0) + 1} cards:`, 0, y);
       y += fontSize;
 
-      // Discovery cards — stacked so only header strip shows
-      (viewedAdv.discovery_cards || []).forEach((card, idx) => {
+      // Manuscript cards — stacked so only header strip shows
+      (viewedAdv.manuscript_cards || []).forEach((card, idx) => {
         this._drawCardAt(card, 0, y, cardW, cardH);
         const headerH = Math.round(cardH * GV.CARD_HEADER_SHARE);
         this._clickableAreas.push({ x: 0, y, w: cardW, h: headerH, action: 'CARDSEL', data: String(idx), tooltip: 'Preview manuscript card' });

@@ -3,14 +3,14 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
 from cartolan.players.base import Player
-from cartolan.core.tokens import Agent
+from cartolan.core.tokens import Inn
 from cartolan.core.tiles import CityTile
 from cartolan.editions.modes import GameRegular, GameAdvanced
 from cartolan.editions.regular import AdventurerRegular
 from cartolan.editions.advanced import AdventurerAdvanced
 #import copy
 
-class PlayerHuman(Player):
+class PlayerLocalHuman(Player):
     '''A pyplot-based interface for a human players to make decisions in live play.
     '''
     def __init__(self, name):
@@ -88,28 +88,28 @@ class PlayerHuman(Player):
                     self.auto_actions[toggled_action] = None
                 game_vis.draw_toggle_menu(self.auto_actions)
             if isinstance(adventurer, AdventurerRegular):
-                preferred_tile = gui_input.get("preferred_tile")
-                if isinstance(preferred_tile, int):
-                    print("Player received menu input, choosing chest tile #"+str(preferred_tile+1))
-                    if adventurer.preferred_tile_num == preferred_tile:
-                        adventurer.preferred_tile_num = None
-                    elif preferred_tile < len(adventurer.chest_tiles):
-                        adventurer.preferred_tile_num = preferred_tile
-                    game_vis.draw_chest_tiles()
+                chosen_map = gui_input.get("chosen_map")
+                if isinstance(chosen_map, int):
+                    print("Player received menu input, choosing chest map #"+str(chosen_map+1))
+                    if adventurer.chosen_map_index == chosen_map:
+                        adventurer.chosen_map_index = None
+                    elif chosen_map < len(adventurer.chest_maps):
+                        adventurer.chosen_map_index = chosen_map
+                    game_vis.draw_chest_maps()
                 chest_rotate_anti = gui_input.get("chest_rotate_anti")
-                if isinstance(chest_rotate_anti, int) and chest_rotate_anti < len(adventurer.chest_tiles):
-                    print("Player rotating chest tile #"+str(chest_rotate_anti+1)+" anticlockwise")
-                    adventurer.chest_tile_offsets[chest_rotate_anti] = (adventurer.chest_tile_offsets[chest_rotate_anti] - 1) % 4
-                    adventurer.preferred_tile_num = chest_rotate_anti
+                if isinstance(chest_rotate_anti, int) and chest_rotate_anti < len(adventurer.chest_maps):
+                    print("Player rotating chest map #"+str(chest_rotate_anti+1)+" anticlockwise")
+                    adventurer.chest_map_offsets[chest_rotate_anti] = (adventurer.chest_map_offsets[chest_rotate_anti] - 1) % 4
+                    adventurer.chosen_map_index = chest_rotate_anti
                     adventurer.match_chest_directions()
-                    game_vis.draw_chest_tiles()
+                    game_vis.draw_chest_maps()
                 chest_rotate_clock = gui_input.get("chest_rotate_clock")
-                if isinstance(chest_rotate_clock, int) and chest_rotate_clock < len(adventurer.chest_tiles):
-                    print("Player rotating chest tile #"+str(chest_rotate_clock+1)+" clockwise")
-                    adventurer.chest_tile_offsets[chest_rotate_clock] = (adventurer.chest_tile_offsets[chest_rotate_clock] + 1) % 4
-                    adventurer.preferred_tile_num = chest_rotate_clock
+                if isinstance(chest_rotate_clock, int) and chest_rotate_clock < len(adventurer.chest_maps):
+                    print("Player rotating chest map #"+str(chest_rotate_clock+1)+" clockwise")
+                    adventurer.chest_map_offsets[chest_rotate_clock] = (adventurer.chest_map_offsets[chest_rotate_clock] + 1) % 4
+                    adventurer.chosen_map_index = chest_rotate_clock
                     adventurer.match_chest_directions()
-                    game_vis.draw_chest_tiles()
+                    game_vis.draw_chest_maps()
             if isinstance(adventurer, AdventurerAdvanced):
                 game_vis.draw_cards()
     
@@ -211,7 +211,7 @@ class PlayerHuman(Player):
         game_vis.draw_routes_menu()
         if isinstance(adventurer, AdventurerRegular):
             adventurer.match_chest_directions()
-            game_vis.draw_chest_tiles()
+            game_vis.draw_chest_maps()
         game_vis.draw_tile_piles()
         game_vis.draw_discard_pile()
         game_vis.draw_undo_button()
@@ -238,7 +238,7 @@ class PlayerHuman(Player):
         game_vis.draw_toggle_menu(self.auto_actions)
         if isinstance(adventurer, AdventurerRegular):
             adventurer.match_chest_directions()
-            game_vis.draw_chest_tiles()
+            game_vis.draw_chest_maps()
         game_vis.draw_tile_piles()
         game_vis.draw_discard_pile()
         game_vis.draw_undo_button()
@@ -304,7 +304,7 @@ class PlayerHuman(Player):
                 game_vis.draw_routes_menu()
                 if isinstance(adventurer, AdventurerRegular):
                     adventurer.match_chest_directions()
-                    game_vis.draw_chest_tiles()
+                    game_vis.draw_chest_maps()
                 game_vis.draw_tile_piles()
                 game_vis.draw_discard_pile()
                 game_vis.draw_undo_button()
@@ -337,7 +337,7 @@ class PlayerHuman(Player):
                     moved = True
         elif player_input.get("abandon"):
             move_coords = player_input["abandon"]
-            #Transfer the Adventurer's wealth to sit on their current tile for others to collect
+            #Transfer the Adventurer's silks to sit on their current tile for others to collect
             city_tile = game.play_area[move_coords[0]][move_coords[1]]
             adventurer.abandon_expedition(city_tile)
         else:
@@ -384,8 +384,8 @@ class PlayerHuman(Player):
         if self not in game.adventurers:
             return  # swapped out while awaiting turn acknowledgement
         if isinstance(game, GameAdvanced):
-            if game.assigned_cadres.get(self) is None:
-                game.choose_cadre(self)
+            if game.assigned_cultures.get(self) is None:
+                game.choose_culture(self)
         if isinstance(adventurer, AdventurerAdvanced):
             if adventurer.character_card is None:
                 adventurer.choose_character()
@@ -422,13 +422,13 @@ class PlayerHuman(Player):
 #        #we'll need to clear routes up to either the next human player after this one in the play order...
 #        players = game.players
 #        for player_index in range(players.index(self)+1, len(players)):
-#            if isinstance(players[player_index], PlayerHuman):
+#            if isinstance(players[player_index], PlayerLocalHuman):
 #                return True
 #            for adventurer in game.adventurers[players[player_index]]:
 #                adventurer.route = [adventurer.current_tile]
 #        #...or if this was the last human player then we clear up to the first human in the play order
 #        for player in players:
-#            if isinstance(player, PlayerHuman):
+#            if isinstance(player, PlayerLocalHuman):
 #                return True
 #            for adventurer in game.adventurers[player]:
 #                adventurer.route = [adventurer.current_tile]
@@ -471,7 +471,7 @@ class PlayerHuman(Player):
         game_vis.draw_routes_menu()
         if isinstance(adventurer, AdventurerRegular):
             adventurer.match_chest_directions()
-            game_vis.draw_chest_tiles()
+            game_vis.draw_chest_maps()
         game_vis.draw_tile_piles()
         game_vis.draw_discard_pile()
         game_vis.draw_undo_button()
@@ -508,7 +508,7 @@ class PlayerHuman(Player):
         game_vis.draw_toggle_menu(self.auto_actions)
         if isinstance(adventurer, AdventurerRegular):
             adventurer.match_chest_directions()
-            game_vis.draw_chest_tiles()
+            game_vis.draw_chest_maps()
         game_vis.draw_tile_piles()
         game_vis.draw_discard_pile()
         game_vis.draw_undo_button()
@@ -556,7 +556,7 @@ class PlayerHuman(Player):
             game_vis.draw_routes_menu()
             if isinstance(adventurer, AdventurerRegular):
                 adventurer.match_chest_directions()
-                game_vis.draw_chest_tiles()
+                game_vis.draw_chest_maps()
 
             #Seek input again
             player_input = game_vis.get_input_coords(adventurer)
@@ -593,15 +593,15 @@ class PlayerHuman(Player):
 #             game_vis.draw_tokens()
         return action_location
         
-    #if offered by a Wonder, always trade
+    #if offered by a Trade Port, always trade
     def check_trade(self, adventurer, tile):
         if self.undone:
             return False
         return True
     
-    #if offered by an agent, always collect wealth
-    #@TODO let the player choose how much wealth to collect using input()
-    def check_collect_wealth(self, agent):
+    #if offered by an inn, always collect silks
+    #@TODO let the player choose how much silks to collect using input()
+    def check_collect_silks(self, inn):
         if self.undone: 
             print("automatically responding false to action")
             return False
@@ -613,7 +613,7 @@ class PlayerHuman(Player):
             return False
         game  = adventurer.game
         actions = {}
-        if isinstance(token, Agent):
+        if isinstance(token, Inn):
             token_description = " the Inn "
         elif isinstance(token, AdventurerAdvanced):
             token_description = token.player.name.capitalize()+"'s Adventurer #"+str(game.adventurers[token.player].index(token)+1)+" "
@@ -641,7 +641,7 @@ class PlayerHuman(Player):
             prompt = ("If you want "+str(self.name)+"'s Adventurer #" 
                                            +str(game.adventurers[self].index(adventurer)+1) 
                                            +" to rest with "+token_description+" for "
-                                           +str(game.cost_agent_rest)+
+                                           +str(game.cost_inn_rest)+
                                            " Silk then click their tile, otherwise click elsewhere.")
         #Check whether the player wants to go ahead
         if self.check_action(adventurer, action_type, actions, prompt):
@@ -669,7 +669,7 @@ class PlayerHuman(Player):
             return False
     
     #if offered by a city, then give the player the option to buy a discovery card 
-    def check_buy_tech(self, adventurer, report="Player is being asked whether to buy a Discovery card"):
+    def check_buy_manuscript(self, adventurer, report="Player is being asked whether to buy a Manuscript card"):
         print(report)
         if self.undone: 
             print("automatically responding false to action")
@@ -681,7 +681,7 @@ class PlayerHuman(Player):
                     , adventurer.current_tile.tile_position.latitude]]
         
         prompt = ("If you want your Adventurer to buy a manuscript for " 
-                             +str(adventurer.game.cost_tech)
+                             +str(adventurer.game.cost_manuscript)
                              +" then click the City, otherwise click elsewhere.")
         if self.check_action(adventurer, action_type, actions, prompt):
             return True
@@ -724,8 +724,8 @@ class PlayerHuman(Player):
         else:
             return False
 
-    # Let the player choose whether to place an agent when offered
-    def check_place_agent(self, adventurer):
+    # Let the player choose whether to place an inn when offered
+    def check_hire_inn(self, adventurer):
         actions = {}
         if self.undone:
             print("automatically responding false to action")
@@ -737,15 +737,15 @@ class PlayerHuman(Player):
         action_type = "buy"
         actions[action_type] = [[adventurer.current_tile.tile_position.longitude
                     , adventurer.current_tile.tile_position.latitude]]
-        prompt = ("If you want your Adventurer to base an Inn on this tile for "+str(adventurer.cost_agent_exploring)
+        prompt = ("If you want your Adventurer to base an Inn on this tile for "+str(adventurer.cost_inn_exploring)
                         +" Silk then click it, otherwise click elsewhere.")
         if self.check_action(adventurer, action_type, actions, prompt):
             return True
         else:
             return False
         
-    # When offered, give the player the option to buy on any tile that doesn't have an active Agent 
-    def check_buy_agent(self, adventurer, report="Player has been offered to buy an Inn by a city"):
+    # When offered, give the player the option to buy on any tile that doesn't have an active Inn 
+    def check_buy_inn(self, adventurer, report="Player has been offered to buy an Inn by a city"):
         print(report)
         if self.undone: 
             print("automatically responding false to action")
@@ -753,10 +753,10 @@ class PlayerHuman(Player):
         # self.clear_auto_actions() #Make sure that auto-actions to buy doesn't apply
         actions = {}
         action_type = "buy"
-        #Establish a list of all tiles without an active Agent, to offer the player
+        #Establish a list of all tiles without an active Inn, to offer the player
         actions[action_type] = []
         prompt = ("Click any unoccupied tile to buy rights and base an Inn there for "
-                             +str(adventurer.game.cost_agent_from_city) 
+                             +str(adventurer.game.cost_inn_from_city) 
                              +" Silk, otherwise click elsewhere.")
         play_area = adventurer.game.play_area
         for longitude in play_area:
@@ -768,48 +768,48 @@ class PlayerHuman(Player):
 #                        city_latitude = city_tile.tile_position.latitude
 #                        if abs(longitude - city_longitude)+abs(latitude - city_latitude) <= adventurer.game.CITY_DOMAIN_RADIUS:
 #                            outside_city_domains = False
-#                    #If outside all cities' domains then this is a valid location to place an agent
+#                    #If outside all cities' domains then this is a valid location to place an inn
 #                    if outside_city_domains:
                 tile = play_area[longitude][latitude] 
-                if tile.agent is None:
+                if tile.inn is None:
                     if not isinstance(tile, CityTile):
                         actions[action_type].append([tile.tile_position.longitude, tile.tile_position.latitude])
                 elif isinstance(adventurer.game, GameRegular):
-                    if tile.agent.is_dispossessed:
+                    if tile.inn.is_ransacked:
                         actions[action_type].append([tile.tile_position.longitude, tile.tile_position.latitude])
         return self.check_action(adventurer, action_type, actions, prompt)
         
-    # Let the player choose whether to move one of their Agents
-    def check_move_agent(self, adventurer):     
+    # Let the player choose whether to move one of their Inns
+    def check_move_inn(self, adventurer):     
         if self.undone: 
             print("automatically responding false to action")
             return None
-        action_type = "move_agent"
+        action_type = "move_inn"
         actions = {action_type:[]}
-        for agent in adventurer.game.agents[self]:
-            actions[action_type].append([agent.current_tile.tile_position.longitude, agent.current_tile.tile_position.latitude])
+        for inn in adventurer.game.inns[self]:
+            actions[action_type].append([inn.current_tile.tile_position.longitude, inn.current_tile.tile_position.latitude])
         prompt = ("You will need to move an existing Inn of " +str(self.name)+ ", click to choose one"
                                        +", otherwise click elsewhere to cancel buying an Inn.")
         selected_tile = self.check_action(adventurer, action_type, actions, prompt)
         if selected_tile is not None:
-            return selected_tile.agent
+            return selected_tile.inn
         else:
             return None
     
-    def check_transfer_agent(self, adventurer):
+    def check_transfer_inn(self, adventurer):
         if self.undone: 
             print("automatically responding false to action")
             return None
-        action_type = "agent_transfer"
+        action_type = "inn_transfer"
         actions = {action_type:[]}
-        for agent in adventurer.game.agents[self]:
-            if not agent.current_tile == adventurer.current_tile: #Avoid trying to transfer Silk to the current tile
-                actions[action_type].append([agent.current_tile.tile_position.longitude, agent.current_tile.tile_position.latitude])
+        for inn in adventurer.game.inns[self]:
+            if not inn.current_tile == adventurer.current_tile: #Avoid trying to transfer Silk to the current tile
+                actions[action_type].append([inn.current_tile.tile_position.longitude, inn.current_tile.tile_position.latitude])
         prompt = ("Select an Inn If you want " +str(self.name)+ "'s Adventurer to move Silk there "
                                        +", otherwise click elsewhere.")
         selected_tile = self.check_action(adventurer, action_type, actions, prompt)
         if selected_tile is not None:
-            return selected_tile.agent
+            return selected_tile.inn
         else:
             return None
     
@@ -832,7 +832,7 @@ class PlayerHuman(Player):
             return False
     
     #if offered by a city then always bank everything
-    def check_deposit(self, adventurer, maximum, minimum=0, default=0, report="Player is being asked whether to bank Silk"):
+    def check_bank_amount(self, adventurer, maximum, minimum=0, default=0, report="Player is being asked whether to bank Silk"):
         print(report)
         if self.undone: 
             print("automatically responding false to action")
@@ -847,7 +847,7 @@ class PlayerHuman(Player):
             minimum = old_max
         
         if isinstance(adventurer.current_tile, CityTile): #As there is a separate check to withdraw Silk before a turn, assume they will always bank everything
-            return adventurer.wealth
+            return adventurer.silks
         else:
             deposit_amount = game_vis.get_input_value(adventurer, "How much Silk will your Adventurer move to this Inn, from "+str(minimum)+" to "+str(maximum)+"?", maximum, minimum)
             if deposit_amount is not None:
@@ -855,8 +855,8 @@ class PlayerHuman(Player):
             else:
                 return default
     
-    def check_travel_money(self, adventurer, maximum, default):
-        '''Lets the player input a figure for the wealth that will be taken from the Vault before an expedition
+    def check_travel_silks(self, adventurer, maximum, default):
+        '''Lets the player input a figure for the silks that will be taken from the Vault before an expedition
         '''
         if self.undone: 
             print("automatically responding false to action")
@@ -865,13 +865,13 @@ class PlayerHuman(Player):
         game_vis = self.games[game.game_id]["game_vis"]
         
         #Ask the visual for an amount, so that it can either prompt the player or default
-        travel_money = game_vis.get_input_value(adventurer, "How much Silk will your Adventurer take with them, up to "+str(maximum)+"?", maximum)
-        if travel_money in range(0, maximum+1):
-            return travel_money
+        travel_silks = game_vis.get_input_value(adventurer, "How much Silk will your Adventurer take with them, up to "+str(maximum)+"?", maximum)
+        if travel_silks in range(0, maximum+1):
+            return travel_silks
         else:
             return default
     
-    #prompt the player on victory for how much wealth to take using input()
+    #prompt the player on victory for how much silks to take using input()
     def check_steal_amount(self, adventurer, maximum, default):
         if self.undone: 
             print("automatically responding false to action")
@@ -886,8 +886,8 @@ class PlayerHuman(Player):
         else:
             return default
     
-    #@TODO prompt the player on victory for how much wealth to take 
-    def check_attack_agent(self, adventurer, agent):
+    #@TODO prompt the player on victory for how much silks to take 
+    def check_attack_inn(self, adventurer, inn):
         if self.undone: 
             print("automatically responding false to action")
             return False
@@ -896,29 +896,29 @@ class PlayerHuman(Player):
                         , adventurer.current_tile.tile_position.latitude]]}
         prompt = ("If you want "+str(self.name)+"'s Adventurer #" 
                            +str(adventurer.game.adventurers[self].index(adventurer)+1) 
-                           +" to attack "+ agent.player.name+"'s player's Inn, then click their tile. "
+                           +" to attack "+ inn.player.name+"'s player's Inn, then click their tile. "
                                       +" Otherwise, click elsewhere.")    
         if self.check_action(adventurer, action_type, actions, prompt):
             return True
         else:
             return False
     
-    # Always restor own Agents if it can be afforded
-    def check_restore_agent(self, adventurer, agent):
+    # Always restor own Inns if it can be afforded
+    def check_restore_inn(self, adventurer, inn):
         if self.undone: 
             print("automatically responding false to action")
             return False
         action_type = "buy"
         actions = {action_type:[[adventurer.current_tile.tile_position.longitude
                     , adventurer.current_tile.tile_position.latitude]]}
-        prompt = ("If you want your Adventurer to restore your ransacked Inn on this tile for "+str(adventurer.game.cost_agent_restore)
+        prompt = ("If you want your Adventurer to restore your ransacked Inn on this tile for "+str(adventurer.game.cost_inn_restore)
                         +" then click it, otherwise click elsewhere.")
         if self.check_action(adventurer, action_type, actions, prompt):
             return True
         else:
             return False
         
-    # if half Disaster tile dropped wealth exceeds own wealth then try to collect it
+    # if half Disaster tile dropped silks exceeds own silks then try to collect it
     def check_court_disaster(self, adventurer, disaster_tile):
         if self.undone: 
             print("automatically responding false to action")
@@ -926,7 +926,7 @@ class PlayerHuman(Player):
         action_type = "attack"
         actions = {action_type:[[adventurer.current_tile.tile_position.longitude
                     , adventurer.current_tile.tile_position.latitude]]}
-        prompt = ("If you want your pirate Adventurer to try and recover "+str(disaster_tile.dropped_wealth // 2)
+        prompt = ("If you want your pirate Adventurer to try and recover "+str(disaster_tile.dropped_silks // 2)
                         +" from the tile then click it, otherwise click elsewhere.")
         if self.check_action(adventurer, action_type, actions, prompt):
             return True
@@ -942,7 +942,7 @@ class PlayerHuman(Player):
         elif card_variety == "dis":
             prompt = "Select a Manuscript card for "+self.name+"'s Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
         elif card_variety == "com":
-            prompt = "Select a Cadre card for "+self.name
+            prompt = "Select a Culture card for "+self.name
         else:
             prompt = "Select a card for "+self.name+"'s Adventurer #"+str(adventurer.game.adventurers[self].index(adventurer) + 1)
         
@@ -956,7 +956,7 @@ class PlayerHuman(Player):
         game_vis.draw_scores()
         game_vis.draw_move_count()
         if isinstance(adventurer, AdventurerRegular) and card_variety not in ["com", "adv"]:
-            game_vis.draw_chest_tiles()
+            game_vis.draw_chest_maps()
         if isinstance(adventurer, AdventurerAdvanced):
             game_vis.draw_cards()
         
@@ -986,7 +986,7 @@ class PlayerHuman(Player):
         game_vis.draw_scores()
         game_vis.draw_move_count()
         if isinstance(adventurer, AdventurerRegular):
-            game_vis.draw_chest_tiles()
+            game_vis.draw_chest_maps()
         if isinstance(adventurer, AdventurerAdvanced):
             game_vis.draw_cards()
         

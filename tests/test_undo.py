@@ -38,8 +38,8 @@ def test_save_restore_round_trip_from_setup():
     before = snapshot(game)
     adventurer = game.adventurers[players[0]][0]
 
-    adventurer.wealth += 7
-    game.player_wealths[players[0]] += 11
+    adventurer.silks += 7
+    game.vault_silks[players[0]] += 11
     with silent():
         tile = game.tile_piles["water"].tiles.pop()
         tile.place_tile(0, 2)
@@ -48,8 +48,8 @@ def test_save_restore_round_trip_from_setup():
     assert snapshot(game) == before
     # UIs and players hold direct references to adventurers across an undo
     assert game.adventurers[players[0]][0] is adventurer
-    assert adventurer.wealth == 0
-    assert game.player_wealths[players[0]] == 0
+    assert adventurer.silks == 0
+    assert game.vault_silks[players[0]] == 0
 
 
 def test_save_restore_round_trip_mid_game():

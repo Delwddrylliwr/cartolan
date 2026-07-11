@@ -14,11 +14,11 @@ from collections import deque
 #from PodSixNet.Connection import ConnectionListener, connection
 #from time import sleep
 from cartolan.core.game import Game
-from cartolan.core.tokens import Agent, Adventurer
+from cartolan.core.tokens import Inn, Adventurer
 from cartolan.core.tiles import CityTile, Tile
 from cartolan.core.cards import Card
 from cartolan.players.base import Player
-from cartolan.editions.regular import AdventurerRegular, AgentRegular, DisasterTile  # , MythicalTileRegular
+from cartolan.editions.regular import AdventurerRegular, InnRegular, DisasterTile  # , MythicalCityTileRegular
 from cartolan.editions.advanced import AdventurerAdvanced
 from cartolan.editions.modes import GameBeginner, GameRegular, GameAdvanced
 # from players_human import PlayerHuman
@@ -40,7 +40,7 @@ class GameVisualisation():
     #define some constants that will not vary game by game
     MOVE_TIME_LIMIT = 10 #To force a timeout if players aren't responding
     PLAYER_OFFSETS = [[0.25, 0.25],  [0.25, 0.75],  [0.75, 0.25], [0.75, 0.75]]
-    AGENT_OFFSET = [0.5, 0.5] #the placement of agents on the tile, the same for all players and agents, because there will only be one per tile
+    INN_OFFSET = [0.5, 0.5] #the placement of inns on the tile, the same for all players and inns, because there will only be one per tile
     ADVENTURER_OFFSETS = [[0.0, 0.0], [0.1, -0.1], [-0.1, 0.1], [-0.1, -0.1], [0.1, 0.1]] #the offset to differentiate multiple adventurers on the same tile
     DIMENSION_BUFFER = 1 #the number of tiles by which the play area is extended when methods are called
     BACKGROUND_COLOUR = (255,255,255,0) #(38,50,60) #(38,50,66)
@@ -63,7 +63,7 @@ class GameVisualisation():
     ROUTE_THICKNESS = 4.0
     NUM_DASHES = 10
     TOKEN_SCALE = 0.2 #relative to tile sizes
-    AGENT_SCALE = 1.75 #relative to Adventurer radius
+    INN_SCALE = 1.75 #relative to Adventurer radius
     TOKEN_OUTLINE_SCALE = 0.25 #relative to token scale
     TOKEN_FONT_SCALE = 0.5 #relative to tile sizes
     TOKEN_FONT_COLOURS = {"yellow":"black"}
@@ -85,8 +85,8 @@ class GameVisualisation():
     CARDS_EXTENSION = ".png"
     SPECIAL_TILE_PATHS = {"water_disaster":'./images/water_disaster.png'
                      , "land_disaster":'./images/land_disaster.png'
-                     , "capital":'./images/capital.png'
-                     , "mythical":'./images/mythical.png'
+                     , "home_city":'./images/capital.png'
+                     , "mythical_city":'./images/mythical.png'
                      } #file paths for special tiles
     METERS_PATHS = {"any_direction":'./images/move_meters/any_direction.jpg'
                   , "downwind_water":'./images/move_meters/downwind_water.jpg'
@@ -98,39 +98,39 @@ class GameVisualisation():
                   , "attack":'./images/highlights/option_attack.png'
                   , "rest":'./images/highlights/option_rest.png'
                   , "buy_rest":'./images/highlights/option_buy.png'
-                  , "move_agent":'./images/highlights/option_valid_move.png'
-                  , "agent_transfer":'./images/highlights/option_buy.png'
+                  , "move_inn":'./images/highlights/option_valid_move.png'
+                  , "inn_transfer":'./images/highlights/option_buy.png'
                   }
     TOGGLE_HIGHLIGHTS = ["buy", "attack", "rest"]
-    CARD_TITLES = {"com+rests":"The Intrepid Academy"
-            , "com+transfers":"The Great Company"
-            , "com+earning":"The Merchants' Guild"
-            , "com+arrest":"The Harbour Authority"
-            , "com+refurnish":"The Privateer Brethren"
-            , "com+pool":"Order of the Lightbrary"
+    CARD_TITLES = {"cul+rests":"The Intrepid Academy"
+            , "cul+transfers":"The Great Company"
+            , "cul+earning":"The Merchants' Guild"
+            , "cul+arrest":"The Harbour Authority"
+            , "cul+refurnish":"The Privateer Brethren"
+            , "cul+pool":"Order of the Lightbrary"
             }
-    CARD_TEXTS = {"adv+agents":"Can place and immediately rest with Inns on existing tiles, for 3 Silk."
-             , "adv+attack":"Needs only win or draw Rock, Paper, Scissors to attack successfully."
-             , "adv+bank":"Can transfer Silk to your Inns when visiting anyone's Inn."
-             , "adv+damage":"Successfully attacked Adventurers are returned to their last city, and Inns are fully removed."
-             , "adv+defence":"Attacking opponents have to win Rock, Paper, Scissors twice to succeed."
-             , "adv+downwind":"Can move up to three times riding the wind after tiring, each turn and after resting."
-             , "adv+upwind":"Can move three times in any direction before getting tired, then one riding the wind, each turn or after resting."
-             , "adv+maps":"Carries up to three map tiles in Chest."
-             , "dis+agents":"This Adventurer can place Inns on existing tiles and immediately rest with them, for 3 Silk."
-             , "dis+attack":"This Adventurer needs only win or draw Rock, Paper, Scissors to attack successfully."
-             , "dis+bank":"This Adventurer can transfer Silk to your Inns when visiting anyone's Inn."
-             , "dis+damage":"Successfully attacked Adventurers are returned to their last city, and Inns are removed."
-             , "dis+defence":"Attacking opponents have to win an extra round of Rock, Paper, Scissors to succeed."
-             , "dis+downwind":"This Adventurer can move once more riding the wind after tiring, each turn and after resting."
-             , "dis+upwind":"This Adventurer can move once more before tiring, rather than after, each turn and after resting."
-             , "dis+maps":"This Adventurer carries an extra map tile in their chest."
-             , "com+rests":"Your Adventurers can rest with other Adventurers like Inns."
-            , "com+transfers":"Silk you earn on your Inns' tiles goes to your Vault."
-            , "com+earning":"Your Inns earn 1 Silk when opponents trade on their tile."
-            , "com+arrest":"Your Inns try to arrest pirates landing on their tile."
-            , "com+refurnish":"Your Adventurers can lose the pirate token by resting."
-            , "com+pool":"Swap maps once per visit for free at a city and 1 Silk at any Inn."
+    CARD_TEXTS = {"chr+inns":"Can place and immediately rest with Inns on existing tiles, for 3 Silk."
+             , "chr+attack":"Needs only win or draw Rock, Paper, Scissors to attack successfully."
+             , "chr+bank":"Can transfer Silk to your Inns when visiting anyone's Inn."
+             , "chr+damage":"Successfully attacked Adventurers are returned to their last city, and Inns are fully removed."
+             , "chr+defence":"Attacking opponents have to win Rock, Paper, Scissors twice to succeed."
+             , "chr+downwind":"Can move up to three times riding the wind after tiring, each turn and after resting."
+             , "chr+upwind":"Can move three times in any direction before getting tired, then one riding the wind, each turn or after resting."
+             , "chr+maps":"Carries up to three map tiles in Chest."
+             , "man+inns":"This Adventurer can place Inns on existing tiles and immediately rest with them, for 3 Silk."
+             , "man+attack":"This Adventurer needs only win or draw Rock, Paper, Scissors to attack successfully."
+             , "man+bank":"This Adventurer can transfer Silk to your Inns when visiting anyone's Inn."
+             , "man+damage":"Successfully attacked Adventurers are returned to their last city, and Inns are removed."
+             , "man+defence":"Attacking opponents have to win an extra round of Rock, Paper, Scissors to succeed."
+             , "man+downwind":"This Adventurer can move once more riding the wind after tiring, each turn and after resting."
+             , "man+upwind":"This Adventurer can move once more before tiring, rather than after, each turn and after resting."
+             , "man+maps":"This Adventurer carries an extra map tile in their chest."
+             , "cul+rests":"Your Adventurers can rest with other Adventurers like Inns."
+            , "cul+transfers":"Silk you earn on your Inns' tiles goes to your Vault."
+            , "cul+earning":"Your Inns earn 1 Silk when opponents trade on their tile."
+            , "cul+arrest":"Your Inns try to arrest pirates landing on their tile."
+            , "cul+refurnish":"Your Adventurers can lose the pirate token by resting."
+            , "cul+pool":"Swap maps once per visit for free at a city and 1 Silk at any Inn."
             }
     
     def __init__(self, game, peer_visuals, player_colours):
@@ -157,7 +157,7 @@ class GameVisualisation():
         #Placeholders for the various GUI elements
         self.scores_rect = (0, 0, 0, 0)
         self.stack_rect = (0, 0, 0, 0)
-        self.cadre_card_rect = (0, 0, 0, 0)
+        self.culture_card_rect = (0, 0, 0, 0)
         self.current_move_count = None
         self.move_count_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
         self.chest_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
@@ -169,12 +169,12 @@ class GameVisualisation():
         self.undo_rect = (self.width, self.height, 0, 0)
         self.undo_agreed = False
         self.adventurer_centres = []
-        self.agent_rects = []
+        self.inn_rects = []
         self.viewed_tile_num = None
         self.viewed_longitude = None
         self.viewed_latitude = None
         if isinstance(self.game, GameAdvanced):
-            self.selected_cadre_card = False
+            self.selected_culture_card = False
             self.selected_character_card = False
             self.selected_card_num = None
             self.card_images = {}
@@ -193,7 +193,7 @@ class GameVisualisation():
 #        self.window.blit(self.backing_image, [0,0])
         print("Initialising visual scale variables, to fit window of size "+str(self.width)+"x"+str(self.height))
         self.tile_size = self.height // self.dimensions[1]
-        #We'll have a different tile size for dicards and chest tiles
+        #We'll have a different tile size for dicards and chest maps
         self.menu_tile_size = round(self.RIGHT_MENU_SCALE * self.width) // self.MENU_TILE_COLS
         #Where piracy is possible, we'll have a different tile size for choosing stolen ones
         self.offer_tile_size = round(self.OFFER_SCALE * self.width)
@@ -355,7 +355,7 @@ class GameVisualisation():
     def create_card(self, card_type):
         '''For cards with no image, creates a placeholder.
         '''
-        #@TODO differentiate Cadre vs Character/Manuscript cards, to determine orientation
+        #@TODO differentiate Culture vs Character/Manuscript cards, to determine orientation
         card_width = self.play_area_start
         card_height = self.play_area_start * self.play_area_start // self.card_height
         card = pygame.Surface((card_width, card_height))
@@ -596,10 +596,10 @@ class GameVisualisation():
         '''
         e = tile.tile_edges
         if isinstance(tile, CityTile):
-            if tile.is_capital:
-                return "capital"
+            if tile.is_home_city:
+                return "home_city"
             else:
-                return "mythical"
+                return "mythical_city"
         elif isinstance(tile, DisasterTile):
             if tile.tile_back == "water":
                 return "water_disaster"
@@ -610,7 +610,7 @@ class GameVisualisation():
             ua = str(e.upwind_anti_water)[0].lower()
             dc = str(e.downwind_clock_water)[0].lower()
             da = str(e.downwind_anti_water)[0].lower()
-            wonder = str(tile.is_wonder)[0].lower()
+            wonder = str(tile.has_trade_port)[0].lower()
             return uc + ua + dc + da + wonder
     
     def assign_tile_image(self, tile):
@@ -666,15 +666,15 @@ class GameVisualisation():
                 vertical = self.get_vertical(latitude) * self.tile_size
 #                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
                 self.window.blit(rotated_image, [horizontal, vertical])
-                #Print a number on this tile showing the dropped wealth there
-                if tile.dropped_wealth > 0:
-                    if tile.is_wonder:
+                #Print a number on this tile showing the dropped silks there
+                if tile.dropped_silks > 0:
+                    if tile.has_trade_port:
                         text_colour = self.WONDER_TEXT_COLOUR
                     else:
                         text_colour = self.PLAIN_TEXT_COLOUR
                     horizontal += int(self.tile_size * (1 - self.TOKEN_FONT_SCALE/2) / 2)
                     vertical += int(self.tile_size * (1 - self.TOKEN_FONT_SCALE/2) / 2)
-                    wealth_label = self.token_font.render(str(tile.dropped_wealth), 1, text_colour)
+                    wealth_label = self.token_font.render(str(tile.dropped_silks), 1, text_colour)
                     self.window.blit(wealth_label, [horizontal, vertical])
         # # Keep track of what the latest play_area to have been visualised was
         # self.play_area = self.play_area_union(self.play_area, play_area_update)
@@ -832,14 +832,14 @@ class GameVisualisation():
         #     self.highlights[highlight_type] = []
     
     def draw_tokens(self):
-        '''Illustrates the current location of Adventurers and Agents in a game, along with their paths over the last turn
+        '''Illustrates the current location of Adventurers and Inns in a game, along with their paths over the last turn
         '''
-#        print("Cycling through the players, drawing the adventurers and agents as markers")
+#        print("Cycling through the players, drawing the adventurers and inns as markers")
         game = self.game
         players = self.game.players
-        #Reset the records of where Agents and Adventurers have been
+        #Reset the records of where Inns and Adventurers have been
         self.adventurer_centres = []
-        self.agent_rects = []
+        self.inn_rects = []
         for player in players:
             #We'll want to differentiate players by colour and the offset from the tile location
             colour = pygame.Color(self.player_colours[player])
@@ -873,38 +873,38 @@ class GameVisualisation():
                 location[0] -= self.token_size // 2
                 location[1] -= self.token_size
                 self.window.blit(token_label, location)
-            # we want to draw a square anywhere that an agent is
-            for agent in game.agents[player]: 
-                tile = agent.current_tile
+            # we want to draw a square anywhere that an inn is
+            for inn in game.inns[player]: 
+                tile = inn.current_tile
                 if not tile:
                     continue
-                agent_offset = self.AGENT_OFFSET
-                location = [int(self.play_area_start + self.tile_size * (self.get_horizontal(tile.tile_position.longitude) + agent_offset[0]))
-                            , int(self.tile_size * (self.get_vertical(tile.tile_position.latitude) + agent_offset[1]))]
-                #Agents will be differentiated by colour, but they will always have the same position because there will only be one per tile
-                agent_shape = pygame.Rect(location[0], location[1]
-                  , self.AGENT_SCALE*self.token_size, self.AGENT_SCALE*self.token_size)
-                if agent.player != self.viewed_adventurer.player:
-                    self.agent_rects.append([(location[0], location[1]
-                            , self.AGENT_SCALE*self.token_size, self.AGENT_SCALE*self.token_size)
-                        , agent.player])
-                # we'll only outline the Agents that are dispossessed
-                if isinstance(agent, AgentRegular) and agent.is_dispossessed:
-                        pygame.draw.rect(self.window, colour, agent_shape, self.outline_width)
+                inn_offset = self.INN_OFFSET
+                location = [int(self.play_area_start + self.tile_size * (self.get_horizontal(tile.tile_position.longitude) + inn_offset[0]))
+                            , int(self.tile_size * (self.get_vertical(tile.tile_position.latitude) + inn_offset[1]))]
+                #Inns will be differentiated by colour, but they will always have the same position because there will only be one per tile
+                inn_shape = pygame.Rect(location[0], location[1]
+                  , self.INN_SCALE*self.token_size, self.INN_SCALE*self.token_size)
+                if inn.player != self.viewed_adventurer.player:
+                    self.inn_rects.append([(location[0], location[1]
+                            , self.INN_SCALE*self.token_size, self.INN_SCALE*self.token_size)
+                        , inn.player])
+                # we'll only outline the Inns that are ransacked
+                if isinstance(inn, InnRegular) and inn.is_ransacked:
+                        pygame.draw.rect(self.window, colour, inn_shape, self.outline_width)
                 else:
                     #for a filled rectangle the fill method could be quicker: https://www.pygame.org/docs/ref/draw.html#pygame.draw.rect
-                    self.window.fill(colour, rect=agent_shape)
-                token_label = self.token_font.render(str(agent.wealth), 1, token_label_colour)
+                    self.window.fill(colour, rect=inn_shape)
+                token_label = self.token_font.render(str(inn.silks), 1, token_label_colour)
                 location[0] += self.token_size // 2
                 self.window.blit(token_label, location)
         return True
     
-    # it will be useful to see how players moved around the play area during the game, and relative to agents
+    # it will be useful to see how players moved around the play area during the game, and relative to inns
     def draw_routes(self):
-        '''Illustrates the paths that different Adventurers have taken during the course of a game, and the location of Agents
+        '''Illustrates the paths that different Adventurers have taken during the course of a game, and the location of Inns
         
         Arguments:
-        List of Carolan.Players the Adventurers and Agents that will be rendered
+        List of Carolan.Players the Adventurers and Inns that will be rendered
         '''
         #This sub-method will draw a dashed line instead of a continuous one
         def draw_dash_line(window, colour, start, end, thickness):
@@ -993,9 +993,9 @@ class GameVisualisation():
 #                                  , linewidth=1, edgecolors=self.player_colours[player], facecolor=face_colour, marker="X", s=self.token_width)
     
     def draw_scores(self):
-        '''Prints a table of current wealth scores in players' Vaults and Adventurers' Chests
+        '''Prints a table of current silks scores in players' Vaults and Adventurers' Chests
         '''        
-#        print("Creating a table of the wealth held by Players and their Adventurers")
+#        print("Creating a table of the silks held by Players and their Adventurers")
         #Draw the column headings
         game = self.game
         horizontal = self.SCORES_POSITION[0] * self.width
@@ -1037,15 +1037,15 @@ class GameVisualisation():
                 scores_widths[0] = score_text.get_width()
             #Now the Player's Vault Silk (score)
             if player == game.winning_player:
-                text = " "+str(self.game.player_wealths[player])+" (+"+str(game.wealth_difference)+")"
+                text = " "+str(self.game.vault_silks[player])+" (+"+str(game.silks_difference)+")"
             #Highlight the second placed player too, because lower ranked players can behave differently
             elif (game.winning_player is not None 
-                  and self.game.player_wealths[game.winning_player] - self.game.player_wealths[player] == game.wealth_difference):
-                text = " "+str(self.game.player_wealths[player])+" (2nd)"
+                  and self.game.vault_silks[game.winning_player] - self.game.vault_silks[player] == game.silks_difference):
+                text = " "+str(self.game.vault_silks[player])+" (2nd)"
             # elif game.winning_player is not None:
-            #     text = str(self.game.player_wealths[player])+" (-"+str(self.game.player_wealths[self.game.winning_player] - self.game.player_wealths[player])+")"
+            #     text = str(self.game.vault_silks[player])+" (-"+str(self.game.vault_silks[self.game.winning_player] - self.game.vault_silks[player])+")"
             else:
-                text = " "+str(self.game.player_wealths[player])
+                text = " "+str(self.game.vault_silks[player])
             score_text = self.scores_font.render("  "+text, 1, colour)
             scores_texts[1].append([score_text, player])
             #Update the column width if needed
@@ -1053,7 +1053,7 @@ class GameVisualisation():
                 scores_widths[1] = score_text.get_width()
             #Now the Player's first Adventurer's Chest 
             adventurer = game.adventurers[player][0]
-            score_text = self.scores_font.render("  "+str(adventurer.wealth), 1, colour)
+            score_text = self.scores_font.render("  "+str(adventurer.silks), 1, colour)
             scores_texts[2].append([score_text, adventurer])
             #Update the column width if needed
             if score_text.get_width() > scores_widths[2]:
@@ -1062,7 +1062,7 @@ class GameVisualisation():
             for adventurer_num in range(2, max_num_adventurers+1):
                 if len(self.game.adventurers[player]) >= adventurer_num:
                     adventurer = self.game.adventurers[player][adventurer_num-1]
-                    score_text = self.scores_font.render("  "+str(adventurer.wealth), 1, colour)
+                    score_text = self.scores_font.render("  "+str(adventurer.silks), 1, colour)
                 else:
                     adventurer = None
                     score_text = self.scores_font.render("", 1, colour)
@@ -1243,15 +1243,15 @@ class GameVisualisation():
         self.window.blit(undo_button, (horizontal, vertical))
         self.undo_rect = (horizontal, vertical, undo_button.get_width(), undo_button.get_height())
             
-    def draw_chest_tiles(self):
+    def draw_chest_maps(self):
         '''Visualises a set of tiles in the Adventurer's Chest, and highlights one if it is selected for use
         '''
         #Get the information from the viewed adventurer
         if self.viewed_adventurer is None:
             return
-        chest_tiles = self.viewed_adventurer.chest_tiles
-        preferred_tile_num = self.viewed_adventurer.preferred_tile_num
-        max_chest_tiles = self.viewed_adventurer.num_chest_tiles
+        chest_maps = self.viewed_adventurer.chest_maps
+        chosen_map_index = self.viewed_adventurer.chosen_map_index
+        max_chest_maps = self.viewed_adventurer.num_chest_maps
         #Establish the top left coordinate of the column of tiles to choose from, below the table of Silk scores
 #        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.game.players) + 1)
         # horizontal = self.right_text_start
@@ -1264,27 +1264,27 @@ class GameVisualisation():
         #Draw a box to surround the Chest menu, and remember its coordinates for player input
         horizontal = self.right_menu_start
         vertical += self.SCORES_FONT_SCALE * self.height
-        menu_size = self.menu_tile_size * math.ceil(max_chest_tiles / self.MENU_TILE_COLS)
+        menu_size = self.menu_tile_size * math.ceil(max_chest_maps / self.MENU_TILE_COLS)
         self.chest_rect = (horizontal, vertical, self.play_area_start, menu_size)
 #        print("Chest map menu corners defined at pixels...")
 #        print(self.chest_rect)
         pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
                                  , self.chest_rect
                                  , self.chest_highlight_thickness)
-        #Cycle through the chest tiles, drawing them
-        for tile in chest_tiles:
+        #Cycle through the chest maps, drawing them
+        for tile in chest_maps:
             tile_image = self.menu_tile_library.get(tile)
             if tile_image is None:
                 self.assign_tile_image(tile)
                 tile_image = self.menu_tile_library.get(tile)
             rotated_image = self.rotate_tile_image(tile, tile_image)
 #                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
-            horizontal = self.chest_rect[0] + (chest_tiles.index(tile) % self.MENU_TILE_COLS) * self.menu_tile_size
-#            vertical += (chest_tiles.index(tile) // self.MENU_TILE_COLS) * self.menu_tile_size
-            vertical = self.chest_rect[1] + (chest_tiles.index(tile) // self.MENU_TILE_COLS) * self.menu_tile_size
+            horizontal = self.chest_rect[0] + (chest_maps.index(tile) % self.MENU_TILE_COLS) * self.menu_tile_size
+#            vertical += (chest_maps.index(tile) // self.MENU_TILE_COLS) * self.menu_tile_size
+            vertical = self.chest_rect[1] + (chest_maps.index(tile) // self.MENU_TILE_COLS) * self.menu_tile_size
             self.window.blit(rotated_image, [horizontal, vertical])
             #If this is the tile selected then highlight this with a hollow rectangle
-            if chest_tiles.index(tile) == preferred_tile_num:
+            if chest_maps.index(tile) == chosen_map_index:
                 pygame.draw.rect(self.window, self.CHEST_HIGHLIGHT_COLOUR
                                  , (horizontal, vertical, self.menu_tile_size, self.menu_tile_size)
                                  , self.chest_highlight_thickness)
@@ -1294,7 +1294,7 @@ class GameVisualisation():
                                  , self.chest_highlight_thickness)
             #If this tile has been selected to be viewed in more detail then draw it as an offer
             if self.viewed_tile_num is not None:
-                viewed_tile = self.viewed_adventurer.chest_tiles[self.viewed_tile_num]
+                viewed_tile = self.viewed_adventurer.chest_maps[self.viewed_tile_num]
                 self.draw_tile_offers([viewed_tile])
     
     def draw_cards(self):
@@ -1314,20 +1314,20 @@ class GameVisualisation():
 #        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.game.players) + 1) 
         vertical = self.scores_rect[1] + self.scores_rect[3]
 #        vertical = self.chest_rect[1] + self.chest_rect[3]
-        #draw the Adventurer's Player's Cadre Card        
-        if self.game.assigned_cadres.get(adventurer.player) is not None:
+        #draw the Adventurer's Player's Culture Card        
+        if self.game.assigned_cultures.get(adventurer.player) is not None:
             card_title = self.scores_font.render(adventurer.player.name+"'s Culture card:", 1, self.PLAIN_TEXT_COLOUR)
             self.window.blit(card_title, [horizontal, vertical])
             #Now draw the card itself
-            card = self.game.assigned_cadres.get(adventurer.player)
+            card = self.game.assigned_cultures.get(adventurer.player)
             card_image = self.card_image_library.get(card)
             if card_image is None:
                 card_image = self.assign_card_image(card)
             vertical += self.SCORES_FONT_SCALE * self.height
             self.window.blit(card_image, [horizontal, vertical], [0, 0, card_image.get_width(), card_image.get_height() * self.CARD_HEADER_SHARE ])
-            self.cadre_card_rect = (horizontal, vertical, self.play_area_start, card_image.get_height() * self.CARD_HEADER_SHARE)
+            self.culture_card_rect = (horizontal, vertical, self.play_area_start, card_image.get_height() * self.CARD_HEADER_SHARE)
             vertical += card_image.get_height() * self.CARD_HEADER_SHARE
-            if self.selected_cadre_card:
+            if self.selected_culture_card:
                 self.draw_card_offers([card])
         #Procede to draw any other cards
         if adventurer.character_card is not None:
@@ -1335,15 +1335,15 @@ class GameVisualisation():
             self.window.blit(card_title, [horizontal, vertical])
         vertical += self.SCORES_FONT_SCALE * self.height
 #        stack_size = self.card_height * (1 + self.CARD_HEADER_SHARE * len(adventurer.character_cards))
-        stack_size = self.card_height + self.card_height * self.CARD_HEADER_SHARE * len(adventurer.discovery_cards)  #one character card plus all the manuscripts
+        stack_size = self.card_height + self.card_height * self.CARD_HEADER_SHARE * len(adventurer.manuscript_cards)  #one character card plus all the manuscripts
         self.stack_rect = (horizontal, vertical, self.play_area_start, stack_size)
 #        print("Card stack corners defined at pixels...")
 #        print(self.stack_rect)
                 
         #Cycle through the Discovery Cards, drawing them
-        for card in adventurer.discovery_cards:
+        for card in adventurer.manuscript_cards:
             if self.selected_card_num is not None:
-                if adventurer.discovery_cards.index(card) == self.selected_card_num:
+                if adventurer.manuscript_cards.index(card) == self.selected_card_num:
                     self.draw_card_offers([card])
 #            print("Drawing a card of type "+card.card_type)
             card_image = self.card_image_library.get(card)
@@ -1360,7 +1360,7 @@ class GameVisualisation():
                 card_image = self.assign_card_image(card)
 
                 #        card_horizontal = 0
-            vertical = self.stack_rect[1] + card_image.get_height() * self.CARD_HEADER_SHARE * len(adventurer.discovery_cards)
+            vertical = self.stack_rect[1] + card_image.get_height() * self.CARD_HEADER_SHARE * len(adventurer.manuscript_cards)
             self.window.blit(card_image, [horizontal, vertical])
             # If one of the cards has been selected then draw it mid screen
             if self.selected_character_card:
@@ -1371,12 +1371,12 @@ class GameVisualisation():
 #                                 , self.chest_highlight_thickness)
 #         #If one of the discovery/manuscript cards has been selected then draw cards back over the current ones in reverse up to that one
 #         if self.selected_card_num is not None:
-#             for card in reversed(adventurer.discovery_cards):
+#             for card in reversed(adventurer.manuscript_cards):
 #                 vertical -= self.CARD_HEADER_SHARE * card_image.get_height()
 # #                print("Drawing a card of type "+card.card_type)
 #                 card_image = self.get_card_image(adventurer, card)
 #                 self.window.blit(card_image, [horizontal, vertical])
-#                 if adventurer.discovery_cards.index(card) == self.selected_card_num:
+#                 if adventurer.manuscript_cards.index(card) == self.selected_card_num:
 #                     break
 
     def draw_card_offers(self, cards):
@@ -1457,7 +1457,7 @@ class GameVisualisation():
             game_vis.current_player_colour = player_colour
             game_vis.current_adventurer_number = adventurer_number
             game_vis.current_adventurer = adventurer
-            game_vis.current_adventurer.preferred_tile_num = None #deselect any chest map
+            game_vis.current_adventurer.chosen_map_index = None #deselect any chest map
             #Also reset which adventurer's cards are being viewed
             game_vis.viewed_player_colour = player_colour
             game_vis.viewed_adventurer_number = adventurer_number
@@ -1519,11 +1519,11 @@ class GameVisualisation():
                     menu_row = (event.pos[1] - self.chest_rect[1]) // self.menu_tile_size
                     menu_column = (event.pos[0] - self.chest_rect[0]) // self.menu_tile_size
                     return self.MENU_TILE_COLS * menu_row + menu_column
-                # Check whether the click was within the cadre/culture card, and update the index of the selected card
-                if (event.pos[0] in range(self.cadre_card_rect[0], self.cadre_card_rect[2])
-                            and event.pos[1] in range(self.cadre_card_rect[1], self.cadre_card_rect[3])):
-                    print("Click was within the Cadre Card")
-                    self.selected_cadre_card = True
+                # Check whether the click was within the culture/culture card, and update the index of the selected card
+                if (event.pos[0] in range(self.culture_card_rect[0], self.culture_card_rect[2])
+                            and event.pos[1] in range(self.culture_card_rect[1], self.culture_card_rect[3])):
+                    print("Click was within the Culture Card")
+                    self.selected_culture_card = True
                     self.selected_character_card = False
                     self.selected_card_num = None
                 #Check whether the click was within the card stack, and update the index of the selected card
@@ -1531,17 +1531,17 @@ class GameVisualisation():
                     and event.pos[1] in range(self.stack_rect[1], self.stack_rect[3])):
                     if event.pos[1] < self.stack_rect[3] - self.card_height:
                         print("The click was within a Manuscript Card")
-                        self.selected_cadre_card = False
+                        self.selected_culture_card = False
                         self.selected_character_card = False
                         self.selected_card_num = (event.pos[1] - self.stack_rect[1]) // (self.card_height * self.CARD_HEADER_SHARE)
                     else:
                         print("The click was within the Character Card")
-                        self.selected_cadre_card = False
+                        self.selected_culture_card = False
                         self.selected_character_card = True
                         self.selected_card_num = None
                 else:
                     #None of the cards were selected
-                    self.selected_cadre_card = False
+                    self.selected_culture_card = False
                     self.selected_character_card = False
                     self.selected_card_num = None
                 #Otherwise return the coordinates

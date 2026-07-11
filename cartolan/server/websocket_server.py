@@ -10,7 +10,7 @@ from cartolan.core.setup import create_game
 # from live_visuals import ClientGameVisualisation, WebServerVisualisation
 from cartolan.ui.web_visuals import WebServerVisualisation
 from cartolan.editions.modes import GameBeginner, GameRegular, GameAdvanced
-from cartolan.players.human_local import PlayerHuman
+from cartolan.players.human_local import PlayerLocalHuman
 from cartolan.players.heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
 from cartolan.players.heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
 from cartolan.players.heuristical import PlayerAdvancedExplorer, PlayerAdvancedTrader, PlayerAdvancedRouter, PlayerAdvancedPirate
@@ -22,6 +22,7 @@ sys.stdout.reconfigure(line_buffering=True)
 import os
 import time
 import random
+import re
 import string
 import json
 from threading import Thread
@@ -98,7 +99,7 @@ class ClientSocket(WebSocket):
     Client Side |    Server Side
     Web app    <-> Socket <-> Server   <->   Visualisation  <- Game
                                                /\                \/
-                                              Player <- Adventurer/Agent
+                                              Player <- Adventurer/Inn
     
     """
     INPUT_DELAY = 0.1  # delay time between checking for input, in seconds
@@ -181,7 +182,7 @@ class ClientSocket(WebSocket):
                     print("Prompting client at " + str(self.address) + " with: " + prompt_text)
                 else:
                     time.sleep(self.INPUT_DELAY)
-            player = PlayerHuman(player_name)
+            player = PlayerLocalHuman(player_name)
             players[(game_id, player_name)] = player
             client_players[self].append(player)
 
@@ -513,8 +514,8 @@ class ClientSocket(WebSocket):
         # Inform all clients that the game has ended
         win_message = self.game.winning_player.name + " won the game"
         if (self.game.game_winning_difference is not None
-                and self.game.wealth_difference >= self.game.game_winning_difference):
-            win_message += " by buying a global monopoly with their extra wealth"
+                and self.game.silks_difference >= self.game.game_winning_difference):
+            win_message += " by buying a global monopoly with their extra silks"
         else:
             win_message += " as the richest when the world map was completed"
         win_message += " (refresh to play again)"
@@ -548,17 +549,17 @@ class ClientSocket(WebSocket):
         for adventurer in adventurers:
             adventurer.player = new_player
         game.adventurers[new_player] = adventurers
-        # Now Agents
-        agents = game.agents.pop(old_player, [])
-        for agent in agents:
-            agent.player = new_player
-        game.agents[new_player] = agents
+        # Now Inns
+        inns = game.inns.pop(old_player, [])
+        for inn in inns:
+            inn.player = new_player
+        game.inns[new_player] = inns
 
         # Transfer all other player-keyed dicts on the game object
-        for attr in ('player_wealths', 'num_tile_choices', 'num_character_choices',
-                     'num_discovery_choices', 'value_agent_trade', 'rest_with_adventurers',
-                     'transfer_agent_earnings', 'agents_arrest', 'confiscate_treasure',
-                     'resting_refurnishes', 'pool_maps', 'rechoose_at_agents', 'assigned_cadres'):
+        for attr in ('vault_silks', 'num_tile_choices', 'num_character_choices',
+                     'num_manuscript_choices', 'value_inn_trade', 'rest_with_adventurers',
+                     'transfer_inn_earnings', 'inns_arrest', 'confiscate_silks',
+                     'resting_refurnishes', 'pool_maps', 'rechoose_at_inns', 'assigned_cultures'):
             d = getattr(game, attr, None)
             if d is not None and old_player in d:
                 d[new_player] = d.pop(old_player)
@@ -634,7 +635,7 @@ class ClientSocket(WebSocket):
         The bot name acts as the rejoin token — any new client claiming that name can swap back in.
 
         Arguments:
-        player takes a Cartolan PlayerHuman
+        player takes a Cartolan PlayerLocalHuman
         """
         game_data = games[game_id]
         colour = game_data["player_colours"].get(player)
@@ -708,21 +709,21 @@ class ClientSocket(WebSocket):
                 self.coords_buffer = None
                 print("The client response could not be parsed as click input.")
         elif protocode == ("CHEST"):
-            print("Chest tile selection input received from client.")
+            print("Chest map selection input received from client.")
             print(time.strftime('%Y-%m-%d %H:%M %Z', time.gmtime(time.time())))
             try:
-                self.coords_buffer = {'preferred_tile': int(msg)}
+                self.coords_buffer = {'chosen_map': int(msg)}
                 print(str(self.coords_buffer))
             except:
                 self.coords_buffer = None
         elif protocode == ("CHESTL"):
-            print("Chest tile rotate anticlockwise received from client.")
+            print("Chest map rotate anticlockwise received from client.")
             try:
                 self.coords_buffer = {'chest_rotate_anti': int(msg)}
             except:
                 self.coords_buffer = None
         elif protocode == ("CHESTR"):
-            print("Chest tile rotate clockwise received from client.")
+            print("Chest map rotate clockwise received from client.")
             try:
                 self.coords_buffer = {'chest_rotate_clock': int(msg)}
             except:
@@ -795,7 +796,7 @@ class ClientSocket(WebSocket):
         for game_id, game_data in list(games.items()):
             if self in game_data["clients"]:
                 for player in list(client_players.get(self, [])):
-                    if isinstance(player, PlayerHuman):
+                    if isinstance(player, PlayerLocalHuman):
                         try:
                             self.kick_player(game_id, player)
                         except Exception as e:
@@ -849,7 +850,7 @@ class ClientSocket(WebSocket):
 
         # Recreate the human player and swap out the bot
         game = games[game_id]["game"]
-        player = PlayerHuman(player_name)
+        player = PlayerLocalHuman(player_name)
         player.join_game(game)  # populates player.games[game.game_id] so connect_gui can register
         players[(game_id, player_name)] = player
         self.swap_player(game_id, bot_player, player)
@@ -895,7 +896,8 @@ def generate_tile_manifest():
             continue
         if stem.startswith('Map-Tiles'):
             continue
-        tile_name = stem.split('_')[0]
+        edge_code = re.match(r'^[tf]{5}', stem)
+        tile_name = edge_code.group(0) if edge_code else stem
         tile_variants = variants.setdefault(tile_name, {})
         # Prefer .jpg; only replace an existing entry if this one is .jpg
         if stem not in tile_variants or ext.lower() == '.jpg':

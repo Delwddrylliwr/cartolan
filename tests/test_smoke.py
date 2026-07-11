@@ -43,6 +43,6 @@ def test_full_game_completes(mode, seed):
     assert 0 < game.turn <= 1000
     assert game.win_type is not None
     for player in players:
-        assert game.player_wealths[player] >= 0
+        assert game.vault_silks[player] >= 0
     state = game.to_json()
     assert set(state["players"]) == {p.name for p in players}

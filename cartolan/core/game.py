@@ -48,13 +48,13 @@ class Game:
         self.tile_count = 0
         self.tile_piles = {}
         self.play_area = {}
-        self.player_wealths = {}
+        self.vault_silks = {}
         self.adventurers = {}
-        self.agents = {}
+        self.inns = {}
         for player in players:
-            self.player_wealths[player] = 0
+            self.vault_silks[player] = 0
             self.adventurers[player] = []
-            self.agents[player] = []
+            self.inns[player] = []
         
         self.game_started = False #Keep track of whether the game is running
         self.turn = 0
@@ -62,13 +62,13 @@ class Game:
         
         #some information to keep track of centrally for players to make decisions
         self.winning_player = None
-        self.max_wealth = 0
-        self.total_vault_wealth =  0
-        self.total_chest_wealth = 0
-        self.wealth_difference = 0
+        self.max_vault_silks = 0
+        self.total_vault_silks =  0
+        self.total_chest_silks = 0
+        self.silks_difference = 0
         self.num_failed_explorations = 0
-#         self.agent_network = None #placeholder to keep track of which routes are possible in a single turn
-#         self.agent_distances = [[]] #placeholder to keep track of where trade routes could be built
+#         self.inn_network = None #placeholder to keep track of which routes are possible in a single turn
+#         self.inn_distances = [[]] #placeholder to keep track of where trade routes could be built
 #         self.most_lucrative_route_value = 0
 #         self.most_lucrative_route_player = None
 
@@ -147,9 +147,9 @@ class Game:
                 else:
                     #If this adventurer wasn't in the backup, then discard it
                     adventurers[player].pop(adventurer)
-            for agent in self.agents.get(player, []):
-                #Because the agents came from the deep-copied game they will have references to the "copy" that has been abandoned
-                agent.game = self        
+            for inn in self.inns.get(player, []):
+                #Because the inns came from the deep-copied game they will have references to the "copy" that has been abandoned
+                inn.game = self        
 #        logger.debug("Replacing the new replica of the game's Adventurer's list, "+str(self.adventurers)+", with the original full of original Adventurer references, "+str(adventurers))
         self.adventurers = adventurers
         #Tiles may still have references to the 

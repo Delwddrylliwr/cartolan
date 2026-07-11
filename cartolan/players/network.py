@@ -3,7 +3,7 @@ from matplotlib import pyplot
 from cartolan.players.base import Player
 from cartolan.editions.modes import GameRegular
 
-class PlayerHuman(Player): # do you need to give this access to the visualisation?
+class PlayerNetworkHuman(Player): # do you need to give this access to the visualisation?
     # from ipywidgets import widgets # bring in widgets to receive player input
     
     def __init__(self, colour, play_area_vis):
@@ -158,30 +158,30 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
         #we'll need to clear routes up to either the next human player after this one in the play order...
         players = adventurer.game.players
         for player_index in range(players.index(self)+1, len(players)):
-            if isinstance(players[player_index], PlayerHuman):
+            if isinstance(players[player_index], PlayerNetworkHuman):
                 return True
             for adventurer in players[player_index].adventurers:
                 adventurer.route = [adventurer.current_tile]
         #...or if this was the last human player then we clear up to the first human in the play order
         for player in players:
-            if isinstance(player, PlayerHuman):
+            if isinstance(player, PlayerNetworkHuman):
                 return True
             for adventurer in player.adventurers:
                 adventurer.route = [adventurer.current_tile]
         
         return True
     
-    #if offered by a Wonder, always trade
+    #if offered by a Trade Port, always trade
     def check_trade(self, adventurer, tile):
         return True
     
-    #if offered by an agent, always collect wealth
-    def check_collect_wealth(self, agent):
+    #if offered by an inn, always collect silks
+    def check_collect_silks(self, inn):
         return True
     
-    #if offered always rest at own agents, give the player a choice about resting at others
-    def check_rest(self, adventurer, agent):
-        if agent.player == self:
+    #if offered always rest at own inns, give the player a choice about resting at others
+    def check_rest(self, adventurer, inn):
+        if inn.player == self:
             return True
         else:
             buy_coords = [[adventurer.current_tile.tile_position.longitude
@@ -217,14 +217,14 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
         
     
     #if offered by a city then always bank everything
-    def check_bank_wealth(self, adventurer, report="Player is being asked whether to bank wealth"):
+    def check_bank_silks(self, adventurer, report="Player is being asked whether to bank silks"):
         print(report)
-        return adventurer.wealth
+        return adventurer.silks
     
     #if offered by a city, then give the player the option to buy an Adventurer 
     def check_buy_adventurer(self, adventurer, report="Player is being asked whether to buy an Adventurer"):
         print(report)
-        if self.vault_wealth >= adventurer.game.COST_ADVENTURER:
+        if self.vault_silks >= adventurer.game.COST_ADVENTURER:
             buy_coords = [[adventurer.current_tile.tile_position.longitude
                         , adventurer.current_tile.tile_position.latitude]]
 
@@ -259,9 +259,9 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
         else:
             return False
     
-    # Let the player choose whether to place an agent when offered
-    def check_place_agent(self, adventurer):
-        if adventurer.wealth >= adventurer.game.COST_AGENT_EXPLORING:
+    # Let the player choose whether to place an inn when offered
+    def check_hire_inn(self, adventurer):
+        if adventurer.silks >= adventurer.game.COST_INN_EXPLORING:
             buy_coords = [[adventurer.current_tile.tile_position.longitude
                         , adventurer.current_tile.tile_position.latitude]]
 
@@ -272,9 +272,9 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
             self.play_area_vis.draw_play_area(adventurer.game.play_area)
             self.play_area_vis.draw_tokens(adventurer.game.players)
             
-            #highlight the tile where the agent can be placed
+            #highlight the tile where the inn can be placed
             print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(self.adventurers.index(adventurer)+1)
-                  +" can recruit an Agent")
+                  +" can recruit an Inn")
             self.play_area_vis.draw_move_options(buy_coords=buy_coords)
 
             #prompt the player to input
@@ -282,7 +282,7 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
             self.play_area_vis.clear_prompt()
             self.play_area_vis.give_prompt("If you want "+str(self.colour)+" Adventurer #" 
                                +str(self.adventurers.index(adventurer)+1) 
-                               +" to recruit an Agent on this tile then double click it, otherwise double click elsewhere.")
+                               +" to recruit an Inn on this tile then double click it, otherwise double click elsewhere.")
             
             recruit = False
             move_coords = self.get_coords_from_figure(adventurer)
@@ -300,11 +300,11 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
         else:
             return False
     
-    # When offered, give the player the option to buy on any tile that doesn't have an active Agent 
-    def check_buy_agent(self, adventurer, report="Player has been offered to buy an agent by a city"):
+    # When offered, give the player the option to buy on any tile that doesn't have an active Inn 
+    def check_buy_inn(self, adventurer, report="Player has been offered to buy an inn by a city"):
         print(report)
-        if self.vault_wealth >= adventurer.game.COST_AGENT_FROM_CITY:
-            #Establish a list of all tiles without an active Agent, to offer the player
+        if self.vault_silks >= adventurer.game.COST_INN_FROM_CITY:
+            #Establish a list of all tiles without an active Inn, to offer the player
             buy_coords = []
             play_area = adventurer.game.play_area
             for longitude in play_area:
@@ -316,76 +316,76 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
                         city_latitude = city_tile.tile_position.latitude
                         if abs(longitude - city_longitude)+abs(latitude - city_latitude) <= adventurer.game.CITY_DOMAIN_RADIUS:
                             outside_city_domains = False
-                    #If outside all cities' domains then this is a valid location to place an agent
+                    #If outside all cities' domains then this is a valid location to place an inn
                     if outside_city_domains:
                         tile = play_area[longitude][latitude] 
-                        if tile.agent is None:
+                        if tile.inn is None:
                             buy_coords.append([tile.tile_position.longitude, tile.tile_position.latitude])
                         elif isinstance(adventurer.game, GameRegular):
-                            if tile.agent.is_dispossessed:
+                            if tile.inn.is_ransacked:
                                 buy_coords.append([tile.tile_position.longitude, tile.tile_position.latitude])
             
             #make sure that tiles and token positions are up to date
             self.play_area_vis.draw_tokens(adventurer.game.players)
             
-            #highlight the tiles where an Agent could be placed 
-            print("Highlighting the tile where "+self.colour+" player can send an Agent")
+            #highlight the tiles where an Inn could be placed 
+            print("Highlighting the tile where "+self.colour+" player can send an Inn")
             self.play_area_vis.draw_move_options(buy_coords=buy_coords)
 
             #prompt the player to input
             print("Prompting the "+self.colour+" player for input")
             self.play_area_vis.clear_prompt()
-            self.play_area_vis.give_prompt("If you want to recruit an Agent and send them to"
+            self.play_area_vis.give_prompt("If you want to recruit an Inn and send them to"
                                            +"an unoccupied tile then double click it, otherwise double click elsewhere.")
             
-            agent_placement = None
+            inn_placement = None
             move_coords = self.get_coords_from_figure(adventurer)
             if move_coords in buy_coords:
-                print(self.colour+" player chose a tile where thay can send an agent.")
-                agent_placement = adventurer.game.play_area[move_coords[0]][move_coords[1]]
+                print(self.colour+" player chose a tile where thay can send an inn.")
+                inn_placement = adventurer.game.play_area[move_coords[0]][move_coords[1]]
             else:
                 print(self.colour+" player chose coordinates where they can't recruit.")
-                agent_placement = None
+                inn_placement = None
 
             #clean up the highlights
             self.play_area_vis.clear_move_options()
 #             self.play_area_vis.draw_tokens(adventurer.game.players)
-            return agent_placement
+            return inn_placement
         else:
             return None
     
-    # never move an agent when offered
-    def check_move_agent(self, adventurer):     
-        agent_coords = []
-        for agent in self.agents:
-            agent_coords.append([agent.current_tile.tile_position.longitude, agent.current_tile.tile_position.latitude])
+    # never move an inn when offered
+    def check_move_inn(self, adventurer):     
+        inn_coords = []
+        for inn in self.inns:
+            inn_coords.append([inn.current_tile.tile_position.longitude, inn.current_tile.tile_position.latitude])
 
         #make sure that tiles and token positions are up to date
         self.play_area_vis.draw_tokens(adventurer.game.players)
 
-        #highlight the tile where the agent might be moved from
+        #highlight the tile where the inn might be moved from
         print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(self.adventurers.index(adventurer)+1)
-              +" can recruit an Agent")
-        self.play_area_vis.draw_move_options(valid_coords=agent_coords)
+              +" can recruit an Inn")
+        self.play_area_vis.draw_move_options(valid_coords=inn_coords)
 
         #prompt the player to input
         print("Prompting the "+self.colour+" player for input")
         self.play_area_vis.clear_prompt()
-        self.play_area_vis.give_prompt("You will need to move an existing " +str(self.colour)+ " Agent, double click to choose one"
-                                       +", otherwise double click elsewhere to cancel buying an Agent.")
+        self.play_area_vis.give_prompt("You will need to move an existing " +str(self.colour)+ " Inn, double click to choose one"
+                                       +", otherwise double click elsewhere to cancel buying an Inn.")
 
-        agent_to_move = None
+        inn_to_move = None
         move_coords = self.get_coords_from_figure(adventurer)
-        if move_coords in agent_coords:
-            print(self.colour+" player chose the coordinates of the tile where their Agent can move from.")
-            agent_to_move = adventurer.game.play_area[move_coords[0]][move_coords[1]].agent
+        if move_coords in inn_coords:
+            print(self.colour+" player chose the coordinates of the tile where their Inn can move from.")
+            inn_to_move = adventurer.game.play_area[move_coords[0]][move_coords[1]].inn
         else:
-            print(self.colour+" player chose coordinates away from the tile where their Agent can move from.")
-            agent_to_move = None
+            print(self.colour+" player chose coordinates away from the tile where their Inn can move from.")
+            inn_to_move = None
 
         #clean up the highlights
         self.play_area_vis.clear_move_options()
-        return agent_to_move
+        return inn_to_move
     
     #Give the player the choice to attack
     #@TODO highlight specific tokens to attack
@@ -423,16 +423,16 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
 #             self.play_area_vis.draw_tokens(adventurer.game.players)
         return attack
     
-    def check_attack_agent(self, adventurer, agent):
+    def check_attack_inn(self, adventurer, inn):
         attack_coords = [[adventurer.current_tile.tile_position.longitude
                         , adventurer.current_tile.tile_position.latitude]]
 
         #make sure that tiles and token positions are up to date
         self.play_area_vis.draw_tokens(adventurer.game.players)
             
-        #highlight the tile where the opposing Agent can be attacked
+        #highlight the tile where the opposing Inn can be attacked
         print("Highlighting the tile where "+self.colour+" player's Adventurer #"+str(self.adventurers.index(adventurer)+1)
-              +" can attack "+ agent.player.colour+" player's Adventurer")
+              +" can attack "+ inn.player.colour+" player's Adventurer")
         self.play_area_vis.draw_move_options(attack_coords=attack_coords)
 
         #prompt the player to input
@@ -440,7 +440,7 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
         self.play_area_vis.clear_prompt()
         self.play_area_vis.give_prompt("If you want "+str(self.colour)+" Adventurer #" 
                            +str(self.adventurers.index(adventurer)+1) 
-                           +" to attack "+ agent.player.colour+" player's Agent, then double click their tile. "
+                           +" to attack "+ inn.player.colour+" player's Inn, then double click their tile. "
                                       +" Otherwise, double click elsewhere.")
 
         attack = False
@@ -457,9 +457,9 @@ class PlayerHuman(Player): # do you need to give this access to the visualisatio
 #             self.play_area_vis.draw_tokens(adventurer.game.players)
         return attack
     
-    # Always restor own Agents if it can be afforded
-    def check_restore_agent(self, adventurer, agent):
-        if agent.player == adventurer.player and adventurer.wealth >= adventurer.game.COST_AGENT_RESTORE:
+    # Always restor own Inns if it can be afforded
+    def check_restore_inn(self, adventurer, inn):
+        if inn.player == adventurer.player and adventurer.silks >= adventurer.game.COST_INN_RESTORE:
             return True
         else:
             return False

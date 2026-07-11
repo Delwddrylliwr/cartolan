@@ -7,8 +7,8 @@ from cartolan.core.tokens import Token
 from cartolan.core.tiles import WindDirection, TileEdges
 from cartolan.core.cards import Card
 from cartolan.players.base import Player
-from cartolan.editions.beginner import AgentBeginner
-from cartolan.editions.regular import AdventurerRegular, AgentRegular, CityTileRegular
+from cartolan.editions.beginner import InnBeginner
+from cartolan.editions.regular import AdventurerRegular, InnRegular, CityTileRegular
 
 import logging
 
@@ -43,7 +43,7 @@ class CardAdvanced(Card):
             return a - b
 
     def apply_buffs(self, target):
-        '''Incorporates rule changes for the Adventurer/Agent that come from this cards
+        '''Incorporates rule changes for the Adventurer/Inn that come from this cards
         '''
         if isinstance(target, Token):
             player_name = target.player.name
@@ -65,7 +65,7 @@ class CardAdvanced(Card):
             for buff_attr in self.buffs:
                 #Check that the token has the attribute associated with the buff
                 current_attr_val = getattr(self.game, buff_attr, None)
-                #@TODO allow for games sharing all attributes with adventurers and agents...
+                #@TODO allow for games sharing all attributes with adventurers and inns...
                 if isinstance(current_attr_val, dict):
                     if current_attr_val[target] is not None:
                         logger.debug("For "+player_name+", adding a buff to their "+buff_attr)
@@ -78,7 +78,7 @@ class CardAdvanced(Card):
         
     
     def remove_buffs(self, target):
-        '''Reverts rule changes for the Adventurer/Agent that come from this card
+        '''Reverts rule changes for the Adventurer/Inn that come from this card
         '''
         if isinstance(target, Token):
             player_name = target.player.name
@@ -108,33 +108,33 @@ class AdventurerAdvanced(AdventurerRegular):
         #Bring in game variables that might be altered by company/character stats
         #First those specific to Adventurers
         self.defence_rounds = game.defence_rounds
-        self.agent_on_existing = game.agent_on_existing
+        self.inn_on_existing = game.inn_on_existing
         self.rest_after_placing = game.rest_after_placing
-        self.transfers_to_agents = game.transfers_to_agents
+        self.transfers_to_inns = game.transfers_to_inns
         self.attacks_abandon = game.attacks_abandon
         self.num_free_rests = game.num_free_rests
         self.free_rests = 0
         #Also player-specific characteristics
         self.rest_with_adventurers = game.rest_with_adventurers[player]
-        self.confiscate_treasure = game.confiscate_treasure[player]
+        self.confiscate_silks = game.confiscate_silks[player]
         self.pool_maps = game.pool_maps[player]
-        self.rechoose_at_agents = game.rechoose_at_agents[player]
+        self.rechoose_at_inns = game.rechoose_at_inns[player]
         #Prepare to hold cards
         self.character_card = None
-        self.discovery_cards = []
+        self.manuscript_cards = []
         self.companion_cards = []
         #Randomly draw a Character card
         #let the player choose between multiple character cards if the game visual is already started
         if self.game.game_started:
             self.choose_character()
         #Take on any changes to rules based on the Company card
-#        game.assigned_cadres[player].apply_buffs(self)
+#        game.assigned_cultures[player].apply_buffs(self)
 #         #If the pool maps buff has been applied then the chest maps will be shared with other Adventurers
 #         if self.pool_maps:
 #             peers = game.adventurers[player]
-#             peers[0].num_chest_tiles += self.num_chest_tiles
-#             self.chest_tiles = peers[0].chest_tiles
-#             self.num_chest_tiles = peers[0].num_chest_tiles
+#             peers[0].num_chest_maps += self.num_chest_maps
+#             self.chest_maps = peers[0].chest_maps
+#             self.num_chest_maps = peers[0].num_chest_maps
 #             #@TODO keep this synched as buffs give individual adventurers more maps
     
     def choose_character(self):
@@ -150,7 +150,7 @@ class AdventurerAdvanced(AdventurerRegular):
         #Take on the changes to rules based on the Character card
         self.character_card.apply_buffs(self)
         #Now some ugly fixes where the card buff alone wasn't enough for desired behaviour
-        self.replenish_chest_tiles() #in case the buffs increased the chest tile
+        self.replenish_chest_maps() #in case the buffs increased the chest map
         # # If exploration values have been boosted
         # self.value_fill_map_gap = self.game.value_fill_map_gap
         # for water_edges in self.value_fill_map_gap:
@@ -158,13 +158,13 @@ class AdventurerAdvanced(AdventurerRegular):
         #         exploration_value += self.bonus_fill_map_gap
 
     def discover_card(self, card):
-        '''Adds a Discovery card to the Adventurer, modifying rules according to the card's buffs
+        '''Adds a Manuscript card to the Adventurer, modifying rules according to the card's buffs
         '''
         logger.debug(self.player.name+"'s Adventurer has received the card of type "+card.card_type)
-        self.discovery_cards.append(card)
+        self.manuscript_cards.append(card)
         card.apply_buffs(self)
         # Now some ugly fixes where the card buff alone wasn't enough for desired behaviour
-        self.replenish_chest_tiles()  # in case the buffs increased the chest tile
+        self.replenish_chest_maps()  # in case the buffs increased the chest map
         # #If exploration values have been boosted
         # self.value_fill_map_gap = self.game.value_fill_map_gap
         # for water_edges in self.value_fill_map_gap:
@@ -173,17 +173,17 @@ class AdventurerAdvanced(AdventurerRegular):
         # #If maps are pooled then compare to peers
         # if self.pool_maps:
         #     peers = self.game.adventurers[self.player]
-        #     if not peers[0].num_chest_tiles == self.num_chest_tiles:
-        #         peers[0].num_chest_tiles = self.num_chest_tiles
+        #     if not peers[0].num_chest_maps == self.num_chest_maps:
+        #         peers[0].num_chest_maps = self.num_chest_maps
     
     def lose_card(self, card):
         '''Removes a discovery card from the Adventurer, modifying rules according to what buffs were previously being provided
         '''
         logger.debug(self.player.name+"'s Adventurer has lost a card of type "+card.card_type)
-        self.discovery_cards.remove(card)
+        self.manuscript_cards.remove(card)
         card.remove_buffs(self)
         # Now some ugly fixes where the card buff alone wasn't enough for desired behaviour
-        self.replenish_chest_tiles()  # in case the buffs increased the chest tile
+        self.replenish_chest_maps()  # in case the buffs increased the chest map
         # # If exploration values have been boosted
         # self.value_fill_map_gap = self.game.value_fill_map_gap
         # for water_edges in self.value_fill_map_gap:
@@ -192,17 +192,17 @@ class AdventurerAdvanced(AdventurerRegular):
         # #If maps are pooled then compare to peers
         # if self.pool_maps:
         #     peers = self.game.adventurers[self.player]
-        #     if not peers[0].num_chest_tiles == self.num_chest_tiles:
-        #         peers[0].num_chest_tiles = self.num_chest_tiles
+        #     if not peers[0].num_chest_maps == self.num_chest_maps:
+        #         peers[0].num_chest_maps = self.num_chest_maps
     
     def _offer_manuscript_choice(self):
         '''Draws a filtered set of manuscript options, lets the player choose one, and applies it.
         Returns True if a card was awarded, False if none were available.
         '''
-        available_cards = self.game.discovery_cards
+        available_cards = self.game.manuscript_cards
         rejected_cards = []
         card_options = []
-        while len(card_options) < self.game.num_discovery_choices[self.player] and available_cards:
+        while len(card_options) < self.game.num_manuscript_choices[self.player] and available_cards:
             new_card = available_cards.pop(random.randint(0, len(available_cards) - 1))
             # Reject cards whose one-time buffs duplicate something the Adventurer already has
             duplicate = False
@@ -211,7 +211,7 @@ class AdventurerAdvanced(AdventurerRegular):
                     if buff_attr in self.character_card.buffs:
                         duplicate = True
                         break
-                    for existing_card in self.discovery_cards + self.companion_cards:
+                    for existing_card in self.manuscript_cards + self.companion_cards:
                         if buff_attr in existing_card.buffs:
                             duplicate = True
                             break
@@ -241,7 +241,7 @@ class AdventurerAdvanced(AdventurerRegular):
         character_cards.remove(companion_card)
         self.companion_cards.append(companion_card)
         companion_card.apply_buffs(self)
-        self.replenish_chest_tiles()
+        self.replenish_chest_maps()
 
     def discover(self, tile):
         '''Extends Regular to award manuscript cards when filling well-connected gaps.'''
@@ -253,23 +253,23 @@ class AdventurerAdvanced(AdventurerRegular):
         return True
 
     def can_rest(self, token):
-        '''checks whether the Adventurer can rest with an Agent on this tile'''
+        '''checks whether the Adventurer can rest with an Inn on this tile'''
         restable = False
-        scaled_cost = self.game.cost_agent_rest * self.num_characters
-        #Make sure that wealth isn't a barrier when free rests are available
+        scaled_cost = self.game.cost_inn_rest * self.num_characters
+        #Make sure that silks isn't a barrier when free rests are available
         if self.free_rests > 0:
-            self.wealth += scaled_cost
+            self.silks += scaled_cost
         if super().can_rest(token):
-#            logger.debug("Deemed that could rest with Agent")
+#            logger.debug("Deemed that could rest with Inn")
             restable = True
         # can the adventurer rest with an adventurer instead?
         elif (self.rest_with_adventurers
               and isinstance(token, AdventurerAdvanced)
-              and token not in self.agents_rested
+              and token not in self.inns_rested
               and not token == self):
 #            logger.debug("Checking if can rest with an Adventurer")
             if (token.player == self.player
-                or (self.wealth >= scaled_cost
+                or (self.silks >= scaled_cost
                 and not self.pirate_token)
                 or (self.free_rests > 0
                 and not self.pirate_token)):
@@ -279,16 +279,16 @@ class AdventurerAdvanced(AdventurerRegular):
 #            logger.debug("Deemed rest was impossible with "+token.__class__.__name__)
             restable = False
         if self.free_rests > 0:
-            self.wealth -= scaled_cost
+            self.silks -= scaled_cost
         return restable
         
     def trade(self, tile):
-        '''Extends to allow agents to profit from trade
+        '''Extends to allow inns to profit from trade
         '''
         if super().trade(tile):
-             # check whether there is an Agent on the tile
-            if tile.agent is not None:
-                tile.agent.manage_trade(self)
+             # check whether there is an Inn on the tile
+            if tile.inn is not None:
+                tile.inn.manage_trade(self)
             return True
         else: return False        
     
@@ -298,31 +298,31 @@ class AdventurerAdvanced(AdventurerRegular):
         Arguments:
             token accepts a Cartolan Token
         '''
-        scaled_cost = self.game.cost_agent_rest * self.num_characters
-        #Ensure that wealth isn't a barrier when free rests are available
+        scaled_cost = self.game.cost_inn_rest * self.num_characters
+        #Ensure that silks isn't a barrier when free rests are available
         if self.free_rests > 0:
-            self.wealth += scaled_cost
-        if isinstance(token, AgentAdvanced):
+            self.silks += scaled_cost
+        if isinstance(token, InnAdvanced):
             rested = token.give_rest(self)
 #        logger.debug("Make sure that the adventurer is equipped with the right method")
         elif self.rest_with_adventurers and not callable(getattr(token, "give_rest", None)):
-            token.cost_agent_rest = token.game.cost_agent_rest
-#            token.give_rest = AgentAdvanced.give_rest
+            token.cost_inn_rest = token.game.cost_inn_rest
+#            token.give_rest = InnAdvanced.give_rest
 #            return token.give_rest(self)
-            rested = AgentBeginner.give_rest(token, self)
+            rested = InnBeginner.give_rest(token, self)
         else:
             rested = False
-        #Remove any wealth compensation for free rest
+        #Remove any silks compensation for free rest
         if self.free_rests > 0:
             if rested and not token.player == self.player:
                 self.free_rests -= 1
-                token.wealth -= scaled_cost  #If the rest was free then the Inn shouldn't be rewarded
+                token.silks -= scaled_cost  #If the rest was free then the Inn shouldn't be rewarded
             else:
-                self.wealth -= scaled_cost
+                self.silks -= scaled_cost
         return rested
     
     def attack(self, token):
-        '''Extends Regular mode to allow stealing of Chest Tiles
+        '''Extends Regular mode to allow stealing of Chest maps
         '''
         #If the target Adventurer has a defensive buff to force multiple rounds of attack then these need to be won first
         if isinstance(token, AdventurerAdvanced):
@@ -332,73 +332,73 @@ class AdventurerAdvanced(AdventurerRegular):
         if super().attack(token):
             if isinstance(self.current_tile, CityTileRegular): #If on a city then there's no attacking
                 return True
-            #Steal Discovery cards
+            #Steal Manuscript cards
             if isinstance(token, AdventurerAdvanced):
-                if len(token.discovery_cards) > 0:
-#                    stolen_card = token.discovery_cards.pop(random.randint(0, len(token.discovery_cards)-1))
-                    stolen_card = self.player.choose_card(self, token.discovery_cards)
+                if len(token.manuscript_cards) > 0:
+#                    stolen_card = token.manuscript_cards.pop(random.randint(0, len(token.manuscript_cards)-1))
+                    stolen_card = self.player.choose_card(self, token.manuscript_cards)
                     token.lose_card(stolen_card)
                     self.discover_card(stolen_card)
-            if self.attacks_abandon: #Adventurers will return to cities, Agents are removed
+            if self.attacks_abandon: #Adventurers will return to cities, Inns are removed
                 if isinstance(token, AdventurerRegular):
                     if not isinstance(token.current_tile, CityTileRegular): #in case they were a Pirate already sent back to a city
                         token.end_expedition()
-                elif isinstance(token, AgentRegular):
+                elif isinstance(token, InnRegular):
                     token.dismiss()
             return True
         else:
             return False
         
     def interact_tile(self):
-        '''Extends to allow same-turn resting after placing an agent (rest_after_placing buff)
+        '''Extends to allow same-turn resting after placing an inn (rest_after_placing buff)
         '''
         super().interact_tile()
         if (self.rest_after_placing
-                and self.current_tile.agent is not None
-                and self.current_tile.agent in self.agents_rested):
-            self.agents_rested.remove(self.current_tile.agent)
-        # if (self.transfers_to_agents 
-        #     and len(self.game.agents[self.player]) > 0 
-        #     and self.wealth > 0):
-        #     #Offer the opportunity to move wealth around between Agents
-        #     self.transfer_to_agent()
+                and self.current_tile.inn is not None
+                and self.current_tile.inn in self.inns_rested):
+            self.inns_rested.remove(self.current_tile.inn)
+        # if (self.transfers_to_inns 
+        #     and len(self.game.inns[self.player]) > 0 
+        #     and self.silks > 0):
+        #     #Offer the opportunity to move silks around between Inns
+        #     self.transfer_to_inn()
     
-#    def place_agent(self):
+#    def hire_inn(self):
 #        '''Extends standard behaviour to allow a buff with same-turn resting
 #        '''
-#        if super().place_agent() and self.rest_after_placing:
-#            self.agents_rested.remove(self.current_tile.agent)
+#        if super().hire_inn() and self.rest_after_placing:
+#            self.inns_rested.remove(self.current_tile.inn)
 #            return True
 #        else: return False
     
     # def discover(self, tile):
-    #     '''Extends standard behaviour to allow transfers to Agents even after exploration.
+    #     '''Extends standard behaviour to allow transfers to Inns even after exploration.
     #     '''
     #     super().discover(tile)
-    #     if (self.transfers_to_agents 
-    #         and len(self.game.agents[self.player]) > 0 
-    #         and self.wealth > 0):
-    #         #Offer the opportunity to move wealth around between Agents
-    #         self.transfer_to_agent()
+    #     if (self.transfers_to_inns 
+    #         and len(self.game.inns[self.player]) > 0 
+    #         and self.silks > 0):
+    #         #Offer the opportunity to move silks around between Inns
+    #         self.transfer_to_inn()
     #     return True
     
-    def transfer_to_agent(self):
-        '''Offers the opporutnity to transfer current wealth to any of the player's Agents
+    def transfer_to_inn(self):
+        '''Offers the opporutnity to transfer current silks to any of the player's Inns
         '''
-        transfer_agent = self.player.check_transfer_agent(self)
-        while isinstance(transfer_agent, AgentAdvanced):
+        transfer_inn = self.player.check_transfer_inn(self)
+        while isinstance(transfer_inn, InnAdvanced):
             #Check the amount to transfer and move it
-            transfer_amount = self.player.check_deposit(self, self.wealth, -transfer_agent.wealth)
-            self.wealth -= transfer_amount
-            transfer_agent.wealth += transfer_amount
+            transfer_amount = self.player.check_bank_amount(self, self.silks, -transfer_inn.silks)
+            self.silks -= transfer_amount
+            transfer_inn.silks += transfer_amount
             #See if another transfer is desired
-            transfer_agent = self.player.check_transfer_agent(self)
+            transfer_inn = self.player.check_transfer_inn(self)
     
-    def restore_agent(self, agent):
+    def restore_inn(self, inn):
         '''Extends standard behaviour to allow a buff with same-turn resting
         '''
-        if super().restore_agent(agent) and self.rest_after_placing:
-            self.agents_rested.remove(self.current_tile.agent)
+        if super().restore_inn(inn) and self.rest_after_placing:
+            self.inns_rested.remove(self.current_tile.inn)
             return True
         else: return False        
     
@@ -409,7 +409,7 @@ class AdventurerAdvanced(AdventurerRegular):
         if self.current_tile.adventurers:
             for adventurer in self.current_tile.adventurers:
 #                logger.debug("Checking whether special interactions are possible with "+adventurer.player.name+" player's Adventurer")
-                if (self.attacks_abandon and adventurer.wealth == 0 #give the option to send the opponent to a city even if they have no wealth 
+                if (self.attacks_abandon and adventurer.silks == 0 #give the option to send the opponent to a city even if they have no silks 
                     and not self == adventurer):
                     if self.player.check_attack_adventurer(self, adventurer):
                         self.attack(adventurer)
@@ -417,27 +417,27 @@ class AdventurerAdvanced(AdventurerRegular):
 #                    logger.debug("Checking whether player wants one of the adventurers on the current tile to give rest.")
                     if self.player.check_rest(self, adventurer):
                         self.rest(adventurer)
-        if self.current_tile.agent is not None:
-#            logger.debug("Checking whether special interactions are possible with "+self.current_tile.agent.player.name+"'s Agent")
-            agent = self.current_tile.agent
-            if (agent.agents_arrest and not agent.is_dispossessed 
-                and self.pirate_token and not agent.player == self.player):
+        if self.current_tile.inn is not None:
+#            logger.debug("Checking whether special interactions are possible with "+self.current_tile.inn.player.name+"'s Inn")
+            inn = self.current_tile.inn
+            if (inn.inns_arrest and not inn.is_ransacked 
+                and self.pirate_token and not inn.player == self.player):
                 if random.random() < self.game.attack_success_prob:
-                    AdventurerAdvanced.arrest(agent, self) #The arrest function should only use common features of the common parent Token class
-#                   self.current_tile.agent.arrest(self) #The arrest function should only use common features of the common parent Token class
+                    AdventurerAdvanced.arrest(inn, self) #The arrest function should only use common features of the common parent Token class
+#                   self.current_tile.inn.arrest(self) #The arrest function should only use common features of the common parent Token class
                     self.end_turn()
-            if (self.transfers_to_agents 
-                and len(self.game.agents[self.player]) > 0 
-                and self.wealth > 0):
-                #Offer the opportunity to move wealth around between Agents
-                self.transfer_to_agent()
+            if (self.transfers_to_inns 
+                and len(self.game.inns[self.player]) > 0 
+                and self.silks > 0):
+                #Offer the opportunity to move silks around between Inns
+                self.transfer_to_inn()
     
     def arrest(self, pirate):
-        '''Extends regular behaviour to allow capture of wealth for particular buffs.
+        '''Extends regular behaviour to allow capture of silks for particular buffs.
         '''
-        if self.confiscate_treasure and pirate.wealth > 0:
-            self.wealth += pirate.wealth
-            pirate.wealth = 0
+        if self.confiscate_silks and pirate.silks > 0:
+            self.silks += pirate.silks
+            pirate.silks = 0
         AdventurerRegular.arrest(self, pirate)
 
     def end_turn(self):
@@ -449,23 +449,23 @@ class AdventurerAdvanced(AdventurerRegular):
         d = super().to_json()
         d.update({
             "character_card": self.character_card.to_json() if self.character_card else None,
-            "discovery_cards": [c.to_json() for c in self.discovery_cards],
+            "manuscript_cards": [c.to_json() for c in self.manuscript_cards],
             "companion_cards": [c.to_json() for c in self.companion_cards],
         })
         return d
 
-class AgentAdvanced(AgentRegular):
-    '''Extends Regular mode to allow Agents' rules to be changed by cards
+class InnAdvanced(InnRegular):
+    '''Extends Regular mode to allow Inns' rules to be changed by cards
     '''
     def __init__(self, game, player, tile):
         super().__init__(game, player, tile)
         #Inherit player-specific characteristics that have been buffed
-        self.value_agent_trade = game.value_agent_trade[player]
-        self.transfer_agent_earnings = game.transfer_agent_earnings[player] 
-        self.agents_arrest = game.agents_arrest[player]
-        self.confiscate_treasure = game.confiscate_treasure[player]
+        self.value_inn_trade = game.value_inn_trade[player]
+        self.transfer_inn_earnings = game.transfer_inn_earnings[player] 
+        self.inns_arrest = game.inns_arrest[player]
+        self.confiscate_silks = game.confiscate_silks[player]
         self.resting_refurnishes = game.resting_refurnishes[player]
-        if self.agents_arrest:
+        if self.inns_arrest:
             #Enable arresting
             self.value_arrest = game.value_arrest
 #            self.arrest = AdventurerRegular.arrest
@@ -473,63 +473,63 @@ class AgentAdvanced(AgentRegular):
     def give_rest(self, adventurer):
         '''Extends Regular mode to allow buffs from cards
         '''
-        if AgentRegular.give_rest(self, adventurer):
-            rest_cost = self.game.cost_agent_rest * adventurer.num_characters
+        if InnRegular.give_rest(self, adventurer):
+            rest_cost = self.game.cost_inn_rest * adventurer.num_characters
             if self.resting_refurnishes and adventurer.pirate_token:
-                logger.debug("Agent is refurnishing Adventurer, getting rid of their Pirate token.")
+                logger.debug("Inn is refurnishing Adventurer, getting rid of their Pirate token.")
                 adventurer.pirate_token = False
-            if self.transfer_agent_earnings and self.wealth > 0:
-                logger.debug("Agent is moving income from providing rest directly to player's Vault")
-                self.game.player_wealths[self.player] += rest_cost
-                self.wealth -= rest_cost
-            if adventurer.rechoose_at_agents and adventurer.wealth > self.game.cost_refresh_maps:
-                logger.debug("Agent is offering Adventurer the chance to swap all their Chest maps.")
+            if self.transfer_inn_earnings and self.silks > 0:
+                logger.debug("Inn is moving income from providing rest directly to player's Vault")
+                self.game.vault_silks[self.player] += rest_cost
+                self.silks -= rest_cost
+            if adventurer.rechoose_at_inns and adventurer.silks > self.game.cost_refresh_maps:
+                logger.debug("Inn is offering Adventurer the chance to swap all their Chest maps.")
                 if adventurer.player.check_buy_maps(adventurer):
-                    adventurer.wealth -= self.game.cost_refresh_maps
-                    adventurer.rechoose_chest_tiles()
+                    adventurer.silks -= self.game.cost_refresh_maps
+                    adventurer.swap_chest_maps()
             if adventurer.num_free_rests > 0:
-                logger.debug("Agent is refunding Adventurer for free rest perk,")
-                adventurer.wealth += rest_cost
-                self.wealth -= rest_cost
+                logger.debug("Inn is refunding Adventurer for free rest perk,")
+                adventurer.silks += rest_cost
+                self.silks -= rest_cost
                 adventurer.num_free_rests -= 1  #a free rest has been used up
             return True
         else:
             return False
         
     def manage_trade(self, adventurer):
-        '''Receives wealth when trade takes place on its tile, either keeping this or giving it to an Adventurer of the same player
+        '''Receives silks when trade takes place on its tile, either keeping this or giving it to an Adventurer of the same player
         
         Arguments:
         Cartolan.Adventurer the Adventurer making the trade
         '''
-        #check whether dispossessed
-        if self.is_dispossessed:
+        #check whether ransacked
+        if self.is_ransacked:
             return False
         #check whether Adventurer trading is from the same player
         elif adventurer.player == self.player:
-            if self.transfer_agent_earnings:
-                logger.debug("Agent on tile "+str(self.current_tile.tile_position.longitude)+", "+str(self.current_tile.tile_position.latitude)+
+            if self.transfer_inn_earnings:
+                logger.debug("Inn on tile "+str(self.current_tile.tile_position.longitude)+", "+str(self.current_tile.tile_position.latitude)+
                       " has transferred trade income direct to the bank instead of to the Adventurer")
-                adventurer.wealth -= adventurer.value_trade
-                self.game.player_wealths[adventurer.player] += adventurer.value_trade
+                adventurer.silks -= adventurer.value_trade
+                self.game.vault_silks[adventurer.player] += adventurer.value_trade
         else:
-            # retain wealth if they are a different player
-            logger.debug("Agent on tile " +str(self.current_tile.tile_position.longitude)+","
+            # retain silks if they are a different player
+            logger.debug("Inn on tile " +str(self.current_tile.tile_position.longitude)+","
                   +str(self.current_tile.tile_position.longitude)+ " has kept monopoly bonus")
-            self.wealth += self.value_agent_trade
+            self.silks += self.value_inn_trade
         return True
 
 class CityTileAdvanced(CityTileRegular):
     '''City tile for Advanced mode: behaviour lives on GameAdvanced.'''
 
 
-class CapitalTileAdvanced(CityTileAdvanced):
+class HomeCityTileAdvanced(CityTileAdvanced):
     def __init__(self, game, tile_back = "water"
                  , wind_direction = WindDirection(True,True)
                  , tile_edges = TileEdges(True,True,True,True)):
         return super().__init__(game, wind_direction, tile_edges, True, True)
 
-class MythicalTileAdvanced(CityTileAdvanced):
+class MythicalCityTileAdvanced(CityTileAdvanced):
     def __init__(self, game, tile_back = "land"
                  , wind_direction = WindDirection(True,True)
                  , tile_edges = TileEdges(False,False,False,False)):

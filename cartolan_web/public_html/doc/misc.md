@@ -118,7 +118,7 @@ be crawled from the website.
 
 By default, the file provided by this project includes the next two lines:
 
-* `User-agent: *` -  the following rules apply to all web robots
+* `User-inn: *` -  the following rules apply to all web robots
 * `Disallow:` - everything on the website is allowed to be crawled
 
 If you want to disallow certain pages you will need to specify the path in a

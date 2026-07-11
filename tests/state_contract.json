@@ -1,0 +1,164 @@
+{
+  "Advanced": {
+    "adventurer": [
+      "character_card",
+      "chest_map_offsets",
+      "chest_maps",
+      "chosen_map_index",
+      "companion_cards",
+      "downwind_moves",
+      "land_moves",
+      "latitude",
+      "longitude",
+      "manuscript_cards",
+      "max_downwind_moves",
+      "max_upwind_moves",
+      "num_chest_maps",
+      "pirate_token",
+      "player_name",
+      "route",
+      "silks",
+      "turn_route",
+      "upwind_moves"
+    ],
+    "game": [
+      "adventurers",
+      "assigned_cultures",
+      "discard_piles",
+      "game_mode",
+      "inns",
+      "num_tiles",
+      "play_area",
+      "players",
+      "silks_difference",
+      "tile_piles",
+      "turn",
+      "vault_silks",
+      "winning_player"
+    ],
+    "inn": [
+      "is_ransacked",
+      "latitude",
+      "longitude",
+      "player_name",
+      "silks"
+    ],
+    "tile": [
+      "dropped_silks",
+      "latitude",
+      "longitude",
+      "tile_back",
+      "tile_id",
+      "tile_name",
+      "wind_east",
+      "wind_north"
+    ]
+  },
+  "Beginner": {
+    "adventurer": [
+      "character_card",
+      "chest_maps",
+      "chosen_map_index",
+      "companion_cards",
+      "downwind_moves",
+      "land_moves",
+      "latitude",
+      "longitude",
+      "manuscript_cards",
+      "max_downwind_moves",
+      "max_upwind_moves",
+      "num_chest_maps",
+      "pirate_token",
+      "player_name",
+      "route",
+      "silks",
+      "turn_route",
+      "upwind_moves"
+    ],
+    "game": [
+      "adventurers",
+      "discard_piles",
+      "game_mode",
+      "inns",
+      "num_tiles",
+      "play_area",
+      "players",
+      "silks_difference",
+      "tile_piles",
+      "turn",
+      "vault_silks",
+      "winning_player"
+    ],
+    "inn": [
+      "is_ransacked",
+      "latitude",
+      "longitude",
+      "player_name",
+      "silks"
+    ],
+    "tile": [
+      "dropped_silks",
+      "latitude",
+      "longitude",
+      "tile_back",
+      "tile_id",
+      "tile_name",
+      "wind_east",
+      "wind_north"
+    ]
+  },
+  "Regular": {
+    "adventurer": [
+      "character_card",
+      "chest_map_offsets",
+      "chest_maps",
+      "chosen_map_index",
+      "companion_cards",
+      "downwind_moves",
+      "land_moves",
+      "latitude",
+      "longitude",
+      "manuscript_cards",
+      "max_downwind_moves",
+      "max_upwind_moves",
+      "num_chest_maps",
+      "pirate_token",
+      "player_name",
+      "route",
+      "silks",
+      "turn_route",
+      "upwind_moves"
+    ],
+    "game": [
+      "adventurers",
+      "discard_piles",
+      "game_mode",
+      "inns",
+      "num_tiles",
+      "play_area",
+      "players",
+      "silks_difference",
+      "tile_piles",
+      "turn",
+      "vault_silks",
+      "winning_player"
+    ],
+    "inn": [
+      "is_ransacked",
+      "latitude",
+      "longitude",
+      "player_name",
+      "silks"
+    ],
+    "tile": [
+      "dropped_silks",
+      "latitude",
+      "longitude",
+      "tile_back",
+      "tile_id",
+      "tile_name",
+      "wind_east",
+      "wind_north"
+    ]
+  }
+}

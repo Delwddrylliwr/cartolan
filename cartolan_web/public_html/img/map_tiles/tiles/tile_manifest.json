@@ -1,26 +1,23 @@
 {
-  "capital": [
-    "capital.jpg"
-  ],
   "fffff": [
     "fffff_plain.png"
   ],
   "fffft": [
-    "fffft_incas.jpg",
-    "fffft_plain.png"
+    "fffft_plain.png",
+    "fffft_incas.jpg"
   ],
   "ffftf": [
-    "ffftf_generic.jpg",
     "ffftf_henge.jpg",
+    "ffftf_generic.jpg",
     "ffftf_plain.png"
   ],
   "ffftt": [
     "ffftt_plain.png"
   ],
   "fftff": [
-    "fftff_generic.jpg",
     "fftff_ozymandias.jpg",
-    "fftff_plain.png"
+    "fftff_plain.png",
+    "fftff_generic.jpg"
   ],
   "fftft": [
     "fftft_plain.png"
@@ -34,8 +31,8 @@
     "ffttt_fire_temple.png"
   ],
   "ftfff": [
-    "ftfff_generic.jpg",
-    "ftfff_plain.png"
+    "ftfff_plain.png",
+    "ftfff_generic.jpg"
   ],
   "ftfft": [
     "ftfft_nile.jpg",
@@ -45,36 +42,39 @@
     "ftftf_plain.jpg"
   ],
   "ftftt": [
-    "ftftt.png",
-    "ftftt_rich_poor.jpg"
+    "ftftt_rich_poor.jpg",
+    "ftftt.png"
   ],
   "fttff": [
+    "fttff_plain.png",
     "fttff_devils_drop.jpg",
-    "fttff_generic.jpg",
-    "fttff_plain.png"
+    "fttff_generic.jpg"
   ],
   "fttft": [
-    "fttft_cliff_town.jpg",
-    "fttft_fort.png"
+    "fttft_fort.png",
+    "fttft_cliff_town.jpg"
   ],
   "ftttf": [
-    "ftttf_cliff_faces.jpg",
     "ftttf_generic.jpg",
+    "ftttf_cliff_faces.jpg",
     "ftttf_plain.png"
   ],
   "ftttt": [
-    "ftttt_caribbean.jpg",
-    "ftttt_plain.png"
+    "ftttt_plain.png",
+    "ftttt_caribbean.jpg"
+  ],
+  "home_city": [
+    "home_city.jpg"
   ],
   "land": [
     "land.jpg"
   ],
-  "mythical": [
-    "mythical.jpg"
+  "mythical_city": [
+    "mythical_city.jpg"
   ],
   "tffff": [
-    "tffff_generic.jpg",
-    "tffff_plain.png"
+    "tffff_plain.png",
+    "tffff_generic.jpg"
   ],
   "tffft": [
     "tffft_ganges.jpg",
@@ -104,38 +104,38 @@
     "tfttt_canal_town.jpg"
   ],
   "ttfff": [
-    "ttfff_generic.jpg",
-    "ttfff_plain.png"
+    "ttfff_plain.png",
+    "ttfff_generic.jpg"
   ],
   "ttfft": [
     "ttfft_plain.png"
   ],
   "ttftf": [
-    "ttftf_generic.jpg",
-    "ttftf_plain.png"
+    "ttftf_plain.png",
+    "ttftf_generic.jpg"
   ],
   "ttftt": [
     "ttftt_plain.png"
   ],
   "tttff": [
-    "tttff_lighthouse.jpg",
-    "tttff_plain.png"
+    "tttff_plain.png",
+    "tttff_lighthouse.jpg"
   ],
   "tttft": [
     "tttft_plain.png"
   ],
   "ttttf": [
-    "ttttf_black_forest.jpg",
-    "ttttf_church.jpg",
-    "ttttf_cliff_islets.jpg",
-    "ttttf_desert.jpg",
-    "ttttf_forest.jpg",
-    "ttttf_isle.jpg",
-    "ttttf_isles.jpg",
-    "ttttf_lighthouse.jpg",
     "ttttf_open_ocean.jpg",
     "ttttf_volcanos.jpg",
-    "ttttf_watermill.jpg"
+    "ttttf_forest.jpg",
+    "ttttf_lighthouse.jpg",
+    "ttttf_cliff_islets.jpg",
+    "ttttf_black_forest.jpg",
+    "ttttf_church.jpg",
+    "ttttf_isle.jpg",
+    "ttttf_watermill.jpg",
+    "ttttf_isles.jpg",
+    "ttttf_desert.jpg"
   ],
   "ttttt": [
     "ttttt_open_ocean.png"

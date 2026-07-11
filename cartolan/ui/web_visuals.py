@@ -78,7 +78,7 @@ class WebServerVisualisation(GameVisualisation):
                            self.chest_rect[1] + self.chest_rect[3], 0, 0)
         self.undo_rect = (self.width, self.height, 0, 0)
         self.adventurer_centres = []
-        self.agent_rects = []
+        self.inn_rects = []
         self.highlight_rects = {}
         self.drawn_routes = []
         self.action_rects = []
@@ -115,15 +115,15 @@ class WebServerVisualisation(GameVisualisation):
         cursors[card.card_type] = cursor + 1
 
     def _assign_all_card_images(self):
-        if hasattr(self.game, 'assigned_cadres'):
-            for card in self.game.assigned_cadres.values():
+        if hasattr(self.game, 'assigned_cultures'):
+            for card in self.game.assigned_cultures.values():
                 if card is not None:
                     self._assign_card_image(card)
         for advs in self.game.adventurers.values():
             for adv in advs:
                 if hasattr(adv, 'character_card') and adv.character_card is not None:
                     self._assign_card_image(adv.character_card)
-                for card in getattr(adv, 'discovery_cards', []):
+                for card in getattr(adv, 'manuscript_cards', []):
                     self._assign_card_image(card)
 
     # ── pygame-free overrides ─────────────────────────────────────────────────
@@ -165,7 +165,7 @@ class WebServerVisualisation(GameVisualisation):
     def draw_move_count(self): pass
     def draw_toggle_menu(self, fixed_responses={}): pass
     def draw_routes_menu(self): pass
-    def draw_chest_tiles(self): pass
+    def draw_chest_maps(self): pass
     def draw_tile_piles(self): pass
     def draw_discard_pile(self): pass
     def draw_undo_button(self): pass
@@ -271,7 +271,7 @@ class WebServerVisualisation(GameVisualisation):
         elif input_type == "choose_discovery":
             prompt = adv.player.name + " is choosing a Manuscript card for their Adventurer #" + str(self.current_adventurer_number + 1)
         elif input_type == "choose_company":
-            prompt = adv.player.name + " is choosing their Cadre card"
+            prompt = adv.player.name + " is choosing their Culture card"
         else:
             prompt = adv.player.name + " is choosing a Character card for their Adventurer #" + str(self.current_adventurer_number + 1)
         self.give_prompt(prompt)
@@ -355,7 +355,7 @@ class WebServerVisualisation(GameVisualisation):
                 and vertical in range(int(score_rect[1]), int(score_rect[1] + score_rect[3]))):
                 print("Having found the click within a particular player/adventurer's score, need to update the focus of the card stacks")
                 if isinstance(score[1], Player):
-                    #just choose the first adventurer if it was the player's vault wealth selected
+                    #just choose the first adventurer if it was the player's vault silks selected
                     self.viewed_player_colour = self.player_colours[score[1]]
                     self.viewed_adventurer_number = 0
                     self.viewed_adventurer = self.game.adventurers[score[1]][0]
@@ -365,11 +365,11 @@ class WebServerVisualisation(GameVisualisation):
                     self.viewed_adventurer = score[1]
                 print("Updated focus for card visuals to "+self.viewed_adventurer.player.name+"'s Adventurer #"+str(self.viewed_adventurer_number+1))
                 return True
-        # Check whether the click was within the Cadre/Culture Card
-        if (horizontal in range(int(self.cadre_card_rect[0]), int(self.cadre_card_rect[0]+self.cadre_card_rect[2]))
-                and vertical in range(int(self.cadre_card_rect[1]), int(self.cadre_card_rect[1]+self.cadre_card_rect[3]))):
-            print("Click was within the Cadre Card")
-            self.selected_cadre_card = True
+        # Check whether the click was within the Culture/Culture Card
+        if (horizontal in range(int(self.culture_card_rect[0]), int(self.culture_card_rect[0]+self.culture_card_rect[2]))
+                and vertical in range(int(self.culture_card_rect[1]), int(self.culture_card_rect[1]+self.culture_card_rect[3]))):
+            print("Click was within the Culture Card")
+            self.selected_culture_card = True
             self.selected_character_card = False
             self.selected_card_num = None
             return True
@@ -379,12 +379,12 @@ class WebServerVisualisation(GameVisualisation):
             print("Player chose coordinates within the card stack, with vertical: " + str(vertical))
             if vertical - self.stack_rect[1] < self.stack_rect[3] - self.card_height:
                 print("The click was within a Manuscript Card")
-                self.selected_cadre_card = False
+                self.selected_culture_card = False
                 self.selected_character_card = False
                 self.selected_card_num = int(vertical - self.stack_rect[1]) // int(self.card_height * self.CARD_HEADER_SHARE)
             else:
                 print("The click was within the Character Card")
-                self.selected_cadre_card = False
+                self.selected_culture_card = False
                 self.selected_character_card = True
                 self.selected_card_num = None
             return True
@@ -393,18 +393,18 @@ class WebServerVisualisation(GameVisualisation):
             and vertical in range(int(self.toggles_rect[1]), int(self.toggles_rect[1] + self.toggles_rect[3]))):
             self.draw_all_routes = not self.draw_all_routes
             return True
-        #Check for clicks among the chest tiles to highlight them
+        #Check for clicks among the chest maps to highlight them
         elif (horizontal in range(int(self.chest_rect[0]), int(self.chest_rect[0] + self.chest_rect[2]))
                   and vertical in range(int(self.chest_rect[1]), int(self.chest_rect[1] + self.chest_rect[3]))):
             menu_row = (vertical - int(self.chest_rect[1])) // self.menu_tile_size
             menu_column = (horizontal - int(self.chest_rect[0])) // self.menu_tile_size
             self.viewed_tile_num = menu_row * self.MENU_TILE_COLS + menu_column
             return True
-        elif (isinstance(self.game, GameAdvanced) and (self.selected_cadre_card or self.selected_character_card or self.selected_card_num is not None
+        elif (isinstance(self.game, GameAdvanced) and (self.selected_culture_card or self.selected_character_card or self.selected_card_num is not None
                                                        or self.viewed_tile_num is not None or self.viewed_longitude is not None)):
             # Remove focus on any card
             # None of the cards were selected
-            self.selected_cadre_card = False
+            self.selected_culture_card = False
             self.selected_character_card = False
             self.selected_card_num = None
             self.viewed_tile_num = None
@@ -412,7 +412,7 @@ class WebServerVisualisation(GameVisualisation):
             self.viewed_latitude = None
             return True
         else:
-            #Check the various Adventurer and Agent shapes for a click and use this to select the Adventurer to focus on
+            #Check the various Adventurer and Inn shapes for a click and use this to select the Adventurer to focus on
             for centre in self.adventurer_centres:
                 if (horizontal - centre[0][0])**2 + (vertical - centre[0][1])**2 < self.token_size**2:
                     print("Click detected within one of the Adventurers' areas, with centre: "+str(centre[0]))
@@ -420,7 +420,7 @@ class WebServerVisualisation(GameVisualisation):
                     self.viewed_adventurer_number = self.game.adventurers[centre[1].player].index(centre[1])
                     self.viewed_adventurer = centre[1]
                     return True
-            for rect in self.agent_rects:
+            for rect in self.inn_rects:
                 if (horizontal in range(int(rect[0][0]), int(rect[0][0] + rect[0][2]))
                     and vertical in range(int(rect[0][1]), int(rect[0][1] + rect[0][3]))):
                     print("Click detected within one of the Inns' areas for "+self.player_colours[rect[1]]+" player.")
@@ -442,7 +442,7 @@ class WebServerVisualisation(GameVisualisation):
                         self.viewed_longitude = longitude
                         self.viewed_latitude = latitude
                         # Don't showcase anything else
-                        self.selected_cadre_card = False
+                        self.selected_culture_card = False
                         self.selected_character_card = False
                         self.selected_card_num = None
                         self.viewed_tile_num = None
@@ -508,7 +508,7 @@ class WebServerVisualisation(GameVisualisation):
         '''Translates a semantic dict from the browser into a get_input_coords return value.'''
         if not self._client_ready and 'ready' not in sem:
             return None  # discard game input until client has finished loading assets
-        if 'preferred_tile' in sem:
+        if 'chosen_map' in sem:
             return sem
         if 'chest_rotate_anti' in sem:
             return sem

@@ -16,7 +16,7 @@ class Token:
         self.player = player
         self.current_tile = current_tile
         
-        self.wealth = 0
+        self.silks = 0
         self.route = []
         self.turn_route = []
         
@@ -53,15 +53,15 @@ class Adventurer(Token):
         pass
         
     def discover(self, tile):
-        '''placeholder for discovering new wealth'''
+        '''placeholder for discovering new silks'''
         pass
         
     def trade(self, tile):
         '''placeholder for trading on a suitable tile'''
         pass
         
-    def rest(self, agent):
-        '''placeholder for resting with an agent'''
+    def rest(self, inn):
+        '''placeholder for resting with an inn'''
         pass
     
     def attack(self, token):
@@ -73,13 +73,13 @@ class Adventurer(Token):
             "player_name": self.player.name,
             "longitude": self.current_tile.tile_position.longitude if self.current_tile else None,
             "latitude": self.current_tile.tile_position.latitude if self.current_tile else None,
-            "wealth": self.wealth,
+            "silks": self.silks,
             "route": [[t.tile_position.longitude, t.tile_position.latitude] for t in self.route],
             "turn_route": [[t.tile_position.longitude, t.tile_position.latitude] for t in self.turn_route],
         }
 
-class Agent(Token):
-    '''A template for actual Agent tokens used in different game modes.
+class Inn(Token):
+    '''A template for actual Inn tokens used in different game modes.
     
     Methods:
     __init__ taking a Game and a Player and a Tile from the Cartolan module
@@ -89,14 +89,14 @@ class Agent(Token):
     '''
     def __init__(self, game, player, current_tile):
         super().__init__(game, player, current_tile)
-        game.agents[player].append(self)
+        game.inns[player].append(self)
         
     def give_rest(self, adventurer):
         '''placeholder for resting adventurers'''
         pass
     
     def manage_trade(self, adventurer):
-        '''placeholder for agents involved in trade on a tile'''
+        '''placeholder for inns involved in trade on a tile'''
         pass
 
     def to_json(self):
@@ -104,6 +104,6 @@ class Agent(Token):
             "player_name": self.player.name,
             "longitude": self.current_tile.tile_position.longitude if self.current_tile else None,
             "latitude": self.current_tile.tile_position.latitude if self.current_tile else None,
-            "wealth": self.wealth,
-            "is_dispossessed": None,
+            "silks": self.silks,
+            "is_ransacked": None,
         }

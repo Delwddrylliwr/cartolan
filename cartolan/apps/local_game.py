@@ -5,7 +5,7 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 import random
 from cartolan.core.setup import create_game
 from cartolan.editions.modes import GameBeginner, GameRegular, GameAdvanced
-from cartolan.players.human_local import PlayerHuman
+from cartolan.players.human_local import PlayerLocalHuman
 from cartolan.players.heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
 from cartolan.players.heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
 from cartolan.core.tiles import Tile, WindDirection, TileEdges
@@ -56,10 +56,10 @@ class InteractiveGame:
         self.num_human_players = int(label)
     
     def setup_players(self):
-        '''Sets up a list of Cartolan.PlayerHuman to play the game'''
+        '''Sets up a list of Cartolan.PlayerLocalHuman to play the game'''
         # add human players
         for human_player_num in range(0, self.num_human_players):
-            self.players.append(PlayerHuman(self.HUMAN_PLAYER_COLOURS[human_player_num]))
+            self.players.append(PlayerLocalHuman(self.HUMAN_PLAYER_COLOURS[human_player_num]))
 
     
     def play_game(self):

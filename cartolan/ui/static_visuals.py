@@ -42,7 +42,7 @@ class PlayAreaVisualisation:
     '''
     #a vector of visual offsets for the players' tokens
     PLAYER_OFFSETS = [[0.5, 0.5],  [0.25, 0.25],  [0.25, 0.75],  [0.75, 0.75]]
-    AGENT_OFFSET = [0.75, 0.25] #the placement of agents on the tile
+    INN_OFFSET = [0.75, 0.25] #the placement of inns on the tile
     ADVENTURER_OFFSET = [0.1, 0.1] #the offset to differentiate multiple adventurers on the same tile
     DIMENSION_INCREMENT = 5 #the number of tiles by which the play area is extended when methods are called
     GRID_SPEC = {"left":0.01, "right":0.99, "bottom":0.01, "top":0.99, "wspace":0.1, "hspace":0.1}
@@ -104,8 +104,8 @@ class PlayAreaVisualisation:
             self.tile_image_library = {}
             self.tile_image_library["water_disaster"] = mpimg.imread('./images/water_disaster.png') 
             self.tile_image_library["land_disaster"] = mpimg.imread('./images/land_disaster.png') 
-            self.tile_image_library["capital"] = mpimg.imread('./images/capital.png') 
-            self.tile_image_library["mythical"] = mpimg.imread('./images/mythical.png') 
+            self.tile_image_library["home_city"] = mpimg.imread('./images/capital.png') 
+            self.tile_image_library["mythical_city"] = mpimg.imread('./images/mythical.png') 
             for uc_water in [True, False]: 
                 for ua_water in [True, False]:
                     for dc_water in [True, False]:
@@ -301,17 +301,17 @@ class PlayAreaVisualisation:
                         tile = play_area_update[longitude][latitude]
                         e = tile.tile_edges
                         if isinstance(tile, CityTile):
-                            if tile.is_capital:
-                                tile_image = self.tile_image_library["capital"]
+                            if tile.is_home_city:
+                                tile_image = self.tile_image_library["home_city"]
                             else:
-                                tile_image = self.tile_image_library["mythical"]
+                                tile_image = self.tile_image_library["mythical_city"]
                         elif isinstance(tile, DisasterTile):
                             if tile.tile_back == "water":
                                 tile_image = self.tile_image_library["water_disaster"]
                             else:
                                 tile_image = self.tile_image_library["land_disaster"]
                         else:
-                            wonder = tile.is_wonder
+                            wonder = tile.has_trade_port
                             tile_image = self.tile_image_library[str(e.upwind_clock_water)+str(e.upwind_anti_water)
                                                                  +str(e.downwind_clock_water)+str(e.downwind_anti_water)
                                                                  +str(wonder)]            
@@ -346,12 +346,12 @@ class PlayAreaVisualisation:
         return True
         
     
-    # it will be useful to see how players moved around the play area during the game, and relative to agents
+    # it will be useful to see how players moved around the play area during the game, and relative to inns
     def draw_routes(self):
-        '''Illustrates the paths that different Adventurers have taken during the course of a game, and the location of Agents
+        '''Illustrates the paths that different Adventurers have taken during the course of a game, and the location of Inns
         
         Arguments:
-        List of Carolan.Players the Adventurers and Agents that will be rendered
+        List of Carolan.Players the Adventurers and Inns that will be rendered
         '''
         #try to set up a new master axes spanning all the subplots
 #         tokenax = self.fig.add_subplot(111)
@@ -393,17 +393,17 @@ class PlayAreaVisualisation:
                         previous_offset = offset
                         move += 1
             
-#             for agent in game.agents[player]: 
-#                 for tile in agent.route:
-#                     # we want to draw a square anywhere that an agent is
-#                     # do we also want a marker where agents have previously been?
-#                     if tile == agent.route[-1]:
+#             for inn in game.inns[player]: 
+#                 for tile in inn.route:
+#                     # we want to draw a square anywhere that an inn is
+#                     # do we also want a marker where inns have previously been?
+#                     if tile == inn.route[-1]:
 #                         face_colour = player.colour
 #                     else:
 #                         face_colour = "none"
 #                     location = [self.origin[0] + tile.tile_position.longitude
 #                                 , self.origin[1] + tile.tile_position.latitude]
-#                     routeax.scatter([location[0]+self.AGENT_OFFSET[0]],[location[1]+self.AGENT_OFFSET[1]]
+#                     routeax.scatter([location[0]+self.INN_OFFSET[0]],[location[1]+self.INN_OFFSET[1]]
 #                                   , linewidth=1, edgecolors=player.colour, facecolor=face_colour, marker="s", s=self.token_width)
                 
             if isinstance(player, PlayerRegularExplorer):
@@ -426,13 +426,13 @@ class PlayAreaVisualisation:
         
         
     def draw_tokens(self):
-        '''Illustrates the current location of Adventurers and Agents in a game
+        '''Illustrates the current location of Adventurers and Inns in a game
         
         Arguments:
-        List of Carolan.Players the Adventurers and Agents will be rendered for
+        List of Carolan.Players the Adventurers and Inns will be rendered for
         '''
         
-        # cycle through the players, drawing the adventurers and agents as markers
+        # cycle through the players, drawing the adventurers and inns as markers
         #try to set up a new master axes spanning all the subplots
 #         tokenax = self.fig.add_subplot(111)
 #         tokenax = self.tokenax
@@ -466,58 +466,58 @@ class PlayAreaVisualisation:
                                  , color='white', family='Comic Sans MS'
                                 , horizontalalignment="center", verticalalignment="center")
             
-            for agent in self.game.agents[player]: 
-                # we want to draw a square anywhere that an agent is
-                tile = agent.current_tile
+            for inn in self.game.inns[player]: 
+                # we want to draw a square anywhere that an inn is
+                tile = inn.current_tile
                 location = [self.origin[0] + tile.tile_position.longitude
                             , self.origin[1] + tile.tile_position.latitude]
                 face_colour = player.colour
                 if type(adventurer.game) in [GameRegular, GameAdvanced]:
-                    if agent.is_dispossessed:
-                        face_colour = "None" # we'll outline only the agents that are dispossessed
-                tokenax.scatter([location[0]+self.AGENT_OFFSET[0]],[location[1]+self.AGENT_OFFSET[1]]
+                    if inn.is_ransacked:
+                        face_colour = "None" # we'll outline only the inns that are ransacked
+                tokenax.scatter([location[0]+self.INN_OFFSET[0]],[location[1]+self.INN_OFFSET[1]]
                               , edgecolors=player.colour, facecolor=face_colour, marker="s"
                                , linewidth=3, s=self.token_width)
-                tokenax.annotate(str(agent.wealth)
-                                 ,(location[0]+self.AGENT_OFFSET[0], location[1]+self.AGENT_OFFSET[1])
+                tokenax.annotate(str(inn.silks)
+                                 ,(location[0]+self.INN_OFFSET[0], location[1]+self.INN_OFFSET[1])
                                  , color='white', family='Comic Sans MS'
                                 , horizontalalignment="center", verticalalignment="center")
         
-#        print("Creating a table of the wealth held by Players and their Adventurers")
+#        print("Creating a table of the silks held by Players and their Adventurers")
         max_num_adventurers = 1
         for player in players:
             if len(self.game.adventurers[player]) > max_num_adventurers:
                 max_num_adventurers = len(self.game.adventurers[player])
         scores = []
         for player in players:
-            new_row = [str(player.vault_wealth)]
+            new_row = [str(player.vault_silks)]
             for adventurer_num in range(0, max_num_adventurers):
                 if adventurer_num < len(self.game.adventurers[player]):
-                    new_row.append(str(self.game.adventurers[player][adventurer_num].wealth))
+                    new_row.append(str(self.game.adventurers[player][adventurer_num].silks))
                 else:
                     new_row.append("")
             scores.append(new_row)
         col_titles = ["Vault"]
         for chest_num in range(1, max_num_adventurers+1):
             col_titles.append("Chest #"+str(chest_num))
-        wealth_table = tokenax.table(cellText=scores, edges="open"
+        silks_table = tokenax.table(cellText=scores, edges="open"
                       , loc="upper left"
                     , colLabels=col_titles
                     , cellLoc="center"
                      )
         for header_num in range(0, max_num_adventurers+1):
-            cell = wealth_table[(0, header_num)]
+            cell = silks_table[(0, header_num)]
             cell.get_text().set_family("Comic Sans MS")
-        wealth_table.auto_set_column_width(col=range(0,self.game.MAX_AGENTS+1))
+        silks_table.auto_set_column_width(col=range(0,self.game.MAX_INNS+1))
         for player in players:
-            cell = wealth_table[(players.index(player)+1,0)]
+            cell = silks_table[(players.index(player)+1,0)]
             cell.get_text().set_family("Comic Sans MS")
             cell.get_text().set_fontsize(round(12 * self.TEXT_SCALE))
             cell.get_text().set_weight('bold')
             cell.get_text().set_color(player.colour)
             for adventurer in self.game.adventurers[player]:
-                # we want to record the Chest wealth for each Adventurer
-                cell = wealth_table[(players.index(player)+1,self.game.adventurers[player].index(adventurer)+1)]
+                # we want to record the Chest silks for each Adventurer
+                cell = silks_table[(players.index(player)+1,self.game.adventurers[player].index(adventurer)+1)]
                 cell.get_text().set_family("Comic Sans MS")
                 cell.get_text().set_fontsize(round(12 * self.TEXT_SCALE))
                 cell.get_text().set_color(player.colour)
@@ -591,7 +591,7 @@ class PlayAreaVisualisation:
         pyplot.show(block=False)
         
     def draw_scores(self):
-        '''Prints a table of current wealth scores in players' Vaults and Adventurers' Chests
+        '''Prints a table of current silks scores in players' Vaults and Adventurers' Chests
         
         Arguments:
         List of Cartolan.Players
@@ -607,26 +607,26 @@ class PlayAreaVisualisation:
 #        scoreax.clear()
 #        
 #        players = self.game.players
-#        print("Creating a table of the wealth held by Players and their Adventurers")
-#        scores = [["Vault wealth", "Adventurer\n #1 wealth", "Adventurer\n #2 wealth", "Adventurer\n #3 wealth"]]
+#        print("Creating a table of the silks held by Players and their Adventurers")
+#        scores = [["Vault silks", "Adventurer\n #1 silks", "Adventurer\n #2 silks", "Adventurer\n #3 silks"]]
 #        pyplot.sca(self.scoreax)
-#        wealth_table = pyplot.table(cellText=scores, edges="open", loc='top left')
-#        wealth_table.auto_set_column_width(col=range(0,players[0].adventurers[0].game.MAX_AGENTS+1))
+#        silks_table = pyplot.table(cellText=scores, edges="open", loc='top left')
+#        silks_table.auto_set_column_width(col=range(0,players[0].adventurers[0].game.MAX_INNS+1))
 #        for player in players:
-#            cell = wealth_table.add_cell(players.index(player)+1, 0, width=5, height=5
+#            cell = silks_table.add_cell(players.index(player)+1, 0, width=5, height=5
 ##                                          , fontproperties={"color":player.colour, "fontsize":20} #Set row colours to match player colours, and enlarge the first column's text size
-#                                         , text=str(player.vault_wealth)) #width and height are arbitrary and should be overruled by the auto column width
+#                                         , text=str(player.vault_silks)) #width and height are arbitrary and should be overruled by the auto column width
 #            cell.get_text().set_fontsize(20)
 #            cell.get_text().set_color(player.colour)
 #            for adventurer in self.game.adventurers[player]:
-#                # we want to record the Chest wealth for each Adventurer
-#                cell = wealth_table.add_cell(players.index(player)+1, self.game.adventurers[player].index(adventurer)+1, 0, height=5
+#                # we want to record the Chest silks for each Adventurer
+#                cell = silks_table.add_cell(players.index(player)+1, self.game.adventurers[player].index(adventurer)+1, 0, height=5
 ##                                             , fontproperties={"color":player.colour, "fontsize":16} #Set row colours to match player colours, and enlarge the first column's text size
-#                                            , text=str(adventurer.wealth)) #width and height are arbitrary and should be overruled by the auto column width
+#                                            , text=str(adventurer.silks)) #width and height are arbitrary and should be overruled by the auto column width
 #                cell.get_text().set_fontsize(16)
 #                cell.get_text().set_color(player.colour)
 #
-##         scoreax.add_table(wealth_table)
+##         scoreax.add_table(silks_table)
 #        
 #        scoreax.set_ylim([0,self.dimensions[1]])
 #        scoreax.set_xlim([0,self.dimensions[0]])
@@ -727,12 +727,12 @@ class PlayStatsVisualisation:
         ax = self.fig.add_subplot(524, title="#Wins by winner's position in play order", xticks=[1,2,3,4])
         ax = self.pyplot.hist(self.play_stats["winning_player_order"])
     
-    def wealth_comparison(self):
-        '''distribution of winning player wealth vs average wealth across games'''
-#         self.play_stats["max_wealth_share"] = self.play_stats["max_wealth_final"!=0]["max_wealth_final"]/self.play_stats[["wealth_p1", "wealth_p2", "wealth_p3", "wealth_p4"]].sum(axis=1)
-        self.play_stats["max_wealth_share"] = self.play_stats["max_wealth_final"]/self.play_stats[["wealth_p1", "wealth_p2", "wealth_p3", "wealth_p4"]].sum(axis=1)
-        ax = self.fig.add_subplot(525, title="#Wins by winner's share of total vault wealth")
-        ax = self.pyplot.hist(self.play_stats["max_wealth_share"])
+    def silks_comparison(self):
+        '''distribution of winning player silks vs average silks across games'''
+#         self.play_stats["max_vault_silks_share"] = self.play_stats["max_vault_silks_final"!=0]["max_vault_silks_final"]/self.play_stats[["silks_p1", "silks_p2", "silks_p3", "silks_p4"]].sum(axis=1)
+        self.play_stats["max_vault_silks_share"] = self.play_stats["max_vault_silks_final"]/self.play_stats[["silks_p1", "silks_p2", "silks_p3", "silks_p4"]].sum(axis=1)
+        ax = self.fig.add_subplot(525, title="#Wins by winner's share of total vault silks")
+        ax = self.pyplot.hist(self.play_stats["max_vault_silks_share"])
     
     def route_comparison(self):
         '''distribution of winning player route length vs average route length across games'''
@@ -741,10 +741,10 @@ class PlayStatsVisualisation:
         ax = self.pyplot.hist(self.play_stats["avg_route_share"])
         
     def token_comparison(self):
-        # distribution of final agent numbers and final adventurer numbers
-        ax = self.fig.add_subplot(527, title="#Wins by winner's final number of agents and adventurers")
-#         ax = self.pyplot.hist(self.play_stats[["winning_player_agents","winning_player_adventurers"]], label=["#Agents","#Adventurers"], color=["yellow","red"], histtype='bar')
-        ax = self.pyplot.hist([self.play_stats["winning_player_agents"].to_list(),self.play_stats["winning_player_adventurers"].to_list()], label=["#Agents","#Adventurers"], color=["yellow","red"], histtype='bar')
+        # distribution of final inn numbers and final adventurer numbers
+        ax = self.fig.add_subplot(527, title="#Wins by winner's final number of inns and adventurers")
+#         ax = self.pyplot.hist(self.play_stats[["winning_player_inns","winning_player_adventurers"]], label=["#Inns","#Adventurers"], color=["yellow","red"], histtype='bar')
+        ax = self.pyplot.hist([self.play_stats["winning_player_inns"].to_list(),self.play_stats["winning_player_adventurers"].to_list()], label=["#Inns","#Adventurers"], color=["yellow","red"], histtype='bar')
         self.pyplot.legend()
         
     def tile_comparison(self):
@@ -755,7 +755,7 @@ class PlayStatsVisualisation:
         self.pyplot.legend()
 
     def discards_comparison(self):
-        # distribution of final agent numbers
+        # distribution of final inn numbers
         ax = self.fig.add_subplot(529, title="#Numbers of discards per game and failed explorations")
 #         ax = self.pyplot.hist(self.play_stats[["exploration_attempts", "failed_explorations"]], label=["# discarded tiles","# failed explorations"], color=["purple","pink"], histtype='bar')
         ax = self.pyplot.hist([self.play_stats["exploration_attempts"].to_list(), self.play_stats["failed_explorations"].to_list()], label=["Discards", "Failures"], histtype='bar')

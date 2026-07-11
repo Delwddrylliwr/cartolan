@@ -2,7 +2,7 @@
 Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
-from cartolan.core.tokens import Adventurer, Agent
+from cartolan.core.tokens import Adventurer, Inn
 from cartolan.core.tiles import CityTile, Tile, WindDirection, TileEdges
 
 import logging
@@ -23,11 +23,11 @@ class AdventurerBeginner(Adventurer):
     explore taking two Int coordinates
     discover taking a Tile
     trade taking a Tile
-    place_agent taking a Tile
+    hire_inn taking a Tile
     can_rest
     rest
-    can_collect_wealth
-    collect_wealth
+    can_collect_silks
+    collect_silks
     '''
     def __init__(self, game, player, starting_city):
         super().__init__(game, player, starting_city)
@@ -40,12 +40,12 @@ class AdventurerBeginner(Adventurer):
         self.max_land_moves = game.max_land_moves
         self.max_upwind_moves = game.max_upwind_moves
         self.value_trade = game.value_trade
-        self.value_discover_wonder = game.value_discover_wonder
+        self.value_discover_port = game.value_discover_port
         self.value_fill_map_gap = game.value_fill_map_gap
-        self.cost_agent_exploring = game.cost_agent_exploring
-        self.cost_agent_from_city = game.cost_agent_from_city
+        self.cost_inn_exploring = game.cost_inn_exploring
+        self.cost_inn_from_city = game.cost_inn_from_city
         self.cost_adventurer = game.cost_adventurer
-        self.agent_on_existing = game.agent_on_existing
+        self.inn_on_existing = game.inn_on_existing
         self.last_exploration_adjacents = 0
         self.num_companions = 0
         self.max_companions = game.max_companions
@@ -57,8 +57,8 @@ class AdventurerBeginner(Adventurer):
         self.land_moves = 0
         self.turns_moved = 0
         self.latest_city = starting_city
-        self.wonders_visited = []
-        self.agents_rested = []
+        self.ports_traded = []
+        self.inns_rested = []
         
         #Some records of actions taken each move
         self.moved = None
@@ -68,8 +68,8 @@ class AdventurerBeginner(Adventurer):
         self.placed = False
         self.banked = False
         self.bought_adventurer = 0
-        self.bought_agent = 0 #@TODO this variable may need to store different information
-        self.moved_agent = None #@TODO this variable may need to store different information
+        self.bought_inn = 0 #@TODO this variable may need to store different information
+        self.moved_inn = None #@TODO this variable may need to store different information
 
     @property
     def num_characters(self):
@@ -84,11 +84,11 @@ class AdventurerBeginner(Adventurer):
             "max_upwind_moves": self.max_upwind_moves,
             "max_downwind_moves": self.max_downwind_moves,
             "pirate_token": None,
-            "chest_tiles": None,
-            "preferred_tile_num": None,
-            "num_chest_tiles": None,
+            "chest_maps": None,
+            "chosen_map_index": None,
+            "num_chest_maps": None,
             "character_card": None,
-            "discovery_cards": None,
+            "manuscript_cards": None,
             "companion_cards": [{"card_type": "companion", "card_id": f"companion_{i}"}
                                  for i in range(self.num_companions)],
         })
@@ -189,29 +189,29 @@ class AdventurerBeginner(Adventurer):
         return discard_pile 
     
     def interact_tokens(self):
-        #check whether there is an agent here and then check rest
-        if self.current_tile.agent:
-            agent = self.current_tile.agent
-            if agent.player == self.player:
-                if agent.wealth > 0:
-                    if self.player.check_collect_wealth(agent):
-                        self.collect_wealth()
-            if self.can_rest(agent):
-                if self.player.check_rest(self, agent):
-                    if self.rest(agent) and agent not in self.agents_rested:
-                        self.agents_rested.append(agent)
+        #check whether there is an inn here and then check rest
+        if self.current_tile.inn:
+            inn = self.current_tile.inn
+            if inn.player == self.player:
+                if inn.silks > 0:
+                    if self.player.check_collect_silks(inn):
+                        self.collect_silks()
+            if self.can_rest(inn):
+                if self.player.check_rest(self, inn):
+                    if self.rest(inn) and inn not in self.inns_rested:
+                        self.inns_rested.append(inn)
     
     def interact_tile(self):
-        #check whether this is a wonder, and if the player wants to trade
-        if self.current_tile.is_wonder:
+        #check whether this is a trade port, and if the player wants to trade
+        if self.current_tile.has_trade_port:
             if self.player.check_trade(self, self.current_tile):
                 self.trade(self.current_tile)
-        if self.agent_on_existing and self.check_tile_available(self.current_tile):
-            if self.wealth >= self.cost_agent_from_city:
-                cost_exploring = self.cost_agent_exploring
-                self.cost_agent_exploring = self.cost_agent_from_city
-                self.place_agent()
-                self.cost_agent_exploring = cost_exploring
+        if self.inn_on_existing and self.check_tile_available(self.current_tile):
+            if self.silks >= self.cost_inn_from_city:
+                cost_exploring = self.cost_inn_exploring
+                self.cost_inn_exploring = self.cost_inn_from_city
+                self.hire_inn()
+                self.cost_inn_exploring = cost_exploring
         
     def end_turn(self):
         '''Resets in-turn trackers, and return discarded tiles to the main piles
@@ -221,10 +221,10 @@ class AdventurerBeginner(Adventurer):
         self.downwind_moves = 0
         self.land_moves = 0
         self.upwind_moves = 0
-        #the list of agents rested with is reset
-        self.agents_rested = []
-        #reset Adventurer's list of visited Wonders
-        self.wonders_visited = []
+        #the list of inns rested with is reset
+        self.inns_rested = []
+        #reset Adventurer's list of visited Trade Ports
+        self.ports_traded = []
         #return any discarded tiles to the main piles (if they weren't already empty)
         for discard_pile in self.game.discard_piles.values():
             if discard_pile:
@@ -248,21 +248,21 @@ class AdventurerBeginner(Adventurer):
         self.placed = False
         self.banked = False
         self.bought_adventurer = 0
-        self.bought_agent = 0
-        self.moved_agent = None
+        self.bought_inn = 0
+        self.moved_inn = None
         
         # check whether the next tile exists and explore if needed, movement rules can be either "initial" or "budgetted"
         moved = False
         if self.can_move(compass_point):
             #include this in the number of moves so far since resting - even if exploration subsequently fails
             if not self.current_tile.compass_edge_water(compass_point): #land movement
-                logger.debug("Making a land move, with existing treasure "+str(self.wealth))
+                logger.debug("Making a land move, with existing silks "+str(self.silks))
                 self.land_moves += 1
             elif self.current_tile.compass_edge_downwind(compass_point): #downwind movement possible
-                logger.debug("Making a downwind water move, with existing treasure "+str(self.wealth))
+                logger.debug("Making a downwind water move, with existing silks "+str(self.silks))
                 self.downwind_moves += 1
             else: #if not land or downwind, then movement must have been upwind
-                logger.debug("Making an upwind water move, with existing treasure "+str(self.wealth))
+                logger.debug("Making an upwind water move, with existing silks "+str(self.silks))
                 self.upwind_moves += 1
             
             #locate the space in the play area that the Adventurer is moving into
@@ -306,7 +306,7 @@ class AdventurerBeginner(Adventurer):
         
         #check whether any more moves will be possible
         if not self.can_move(None):
-            logger.debug("Adventurer determined that cannot move any more, so finishing turn, with Chest treasure "+str(self.wealth)+", and Vault treasure "+str(self.game.player_wealths[self.player]))
+            logger.debug("Adventurer determined that cannot move any more, so finishing turn, with Chest silks "+str(self.silks)+", and Vault silks "+str(self.game.vault_silks[self.player]))
             self.end_turn()
         
         return moved #even if exlploration fails this still counts as a move
@@ -314,7 +314,7 @@ class AdventurerBeginner(Adventurer):
     
     def wait(self):
         '''Allows the Adventurer to just wait in place rather than moving, to end a turn early'''
-        logger.debug("Adventurer is choosing to wait in place, with treasure "+str(self.wealth))
+        logger.debug("Adventurer is choosing to wait in place, with silks "+str(self.silks))
         #Reset records of actions taken from previous move, and record that this was a choice to wait in place
         self.moved = "wait"
         self.traded = False
@@ -323,8 +323,8 @@ class AdventurerBeginner(Adventurer):
         self.placed = False
         self.banked = False
         self.bought_adventurer = 0
-        self.bought_agent = 0 #@TODO this variable may need to store different information
-        self.moved_agent = None #@TODO this variable may need to store different information        
+        self.bought_inn = 0 #@TODO this variable may need to store different information
+        self.moved_inn = None #@TODO this variable may need to store different information        
         
         #Treat this as if it was a move
         self.downwind_moves += 1
@@ -334,14 +334,14 @@ class AdventurerBeginner(Adventurer):
         if isinstance(tile, CityTile):
             tile.visit_city(self, False)
         else:
-            if tile.dropped_wealth > 0:
-                self.wealth += tile.dropped_wealth
-                tile.dropped_wealth = 0
+            if tile.dropped_silks > 0:
+                self.silks += tile.dropped_silks
+                tile.dropped_silks = 0
             self.interact_tile()
             self.interact_tokens()
         
         if not self.can_move(None):
-            logger.debug("Adventurer determined that cannot move any more, so finishing turn, with Chest treasure "+str(self.wealth)+", and Vault treasure "+str(self.game.player_wealths[self.player]))
+            logger.debug("Adventurer determined that cannot move any more, so finishing turn, with Chest silks "+str(self.silks)+", and Vault silks "+str(self.game.vault_silks[self.player]))
             self.end_turn()
         
         return True
@@ -414,7 +414,7 @@ class AdventurerBeginner(Adventurer):
             # place tile and feed back to calling function that tile has been placed
             potential_tile.place_tile(longitude, latitude)
             # if this filled a gap in the map then award the Adventurer accordingly 
-            self.wealth += self.get_exploration_value(adjoining_edges_water, compass_point_moving)
+            self.silks += self.get_exploration_value(adjoining_edges_water, compass_point_moving)
             return True
         else:
             #Feed back to the calling function that the tile wouldn't place under any suitable rotation
@@ -422,7 +422,7 @@ class AdventurerBeginner(Adventurer):
         
     def place_tile_exact(self, potential_tile, longitude, latitude, compass_point_moving, adjoining_edges_water):
         '''Place a tile in its exact current orientation without allowing any rotation.
-        Returns True and awards wealth if the tile fits; returns False otherwise.
+        Returns True and awards silks if the tile fits; returns False otherwise.
         '''
         compass_points = ["n", "e", "s", "w"]
         edge_matches = True
@@ -432,7 +432,7 @@ class AdventurerBeginner(Adventurer):
                             adjoining_edges_water[cp] == potential_tile.compass_edge_water(cp))
         if edge_matches:
             potential_tile.place_tile(longitude, latitude)
-            self.wealth += self.get_exploration_value(adjoining_edges_water, compass_point_moving)
+            self.silks += self.get_exploration_value(adjoining_edges_water, compass_point_moving)
             return True
         return False
 
@@ -517,7 +517,7 @@ class AdventurerBeginner(Adventurer):
                 potential_tile = tile_pile.draw_tile()
             else: #both piles are exhausted, so this exploration fails and the turn ends; the game loop's win check will end the game
                 self.turns_moved += 1
-                self.game.player_wealths[self.player] += self.game.value_complete_map
+                self.game.vault_silks[self.player] += self.game.value_complete_map
                 break
 #            logger.debug("Have drawn a tile with edges N:" +str(potential_tile.compass_edge_water("n"))
 #                  +";E:"+str(potential_tile.compass_edge_water("e"))
@@ -539,10 +539,10 @@ class AdventurerBeginner(Adventurer):
             
         
     def discover(self, tile):
-        '''awards an extra bonus when exploration first reveals a Wonder tile
+        '''awards an extra bonus when exploration first reveals a Trade Port tile
         
         key arguments:
-        Cartolan.Tile giving the Wonder Tile that has just been discoverred.
+        Cartolan.Tile giving the Trade Port Tile that has just been discoverred.
         '''
 #        #@deprecated
 #        #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm, and just trade instead if so
@@ -554,19 +554,19 @@ class AdventurerBeginner(Adventurer):
 #                self.trade(tile)
 #                return False
 #        
-        # if this is a Wonder then discovery should be automatic
-#       if isinstance(self.current_tile, WonderTile):
-        if self.current_tile.is_wonder:
-            #award wealth
-            self.wealth += self.value_discover_wonder[tile.tile_back]
-            self.wonders_visited.append(tile)
-        #check whether an agent can be placed and then whether the player wants to
-        self.place_agent()
+        # if this is a Trade Port then discovery should be automatic
+#       if isinstance(self.current_tile, TradePortTile):
+        if self.current_tile.has_trade_port:
+            #award silks
+            self.silks += self.value_discover_port[tile.tile_back]
+            self.ports_traded.append(tile)
+        #check whether an inn can be placed and then whether the player wants to
+        self.hire_inn()
         return True
         
         
     def trade(self, tile):
-        '''awards wealth when a Wonder tile is visited for the first time since the last visit to a city
+        '''awards silks when a Trade Port tile is visited for the first time since the last visit to a city
         
         key arguments:
         Cartolan.Tile giving the tile that has been visited
@@ -574,64 +574,64 @@ class AdventurerBeginner(Adventurer):
         #Record the instruction to Trade
         self.traded = True
         
-        #confirm that this tile is a Wonder
-#         if isinstance(tile, WonderTile):
-        if not tile.is_wonder:
+        #confirm that this tile is a Trade Port
+#         if isinstance(tile, TradePortTile):
+        if not tile.has_trade_port:
             return False
         
-        # check that Adventurer hasn't visited this Wonder yet, since visiting a city
-        if tile in self.wonders_visited:
+        # check that Adventurer hasn't visited this Trade Port yet, since visiting a city
+        if tile in self.ports_traded:
             return False
         
-       # collect appropriate wealth into Chest
+       # collect appropriate silks into Chest
         logger.debug("Adventurer is trading on tile "
                   +str(tile.tile_position.longitude)+ "," +str(tile.tile_position.latitude))
-        self.wealth += self.value_trade * self.num_characters
+        self.silks += self.value_trade * self.num_characters
         
-        # keep track of visiting this Wonder
-        self.wonders_visited.append(tile)
+        # keep track of visiting this Trade Port
+        self.ports_traded.append(tile)
         
         return True
     
     def check_tile_available(self, tile):
-        '''Checks the conditions for being able to place an Agent on a tile.'''
-        if tile.agent is None and not isinstance(tile, CityTile):
+        '''Checks the conditions for being able to place an Inn on a tile.'''
+        if tile.inn is None and not isinstance(tile, CityTile):
             return True
         else:
             return False
     
-    def place_agent(self):
-        '''places an Agent as a tile is first placed through exploration'''
+    def hire_inn(self):
+        '''places an Inn as a tile is first placed through exploration'''
         #Record the instruction to place
         self.placed = True
         
         tile = self.current_tile
         
-        #check that the adventurer has requisite wealth in their Chest
-        if self.wealth >= self.cost_agent_exploring and self.check_tile_available(tile):
+        #check that the adventurer has requisite silks in their Chest
+        if self.silks >= self.cost_inn_exploring and self.check_tile_available(tile):
             
-            #check whether the player actually wants to place an agent, even if they have to move an existing one
-            if self.player.check_place_agent(self):
-                if len(self.game.agents[self.player]) >= self.game.MAX_AGENTS:
-                    agent = self.player.check_move_agent(self)
-                    if agent is None:
+            #check whether the player actually wants to place an inn, even if they have to move an existing one
+            if self.player.check_hire_inn(self):
+                if len(self.game.inns[self.player]) >= self.game.MAX_INNS:
+                    inn = self.player.check_move_inn(self)
+                    if inn is None:
                         return False
                     else:
-                        #pick up the Agent from its existing tile if there are no other agents available
-                        #otherwise get a new agent
-                        agent.current_tile.move_off_tile(agent)
-                        tile.move_onto_tile(agent)
+                        #pick up the Inn from its existing tile if there are no other inns available
+                        #otherwise get a new inn
+                        inn.current_tile.move_off_tile(inn)
+                        tile.move_onto_tile(inn)
                 else:
-                    agent = self.game.AGENT_TYPE(self.game, self.player, tile)
-                #check whether the tile already has an active Agent
-                self.wealth -= self.cost_agent_exploring
+                    inn = self.game.INN_TYPE(self.game, self.player, tile)
+                #check whether the tile already has an active Inn
+                self.silks -= self.cost_inn_exploring
                 #Rest this adventurer
 #                 self.rest()
 #                 #End this Adventurer's turn
-#                 logger.debug("Adventurer has placed an Agent and must end their turn to set them up")
+#                 logger.debug("Adventurer has placed an Inn and must end their turn to set them up")
 #                 self.turns_moved += 1
-                #prevent the Adventurer using the Agent this turn
-                self.agents_rested.append(agent)
+                #prevent the Adventurer using the Inn this turn
+                self.inns_rested.append(inn)
 #                 #the adventurer will rest now before the next turn and be ready
 #                 self.downwind_moves = 0
 #                 self.land_moves = 0
@@ -641,81 +641,81 @@ class AdventurerBeginner(Adventurer):
     
     def can_rest(self, token):
         '''checks whether the Adventurer can rest on this tile'''
-        # check whether there is an agent on the tile# can the adventurer afford rest here?
-        if isinstance(token, Agent):
+        # check whether there is an inn on the tile# can the adventurer afford rest here?
+        if isinstance(token, Inn):
             if ((token.player == self.player
-                or self.wealth >= token.cost_agent_rest * self.num_characters)
-                and token not in self.agents_rested):
+                or self.silks >= token.cost_inn_rest * self.num_characters)
+                and token not in self.inns_rested):
                 return True
         return False
     
     def rest(self, token):
-        '''rests with an Agent if there is one on the tile'''
+        '''rests with an Inn if there is one on the tile'''
         #Record the instruction to rest
         tile = self.current_tile
         logger.debug("Adventurer is resting on tile " 
                   +str(tile.tile_position.longitude)+ "," +str(tile.tile_position.latitude))
         return token.give_rest(self)
     
-    def can_collect_wealth(self):
-        '''checks whether there is wealth with an Agent on the current tile that can be collected'''
+    def can_collect_silks(self):
+        '''checks whether there is silks with an Inn on the current tile that can be collected'''
         tile = self.current_tile
-        #check whether there is an agent on the tile
-        if tile.agent is None:
+        #check whether there is an inn on the tile
+        if tile.inn is None:
             return False
-        #check that the agent shares a player
-        if tile.agent.player == self.player and tile.agent.wealth > 0:
+        #check that the inn shares a player
+        if tile.inn.player == self.player and tile.inn.silks > 0:
             return True
         else:
             return False
         
 
-    def collect_wealth(self):
-        '''Collects any wealth that is with any Agent of the same player on the current tile'''
+    def collect_silks(self):
+        '''Collects any silks that is with any Inn of the same player on the current tile'''
         #Record the instruction to collect
         self.collected = True
         
         tile = self.current_tile
-        #check whether there is an agent on the tile
-        if tile.agent is None:
+        #check whether there is an inn on the tile
+        if tile.inn is None:
             return False
         else:
-            #check that the agent shares a player
-            agent = tile.agent
-            if tile.agent.player == self.player:
-                #transfer wealth
-                logger.debug("Adventurer is collecting " +str(agent.wealth)+ " wealth from the agent on tile "
-                     +str(agent.current_tile.tile_position.longitude)+","+str(agent.current_tile.tile_position.latitude))
-                self.wealth += agent.wealth
-                agent.wealth = 0
+            #check that the inn shares a player
+            inn = tile.inn
+            if tile.inn.player == self.player:
+                #transfer silks
+                logger.debug("Adventurer is collecting " +str(inn.silks)+ " silks from the inn on tile "
+                     +str(inn.current_tile.tile_position.longitude)+","+str(inn.current_tile.tile_position.latitude))
+                self.silks += inn.silks
+                inn.silks = 0
                 return True
             else:
                 return False
     
     def end_expedition(self, city=None):
-        '''Prematurely returns an Adventurer to the last city they visited and empties their wealth.
+        '''Prematurely returns an Adventurer to the last city they visited and empties their silks.
         '''
         logger.debug(self.player.name+ "'s expedition has been ended and they've returned to a city")
-        self.wealth = 0
+        self.silks = 0
         self.current_tile.move_off_tile(self)
         if isinstance(city, CityTile):
             city.move_onto_tile(self)
         else:
             self.latest_city.move_onto_tile(self)
-        self.wonders_visited = [] #reset the list of where trade can happen
+        self.ports_traded = [] #reset the list of where trade can happen
         #End the Adventurer's turn so that movement resets
 #        self.end_turn()
         
     def abandon_expedition(self, city_tile):
-        '''Deliberately drops wealth and returns to a city
+        '''Deliberately drops silks and returns to a city
         city_tile is a Cartolan CityTile
         '''
-        self.current_tile.dropped_wealth += self.wealth
+        self.current_tile.dropped_silks += self.silks
         self.end_expedition(city=city_tile)
         if isinstance(self.current_tile, CityTile):
             self.current_tile.visit_city(self, abandoned=True)
         
-# Unit test, collects wealth from wonder tile
+# Unit test, collects silks from trade port tile
 
 # Unit test, cannot place mismatched tiles - all land next to a water
 
@@ -734,8 +734,8 @@ class AdventurerBeginner(Adventurer):
 # logger.debug(str(tile.wind_direction.north)+str(tile.wind_direction.east))
 
 
-class AgentBeginner(Agent):
-    '''Represents Agent tokens with their behaviours for Beginner mode of the game Cartolan
+class InnBeginner(Inn):
+    '''Represents Inn tokens with their behaviours for Beginner mode of the game Cartolan
     
     Methods:
     __init__ takes Cartolan.Game, Cartolan.Player, and Cartolan.Tile objects
@@ -745,8 +745,8 @@ class AgentBeginner(Agent):
     def __init__(self, game, player, tile):
         super().__init__(game, player, tile)
         
-        #Mirror game variables, mostly for individial agent modification in Advanced mode
-        self.cost_agent_rest = game.cost_agent_rest
+        #Mirror game variables, mostly for individial inn modification in Advanced mode
+        self.cost_inn_rest = game.cost_inn_rest
     
     def give_rest(self, adventurer):
         '''Resets the move counts for an Adventurer token, so that they can continue to move
@@ -754,25 +754,25 @@ class AgentBeginner(Agent):
         Arguments:
         Cartolan.Adventurer the Adventurer to rest
         '''
-        #check whether Adventurer has rested with this agent already this turn
-        if self in adventurer.agents_rested:
+        #check whether Adventurer has rested with this inn already this turn
+        if self in adventurer.inns_rested:
             return False
         
         #check whether Adventurer is from same player and charge if other player
         if not adventurer.player == self.player:
             # pay as necessary — cost scales with the number of characters travelling
-            rest_cost = self.cost_agent_rest * adventurer.num_characters
-            adventurer.wealth -= rest_cost
-            self.wealth += rest_cost
+            rest_cost = self.cost_inn_rest * adventurer.num_characters
+            adventurer.silks -= rest_cost
+            self.silks += rest_cost
         
         # reset move count
         adventurer.downwind_moves = 0
         adventurer.upwind_moves = 0
         adventurer.land_moves = 0
         
-        #remember that this Agent has been used already this turn
-        if self not in adventurer.agents_rested:
-            adventurer.agents_rested.append(self)
+        #remember that this Inn has been used already this turn
+        if self not in adventurer.inns_rested:
+            adventurer.inns_rested.append(self)
         
         return True
 
@@ -784,31 +784,31 @@ class CityTileBeginner(CityTile):
     '''
 
     def move_off_tile(self, token):
-        '''Adds a prompt to check how much wealth Adventurers want to take with them
+        '''Adds a prompt to check how much silks Adventurers want to take with them
         '''
-        vault_wealth = token.game.player_wealths[token.player]
-        if vault_wealth > 0:
-            travel_money = token.player.check_travel_money(token, vault_wealth, 0)
+        vault_silks = token.game.vault_silks[token.player]
+        if vault_silks > 0:
+            travel_silks = token.player.check_travel_silks(token, vault_silks, 0)
             try:
-                travel_money = int(travel_money)
+                travel_silks = int(travel_silks)
             except (TypeError, ValueError):
-                travel_money = 0
-            travel_money = max(0, min(vault_wealth, travel_money))
-            token.wealth += travel_money
-            token.game.player_wealths[token.player] -= travel_money
+                travel_silks = 0
+            travel_silks = max(0, min(vault_silks, travel_silks))
+            token.silks += travel_silks
+            token.game.vault_silks[token.player] -= travel_silks
         super().move_off_tile(token)
 
     def visit_city(self, adventurer, abandoned=False):
         return self.game.run_city_visit(adventurer, self, abandoned)
 
-    def bank_wealth(self, adventurer):
-        return self.game.bank_wealth(adventurer)
+    def bank_silks(self, adventurer):
+        return self.game.bank_silks(adventurer)
 
     def buy_adventurers(self, adventurer):
         return self.game.buy_adventurers(adventurer, self)
 
-    def buy_agents(self, adventurer):
-        return self.game.buy_agents(adventurer, self)
+    def buy_inns(self, adventurer):
+        return self.game.buy_inns(adventurer, self)
 
     def hire_companion(self, adventurer):
         return self.game.hire_companion(adventurer)
@@ -816,13 +816,13 @@ class CityTileBeginner(CityTile):
     def offer_purchases(self, adventurer):
         return self.game.offer_purchases(adventurer, self)
 
-class WonderTile(Tile):
+class TradePortTile(Tile):
      def __init__(self, game, tile_back = "water"
                  , wind_direction = WindDirection(True,True)
                  , tile_edges = TileEdges(True,True,True,True)):
          super().__init__(game, tile_back, wind_direction, tile_edges, True)
 
-class CapitalTileBeginner(CityTileBeginner):
+class HomeCityTileBeginner(CityTileBeginner):
     def __init__(self, game, tile_back = "water"
                  , wind_direction = WindDirection(True,True)
                  , tile_edges = TileEdges(True,True,True,True)):

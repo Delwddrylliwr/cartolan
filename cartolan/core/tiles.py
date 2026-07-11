@@ -4,7 +4,7 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 
 import random
 
-from cartolan.core.tokens import Token, Adventurer, Agent
+from cartolan.core.tokens import Token, Adventurer, Inn
 
 import logging
 
@@ -47,17 +47,17 @@ class Tile:
                  , tile_back = "water"
                  , wind_direction = WindDirection(True,True)
                  , tile_edges = TileEdges(True,True,True,True)
-                , is_wonder = False):
+                , has_trade_port = False):
         self.game = game
         self.tile_back = tile_back
         self.wind_direction = wind_direction
         self.tile_edges = tile_edges
         self.tile_position = TilePosition(None, None)
-        self.is_wonder = is_wonder
+        self.has_trade_port = has_trade_port
         
         self.adventurers = [] # to keep track of the Adventurer tokens on a tile at any point
-        self.agent = None # there can only be one Agent token on a given tile
-        self.dropped_wealth = 0 # to keep track of wealth dropped when returning abruptly to a City
+        self.inn = None # there can only be one Inn token on a given tile
+        self.dropped_silks = 0 # to keep track of silks dropped when returning abruptly to a City
         # self.tile_id = tile_back+str(wind_direction.north)+str(wind_direction.east)+str(tile_edges.upwind_clock_water)+str(tile_edges.upwind_anti_water)+str(tile_edges.downwind_clock_water) + str(tile_edges.downwind_anti_water)+str(random.random())
         self.tile_id = game.register(self)
 
@@ -80,7 +80,7 @@ class Tile:
         ua = 't' if e.upwind_anti_water else 'f'
         dc = 't' if e.downwind_clock_water else 'f'
         da = 't' if e.downwind_anti_water else 'f'
-        wonder = 't' if self.is_wonder else 'f'
+        wonder = 't' if self.has_trade_port else 'f'
         return {
             "tile_id": self.tile_id,
             "tile_name": uc + ua + dc + da + wonder,
@@ -88,7 +88,7 @@ class Tile:
             "wind_east": self.wind_direction.east,
             "longitude": self.tile_position.longitude,
             "latitude": self.tile_position.latitude,
-            "dropped_wealth": self.dropped_wealth,
+            "dropped_silks": self.dropped_silks,
             "tile_back": self.tile_back,
         }
 
@@ -211,16 +211,16 @@ class Tile:
         
     
     def move_onto_tile(self, token):
-        '''records that a token is now on this tile, whether an Agent or Adventurer
+        '''records that a token is now on this tile, whether an Inn or Adventurer
         
         key arguments:
-        Token either an Agent or an Adventurer from the Cartolan module
+        Token either an Inn or an Adventurer from the Cartolan module
         '''
         if isinstance(token, Token):
-            #Collect any wealth that has been dropped on this tile
-            if self.dropped_wealth > 0:
-                token.wealth += self.dropped_wealth
-                self.dropped_wealth = 0
+            #Collect any silks that has been dropped on this tile
+            if self.dropped_silks > 0:
+                token.silks += self.dropped_silks
+                self.dropped_silks = 0
                 
             if isinstance(token, Adventurer):
                 logger.debug("Moving adventurer for " +str(token.player.name)+ " onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
@@ -232,25 +232,25 @@ class Tile:
                 token.route.append(self)
                 token.turn_route.append(self)
                 
-            elif isinstance(token, Agent):
-                if token.__dict__.get("is_dispossessed"):
-                    token.is_dispossessed = False                 
-                if self.agent is None or self.agent == token:
-                    logger.debug("Moving agent for " +str(token.player.name)+ " onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
+            elif isinstance(token, Inn):
+                if token.__dict__.get("is_ransacked"):
+                    token.is_ransacked = False                 
+                if self.inn is None or self.inn == token:
+                    logger.debug("Moving inn for " +str(token.player.name)+ " onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                     if token.current_tile:
-                        token.current_tile.agent = None
+                        token.current_tile.inn = None
                     token.current_tile = self
-                    self.agent = token
+                    self.inn = token
                     token.route.append(self) 
                     token.turn_route.append(self)
-                elif self.agent.__dict__.get("is_dispossessed"):
-                    self.agent.dismiss()
-                    logger.debug("Moving agent for " +str(token.player.name)+ " onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
-                    self.agent = token
-                    self.agent.current_tile = self
+                elif self.inn.__dict__.get("is_ransacked"):
+                    self.inn.dismiss()
+                    logger.debug("Moving inn for " +str(token.player.name)+ " onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
+                    self.inn = token
+                    self.inn.current_tile = self
                     token.route.append(self) # relevant only in Regular and Advanced mode
                     token.turn_route.append(self)
-                else: raise Exception("Tried to add multiple Agents to a tile: adding and agent of " +token.player.name+ " where there was an existing agent of " +self.agent.player.name)
+                else: raise Exception("Tried to add multiple Inns to a tile: adding and inn of " +token.player.name+ " where there was an existing inn of " +self.inn.player.name)
             else: raise Exception("Didn't know how to handle this kind of token")
         else: raise Exception("Tried to move something other than a token onto a tile")
     
@@ -258,11 +258,11 @@ class Tile:
         '''Records a token being removed from a Tile
         
         key arguments:
-        Token either an Agent or an Adventurer from the Cartolan module
+        Token either an Inn or an Adventurer from the Cartolan module
         '''
-        if token == self.agent:
-            self.agent.current_tile = None
-            self.agent = None
+        if token == self.inn:
+            self.inn.current_tile = None
+            self.inn = None
             return True
         elif token in self.adventurers:
             self.adventurers.remove(token)
@@ -281,7 +281,7 @@ class Tile:
             and tile.tile_edges.downwind_clock_water == self.tile_edges.downwind_clock_water
             and tile.tile_edges.downwind_anti_water == self.tile_edges.downwind_anti_water
             and tile.tile_back == self.tile_back
-            and tile.is_wonder == self.is_wonder):
+            and tile.has_trade_port == self.has_trade_port):
             return True
         else:
             return False
@@ -334,18 +334,18 @@ class CityTile(Tile):
     __init__ taking a Game object and two Bools recording whether this is the Capital and whether it has been discovered 
     
     Interfaces:
-    visit_city, bank_wealth, buy_adventurers, buy_agents
+    visit_city, bank_silks, buy_adventurers, buy_inns
     '''
-    def __init__(self, game, wind_direction, tile_edges, is_capital, is_discovered):
+    def __init__(self, game, wind_direction, tile_edges, is_home_city, is_discovered):
         super().__init__(game, "land", wind_direction, tile_edges, False)
-        self.is_capital = is_capital
+        self.is_home_city = is_home_city
         self.is_discovered = is_discovered
         game.cities.append(self)
         
     def compare(self, tile):
         if not isinstance(tile, CityTile):
             return False
-        elif not tile.is_capital == self.is_capital:
+        elif not tile.is_home_city == self.is_home_city:
             return False
         else:
             return super().compare(tile)
@@ -359,19 +359,19 @@ class CityTile(Tile):
         '''placeholder for interactions between an Adventurer and city'''
         return None
         
-    def bank_wealth(self, adventurer):
-        '''placeholder for letting players move wealth from an adventurer's Chest to their Vault'''
+    def bank_silks(self, adventurer):
+        '''placeholder for letting players move silks from an adventurer's Chest to their Vault'''
         return None
     
     def buy_adventurers(self, adventurer):
-        '''placeholder for letting players buy another Adventurer using wealth from their Vault'''
+        '''placeholder for letting players buy another Adventurer using silks from their Vault'''
         return None
         
-    def buy_agents(self, adventurer):
-        '''placeholder for letting players buy another Agent using wealth from their Vault'''
+    def buy_inns(self, adventurer):
+        '''placeholder for letting players buy another Inn using silks from their Vault'''
         return None
 
     def to_json(self):
         d = super().to_json()
-        d["tile_name"] = "capital" if self.is_capital else "mythical"
+        d["tile_name"] = "home_city" if self.is_home_city else "mythical_city"
         return d

@@ -47,10 +47,10 @@ class PlayerFeedFwd(Player):
         self.REPLAY_BATCH_SIZE = 32
 
         self.attack_history = []
-        self.best_vault_wealth = 0
+        self.best_vault_silks = 0
         self.best_vault_turn = 0
         # Keyed by adventurer to avoid needing MAX_ADVENTURERS at init time
-        self.best_chest_wealths = {}
+        self.best_chest_silks = {}
         self.best_chest_turns = {}
 
         self.games_played = 0         # global counter; drives epsilon decay
@@ -73,13 +73,13 @@ class PlayerFeedFwd(Player):
         # Window is (2*WINDOW_RADIUS+1)^2 tiles centered on each adventurer
         self.WINDOW_RADIUS = 3  # 7x7 grid
         # Feature slots per tile in the window (see get_local_window for layout):
-        #   10 base tile features + 4 agent features + 2 adventurer-count features
+        #   10 base tile features + 4 inn features + 2 adventurer-count features
         self.WINDOW_TILE_BASE_FEATURES = 10
-        self.WINDOW_TILE_AGENT_FEATURES = 4
+        self.WINDOW_TILE_INN_FEATURES = 4
         self.WINDOW_TILE_ADVENTURER_FEATURES = 2
         self.FEATURES_PER_WINDOW_TILE = (
             self.WINDOW_TILE_BASE_FEATURES
-            + self.WINDOW_TILE_AGENT_FEATURES
+            + self.WINDOW_TILE_INN_FEATURES
             + self.WINDOW_TILE_ADVENTURER_FEATURES
         )  # = 16
 
@@ -114,10 +114,10 @@ class PlayerFeedFwd(Player):
           offset  7: tile is a wonder
           offset  8: tile back is land (vs water)
           offset  9: city type  (0.0=none, 0.5=mythical city, 1.0=capital)
-          offset 10: an agent is present
-          offset 11: agent owner relative index (0=own, 1=next opponent, …)
-          offset 12: agent wealth
-          offset 13: agent is dispossessed
+          offset 10: an inn is present
+          offset 11: inn owner relative index (0=own, 1=next opponent, …)
+          offset 12: inn silks
+          offset 13: inn is ransacked
           offset 14: count of own adventurers on this tile
           offset 15: count of opponent adventurers on this tile
 
@@ -146,20 +146,20 @@ class PlayerFeedFwd(Player):
                     window[offset + 4] = float(e.downwind_anti_water)
                     window[offset + 5] = float(tile.wind_direction.north)
                     window[offset + 6] = float(tile.wind_direction.east)
-                    window[offset + 7] = float(tile.is_wonder)
+                    window[offset + 7] = float(tile.has_trade_port)
                     window[offset + 8] = float(tile.tile_back == 'land')
                     # City type: 1.0=capital, 0.5=mythical city, 0.0=not a city
-                    if hasattr(tile, 'is_capital'):
-                        window[offset + 9] = 1.0 if tile.is_capital else 0.5
+                    if hasattr(tile, 'is_home_city'):
+                        window[offset + 9] = 1.0 if tile.is_home_city else 0.5
 
-                    # Agent on this tile (at most one per tile)
-                    agent = tile.agent
-                    if agent is not None:
+                    # Inn on this tile (at most one per tile)
+                    inn = tile.inn
+                    if inn is not None:
                         window[offset + 10] = 1.0
                         window[offset + 11] = float(
-                            self._player_relative_index(agent.player, game, own_player))
-                        window[offset + 12] = float(agent.wealth)
-                        window[offset + 13] = float(getattr(agent, 'is_dispossessed', False))
+                            self._player_relative_index(inn.player, game, own_player))
+                        window[offset + 12] = float(inn.silks)
+                        window[offset + 13] = float(getattr(inn, 'is_ransacked', False))
 
                     # Adventurer counts on this tile, split own vs opponent
                     window[offset + 14] = float(
@@ -182,25 +182,25 @@ class PlayerFeedFwd(Player):
         window_features_per_adventurer = window_side ** 2 * self.FEATURES_PER_WINDOW_TILE
         window_features_total = window_features_per_adventurer * game_type.MAX_ADVENTURERS
         global_state_size = (
-            1                                   # vault wealth
+            1                                   # vault silks
             + 3                                 # moves since resting
             + 4                                 # current tile edges
             + 2                                 # current tile wind direction
             + 6                                 # preceding three tile positions
             + 1                                 # adventurer index (which adventurer is deciding)
-            + game_type.MAX_ADVENTURERS         # own adventurer wealth
+            + game_type.MAX_ADVENTURERS         # own adventurer silks
             + game_type.MAX_ADVENTURERS         # own adventurer companions
             + 2 * game_type.MAX_ADVENTURERS     # own adventurer positions
-            + game_type.MAX_AGENTS              # own agent wealth
-            + 2 * game_type.MAX_AGENTS          # own agent positions
-            + 3                                 # opponent vault wealth (up to 3 opponents)
-            + 3 * game_type.MAX_ADVENTURERS     # opponent adventurer wealth
+            + game_type.MAX_INNS              # own inn silks
+            + 2 * game_type.MAX_INNS          # own inn positions
+            + 3                                 # opponent vault silks (up to 3 opponents)
+            + 3 * game_type.MAX_ADVENTURERS     # opponent adventurer silks
             + 3 * game_type.MAX_ADVENTURERS     # opponent adventurer companions
             + 3 * game_type.MAX_ADVENTURERS     # opponent adventurer pirate tokens
             + 2 * 3 * game_type.MAX_ADVENTURERS # opponent adventurer positions
-            + 3 * game_type.MAX_AGENTS          # opponent agent wealth
-            + 3 * game_type.MAX_AGENTS          # opponent agent dispossessed status
-            + 2 * 3 * game_type.MAX_AGENTS      # opponent agent positions
+            + 3 * game_type.MAX_INNS          # opponent inn silks
+            + 3 * game_type.MAX_INNS          # opponent inn ransacked status
+            + 2 * 3 * game_type.MAX_INNS      # opponent inn positions
         )
         total_state_size = window_features_total + global_state_size
 
@@ -254,7 +254,7 @@ class PlayerFeedFwd(Player):
         collect_network = layers.Dense(units=1, activation='sigmoid')(base_network)
         place_network = layers.Dense(units=1, activation='sigmoid')(base_network)
         attack_network = layers.Dense(
-            units=3 * (game_type.MAX_ADVENTURERS + game_type.MAX_AGENTS),
+            units=3 * (game_type.MAX_ADVENTURERS + game_type.MAX_INNS),
             activation='sigmoid'
         )(base_network)
         restore_network = layers.Dense(units=1, activation='sigmoid')(base_network)
@@ -290,7 +290,7 @@ class PlayerFeedFwd(Player):
         current_tile = adventurer.current_tile
         game = adventurer.game
         own_adventurers = game.adventurers.get(adventurer.player, [])
-        own_agents = game.agents.get(adventurer.player, [])
+        own_inns = game.inns.get(adventurer.player, [])
         players = game.players
 
         state_own_adventurers_wealth = [0] * game.MAX_ADVENTURERS
@@ -298,27 +298,27 @@ class PlayerFeedFwd(Player):
         state_own_adventurers_positions = [0] * (2 * game.MAX_ADVENTURERS)
         for own_adventurer in own_adventurers:
             idx = own_adventurers.index(own_adventurer)
-            state_own_adventurers_wealth[idx] = own_adventurer.wealth
+            state_own_adventurers_wealth[idx] = own_adventurer.silks
             state_own_adventurers_companions[idx] = getattr(own_adventurer, 'num_companions', 0)
             state_own_adventurers_positions[2 * idx] = own_adventurer.current_tile.tile_position.longitude
             state_own_adventurers_positions[2 * idx + 1] = own_adventurer.current_tile.tile_position.latitude
 
-        state_own_agents_wealth = [0] * game.MAX_AGENTS
-        state_own_agents_positions = [0] * (2 * game.MAX_AGENTS)
-        for own_agent in own_agents:
-            idx = own_agents.index(own_agent)
-            state_own_agents_wealth[idx] = own_agent.wealth
-            state_own_agents_positions[2 * idx] = own_agent.current_tile.tile_position.longitude
-            state_own_agents_positions[2 * idx + 1] = own_agent.current_tile.tile_position.latitude
+        state_own_inns_wealth = [0] * game.MAX_INNS
+        state_own_inns_positions = [0] * (2 * game.MAX_INNS)
+        for own_inn in own_inns:
+            idx = own_inns.index(own_inn)
+            state_own_inns_wealth[idx] = own_inn.silks
+            state_own_inns_positions[2 * idx] = own_inn.current_tile.tile_position.longitude
+            state_own_inns_positions[2 * idx + 1] = own_inn.current_tile.tile_position.latitude
 
-        state_opp_vault_wealths = [0] * 3
+        state_opp_vault_silkss = [0] * 3
         state_opp_adventurers_wealths = [0] * (3 * game.MAX_ADVENTURERS)
         state_opp_adventurers_companions = [0] * (3 * game.MAX_ADVENTURERS)
         state_opp_adventurers_pirates = [0] * (3 * game.MAX_ADVENTURERS)
         state_opp_adventurers_positions = [0] * (2 * 3 * game.MAX_ADVENTURERS)
-        state_opp_agents_wealths = [0] * (3 * game.MAX_AGENTS)
-        state_opp_agents_dispossessed = [0] * (3 * game.MAX_AGENTS)
-        state_opp_agents_positions = [0] * (2 * 3 * game.MAX_AGENTS)
+        state_opp_inns_wealths = [0] * (3 * game.MAX_INNS)
+        state_opp_inns_ransacked = [0] * (3 * game.MAX_INNS)
+        state_opp_inns_positions = [0] * (2 * 3 * game.MAX_INNS)
 
         own_index = players.index(self)
         opponent_index = 0
@@ -326,24 +326,24 @@ class PlayerFeedFwd(Player):
         def encode_opponent(player_index):
             nonlocal opponent_index
             p = players[player_index]
-            state_opp_vault_wealths[opponent_index] = game.player_wealths.get(p, 0)
+            state_opp_vault_silkss[opponent_index] = game.vault_silks.get(p, 0)
             opp_adventurers = game.adventurers.get(p, [])
             for opp_adventurer in opp_adventurers:
                 oa_idx = opp_adventurers.index(opp_adventurer)
                 flat = game.MAX_ADVENTURERS * opponent_index + oa_idx
-                state_opp_adventurers_wealths[flat] = opp_adventurer.wealth
+                state_opp_adventurers_wealths[flat] = opp_adventurer.silks
                 state_opp_adventurers_companions[flat] = getattr(opp_adventurer, 'num_companions', 0)
                 state_opp_adventurers_pirates[flat] = int(getattr(opp_adventurer, 'pirate_token', False))
                 state_opp_adventurers_positions[2 * flat] = opp_adventurer.current_tile.tile_position.longitude
                 state_opp_adventurers_positions[2 * flat + 1] = opp_adventurer.current_tile.tile_position.latitude
-            opp_agents = game.agents.get(p, [])
-            for opp_agent in opp_agents:
-                oa_idx = opp_agents.index(opp_agent)
-                flat = game.MAX_AGENTS * opponent_index + oa_idx
-                state_opp_agents_wealths[flat] = opp_agent.wealth
-                state_opp_agents_dispossessed[flat] = int(getattr(opp_agent, 'is_dispossessed', False))
-                state_opp_agents_positions[2 * flat] = opp_agent.current_tile.tile_position.longitude
-                state_opp_agents_positions[2 * flat + 1] = opp_agent.current_tile.tile_position.latitude
+            opp_inns = game.inns.get(p, [])
+            for opp_inn in opp_inns:
+                oa_idx = opp_inns.index(opp_inn)
+                flat = game.MAX_INNS * opponent_index + oa_idx
+                state_opp_inns_wealths[flat] = opp_inn.silks
+                state_opp_inns_ransacked[flat] = int(getattr(opp_inn, 'is_ransacked', False))
+                state_opp_inns_positions[2 * flat] = opp_inn.current_tile.tile_position.longitude
+                state_opp_inns_positions[2 * flat + 1] = opp_inn.current_tile.tile_position.latitude
             opponent_index += 1
 
         for later_idx in range(own_index + 1, len(players)):
@@ -367,7 +367,7 @@ class PlayerFeedFwd(Player):
 
         state = np.concatenate([
             *windows,
-            [game.player_wealths.get(adventurer.player, 0)],
+            [game.vault_silks.get(adventurer.player, 0)],
             [adventurer.downwind_moves, adventurer.upwind_moves, adventurer.land_moves],
             [current_tile.tile_edges.upwind_clock_water, current_tile.tile_edges.upwind_anti_water,
              current_tile.tile_edges.downwind_clock_water, current_tile.tile_edges.downwind_anti_water],
@@ -377,16 +377,16 @@ class PlayerFeedFwd(Player):
             state_own_adventurers_wealth,
             state_own_adventurers_companions,
             state_own_adventurers_positions,
-            state_own_agents_wealth,
-            state_own_agents_positions,
-            state_opp_vault_wealths,
+            state_own_inns_wealth,
+            state_own_inns_positions,
+            state_opp_vault_silkss,
             state_opp_adventurers_wealths,
             state_opp_adventurers_companions,
             state_opp_adventurers_pirates,
             state_opp_adventurers_positions,
-            state_opp_agents_wealths,
-            state_opp_agents_dispossessed,
-            state_opp_agents_positions,
+            state_opp_inns_wealths,
+            state_opp_inns_ransacked,
+            state_opp_inns_positions,
         ]).astype(float)
 
         return state
@@ -432,18 +432,18 @@ class PlayerFeedFwd(Player):
         adventurer is a Cartolan.Adventurer representing the token being moved.
         '''
         reward = 0
-        #For the first turn of a new game reset all the wealth trackers
+        #For the first turn of a new game reset all the silks trackers
         if adventurer.turns_moved == 0:
-            self.best_vault_wealth = 0
+            self.best_vault_silks = 0
             self.best_vault_turn = 0
-            self.best_chest_wealths[adventurer] = 0
+            self.best_chest_silks[adventurer] = 0
             self.best_chest_turns[adventurer] = 0
 
         if not getattr(self, 'active_training', False):
             self.whimsy_probability = 0
         else:
             # Global epsilon decays with games_played so exploration reduces as training progresses.
-            # Within each game it also decays with turns_moved so the agent exploits more late-game.
+            # Within each game it also decays with turns_moved so the inn exploits more late-game.
             global_epsilon = max(self.EPSILON_MIN, self.EPSILON_DECAY_PER_GAME ** self.games_played)
             self.whimsy_probability = global_epsilon #/ ( 1.0 + adventurer.turns_moved * self.WHIMSY_REDUCTION_PER_TURN)
             global_mimicry = max(self.MIMICRY_FLOOR,
@@ -496,23 +496,23 @@ class PlayerFeedFwd(Player):
 
             state_new = self.get_state(adventurer)
 
-            current_vault = adventurer.game.player_wealths.get(self, 0)
-            vault_wealth_increase = current_vault - self.best_vault_wealth
-            if vault_wealth_increase > 0:
-                reward += self.VAULT_INCREASE_REWARD * vault_wealth_increase / (
+            current_vault = adventurer.game.vault_silks.get(self, 0)
+            vault_silks_increase = current_vault - self.best_vault_silks
+            if vault_silks_increase > 0:
+                reward += self.VAULT_INCREASE_REWARD * vault_silks_increase / (
                     abs(adventurer.turns_moved - self.best_vault_turn) + 1)
-                self.best_vault_wealth = current_vault
+                self.best_vault_silks = current_vault
                 self.best_vault_turn = adventurer.turns_moved
 
-            # Similarly for this adventurer's chest wealth
-            if adventurer not in self.best_chest_wealths:
-                self.best_chest_wealths[adventurer] = 0
+            # Similarly for this adventurer's chest silks
+            if adventurer not in self.best_chest_silks:
+                self.best_chest_silks[adventurer] = 0
                 self.best_chest_turns[adventurer] = 0
-            chest_wealth_increase = adventurer.wealth - self.best_chest_wealths[adventurer]
-            if chest_wealth_increase > 0:
-                reward += self.CHEST_INCREASE_REWARD * chest_wealth_increase / (
+            chest_silks_increase = adventurer.silks - self.best_chest_silks[adventurer]
+            if chest_silks_increase > 0:
+                reward += self.CHEST_INCREASE_REWARD * chest_silks_increase / (
                     abs(adventurer.turns_moved - self.best_chest_turns[adventurer]) + 1)
-                self.best_chest_wealths[adventurer] = adventurer.wealth
+                self.best_chest_silks[adventurer] = adventurer.silks
                 self.best_chest_turns[adventurer] = adventurer.turns_moved
 
             done = adventurer.game.game_over
@@ -533,20 +533,20 @@ class PlayerFeedFwd(Player):
 
         return True
 
-    def check_deposit(self, adventurer, maximum, minimum=0, report=''):
-        '''Bank all available chest wealth.'''
+    def check_bank_amount(self, adventurer, maximum, minimum=0, report=''):
+        '''Bank all available chest silks.'''
         return maximum
 
-    def check_travel_money(self, adventurer, maximum, default):
+    def check_travel_silks(self, adventurer, maximum, default):
         '''Pay no travel toll by default.'''
         return default
 
     def check_trade(self, adventurer, tile):
-        '''Gives the AI's decision whether to trade at a Wonder tile.
+        '''Gives the AI's decision whether to trade at a Trade Port tile.
 
         Arguments
         adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
-        tile is the Wonder tile being visited.
+        tile is the Trade Port tile being visited.
         '''
         if random.random() < self.whimsy_probability:
             if (self.player_to_mimic is not None
@@ -563,22 +563,22 @@ class PlayerFeedFwd(Player):
             print("ANN chose trade: " + str(trade))
         return trade
 
-    def check_collect_wealth(self, agent):
-        '''Gives the AI's decision whether to collect wealth from an Agent.
+    def check_collect_silks(self, inn):
+        '''Gives the AI's decision whether to collect silks from an Inn.
 
         Arguments
-        agent is the Agent token being visited.
+        inn is the Inn token being visited.
         '''
         adventurer = next(
-            (a for a in agent.current_tile.adventurers if a.player == self), None
+            (a for a in inn.current_tile.adventurers if a.player == self), None
         )
         if adventurer is None or self.model is None:
             return random.random() > 0.5
         if random.random() < self.whimsy_probability:
             if (self.player_to_mimic is not None
-                    and hasattr(self.player_to_mimic, 'check_collect_wealth')
+                    and hasattr(self.player_to_mimic, 'check_collect_silks')
                     and random.random() < self.mimicry_probability):
-                collect = self.player_to_mimic.check_collect_wealth(agent)
+                collect = self.player_to_mimic.check_collect_silks(inn)
                 print("Mimicked collect: " + str(collect))
             else:
                 collect = random.random() > 0.5
@@ -589,18 +589,18 @@ class PlayerFeedFwd(Player):
             print("ANN chose collect: " + str(collect))
         return collect
 
-    def check_rest(self, adventurer, agent):
-        '''Gives the AI's decision whether to rest at an Agent.
+    def check_rest(self, adventurer, inn):
+        '''Gives the AI's decision whether to rest at an Inn.
 
         Arguments
         adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
-        agent is the Agent token being visited.
+        inn is the Inn token being visited.
         '''
         if random.random() < self.whimsy_probability:
             if (self.player_to_mimic is not None
                     and hasattr(self.player_to_mimic, 'check_rest')
                     and random.random() < self.mimicry_probability):
-                rest = self.player_to_mimic.check_rest(adventurer, agent)
+                rest = self.player_to_mimic.check_rest(adventurer, inn)
                 print("Mimicked rest: " + str(rest))
             else:
                 rest = random.random() > 0.5
@@ -611,20 +611,20 @@ class PlayerFeedFwd(Player):
             print("ANN chose rest: " + str(rest))
         return rest
 
-    def check_bank_wealth(self, adventurer, report="Player is being asked whether to bank wealth"):
-        '''Gives the AI's decision how much wealth to keep in the chest when banking at a city.
+    def check_bank_silks(self, adventurer, report="Player is being asked whether to bank silks"):
+        '''Gives the AI's decision how much silks to keep in the chest when banking at a city.
 
-        Returns an int: the amount of wealth to retain in the chest (the rest is banked).
+        Returns an int: the amount of silks to retain in the chest (the rest is banked).
 
         Arguments
         adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
         '''
         if random.random() < self.whimsy_probability:
-            keep = random.randint(0, adventurer.wealth) if adventurer.wealth > 0 else 0
+            keep = random.randint(0, adventurer.silks) if adventurer.silks > 0 else 0
             print("Randomly chose to keep: " + str(keep))
         else:
             prediction = self.model(np.array([self.get_state(adventurer)]))
-            keep = max(0, min(int(prediction[7][0][0]), adventurer.wealth))  # output index 7 = bank_network
+            keep = max(0, min(int(prediction[7][0][0]), adventurer.silks))  # output index 7 = bank_network
             print("ANN chose to keep: " + str(keep))
         return keep
 
@@ -649,36 +649,36 @@ class PlayerFeedFwd(Player):
             print("ANN chose recruit: " + str(recruit))
         return recruit
 
-    def check_place_agent(self, adventurer):
-        '''Gives the AI's decision whether to place an Agent when discovering a new tile.
+    def check_hire_inn(self, adventurer):
+        '''Gives the AI's decision whether to place an Inn when discovering a new tile.
 
         Arguments
         adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
         '''
         if random.random() < self.whimsy_probability:
             if (self.player_to_mimic is not None
-                    and hasattr(self.player_to_mimic, 'check_place_agent')
+                    and hasattr(self.player_to_mimic, 'check_hire_inn')
                     and random.random() < self.mimicry_probability):
-                place = self.player_to_mimic.check_place_agent(adventurer)
-                print("Mimicked place agent: " + str(place))
+                place = self.player_to_mimic.check_hire_inn(adventurer)
+                print("Mimicked place inn: " + str(place))
             else:
                 place = random.random() > 0.5
-                print("Randomly chose place agent: " + str(place))
+                print("Randomly chose place inn: " + str(place))
         else:
             prediction = self.model(np.array([self.get_state(adventurer)]))
             place = prediction[4][0][0] > 0.5  # output index 4 = place_network
-            print("ANN chose place agent: " + str(place))
+            print("ANN chose place inn: " + str(place))
         return place
 
-    def check_buy_agent(self, adventurer, report="Player has been offered to buy an agent by a city"):
-        '''Gives the AI's decision whether to place an Agent on an existing tile from a city.
+    def check_buy_inn(self, adventurer, report="Player has been offered to buy an inn by a city"):
+        '''Gives the AI's decision whether to place an Inn on an existing tile from a city.
 
         Returns None while the ANN lacks awareness of the full play area.
         '''
         return None  # @TODO enable once play area map is included in state
 
-    def check_move_agent(self, adventurer):
-        '''Gives the AI's decision about which Agent to move when at the placement limit.
+    def check_move_inn(self, adventurer):
+        '''Gives the AI's decision about which Inn to move when at the placement limit.
 
         Returns None while the ANN lacks awareness of the full play area.
         '''
@@ -706,40 +706,40 @@ class PlayerFeedFwd(Player):
             print("ANN chose attack adventurer: " + str(attack))
         return attack
 
-    def check_attack_agent(self, adventurer, agent):
-        '''Gives the AI's decision whether to attack another player's Agent.
+    def check_attack_inn(self, adventurer, inn):
+        '''Gives the AI's decision whether to attack another player's Inn.
 
         Arguments
         adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
-        agent is the opposing Agent on the tile.
+        inn is the opposing Inn on the tile.
         '''
         if random.random() < self.whimsy_probability:
             if (self.player_to_mimic is not None
-                    and hasattr(self.player_to_mimic, 'check_attack_agent')
+                    and hasattr(self.player_to_mimic, 'check_attack_inn')
                     and random.random() < self.mimicry_probability):
-                attack = self.player_to_mimic.check_attack_agent(adventurer, agent)
-                print("Mimicked attack agent: " + str(attack))
+                attack = self.player_to_mimic.check_attack_inn(adventurer, inn)
+                print("Mimicked attack inn: " + str(attack))
             else:
                 attack = random.random() > 0.5
-                print("Randomly chose attack agent: " + str(attack))
+                print("Randomly chose attack inn: " + str(attack))
         else:
             prediction = self.model(np.array([self.get_state(adventurer)]))
             attack = prediction[5][0][0] > 0.5  # output index 5 = attack_network
-            print("ANN chose attack agent: " + str(attack))
+            print("ANN chose attack inn: " + str(attack))
         return attack
 
-    def check_restore_agent(self, adventurer, agent):
-        '''Gives the AI's decision whether to restore a dispossessed Agent.
+    def check_restore_inn(self, adventurer, inn):
+        '''Gives the AI's decision whether to restore a ransacked Inn.
 
         Arguments
         adventurer is a Cartolan.Adventurer as the token for which a decision is needed.
-        agent is the player's dispossessed Agent on the tile.
+        inn is the player's ransacked Inn on the tile.
         '''
         if random.random() < self.whimsy_probability:
             if (self.player_to_mimic is not None
-                    and hasattr(self.player_to_mimic, 'check_restore_agent')
+                    and hasattr(self.player_to_mimic, 'check_restore_inn')
                     and random.random() < self.mimicry_probability):
-                restore = self.player_to_mimic.check_restore_agent(adventurer, agent)
+                restore = self.player_to_mimic.check_restore_inn(adventurer, inn)
                 print("Mimicked restore: " + str(restore))
             else:
                 restore = random.random() > 0.5

@@ -12,7 +12,7 @@ import random
 class PlayerBeginnerExplorer(Player):    
     '''A virtual player for Cartolan that makes decisions favouring exploration
 
-    This crude computer player will always move away from the Capital while its Chest has less than the points difference and then towards the Capital once it has collected enough wealth
+    This crude computer player will always move away from the Capital while its Chest has less than the points difference and then towards the Capital once it has collected enough silks
     
     Methods:
     explore_best_space takes a Cartolan.Adventurer
@@ -21,19 +21,19 @@ class PlayerBeginnerExplorer(Player):
     continue_move takes a Cartolan.Adventurer
     continue_turn takes a Cartolan.Adventurer
     check_trade takes a Cartolan.Adventurer and a Cartolan.Tile
-    check_collect_wealth takes a Cartolan.Agent
-    check_rest takes a Cartolan.Adventurer and a Cartolan.Agent
-    check_bank_wealth takes a Cartolan.Adventurer and a String
+    check_collect_silks takes a Cartolan.Inn
+    check_rest takes a Cartolan.Adventurer and a Cartolan.Inn
+    check_bank_silks takes a Cartolan.Adventurer and a String
     check_buy_adventurer takes a Cartolan.Adventurer and a String
-    check_place_agent takes a Cartolan.Adventurer
-    check_buy_agent takes a Cartolan.Adventurer
-    check_move_agent takes a Cartolan.Adventurer
+    check_hire_inn takes a Cartolan.Adventurer
+    check_buy_inn takes a Cartolan.Adventurer
+    check_move_inn takes a Cartolan.Adventurer
     '''
     def __init__(self, name):
         super().__init__(name)
         self.p_deviate = BeginnerConfig.P_DEVIATE #some randomness for artificial player behaviour to avoid rutts
         self.p_buy_adventurer = BeginnerConfig.P_BUY_ADVENTURER
-        self.return_city_attr = BeginnerConfig.RETURN_CITY_ATTR #Set a criterion for returning to bank wealth
+        self.return_city_attr = BeginnerConfig.RETURN_CITY_ATTR #Set a criterion for returning to bank silks
     
     def check_location_to_avoid(self, longitude, latitude):
         '''Compares coordinates to a list to avoid'''
@@ -208,9 +208,9 @@ class PlayerBeginnerExplorer(Player):
             print(str(adventurer.player.name)+ " is making a random movement, rather than following a heuristic")
             adventurer.move(random.choice(['n','e','s','w']))
 #        #move towards a city while banking will put the player ahead, and explore otherwise
-#        elif(adventurer.wealth > adventurer.game.wealth_difference):
+#        elif(adventurer.silks > adventurer.game.silks_difference):
         #move towards a city while banking will increase earning potential
-        elif(adventurer.wealth >= getattr(adventurer.game, self.return_city_attr)):
+        elif(adventurer.silks >= getattr(adventurer.game, self.return_city_attr)):
             self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
 #             self.explore_away_from_tile(adventurer, adventurer.latest_city)
@@ -219,15 +219,15 @@ class PlayerBeginnerExplorer(Player):
     
     def continue_turn(self, adventurer):
         print(str(adventurer.player.name)+ " is moving an Adventurer, which has " 
-              +str(adventurer.wealth)+ " wealth, and is on the "
+              +str(adventurer.silks)+ " silks, and is on the "
               +adventurer.current_tile.tile_back+ " tile at position " 
               +str(adventurer.current_tile.tile_position.longitude)+ "," 
               +str(adventurer.current_tile.tile_position.latitude))
         
         game = adventurer.game
         if isinstance(game, GameAdvanced):
-            if game.assigned_cadres.get(self) is None:
-                game.choose_cadre(self)
+            if game.assigned_cultures.get(self) is None:
+                game.choose_culture(self)
         
         #reset the record of tiles already visited this turn
         self.locations_to_avoid = []
@@ -239,22 +239,22 @@ class PlayerBeginnerExplorer(Player):
                 
         return True
     
-    #if offered by a Wonder, always trade
+    #if offered by a Trade Port, always trade
     def check_trade(self, adventurer, tile):
         return True
     
-    #if offered by an agent, always collect wealth
-    def check_collect_wealth(self, agent):
+    #if offered by an inn, always collect silks
+    def check_collect_silks(self, inn):
         return True
     
     #if offered always rest
-    def check_rest(self, adventurer, agent):
-        if adventurer.wealth >= adventurer.game.cost_agent_rest:
+    def check_rest(self, adventurer, inn):
+        if adventurer.silks >= adventurer.game.cost_inn_rest:
             return True
         return False
     
     #if offered by a city then always bank everything
-    def check_deposit(self, adventurer, maximum, minimum, report="Player is being asked whether to bank wealth"):
+    def check_bank_amount(self, adventurer, maximum, minimum, report="Player is being asked whether to bank silks"):
         print(report)
         return maximum
     
@@ -266,28 +266,28 @@ class PlayerBeginnerExplorer(Player):
         if random.random() > self.p_buy_adventurer:
             return False
         
-        if adventurer.game.player_wealths[adventurer.player] > adventurer.game.cost_adventurer:
+        if adventurer.game.vault_silks[adventurer.player] > adventurer.game.cost_adventurer:
             winning_difference = adventurer.game.game_winning_difference
             if winning_difference is None:
                 return self._check_purchase_worthwhile(adventurer, adventurer.game.cost_adventurer)
             #Check whether player has won compared to wealthiest opponent
-            wealthiest_opponent_wealth = 0
-            #Check whether any opponent is in a position to win based just on their incoming wealth, if an Adventurer were hired
+            wealthiest_opponent_silks = 0
+            #Check whether any opponent is in a position to win based just on their incoming silks, if an Adventurer were hired
             opponent_near_win = False
             for player in adventurer.game.players:
                 if player is not self:
-                    if adventurer.game.player_wealths[player] > wealthiest_opponent_wealth:
-                        wealthiest_opponent_wealth = adventurer.game.player_wealths[player]
-                    player_chest_wealth = 0
+                    if adventurer.game.vault_silks[player] > wealthiest_opponent_silks:
+                        wealthiest_opponent_silks = adventurer.game.vault_silks[player]
+                    player_chest_silks = 0
                     for other_adventurer in adventurer.game.adventurers[player]:
-                        player_chest_wealth += other_adventurer.wealth
-                    if (adventurer.game.player_wealths[player] + player_chest_wealth
-                        > winning_difference + adventurer.game.player_wealths[adventurer.player] - adventurer.game.cost_adventurer):
+                        player_chest_silks += other_adventurer.silks
+                    if (adventurer.game.vault_silks[player] + player_chest_silks
+                        > winning_difference + adventurer.game.vault_silks[adventurer.player] - adventurer.game.cost_adventurer):
                         opponent_near_win = True
             #Don't hire if player has won compared to wealthiest opponent
-            if adventurer.game.player_wealths[adventurer.player] > wealthiest_opponent_wealth + winning_difference:
+            if adventurer.game.vault_silks[adventurer.player] > wealthiest_opponent_silks + winning_difference:
                 return False
-            #Hire if no opponent can then win based on their incoming wealth
+            #Hire if no opponent can then win based on their incoming silks
             if not opponent_near_win:
                 return True
         return False
@@ -295,20 +295,20 @@ class PlayerBeginnerExplorer(Player):
     def _check_purchase_worthwhile(self, adventurer, cost):
         '''Shared vault-threshold guard used when game_winning_difference is None.
         Returns False if the purchase gap to win is smaller than the cost, or if any
-        opponent can already reach the win threshold with their current total wealth.
+        opponent can already reach the win threshold with their current total silks.
         '''
         game = adventurer.game
         winning_vault = game.game_winning_vault
         if winning_vault is None:
             return True
-        my_vault = game.player_wealths[adventurer.player]
+        my_vault = game.vault_silks[adventurer.player]
         # Don't spend if the gap remaining is smaller than the cost — better to just bank
         if winning_vault - my_vault <= cost:
             return False
-        # Don't spend if an opponent can already win with their current vault + chest wealth
+        # Don't spend if an opponent can already win with their current vault + chest silks
         for player in game.players:
             if player is not self:
-                opp_total = game.player_wealths[player] + sum(a.wealth for a in game.adventurers[player])
+                opp_total = game.vault_silks[player] + sum(a.silks for a in game.adventurers[player])
                 if opp_total >= winning_vault:
                     return False
         return True
@@ -316,84 +316,84 @@ class PlayerBeginnerExplorer(Player):
     def check_hire_companion(self, adventurer):
         if random.random() > self.p_buy_adventurer:
             return False
-        if adventurer.game.player_wealths[adventurer.player] >= adventurer.cost_companion:
+        if adventurer.game.vault_silks[adventurer.player] >= adventurer.cost_companion:
             winning_difference = adventurer.game.game_winning_difference
             if winning_difference is None:
                 return self._check_purchase_worthwhile(adventurer, adventurer.cost_companion)
-            wealthiest_opponent_wealth = 0
+            wealthiest_opponent_silks = 0
             opponent_near_win = False
             for player in adventurer.game.players:
                 if player is not self:
-                    if adventurer.game.player_wealths[player] > wealthiest_opponent_wealth:
-                        wealthiest_opponent_wealth = adventurer.game.player_wealths[player]
-                    player_chest_wealth = sum(a.wealth for a in adventurer.game.adventurers[player])
-                    if (adventurer.game.player_wealths[player] + player_chest_wealth
-                            > winning_difference + adventurer.game.player_wealths[adventurer.player] - adventurer.cost_companion):
+                    if adventurer.game.vault_silks[player] > wealthiest_opponent_silks:
+                        wealthiest_opponent_silks = adventurer.game.vault_silks[player]
+                    player_chest_silks = sum(a.silks for a in adventurer.game.adventurers[player])
+                    if (adventurer.game.vault_silks[player] + player_chest_silks
+                            > winning_difference + adventurer.game.vault_silks[adventurer.player] - adventurer.cost_companion):
                         opponent_near_win = True
-            if adventurer.game.player_wealths[adventurer.player] > wealthiest_opponent_wealth + winning_difference:
+            if adventurer.game.vault_silks[adventurer.player] > wealthiest_opponent_silks + winning_difference:
                 return False
             if not opponent_near_win:
                 return True
         return False
 
-    # never place an agent when offered
-    def check_place_agent(self, adventurer):
+    # never place an inn when offered
+    def check_hire_inn(self, adventurer):
         return False
     
-    # never buy an agent when offered
-    def check_buy_agent(self, adventurer, report="Player has been offered to buy an agent by a city"):
+    # never buy an inn when offered
+    def check_buy_inn(self, adventurer, report="Player has been offered to buy an inn by a city"):
         print(report)
         return None
     
-    # never move an agent when offered
-    def check_move_agent(self, adventurer):     
-#         return agent_to_move
+    # never move an inn when offered
+    def check_move_inn(self, adventurer):     
+#         return inn_to_move
         return None
     
-    def check_transfer_agent(self, adventurer):
+    def check_transfer_inn(self, adventurer):
         return None
     
-    def check_travel_money(self, adventurer, maximum, default):
+    def check_travel_silks(self, adventurer, maximum, default):
         return default
 
 
 class PlayerBeginnerTrader(PlayerBeginnerExplorer):    
     '''A virtual player for Beginner mode of Cartolan, that makes decisions that maximises income from each trade
 
-    this crude computer player will always move away from the Capital while its Chest has less than the points difference and then towards the Capital once it has collected enough wealth
+    this crude computer player will always move away from the Capital while its Chest has less than the points difference and then towards the Capital once it has collected enough silks
     if it can't move away from the Capital as desired, but can move, it will avoid the clockwise rotation of the wind, by heading downwind to the left
     if it can't move toward the Capital as desired, but can move, it will make use of the clockwise rotation of the wind, by heading downwind to the right
-    unlike the crude explorer, it will establish agents whenever it discovers a wonder
+    unlike the crude explorer, it will establish inns whenever it discovers a trade port
 
 
     Methods:
     continue_move takes a Cartolan.Adventurer
-    check_rest takes a Cartolan.Adventurer and a Cartolan.Agent
-    check_bank_wealth takes a Cartolan.Adventurer and a String
-    check_place_agent takes a Cartolan.Adventurer
-    check_move_agent takes a Cartolan.Adventurer
+    check_rest takes a Cartolan.Adventurer and a Cartolan.Inn
+    check_bank_silks takes a Cartolan.Adventurer and a String
+    check_hire_inn takes a Cartolan.Adventurer
+    check_move_inn takes a Cartolan.Adventurer
     '''
     def __init__(self, name):
         super().__init__(name)
-        self.next_agent_num = {} #An integer for each Adventurer, tracking by index which Inn/Agent is next to visit
+        self.next_inn_num = {} #An integer for each Adventurer, tracking by index which Inn/Inn is next to visit
     
     def continue_move(self, adventurer):
-        agents = adventurer.game.agents[self]
+        inns = adventurer.game.inns[self]
                                 
         #with some probability, move in a random direction, to break out of degenerate situations
         if random.random() < self.p_deviate:
             adventurer.move(random.choice(['n','e','s','w']))
-        #locate the next unvisited agent and move towards them, or if all agents have been visited either explore or return home
-        elif self.next_agent_num.get(adventurer) is not None and self.next_agent_num.get(adventurer) < len(agents):
-            if (adventurer.wealth < getattr(adventurer.game, self.return_city_attr)):
-                print("As a Trader, "+self.name+" is moving towards their next Inn, #"+str(self.next_agent_num.get(adventurer)))
-                self.move_towards_tile(adventurer, agents[self.next_agent_num.get(adventurer)].current_tile)
+        #locate the next unvisited inn and move towards them, or if all inns have been visited either explore or return home
+        elif self.next_inn_num.get(adventurer) is not None and self.next_inn_num.get(adventurer) < len(inns):
+            if (adventurer.silks < getattr(adventurer.game, self.return_city_attr)):
+                print("As a Trader, "+self.name+" is moving towards their next Inn, #"+str(self.next_inn_num.get(adventurer)))
+                self.move_towards_tile(adventurer, inns[self.next_inn_num.get(adventurer)].current_tile)
             else:
                 self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
-            if self.next_agent_num.get(adventurer) is not None:
-                print("As a Trader, "+self.name+" has visited all their "+str(self.next_agent_num.get(adventurer)+1)+" Inns")
-            if (adventurer.wealth < getattr(adventurer.game, self.return_city_attr) and len(agents) < adventurer.game.MAX_AGENTS):
+            if self.next_inn_num.get(adventurer) is not None:
+                print("As a Trader, "+self.name+" has visited all their "+str(self.next_inn_num.get(adventurer)+1)+" Inns")
+            if (adventurer.silks < getattr(adventurer.game, self.return_city_attr) and len(inns) < adventurer.game.MAX_INNS):
                 self.explore_best_space(adventurer)
 #                   self.explore_above_distance(adventurer, adventurer.latest_city, adventurer.game.CITY_DOMAIN_RADIUS)
             else:
@@ -401,42 +401,42 @@ class PlayerBeginnerTrader(PlayerBeginnerExplorer):
         
         if isinstance(adventurer.current_tile, CityTile):
             print(self.name+" has visited a city and will start heading to their first Inn again")
-            self.next_agent_num[adventurer] = 0
+            self.next_inn_num[adventurer] = 0
         return True
 
-    def check_rest(self, adventurer, agent):
-        agents = adventurer.game.agents[self]
-        #if this was the target agent for movement then start looking for the next one
-        if self.next_agent_num.get(adventurer) is not None and self.next_agent_num.get(adventurer) < len(agents):
-            if agent == agents[self.next_agent_num.get(adventurer)]:
-                print(self.name+"has reached their intended Inn, and will now head for Inn #"+str(self.next_agent_num[adventurer]+1))
-                self.next_agent_num[adventurer] += 1
-        #if there is an agent then always rest
+    def check_rest(self, adventurer, inn):
+        inns = adventurer.game.inns[self]
+        #if this was the target inn for movement then start looking for the next one
+        if self.next_inn_num.get(adventurer) is not None and self.next_inn_num.get(adventurer) < len(inns):
+            if inn == inns[self.next_inn_num.get(adventurer)]:
+                print(self.name+"has reached their intended Inn, and will now head for Inn #"+str(self.next_inn_num[adventurer]+1))
+                self.next_inn_num[adventurer] += 1
+        #if there is an inn then always rest
         return True        
 
-    def check_bank_wealth(self, adventurer, report="Player is being asked whether to bank"):
+    def check_bank_silks(self, adventurer, report="Player is being asked whether to bank"):
         print(self.name+"has visited a city and will start heading to their first Inn again")
-        self.next_agent_num[adventurer] = 0
-        return super().check_bank_wealth(adventurer, report)
+        self.next_inn_num[adventurer] = 0
+        return super().check_bank_silks(adventurer, report)
     
-    # if this is a wonder then always place an agent when offered
-    def check_place_agent(self, adventurer):
-        agents = adventurer.game.agents[self]
-        if len(agents) < adventurer.current_tile.game.MAX_AGENTS and adventurer.current_tile.is_wonder:
+    # if this is a trade port then always place an inn when offered
+    def check_hire_inn(self, adventurer):
+        inns = adventurer.game.inns[self]
+        if len(inns) < adventurer.current_tile.game.MAX_INNS and adventurer.current_tile.has_trade_port:
             print(self.name+" is placing an Inn where they can trade.")
             return True
         else:
             return False
     
-    # Never move an agent when offered, because should simply be repeating a route consisting of all agents
-    def check_move_agent(self, adventurer):
+    # Never move an inn when offered, because should simply be repeating a route consisting of all inns
+    def check_move_inn(self, adventurer):
         return None
     
-    # if a new Adventurer is hired then extend the tracker for which Agent is next to visit
+    # if a new Adventurer is hired then extend the tracker for which Inn is next to visit
     def check_buy_adventurer(self, adventurer, report=""):
         adventurers = adventurer.game.adventurers[self]
         if super().check_buy_adventurer(adventurer):
-            self.next_agent_num[adventurers[-1]] = 0
+            self.next_inn_num[adventurers[-1]] = 0
             return True
         else:
             return False
@@ -446,71 +446,71 @@ class PlayerBeginnerTrader(PlayerBeginnerExplorer):
 class PlayerBeginnerRouter(PlayerBeginnerTrader):    
     '''A virtual plaer for Beginner mode of the game Cartolan, who makes decisions that maximise route length
     
-    this crude computer player will always move away from the Capital while its Chest has less than the points difference and then towards the Capital once it has collected enough wealth
+    this crude computer player will always move away from the Capital while its Chest has less than the points difference and then towards the Capital once it has collected enough silks
     if it can't move away from the Capital as desired, but can move, it will avoid the clockwise rotation of the wind, by heading downwind to the left
     if it can't move toward the Capital as desired, but can move, it will make use of the clockwise rotation of the wind, by heading downwind to the right
-    unlike the crude trader, it will establish agents only on its final move
+    unlike the crude trader, it will establish inns only on its final move
     
     
     Methods:
     continue_move takes a Cartolan.Adventurer
-    check_place_agent takes a Cartolan.Adventurer
-    check_move_agent takes a Cartolan.Adventurer
+    check_hire_inn takes a Cartolan.Adventurer
+    check_move_inn takes a Cartolan.Adventurer
     '''    
     def continue_move(self, adventurer):
-        agents = adventurer.game.agents[self]
+        inns = adventurer.game.inns[self]
         #with some probability, move in a random direction, to break out of degenerate situations
         if random.random() < self.p_deviate:
             adventurer.move(random.choice(['n','e','s','w']))
-        #locate the next unvisited agent and move towards them, or if all agents have been visited either explore or return home
-        elif self.next_agent_num.get(adventurer) is not None and  self.next_agent_num.get(adventurer) < len(agents):
-            print("As a Router, "+self.name+" is moving towards their next Inn, #"+str(self.next_agent_num.get(adventurer)))
-            self.move_towards_tile(adventurer, agents[self.next_agent_num.get(adventurer)].current_tile)
+        #locate the next unvisited inn and move towards them, or if all inns have been visited either explore or return home
+        elif self.next_inn_num.get(adventurer) is not None and  self.next_inn_num.get(adventurer) < len(inns):
+            print("As a Router, "+self.name+" is moving towards their next Inn, #"+str(self.next_inn_num.get(adventurer)))
+            self.move_towards_tile(adventurer, inns[self.next_inn_num.get(adventurer)].current_tile)
         else:
-            if self.next_agent_num.get(adventurer):
-                print("As a Router, "+self.name+" has visited all their "+str(self.next_agent_num.get(adventurer) + 1)+" Inns")
-#            if (adventurer.wealth <= adventurer.game.wealth_difference):
-            if (adventurer.wealth < getattr(adventurer.game, self.return_city_attr)):
+            if self.next_inn_num.get(adventurer):
+                print("As a Router, "+self.name+" has visited all their "+str(self.next_inn_num.get(adventurer) + 1)+" Inns")
+#            if (adventurer.silks <= adventurer.game.silks_difference):
+            if (adventurer.silks < getattr(adventurer.game, self.return_city_attr)):
                 self.explore_best_space(adventurer)
 #                 self.explore_above_distance(adventurer, adventurer.latest_city, adventurer.game.CITY_DOMAIN_RADIUS)
             else:
                 self.move_towards_tile(adventurer, adventurer.latest_city)
 
-        #if this is a wonder then always trade
-#             if isinstance(adventurer.current_tile, WonderTile):
-        if adventurer.current_tile.is_wonder:
+        #if this is a trade port then always trade
+#             if isinstance(adventurer.current_tile, TradePortTile):
+        if adventurer.current_tile.has_trade_port:
             adventurer.trade(adventurer.current_tile)
         if isinstance(adventurer.current_tile, CityTile):
             print(self.name+" has visited a city and will start heading to their first Inn again")
-            self.next_agent_num[adventurer] = 0
+            self.next_inn_num[adventurer] = 0
         return True
     
-    # if this is the last movement of a turn then always place an agent when offered
-    def check_place_agent(self, adventurer):
-        agents = adventurer.game.agents[self]
-        #if this would otherwise be the last move this turn, then place an agent
-        if len(agents) < adventurer.game.MAX_AGENTS and not adventurer.can_move(None):
+    # if this is the last movement of a turn then always place an inn when offered
+    def check_hire_inn(self, adventurer):
+        inns = adventurer.game.inns[self]
+        #if this would otherwise be the last move this turn, then place an inn
+        if len(inns) < adventurer.game.MAX_INNS and not adventurer.can_move(None):
             print(self.name+" is placing an Inn where they have struggled to move.")
             return True
         else:
             return False
     
-    # move agents as further exploration is done, so that the route can evolve over time
-    def check_move_agent(self, adventurer):
-        agents = adventurer.game.agents[self]
-        return agents.pop(0)
+    # move inns as further exploration is done, so that the route can evolve over time
+    def check_move_inn(self, adventurer):
+        inns = adventurer.game.inns[self]
+        return inns.pop(0)
 
 
 class PlayerRegularExplorer(PlayerBeginnerExplorer):    
     '''A virtual player for Regular Cartolan, that favours exploration
     
-    this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates and restore dispossessed agents
+    this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates and restore ransacked inns
     
     Methods:
     continue_turn takes a Cartolan.Adventurer
     check_attack_adventurer takes two Cartolan.Adventurers
-    check_attack_agent takes a Cartolan.Adventurer and a Carolan.Agent
-    check_restore_agent takes a Cartolan.Adventurer and a Carolan.Agent
+    check_attack_inn takes a Cartolan.Adventurer and a Carolan.Inn
+    check_restore_inn takes a Cartolan.Adventurer and a Carolan.Inn
     '''
     def __init__(self, name):
         self.attack_history = {} #to keep track of when this player has attacked, for reference
@@ -534,7 +534,7 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
         
         #for each possible move, check wether an empty space in the map and how much exploration is worth
         preferred_move = None
-        preferred_guaranteed = False #Keep track of whether there is a Chest tile that will guarantee this exploration succeeds
+        preferred_guaranteed = False #Keep track of whether there is a Chest map that will guarantee this exploration succeeds
         preferred_score = 0
         exploration_moves = 0
         for compass_point in potential_moves:
@@ -550,23 +550,23 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
                     #Check whether the score from exploring here beats any checked so far
                     exploration_moves += 1
                     potential_score = adventurer.get_exploration_value(adventurer.get_adjoining_edges(new_longitude, new_latitude), compass_point)
-                    score_guaranteed = None #An int for the index of the Chest tile that fits
-                    for tile in adventurer.chest_tiles:
+                    score_guaranteed = None #An int for the index of the Chest map that fits
+                    for tile in adventurer.chest_maps:
                         if adventurer.rotated_tile_fits(tile, compass_point, adventurer.get_adjoining_edges(new_longitude, new_latitude)):
-                            score_guaranteed = adventurer.chest_tiles.index(tile)
+                            score_guaranteed = adventurer.chest_maps.index(tile)
                     if preferred_guaranteed:
                         if score_guaranteed is not None:
                             #Omly bother evaluating if this exploration is also guaranteed
                             if potential_score > preferred_score:
                                 preferred_move = compass_point
                                 preferred_score = potential_score
-                                adventurer.preferred_tile_num = score_guaranteed #Select this chest tile to be used
+                                adventurer.chosen_map_index = score_guaranteed #Select this chest map to be used
                     else:
                         #Either a higher reward or a guaranteed reward will make this move preferable
                         if score_guaranteed is not None or potential_score > preferred_score:
                             preferred_move = compass_point
                             preferred_score = potential_score
-                            adventurer.preferred_tile_num = score_guaranteed #Select this chest tile to be used
+                            adventurer.chosen_map_index = score_guaranteed #Select this chest map to be used
         print(self.name +"'s Adventurer has "+str(exploration_moves)+" exploration options.")
         if preferred_move is not None:
             if adventurer.move(preferred_move):
@@ -586,7 +586,7 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
     
     def continue_turn(self, adventurer):
         print(str(adventurer.player.name)+ " is moving an Adventurer, which has " 
-              +str(adventurer.wealth)+ " wealth, and is on the "
+              +str(adventurer.silks)+ " silks, and is on the "
               +adventurer.current_tile.tile_back+ " tile at position " 
               +str(adventurer.current_tile.tile_position.longitude)+ "," 
               +str(adventurer.current_tile.tile_position.latitude))
@@ -610,25 +610,25 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
         return True    
         
     def check_attack_adventurer(self, adventurer, other_adventurer):
-        # if the adventurer has a pirate token and the wealth from an arrest exceeds the loss from piracy then stick around and fight
+        # if the adventurer has a pirate token and the silks from an arrest exceeds the loss from piracy then stick around and fight
         if (other_adventurer.pirate_token and other_adventurer.player != self
-           and adventurer.wealth < adventurer.game.value_arrest):
+           and adventurer.silks < adventurer.game.value_arrest):
             return True
         return False
     
-    def check_attack_agent(self, adventurer, agent):
-        # Explorer will never attack agents
+    def check_attack_inn(self, adventurer, inn):
+        # Explorer will never attack inns
         return False
     
     def check_steal_amount(self, adventurer, maximum, default):
         return default
     
-    def check_restore_agent(self, adventurer, agent):
-        if agent.player == adventurer.player and adventurer.wealth >= adventurer.game.cost_agent_restore:
+    def check_restore_inn(self, adventurer, inn):
+        if inn.player == adventurer.player and adventurer.silks >= adventurer.game.cost_inn_restore:
             return True
         return False
     
-    # if half Disaster tile dropped wealth exceeds own wealth then try to collect it
+    # if half Disaster tile dropped silks exceeds own silks then try to collect it
     def check_court_disaster(self, adventurer, disaster_tile):
         return False
     
@@ -658,16 +658,16 @@ class PlayerRegularRouter(PlayerBeginnerRouter, PlayerRegularExplorer):
 class PlayerRegularPirate(PlayerRegularExplorer):    
     '''A virtual player for Regular Cartolan that favour attacking other players' tokens
     
-    this crude computer player seeks out opponents adventurers and agents to attack, and otherwise behaves like the Explorer 
+    this crude computer player seeks out opponents adventurers and inns to attack, and otherwise behaves like the Explorer 
     
     Methods:
     continue_move takes a Cartolan.Adventurer
     check_attack_adventurer takes two Cartolan.Adventurers
     check_court_disaster takes a Cartolan.Adventurer and a Cartolan.DisasterTile
-    check_attack_agent takes a Cartolan.Adventurer and a Cartolan.Agent
+    check_attack_inn takes a Cartolan.Adventurer and a Cartolan.Inn
     '''
     def continue_move(self, adventurer):    
-    # seek out the other player's Adventurer or Agent or Disaster tile with the most wealth
+    # seek out the other player's Adventurer or Inn or Disaster tile with the most silks
         
 #        #update awareness of disaster tiles, to avoid them, if not a pirate
 #        for disaster_tile in adventurer.game.disaster_tiles:
@@ -685,8 +685,8 @@ class PlayerRegularPirate(PlayerRegularExplorer):
         if random.random() < self.p_deviate:
             adventurer.move(random.choice(['n','e','s','w']))
         #move towards the capital while banking will put the player ahead, and chase the next big score otherwise
-#        elif(adventurer.wealth > adventurer.game.wealth_difference):
-        elif(adventurer.wealth >= getattr(adventurer.game, self.return_city_attr)):
+#        elif(adventurer.silks > adventurer.game.silks_difference):
+        elif(adventurer.silks >= getattr(adventurer.game, self.return_city_attr)):
             self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
             # if there is an adventurer on the same tile then attack them
@@ -697,24 +697,24 @@ class PlayerRegularPirate(PlayerRegularExplorer):
                           +other_adventurer.player.name)
                     adventurer.wait()
             
-            # check all other players' adventurers and agents and tiles for the most lucrative
+            # check all other players' adventurers and inns and tiles for the most lucrative
             max_score = 0
             score_location = None
             for player in adventurer.game.players:
                 if player != self:
                     for other_adventurer in adventurer.game.adventurers[player]:
-                        if max_score < other_adventurer.wealth // 2 + other_adventurer.wealth % 2:
-                            max_score = other_adventurer.wealth // 2 + other_adventurer.wealth % 2
+                        if max_score < other_adventurer.silks // 2 + other_adventurer.silks % 2:
+                            max_score = other_adventurer.silks // 2 + other_adventurer.silks % 2
                             score_location = other_adventurer.current_tile
-                    for agent in adventurer.game.agents[self]:
-                        if max_score < agent.wealth + 1:
-                            max_score = agent.wealth + 1
-                            score_location = agent.current_tile
+                    for inn in adventurer.game.inns[self]:
+                        if max_score < inn.silks + 1:
+                            max_score = inn.silks + 1
+                            score_location = inn.current_tile
             for longitude in adventurer.game.play_area:
                 for latitude in adventurer.game.play_area[longitude]:
                     tile = adventurer.game.play_area[longitude][latitude] 
-                if max_score < tile.dropped_wealth:
-                    max_score = tile.dropped_wealth
+                if max_score < tile.dropped_silks:
+                    max_score = tile.dropped_silks
                     score_location = tile
             if score_location is None:
 #                 self.explore_away_from_tile(adventurer, adventurer.latest_city)
@@ -724,21 +724,21 @@ class PlayerRegularPirate(PlayerRegularExplorer):
                 self.move_towards_tile(adventurer, score_location)
         return True
     
-    # attack adventurers or agents when encountered
+    # attack adventurers or inns when encountered
     def check_attack_adventurer(self, adventurer, other_adventurer):
-        # if the adventurer has less wealth to steal than the pirate has to bank they leave it
+        # if the adventurer has less silks to steal than the pirate has to bank they leave it
         if (other_adventurer.player != self
-           and adventurer.wealth < other_adventurer.wealth // 2 + other_adventurer.wealth % 2):
+           and adventurer.silks < other_adventurer.silks // 2 + other_adventurer.silks % 2):
             return True
         return False
     
-    # if half Disaster tile dropped wealth exceeds own wealth then try to collect it
+    # if half Disaster tile dropped silks exceeds own silks then try to collect it
     def check_court_disaster(self, adventurer, disaster_tile):
-        if adventurer.wealth < disaster_tile.dropped_wealth // 2 + disaster_tile.dropped_wealth % 2:
+        if adventurer.silks < disaster_tile.dropped_silks // 2 + disaster_tile.dropped_silks % 2:
             return True
         return False
     
-    def check_attack_agent(self, adventurer, agent):
+    def check_attack_inn(self, adventurer, inn):
         return True
 
 class PlayerAdvancedExplorer(PlayerRegularExplorer):
@@ -746,47 +746,47 @@ class PlayerAdvancedExplorer(PlayerRegularExplorer):
     '''
     def __init__(self, name):
         super().__init__(name)
-        self.p_buy_tech = AdvancedConfig.P_BUY_TECH
+        self.p_buy_manuscript = AdvancedConfig.P_BUY_MANUSCRIPT
         self.return_city_attr = AdvancedConfig.RETURN_CITY_ATTR
     
     def continue_turn(self, adventurer):
         if isinstance(adventurer.game, GameAdvanced):
-            if adventurer.game.assigned_cadres.get(self) is None:
-                adventurer.game.choose_cadre(self)
+            if adventurer.game.assigned_cultures.get(self) is None:
+                adventurer.game.choose_culture(self)
         if isinstance(adventurer, AdventurerAdvanced):
             if adventurer.character_card is None:
                 adventurer.choose_character()
         
         super().continue_turn(adventurer)
     
-    def check_buy_tech(self, adventurer):
+    def check_buy_manuscript(self, adventurer):
         #randomly choose not to buy, regardless of other conditions
-        if random.random() > self.p_buy_tech:
+        if random.random() > self.p_buy_manuscript:
             return False
         
         print(self.name+" is deciding whether to buy a Manuscript card")
-        if adventurer.game.player_wealths[adventurer.player] >= adventurer.game.cost_tech:
+        if adventurer.game.vault_silks[adventurer.player] >= adventurer.game.cost_manuscript:
             winning_difference = adventurer.game.game_winning_difference
             if winning_difference is None:
-                return self._check_purchase_worthwhile(adventurer, adventurer.game.cost_tech)
+                return self._check_purchase_worthwhile(adventurer, adventurer.game.cost_manuscript)
             #Check whether player has won compared to wealthiest opponent
-            wealthiest_opponent_wealth = 0
-            #Check whether any opponent is in a position to win based just on their incoming wealth, if tech is bought
+            wealthiest_opponent_silks = 0
+            #Check whether any opponent is in a position to win based just on their incoming silks, if tech is bought
             opponent_near_win = False
             for player in adventurer.game.players:
                 if player is not self:
-                    if adventurer.game.player_wealths[player] > wealthiest_opponent_wealth:
-                        wealthiest_opponent_wealth = adventurer.game.player_wealths[player]
-                    player_chest_wealth = 0
+                    if adventurer.game.vault_silks[player] > wealthiest_opponent_silks:
+                        wealthiest_opponent_silks = adventurer.game.vault_silks[player]
+                    player_chest_silks = 0
                     for other_adventurer in adventurer.game.adventurers[player]:
-                        player_chest_wealth += other_adventurer.wealth
-                    if (adventurer.game.player_wealths[player] + player_chest_wealth
-                        > winning_difference + adventurer.game.player_wealths[adventurer.player] - adventurer.game.cost_tech):
+                        player_chest_silks += other_adventurer.silks
+                    if (adventurer.game.vault_silks[player] + player_chest_silks
+                        > winning_difference + adventurer.game.vault_silks[adventurer.player] - adventurer.game.cost_manuscript):
                         opponent_near_win = True
             #Don't buy if player has won compared to wealthiest opponent
-            if adventurer.game.player_wealths[adventurer.player] > wealthiest_opponent_wealth + winning_difference:
+            if adventurer.game.vault_silks[adventurer.player] > wealthiest_opponent_silks + winning_difference:
                 return False
-            #Buy if no opponent can then win based on their incoming wealth
+            #Buy if no opponent can then win based on their incoming silks
             if not opponent_near_win:
                 return True
         return False
@@ -803,7 +803,7 @@ class PlayerAdvancedTrader(PlayerRegularTrader, PlayerAdvancedExplorer):
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
-        self.p_buy_tech = AdvancedConfig.P_BUY_TECH
+        self.p_buy_manuscript = AdvancedConfig.P_BUY_MANUSCRIPT
         self.return_city_attr = AdvancedConfig.RETURN_CITY_ATTR
     
 class PlayerAdvancedRouter(PlayerRegularRouter, PlayerAdvancedExplorer):    
@@ -812,7 +812,7 @@ class PlayerAdvancedRouter(PlayerRegularRouter, PlayerAdvancedExplorer):
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
-        self.p_buy_tech = AdvancedConfig.P_BUY_TECH
+        self.p_buy_manuscript = AdvancedConfig.P_BUY_MANUSCRIPT
         self.return_city_attr = AdvancedConfig.RETURN_CITY_ATTR
     
 class PlayerAdvancedPirate(PlayerRegularPirate, PlayerAdvancedExplorer):    
@@ -821,6 +821,6 @@ class PlayerAdvancedPirate(PlayerRegularPirate, PlayerAdvancedExplorer):
     this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
-        self.p_buy_tech = AdvancedConfig.P_BUY_TECH
+        self.p_buy_manuscript = AdvancedConfig.P_BUY_MANUSCRIPT
         self.return_city_attr = AdvancedConfig.RETURN_CITY_ATTR
     
