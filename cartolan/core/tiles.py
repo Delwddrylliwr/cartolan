@@ -6,6 +6,10 @@ import random
 
 from cartolan.core.tokens import Token, Adventurer, Agent
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 class TilePosition: 
     '''keeps track of the coordinates of a Tile entity in a PlayArea for the game Cartolan'''
     def __init__(self, longitude = None, latitude = None):
@@ -100,7 +104,7 @@ class Tile:
         int longitude
         int latitude
         '''
-        # print("Placing tile " +str(longitude)+", "+str(latitude))
+        # logger.debug("Placing tile " +str(longitude)+", "+str(latitude))
         play_area = self.game.play_area
         if play_area.get(longitude) is None:
             play_area[longitude] = {latitude:self}
@@ -219,7 +223,7 @@ class Tile:
                 self.dropped_wealth = 0
                 
             if isinstance(token, Adventurer):
-                print("Moving adventurer for " +str(token.player.name)+ " onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
+                logger.debug("Moving adventurer for " +str(token.player.name)+ " onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                 if token.current_tile:
                     if token in token.current_tile.adventurers:
                         token.current_tile.adventurers.remove(token)
@@ -232,7 +236,7 @@ class Tile:
                 if token.__dict__.get("is_dispossessed"):
                     token.is_dispossessed = False                 
                 if self.agent is None or self.agent == token:
-                    print("Moving agent for " +str(token.player.name)+ " onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
+                    logger.debug("Moving agent for " +str(token.player.name)+ " onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                     if token.current_tile:
                         token.current_tile.agent = None
                     token.current_tile = self
@@ -241,7 +245,7 @@ class Tile:
                     token.turn_route.append(self)
                 elif self.agent.__dict__.get("is_dispossessed"):
                     self.agent.dismiss()
-                    print("Moving agent for " +str(token.player.name)+ " onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
+                    logger.debug("Moving agent for " +str(token.player.name)+ " onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                     self.agent = token
                     self.agent.current_tile = self
                     token.route.append(self) # relevant only in Regular and Advanced mode

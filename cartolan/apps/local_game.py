@@ -3,6 +3,7 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 '''
 
 import random
+from cartolan.core.setup import create_game
 from cartolan.editions.modes import GameBeginner, GameRegular, GameAdvanced
 from cartolan.players.human_local import PlayerHuman
 from cartolan.players.heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
@@ -11,88 +12,9 @@ from cartolan.core.tiles import Tile, WindDirection, TileEdges
 from cartolan.ui.live_visuals import GameVisualisation #, ClientGameVisualisation
 
 #First some global functions to set up the game area
-def setup_tiles(players, game_mode, movement_rules, exploration_rules, mythical_city):
-    '''Part of game setup for Cartolan, this places the intital tiles ready for play
-    
-    Arguments:
-    List of Cartolan.Player for the Players involved in the game
-    Cartolan.Game for the game that these tiles are being laid for
-    String giving the movement rules variant that will apply for this game
-    String giving the exploration rules variant that will apply for this game
-    '''
-    
-    game = game_mode(players, movement_rules, exploration_rules)
-#     exec("CityTile" +game_mode+ "(game, True, True).place_tile(0,0)")
-    game.CITY_TYPE(game, WindDirection(True,True), TileEdges(True,True,True,True), True, True).place_tile(0,0)
-#     capital_tile = CityTileBeginner(game, True, True)
-#     capital_tile.place_tile(0,0)
-    
-    #place surrounding water tiles
-#     if len(players) == 2:
-    if True:
-        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, 1) #north
-        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(1, 0) #east
-        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, -1) #south
-        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(-1, 0) #west
-    elif mythical_city and len(players) == 3:
-        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, 1) #north
-        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(1, 0) #east
-        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, -1) #south
-        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(-1, 0) #west
-    elif len(players) == 4 or (not mythical_city and len(players) == 3):
-        Tile(game, "water", WindDirection(False,False), TileEdges(True,True,True,True), False).place_tile(0, 1) #north
-        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(1, 0) #east
-        Tile(game, "water", WindDirection(True,True), TileEdges(True,True,True,True), False).place_tile(0, -1) #south
-        Tile(game, "water", WindDirection(False,False), TileEdges(True,True,True,True), False).place_tile(-1, 0) #west
-
-    game.setup_tile_pile("water")
-    if game_mode in [GameRegular, GameAdvanced]:
-        game.setup_tile_pile("land")
-        if mythical_city:
-            game.tile_piles["land"].tiles.append(game.CITY_TYPE(game, WindDirection(True,True), TileEdges(False,False,False,False), False, True))
-    
-    for pile in game.tile_piles.values():
-        random.shuffle(pile.tiles)
-    
-    print("Placed the Capital tile, and surrounding water tiles")
-    return game
-
-def setup_adventurers(players, game_mode, movement_rules, exploration_rules, mythical_city):
-    '''Part of game setup for Cartolan, this places the intital Adventurer tokens for each player
-    
-    Arguments:
-    List of Cartolan.Player for the Players involved in the game
-    Cartolan.Game for the game that these tiles are being laid for
-    String giving the movement rules variant that will apply for this game
-    String giving the exploration rules variant that will apply for this game
-    '''
-    game = setup_tiles(players, game_mode, movement_rules, exploration_rules, mythical_city)
-    
-    for player in players:
-#         exec("Adventurer" +game_mode+ "(game, player, game.cities[0])") #this should probably work, because it doesn't need to create a local
-        print("adding an adventurer for " +str(player.name)+ ", who already has " +str(len(game.adventurers[player]))+ " adventurers")
-#         AdventurerBeginner(game, player, game.cities[0])
-        game.ADVENTURER_TYPE(game, player, game.cities[0])
-    
-    print("Placed starting adventurer for each player")
-    
-    return game
-
-def setup_simulation(players, game_mode, movement_rules, exploration_rules, mythical_city = True):
-    '''The final part of game setup for Cartolan, this chooses a random play order for the players involved
-    
-    Arguments:
-    List of Cartolan.Player for the Players involved in the game
-    Cartolan.Game for the game that these tiles are being laid for
-    String giving the movement rules variant that will apply for this game
-    String giving the exploration rules variant that will apply for this game
-    '''
-    game = setup_adventurers(players, game_mode, movement_rules, exploration_rules, mythical_city)
-      
-    #turn order has been handled by the parent setup
-#     game.players = random.shuffle(game.players)
-    print("Randomly chose " +str(players[0].name)+ " to start")
-    return game
+def setup_simulation(players, game_mode, movement_rules, exploration_rules, mythical_city=True):
+    '''Deprecated wrapper: use cartolan.core.setup.create_game instead.'''
+    return create_game(game_mode, players, movement_rules, exploration_rules, mythical_city)
 
 
 class InteractiveGame:

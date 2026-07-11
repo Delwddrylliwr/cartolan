@@ -10,6 +10,10 @@ from cartolan.players.base import Player
 from cartolan.editions.beginner import AgentBeginner
 from cartolan.editions.regular import AdventurerRegular, AgentRegular, CityTileRegular
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 class CardAdvanced(Card):
     '''Modifies the rules for objects from other Cartolan classes.
     '''
@@ -43,32 +47,32 @@ class CardAdvanced(Card):
         '''
         if isinstance(target, Token):
             player_name = target.player.name
-            print("Adding card buffs for "+player_name+"...")
+            logger.debug("Adding card buffs for "+player_name+"...")
             for buff_attr in self.buffs:
                 #Check that the token has the attribute associated with the buff
                 current_attr_val = getattr(target, buff_attr, None) 
                 if current_attr_val is not None:
-                    print("For "+player_name+" "+target.__class__.__name__+", adding a buff to their "+buff_attr)
+                    logger.debug("For "+player_name+" "+target.__class__.__name__+", adding a buff to their "+buff_attr)
                     #Apply the buff
                     if self.buffs[buff_attr]["buff_type"] == "boost":
                         setattr(target, buff_attr, self.add(current_attr_val, self.buffs[buff_attr]["buff_val"]))
                     elif self.buffs[buff_attr]["buff_type"] == "new":
                         setattr(target, buff_attr, self.buffs[buff_attr]["buff_val"])
-                    print(player_name+" " +target.__class__.__name__+"'s "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
+                    logger.debug(player_name+" " +target.__class__.__name__+"'s "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
         elif isinstance(target, Player):
             player_name = target.name
-            print("Adding card buffs for "+player_name+"...")
+            logger.debug("Adding card buffs for "+player_name+"...")
             for buff_attr in self.buffs:
                 #Check that the token has the attribute associated with the buff
                 current_attr_val = getattr(self.game, buff_attr, None)
                 #@TODO allow for games sharing all attributes with adventurers and agents...
                 if isinstance(current_attr_val, dict):
                     if current_attr_val[target] is not None:
-                        print("For "+player_name+", adding a buff to their "+buff_attr)
+                        logger.debug("For "+player_name+", adding a buff to their "+buff_attr)
                         #Apply the buff
                         current_attr_val[target] = self.buffs[buff_attr]["buff_val"]
             #                    setattr(self.game, buff_attr, current_attr_val)
-                        print(player_name+"'s "+buff_attr+" now has value "+str(getattr(self.game, buff_attr, None)[target]))
+                        logger.debug(player_name+"'s "+buff_attr+" now has value "+str(getattr(self.game, buff_attr, None)[target]))
         else:
             player_name = "Anonymous"
         
@@ -78,7 +82,7 @@ class CardAdvanced(Card):
         '''
         if isinstance(target, Token):
             player_name = target.player.name
-            print("Removing card buffs for "+player_name+"...")
+            logger.debug("Removing card buffs for "+player_name+"...")
             for buff_attr in self.buffs:
                 #Check that the token has the attribute associated with the buff
                 current_attr_val = getattr(target, buff_attr, None) 
@@ -89,7 +93,7 @@ class CardAdvanced(Card):
                     elif self.buffs[buff_attr]["buff_type"] == "new":
                         #@TODO if a buff has been doubled up then it shouldn't be lost
                         setattr(target, buff_attr, getattr(self.game, buff_attr))
-                    print(player_name+"'s "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
+                    logger.debug(player_name+"'s "+buff_attr+" now has value "+str(getattr(target, buff_attr, None)))
         elif isinstance(target, Player):
             player_name = target.name
         else:
@@ -156,7 +160,7 @@ class AdventurerAdvanced(AdventurerRegular):
     def discover_card(self, card):
         '''Adds a Discovery card to the Adventurer, modifying rules according to the card's buffs
         '''
-        print(self.player.name+"'s Adventurer has received the card of type "+card.card_type)
+        logger.debug(self.player.name+"'s Adventurer has received the card of type "+card.card_type)
         self.discovery_cards.append(card)
         card.apply_buffs(self)
         # Now some ugly fixes where the card buff alone wasn't enough for desired behaviour
@@ -175,7 +179,7 @@ class AdventurerAdvanced(AdventurerRegular):
     def lose_card(self, card):
         '''Removes a discovery card from the Adventurer, modifying rules according to what buffs were previously being provided
         '''
-        print(self.player.name+"'s Adventurer has lost a card of type "+card.card_type)
+        logger.debug(self.player.name+"'s Adventurer has lost a card of type "+card.card_type)
         self.discovery_cards.remove(card)
         card.remove_buffs(self)
         # Now some ugly fixes where the card buff alone wasn't enough for desired behaviour
@@ -256,23 +260,23 @@ class AdventurerAdvanced(AdventurerRegular):
         if self.free_rests > 0:
             self.wealth += scaled_cost
         if super().can_rest(token):
-#            print("Deemed that could rest with Agent")
+#            logger.debug("Deemed that could rest with Agent")
             restable = True
         # can the adventurer rest with an adventurer instead?
         elif (self.rest_with_adventurers
               and isinstance(token, AdventurerAdvanced)
               and token not in self.agents_rested
               and not token == self):
-#            print("Checking if can rest with an Adventurer")
+#            logger.debug("Checking if can rest with an Adventurer")
             if (token.player == self.player
                 or (self.wealth >= scaled_cost
                 and not self.pirate_token)
                 or (self.free_rests > 0
                 and not self.pirate_token)):
-#                print("Deemed that resting with an Adventurer is possible.")
+#                logger.debug("Deemed that resting with an Adventurer is possible.")
                 restable = True
         else:
-#            print("Deemed rest was impossible with "+token.__class__.__name__)
+#            logger.debug("Deemed rest was impossible with "+token.__class__.__name__)
             restable = False
         if self.free_rests > 0:
             self.wealth -= scaled_cost
@@ -300,7 +304,7 @@ class AdventurerAdvanced(AdventurerRegular):
             self.wealth += scaled_cost
         if isinstance(token, AgentAdvanced):
             rested = token.give_rest(self)
-#        print("Make sure that the adventurer is equipped with the right method")
+#        logger.debug("Make sure that the adventurer is equipped with the right method")
         elif self.rest_with_adventurers and not callable(getattr(token, "give_rest", None)):
             token.cost_agent_rest = token.game.cost_agent_rest
 #            token.give_rest = AgentAdvanced.give_rest
@@ -404,17 +408,17 @@ class AdventurerAdvanced(AdventurerRegular):
         super().interact_tokens()
         if self.current_tile.adventurers:
             for adventurer in self.current_tile.adventurers:
-#                print("Checking whether special interactions are possible with "+adventurer.player.name+" player's Adventurer")
+#                logger.debug("Checking whether special interactions are possible with "+adventurer.player.name+" player's Adventurer")
                 if (self.attacks_abandon and adventurer.wealth == 0 #give the option to send the opponent to a city even if they have no wealth 
                     and not self == adventurer):
                     if self.player.check_attack_adventurer(self, adventurer):
                         self.attack(adventurer)
                 if self.rest_with_adventurers and self.can_rest(adventurer):
-#                    print("Checking whether player wants one of the adventurers on the current tile to give rest.")
+#                    logger.debug("Checking whether player wants one of the adventurers on the current tile to give rest.")
                     if self.player.check_rest(self, adventurer):
                         self.rest(adventurer)
         if self.current_tile.agent is not None:
-#            print("Checking whether special interactions are possible with "+self.current_tile.agent.player.name+"'s Agent")
+#            logger.debug("Checking whether special interactions are possible with "+self.current_tile.agent.player.name+"'s Agent")
             agent = self.current_tile.agent
             if (agent.agents_arrest and not agent.is_dispossessed 
                 and self.pirate_token and not agent.player == self.player):
@@ -472,19 +476,19 @@ class AgentAdvanced(AgentRegular):
         if AgentRegular.give_rest(self, adventurer):
             rest_cost = self.game.cost_agent_rest * adventurer.num_characters
             if self.resting_refurnishes and adventurer.pirate_token:
-                print("Agent is refurnishing Adventurer, getting rid of their Pirate token.")
+                logger.debug("Agent is refurnishing Adventurer, getting rid of their Pirate token.")
                 adventurer.pirate_token = False
             if self.transfer_agent_earnings and self.wealth > 0:
-                print("Agent is moving income from providing rest directly to player's Vault")
+                logger.debug("Agent is moving income from providing rest directly to player's Vault")
                 self.game.player_wealths[self.player] += rest_cost
                 self.wealth -= rest_cost
             if adventurer.rechoose_at_agents and adventurer.wealth > self.game.cost_refresh_maps:
-                print("Agent is offering Adventurer the chance to swap all their Chest maps.")
+                logger.debug("Agent is offering Adventurer the chance to swap all their Chest maps.")
                 if adventurer.player.check_buy_maps(adventurer):
                     adventurer.wealth -= self.game.cost_refresh_maps
                     adventurer.rechoose_chest_tiles()
             if adventurer.num_free_rests > 0:
-                print("Agent is refunding Adventurer for free rest perk,")
+                logger.debug("Agent is refunding Adventurer for free rest perk,")
                 adventurer.wealth += rest_cost
                 self.wealth -= rest_cost
                 adventurer.num_free_rests -= 1  #a free rest has been used up
@@ -504,68 +508,19 @@ class AgentAdvanced(AgentRegular):
         #check whether Adventurer trading is from the same player
         elif adventurer.player == self.player:
             if self.transfer_agent_earnings:
-                print("Agent on tile "+str(self.current_tile.tile_position.longitude)+", "+str(self.current_tile.tile_position.latitude)+
+                logger.debug("Agent on tile "+str(self.current_tile.tile_position.longitude)+", "+str(self.current_tile.tile_position.latitude)+
                       " has transferred trade income direct to the bank instead of to the Adventurer")
                 adventurer.wealth -= adventurer.value_trade
                 self.game.player_wealths[adventurer.player] += adventurer.value_trade
         else:
             # retain wealth if they are a different player
-            print("Agent on tile " +str(self.current_tile.tile_position.longitude)+","
+            logger.debug("Agent on tile " +str(self.current_tile.tile_position.longitude)+","
                   +str(self.current_tile.tile_position.longitude)+ " has kept monopoly bonus")
             self.wealth += self.value_agent_trade
         return True
 
 class CityTileAdvanced(CityTileRegular):
-    '''Extends to replenish Chest Tiles, and offer purchase of refreshed chest tiles
-    '''
-    def hire_companion(self, adventurer):
-        '''Extends base hire to also draw a character card for the new Companion.
-        '''
-        companions_before = adventurer.num_companions
-        super().hire_companion(adventurer)
-        for _ in range(adventurer.num_companions - companions_before):
-            adventurer.add_companion_card()
-        return adventurer.num_companions > companions_before
-
-    def offer_purchases(self, adventurer):
-       '''Extends to allow rule changes from cards
-       '''
-       self.buy_adventurers(adventurer)
-       self.hire_companion(adventurer)
-       if adventurer.game.agents_from_city:
-           self.buy_agents(adventurer)
-       self.buy_manuscripts(adventurer)
-       self.buy_maps(adventurer)
-
-    def buy_manuscripts(self, adventurer):
-        '''Offers the visiting Adventurer the chance to upgrade themselves.
-
-        Args:
-            adventurer: the visiting adventurer
-        '''
-        print(
-            "Offering " + adventurer.player.name + "'s adventurer the chance to upgrade the Adventurer with a Discovery/Manuscript card")
-        while (self.game.discovery_cards
-               and adventurer.game.player_wealths[adventurer.player] >= self.game.cost_tech
-               and adventurer.player.check_buy_tech(adventurer)):
-            print(adventurer.player.name + "'s has chosen to buy a Manuscript card")
-            if adventurer._offer_manuscript_choice():
-                adventurer.game.player_wealths[adventurer.player] -= self.game.cost_tech
-
-    def buy_maps(self, adventurer):
-        '''Extends the parent with the potential for a free refresh of maps.
-
-        Args:
-            adventurer: the visiting Adventurer
-        '''
-        # If they have the perk, let them have one swap of maps for free
-        if adventurer.rechoose_at_agents:
-            cost_refresh_maps = self.game.cost_refresh_maps
-            self.game.cost_refresh_maps = 0
-            if adventurer.player.check_buy_maps(adventurer):
-                adventurer.rechoose_chest_tiles()
-            self.game.cost_refresh_maps = cost_refresh_maps
-        super().buy_maps(adventurer)
+    '''City tile for Advanced mode: behaviour lives on GameAdvanced.'''
 
 
 class CapitalTileAdvanced(CityTileAdvanced):

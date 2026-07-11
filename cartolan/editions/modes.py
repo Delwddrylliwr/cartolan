@@ -14,6 +14,10 @@ import csv
 #bring in all the constants from the config file
 from cartolan.rules.game_config import BeginnerConfig, RegularConfig, AdvancedConfig
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 class GameBeginner(Game):
     '''Executes the sequence of play for the Beginner mode of the board game Cartolan - Trade Winds
     
@@ -139,7 +143,7 @@ class GameBeginner(Game):
         
         tile_pile.shuffle_tiles()
         
-        print("Built a " +tile_back+ " tile pile with " +str(len(self.tile_piles[tile_back].tiles))+ " tiles, and shuffled it")
+        logger.debug("Built a " +tile_back+ " tile pile with " +str(len(self.tile_piles[tile_back].tiles))+ " tiles, and shuffled it")
     
     def start_game(self):
         '''Begins the sequence of play, under the assumption that the play area has been set up'''
@@ -166,32 +170,31 @@ class GameBeginner(Game):
             self.tile_piles[tile_pile.tile_back] = discard_pile
             tile_pile = self.tile_piles[tile_pile.tile_back]
             discard_pile.shuffle_tiles()
-            print("Have replaced the main tile pile with the discard pile, and shuffled it,"
+            logger.debug("Have replaced the main tile pile with the discard pile, and shuffled it,"
                   +" so that now there are " +str(len(self.tile_piles))+ " tile piles.")
             #Start a new discard pile
             self.discard_piles.pop(discard_pile.tile_back)
             self.discard_piles[discard_pile.tile_back] = TilePile(discard_pile.tile_back, [])
 #             self.discard_piles["water"] = TilePile("water",[])
             discard_pile = self.discard_piles[discard_pile.tile_back]
-            print("Have started a new discard pile, so that now there are "
+            logger.debug("Have started a new discard pile, so that now there are "
                  + str(len(self.discard_piles))+ " discard piles.")
             return True
         else:
-            self.game_over = self.check_win_conditions() #try and exit here if so
-            return False
+            return False #both piles are exhausted; the game loop's win check will end the game
     
     def play_round(self):
         '''Carries out the sequence of play for one round of the game'''
-        print("playing round "+str(self.turn)+" with a wealth difference of " +str(self.wealth_difference) 
+        logger.debug("playing round "+str(self.turn)+" with a wealth difference of " +str(self.wealth_difference) 
              +" and a max wealth of " +str(self.max_wealth))
         for player in self.players:
             #some logging
-            print(str(player.name)+ " player's turn, with " +str(len(self.adventurers[player])) 
+            logger.debug(str(player.name)+ " player's turn, with " +str(len(self.adventurers[player])) 
                   +" Adventurers, and " +str(self.player_wealths[player])+ " wealth in the Vault")
 #             if not player.adventurers[0] is None:
 #                 adventurer = player.adventurers[0]
 #                 adventurer_tile = adventurer.current_tile
-#                 print("And their first Adventurer has " +str(adventurer.wealth)+ " wealth, and is on the " +adventurer_tile.tile_back+  " tile at position " +str(adventurer_tile.tile_position.latitude)+ "," +str(adventurer_tile.tile_position.longitude))
+#                 logger.debug("And their first Adventurer has " +str(adventurer.wealth)+ " wealth, and is on the " +adventurer_tile.tile_back+  " tile at position " +str(adventurer_tile.tile_position.latitude)+ "," +str(adventurer_tile.tile_position.longitude))
             
             # a more sophisticated simulation might need to let players choose their Adventurers' turn order first
             
@@ -200,7 +203,7 @@ class GameBeginner(Game):
                 if adventurer.turns_moved < self.turn:
                     adventurer.turn_route = [adventurer.current_tile]
                     player.continue_turn(adventurer)
-                    print() #to help log readability
+                    logger.debug("") #to help log readability
                     
                     #check whether this adventurer's turn has won them the game
                     if self.check_win_conditions():
@@ -210,10 +213,152 @@ class GameBeginner(Game):
         for tile_back in self.tile_piles.keys():
             tile_pile = self.tile_piles[tile_back]
             discard_pile = self.discard_piles[tile_back]
-            print(str(len(tile_pile.tiles))+" "+tile_back+" tiles left in the main pile and " +str(len(discard_pile.tiles))+" left in the discard pile")
-            print() #to help log readability
+            logger.debug(str(len(tile_pile.tiles))+" "+tile_back+" tiles left in the main pile and " +str(len(discard_pile.tiles))+" left in the discard pile")
+            logger.debug("") #to help log readability
             
     
+    def run_city_visit(self, adventurer, city, abandoned=False):
+        '''Initiates all the possible actions when a city is visited
+
+        Arguments:
+        Cartolan.Adventurer the Adventurer arriving on the City tile
+        Cartolan.CityTile the city being visited
+        Boolean abandoned prevents hiring option if the Adventurer has aborted their expedition, making it harder to replace opponents' Agents.
+        '''
+        #record that this is the latest city visited
+        adventurer.latest_city = city
+
+        self.bank_wealth(adventurer)
+
+        if self.winning_condition() is None and not abandoned:
+            self.offer_purchases(adventurer, city)
+
+        #End the Adventurer's turn and reset their moves
+        adventurer.end_turn()
+
+        return True
+
+    def bank_wealth(self, adventurer):
+        '''Offers a player to move wealth from their Adventurer's Chest into their Vault
+
+        Arguments:
+        Cartolan.Adventurer the Adventurer that has arrived at the City
+        '''
+        #check whether and how much the player wants to bank
+        wealth_to_bank = adventurer.player.check_deposit(adventurer, adventurer.wealth, self.player_wealths[adventurer.player])
+        #record the decision about how much wealth will be banked
+        adventurer.banked = wealth_to_bank
+
+        #check if wealth is available and move it from the adventurer's Chest to their Vault
+        if adventurer.wealth >= wealth_to_bank:
+            adventurer.wealth -= wealth_to_bank
+            self.player_wealths[adventurer.player] += wealth_to_bank
+            logger.debug(adventurer.player.name+ " has banked " +str(wealth_to_bank)+ " in their Vault")
+            return True
+        else:
+            return False
+
+    def buy_adventurers(self, adventurer, city):
+        '''Offers the Player of an Adventurer arriving at the City Tile to buy another Adventurer
+
+        Arguments:
+        Cartolan.Adventurer the Adventurer arriving at the City
+        Cartolan.CityTile the city where the new Adventurer would be placed
+        '''
+        #record the decision to buy an adventurer this turn
+        adventurer.bought_adventurer += 1
+
+        #keep checking whether the player has enough wealth and wants to buy another adventurer until they refuse
+        while (len(self.adventurers[adventurer.player]) < self.MAX_ADVENTURERS
+                and self.player_wealths[adventurer.player] >= adventurer.cost_adventurer):
+            if adventurer.player.check_buy_adventurer(adventurer):
+                #take payment of wealth from their Vault
+                self.player_wealths[adventurer.player] -= adventurer.cost_adventurer
+                #place another Adventurer for this Player on the City tile
+                new_adventurer = self.ADVENTURER_TYPE(self, adventurer.player, city)
+                city.move_onto_tile(new_adventurer)
+                new_adventurer.turns_moved = self.turn # This new Adventurer will play from the next turn
+                logger.debug(adventurer.player.name+ " has bought an adventurer from the city at "
+                      +str(city.tile_position.longitude)+","+str(city.tile_position.latitude))
+            else:
+                return False
+        return True
+
+    def buy_agents(self, adventurer, city):
+        '''Offers the Player of an Adventurer arriving at the City Tile to buy another Agent and place it on any unclaimed tile
+
+        Arguments:
+        Cartolan.Adventurer the Adventurer arriving at the City, if None, then the Player will no longer be prompted
+        Cartolan.CityTile the city selling the agent
+        '''
+        #Record the decision to buy an agent this move
+        adventurer.bought_agent += 1
+
+        #keep checking whether the player can afford another Adventurer and wants one until they refuse
+        while self.player_wealths[adventurer.player] >= adventurer.cost_agent_from_city:
+            tile = adventurer.player.check_buy_agent(adventurer, report="Do you want to place an agent, and where?")
+            if not tile:
+                return False
+
+            #check whether the tile already has an active Agent
+            if not adventurer.check_tile_available(tile):
+                continue
+            else:
+                #pick up an existing Agent from its tile if there are no other agents available
+                #otherwise get a new agent
+                if len(self.agents[adventurer.player]) >= self.MAX_AGENTS:
+                    agent = adventurer.player.check_move_agent(adventurer)
+                    if not agent is None:
+                        logger.debug(adventurer.player.name+ " is recalling their agent from the tile at "
+                          +str(agent.current_tile.tile_position.longitude)
+                              +","+str(agent.current_tile.tile_position.latitude))
+                        agent.current_tile.move_off_tile(agent)
+                        #place the Agent on that tile
+                        tile.move_onto_tile(agent)
+                    else:
+                        logger.debug(adventurer.player.name+ " did not want to move any existing Agents, so moving on.")
+                        return False
+                else:
+                    agent = self.AGENT_TYPE(self, adventurer.player, tile)
+
+                #take payment from the Player's Vault
+                self.player_wealths[adventurer.player] -= adventurer.cost_agent_from_city
+                logger.debug(adventurer.player.name+ " has hired an agent from the city at "
+                  +str(city.tile_position.longitude)+","+str(city.tile_position.latitude)
+                     +" and sent them to the tile at "
+                     +str(tile.tile_position.longitude)+","+str(tile.tile_position.latitude))
+        return True
+
+    def hire_companion(self, adventurer):
+        '''Offers the visiting Adventurer the chance to hire a Companion, scaling future trade and rest costs.
+
+        Args:
+            adventurer: the visiting Adventurer
+        '''
+        while (adventurer.num_companions < adventurer.max_companions
+               and self.player_wealths[adventurer.player] >= adventurer.cost_companion):
+            if adventurer.player.check_hire_companion(adventurer):
+                self.player_wealths[adventurer.player] -= adventurer.cost_companion
+                adventurer.num_companions += 1
+                logger.debug(adventurer.player.name + " hired a Companion (now "
+                      + str(adventurer.num_companions) + " companions, "
+                      + str(adventurer.num_characters) + " characters total)")
+            else:
+                return False
+        return True
+
+    def offer_purchases(self, adventurer, city):
+        '''Manages the sequence of purchasing options for players when their Adventurer reaches a city.
+
+        Args:
+            adventurer: the visiting Adventurer
+            city: the city being visited
+        '''
+        self.buy_adventurers(adventurer, city)
+        if self.agents_from_city:
+            self.buy_agents(adventurer, city)
+        self.hire_companion(adventurer)
+
     def update_standings(self):
         '''Recomputes max_wealth, wealth_difference, and totals from current vault wealth.
 
@@ -236,39 +381,48 @@ class GameBeginner(Game):
             elif self.max_wealth - self.player_wealths[player] < self.wealth_difference:
                 self.wealth_difference = self.max_wealth - self.player_wealths[player]
 
-    def check_win_conditions(self):
-        '''Checks whether the win conditions have been satisfied so that the game should end'''
+    def winning_condition(self):
+        '''Checks whether any win condition is currently satisfied, without changing game state.
+
+        Returns the win type string, or None. Callers that need to end the game must go
+        through check_win_conditions, which only the game loop should invoke.
+        '''
         self.update_standings()
-        
+
         if self.game_winning_vault is not None and self.max_wealth >= self.game_winning_vault:
-            print("won by reaching vault threshold")
-            self.win_type = "vault threshold"
-            self.game_over = True
-            return True
+            return "vault threshold"
 
         if self.game_winning_difference is not None and self.wealth_difference > self.game_winning_difference:
-            print("won by wealth difference")
-            self.win_type = "wealth difference"
-            self.game_over = True
-            return True
+            return "wealth difference"
 
         for tile_pile in self.tile_piles.values():
             if not tile_pile.tiles and not self.discard_piles[tile_pile.tile_back].tiles:
-                print("won by running out of tiles")
                 if self.winning_player:
-                    self.win_type = "exhausted " +tile_pile.tile_back+ " tiles"
-                else:
-                    self.win_type = "tiles exhausted but no player banked wealth"
-                    max_chest_wealth = 0
-                    for player in self.players:
-                        for adventurer in self.adventurers[player]:
-                            if adventurer.wealth > max_chest_wealth:
-                                self.winning_player = player
-                                max_chest_wealth = adventurer.wealth
-                self.game_over = True
-                return True
-        
-        return False
+                    return "exhausted " +tile_pile.tile_back+ " tiles"
+                return "tiles exhausted but no player banked wealth"
+
+        return None
+
+    def check_win_conditions(self):
+        '''Applies any satisfied win condition, ending the game.
+
+        The game loop (play_round) is the only authority that ends the game; game logic
+        elsewhere may query winning_condition but must not end the game itself.
+        '''
+        win_type = self.winning_condition()
+        if win_type is None:
+            return False
+        logger.debug("won by " + win_type)
+        self.win_type = win_type
+        if win_type == "tiles exhausted but no player banked wealth":
+            max_chest_wealth = 0
+            for player in self.players:
+                for adventurer in self.adventurers[player]:
+                    if adventurer.wealth > max_chest_wealth:
+                        self.winning_player = player
+                        max_chest_wealth = adventurer.wealth
+        self.game_over = True
+        return True
 
     def to_json(self):
         play_area = {}
@@ -338,12 +492,49 @@ class GameRegular(GameBeginner):
         self.dropped_wealth = 0
         self.disaster_tiles = []
     
-    def check_win_conditions(self):
+    def run_city_visit(self, adventurer, city, abandoned=False):
+        '''Extends to redeem pirates, replenish Chest Tiles, and offer purchase of refreshed chest tiles
+        '''
+        #Cities provide the Adventurer with civilised clothes so they can be redeemed from piracy
+        if adventurer.pirate_token:
+            adventurer.pirate_token = False
+
+        #Top up any missing chest tiles from the bags
+        adventurer.replenish_chest_tiles()
+
+        return super().run_city_visit(adventurer, city, abandoned)
+
+    def buy_maps(self, adventurer):
+        '''Lets the Adventurer choose to refresh all their Chest maps.
+
+        Args:
+            adventurer: the visiting Adventurer
+        '''
+        # Offer the chance to pay and completely swap out chest tiles
+        while (self.player_wealths[adventurer.player] >= self.cost_refresh_maps
+               and adventurer.player.check_buy_maps(adventurer)):
+            self.player_wealths[adventurer.player] -= self.cost_refresh_maps
+            adventurer.rechoose_chest_tiles()
+
+    def offer_purchases(self, adventurer, city):
+        '''Manages the sequence of purchasing options for players when their Adventurer reaches a city.
+
+        Args:
+            adventurer: the visiting Adventurer
+            city: the city being visited
+        '''
+        self.buy_adventurers(adventurer, city)
+        self.hire_companion(adventurer)
+        if self.agents_from_city:
+            self.buy_agents(adventurer, city)
+        self.buy_maps(adventurer)
+
+    def winning_condition(self):
         self.dropped_wealth = 0
         for tile in self.disaster_tiles:
             self.dropped_wealth += tile.dropped_wealth
 
-        return super().check_win_conditions()
+        return super().winning_condition()
 
     def to_json(self):
         d = super().to_json()
@@ -415,14 +606,63 @@ class GameAdvanced(GameRegular):
         
         super().__init__(players, movement_rules='initial', exploration_rules='continuous')
         
+    def hire_companion(self, adventurer):
+        '''Extends base hire to also draw a character card for the new Companion.
+        '''
+        companions_before = adventurer.num_companions
+        super().hire_companion(adventurer)
+        for _ in range(adventurer.num_companions - companions_before):
+            adventurer.add_companion_card()
+        return adventurer.num_companions > companions_before
+
+    def buy_manuscripts(self, adventurer):
+        '''Offers the visiting Adventurer the chance to upgrade themselves.
+
+        Args:
+            adventurer: the visiting adventurer
+        '''
+        logger.debug(
+            "Offering " + adventurer.player.name + "'s adventurer the chance to upgrade the Adventurer with a Discovery/Manuscript card")
+        while (self.discovery_cards
+               and self.player_wealths[adventurer.player] >= self.cost_tech
+               and adventurer.player.check_buy_tech(adventurer)):
+            logger.debug(adventurer.player.name + "'s has chosen to buy a Manuscript card")
+            if adventurer._offer_manuscript_choice():
+                self.player_wealths[adventurer.player] -= self.cost_tech
+
+    def buy_maps(self, adventurer):
+        '''Extends the parent with the potential for a free refresh of maps.
+
+        Args:
+            adventurer: the visiting Adventurer
+        '''
+        # If they have the perk, let them have one swap of maps for free
+        if adventurer.rechoose_at_agents:
+            cost_refresh_maps = self.cost_refresh_maps
+            self.cost_refresh_maps = 0
+            if adventurer.player.check_buy_maps(adventurer):
+                adventurer.rechoose_chest_tiles()
+            self.cost_refresh_maps = cost_refresh_maps
+        super().buy_maps(adventurer)
+
+    def offer_purchases(self, adventurer, city):
+        '''Extends to allow rule changes from cards
+        '''
+        self.buy_adventurers(adventurer, city)
+        self.hire_companion(adventurer)
+        if self.agents_from_city:
+            self.buy_agents(adventurer, city)
+        self.buy_manuscripts(adventurer)
+        self.buy_maps(adventurer)
+
     def choose_cadre(self, player):
         '''Lets the player choose a character card from a random subset
         '''
         cadre_cards = self.cadre_cards
         card_options = random.sample(cadre_cards, k=self.num_cadre_choices)
-        print("Offering a selection of Cadre cards:")
+        logger.debug("Offering a selection of Cadre cards:")
         for card in card_options:
-            print(card.card_type)
+            logger.debug(card.card_type)
         self.assigned_cadres[player] = player.choose_card(self.adventurers[player][0], card_options)
         cadre_cards.remove(self.assigned_cadres[player])
         #Take on the changes to rules based on the Character card

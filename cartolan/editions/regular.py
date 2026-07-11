@@ -7,6 +7,10 @@ from cartolan.core.tokens import Token, Adventurer, Agent
 from cartolan.core.tiles import Tile, WindDirection, TileEdges, CityTile
 from cartolan.editions.beginner import AdventurerBeginner, AgentBeginner, CityTileBeginner
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class AdventurerRegular(AdventurerBeginner):
     '''An extension to the AdventurerBeginner class that introduces extra behaviours available in Regular mode Cartolan
@@ -54,11 +58,11 @@ class AdventurerRegular(AdventurerBeginner):
         '''
         if self.current_tile.compass_edge_water(compass_point):
             tile_pile = self.game.tile_piles["water"]
-            print("Identified the " +tile_pile.tile_back+ " tile pile, which still has " +str(len(tile_pile.tiles)) +" tiles")
+            logger.debug("Identified the " +tile_pile.tile_back+ " tile pile, which still has " +str(len(tile_pile.tiles)) +" tiles")
             return tile_pile
         else:
             tile_pile = self.game.tile_piles["land"]
-            print("Identified the " +tile_pile.tile_back+ " tile pile, which still has " +str(len(tile_pile.tiles)) +" tiles")
+            logger.debug("Identified the " +tile_pile.tile_back+ " tile pile, which still has " +str(len(tile_pile.tiles)) +" tiles")
             return tile_pile
     
     def choose_discard_pile(self, compass_point):
@@ -66,11 +70,11 @@ class AdventurerRegular(AdventurerBeginner):
         '''
         if self.current_tile.compass_edge_water(compass_point):
             discard_pile = self.game.discard_piles["water"]
-            print("Identified the " +discard_pile.tile_back+ " discard pile, which still has " +str(len(discard_pile.tiles)) +" tiles")
+            logger.debug("Identified the " +discard_pile.tile_back+ " discard pile, which still has " +str(len(discard_pile.tiles)) +" tiles")
             return discard_pile
         else:
             discard_pile = self.game.discard_piles["land"]
-            print("Identified the " +discard_pile.tile_back+ " discard pile, which still has " +str(len(discard_pile.tiles)) +" tiles")
+            logger.debug("Identified the " +discard_pile.tile_back+ " discard pile, which still has " +str(len(discard_pile.tiles)) +" tiles")
             return discard_pile
     
     def choose_tiles(self, num_tiles):
@@ -114,7 +118,7 @@ class AdventurerRegular(AdventurerBeginner):
         
         # check that instruction is valid: a direction provided or an explicit general check through a None
         if compass_point is None:
-            print("Adventurer is checking whether any movement at all is possible")
+            logger.debug("Adventurer is checking whether any movement at all is possible")
             if ((self.game.movement_rules == "initial" or self.game.movement_rules == "budgetted")
                 and self.max_downwind_moves <= self.land_moves + self.downwind_moves + self.upwind_moves):
                 return False
@@ -126,12 +130,12 @@ class AdventurerRegular(AdventurerBeginner):
             raise Exception("invalid direction given for movement")
         
         # check whether move is possible over the edge
-#        print("Adventurer is checking whether movement is possible over the " +compass_point
+#        logger.debug("Adventurer is checking whether movement is possible over the " +compass_point
 #              + " edge from their tile at " +str(self.current_tile.tile_position.longitude)+ "," 
 #              + str(self.current_tile.tile_position.latitude))
         if self.game.movement_rules == "initial": #this version 1 of movement allows land and upwind movement only initially after resting
             moves_since_rest = self.land_moves + self.downwind_moves + self.upwind_moves
-#            print("Adventurer has determined that they have moved " +str(moves_since_rest)+ " times since resting")
+#            logger.debug("Adventurer has determined that they have moved " +str(moves_since_rest)+ " times since resting")
             if not self.current_tile.compass_edge_water(compass_point): #land movement needed
                 if(moves_since_rest < self.max_land_moves 
                    or (self.wealth == 0 and moves_since_rest < self.max_land_moves_unburdened)):
@@ -151,7 +155,7 @@ class AdventurerRegular(AdventurerBeginner):
                         return False
                 else: return False
         elif self.game.movement_rules == "budgetted": #this version 2 of movement allows land and upwind movement any time, but a limited number before resting
-            print("Adventurer has moved " +str(self.upwind_moves)+ " times upwind, " +str(self.land_moves)+ " times overland, and " +str(self.downwind_moves)+ " times downwind, since resting")
+            logger.debug("Adventurer has moved " +str(self.upwind_moves)+ " times upwind, " +str(self.land_moves)+ " times overland, and " +str(self.downwind_moves)+ " times downwind, since resting")
             if not self.current_tile.compass_edge_water(compass_point): #land movement needed
                 if(self.land_moves < self.max_land_moves
                    or (self.wealth == 0 and self.land_moves < self.max_land_moves_unburdened)
@@ -348,7 +352,7 @@ class AdventurerRegular(AdventurerBeginner):
             else: # rob them
                 self.pirate_token = True #just trying will make them a pirate
                 if success:
-                    print(self.player.name+" successfully attacked "+token.player.name+"'s Adventurer.")
+                    logger.debug(self.player.name+" successfully attacked "+token.player.name+"'s Adventurer.")
                     default_steal = adventurer.wealth//2 + adventurer.wealth%2
                     chosen_steal = None
                     while not chosen_steal in range(0, adventurer.wealth + 1):
@@ -368,7 +372,7 @@ class AdventurerRegular(AdventurerBeginner):
             if not token.is_dispossessed:
                 self.pirate_token = True #just trying will make them a pirate
                 if success:
-                    print(self.player.name+" successfully attacked "+token.player.name+"'s Agent.")
+                    logger.debug(self.player.name+" successfully attacked "+token.player.name+"'s Agent.")
                     agent = token
                     self.wealth += agent.wealth + self.value_dispossess_agent
                     agent.is_dispossessed = True
@@ -385,7 +389,7 @@ class AdventurerRegular(AdventurerBeginner):
     def arrest(self, pirate):
         '''Sends pirates back to their last city and claims a reward.
         '''
-        print(self.player.name+" successfully arrested "+pirate.player.name+"'s Adventurer.")
+        logger.debug(self.player.name+" successfully arrested "+pirate.player.name+"'s Adventurer.")
         self.wealth += self.value_arrest # get a reward
         pirate.end_expedition()
     
@@ -419,7 +423,7 @@ class AdventurerRegular(AdventurerBeginner):
         
         if agent.is_dispossessed:
             if self.cost_agent_restore <= self.wealth:
-                print("Paying " +str(self.cost_agent_restore)+ " to restore " 
+                logger.debug("Paying " +str(self.cost_agent_restore)+ " to restore " 
                       +agent.player.name+"'s Agent at position " 
                       +str(agent.current_tile.tile_position.longitude)
                      +","+ str(agent.current_tile.tile_position.latitude))
@@ -429,10 +433,10 @@ class AdventurerRegular(AdventurerBeginner):
                 self.agents_rested.append(agent)
                 return True
             else:
-                print("Cannot afford to restore an agent")
+                logger.debug("Cannot afford to restore an agent")
                 return False
         else:
-            print("Didn't need to restore this Agent")
+            logger.debug("Didn't need to restore this Agent")
             return False
 
     def to_json(self):
@@ -448,55 +452,7 @@ class AdventurerRegular(AdventurerBeginner):
 
 
 class CityTileRegular(CityTileBeginner):
-    '''Extends the CityTileBeginner class to redeem Adventurers from piracy and to replenish Chest Tiles, and offer purchase of refreshed chest tiles
-    '''
-    
-    # def move_onto_tile(self, adventurer):
-    #     '''Extends CityTileBeginer to replenish chest tiles whenever an Adventurer returns to a city.
-    #     '''
-    #     #Top up any missing chest tiles from the bags
-    #     adventurer.replenish_chest_tiles()
-    #     super().move_onto_tile(adventurer)
-        
-        
-    def visit_city(self, adventurer, abandoned=False):
-        '''Extends to redeem pirates, replenish Chest Tiles, and offer purchase of refreshed chest tiles
-        '''
-        #Cities provide the Adventurer with civilised clothes so they can be redeemed from piracy
-        if adventurer.pirate_token:
-            adventurer.pirate_token = False
-
-        #Top up any missing chest tiles from the bags
-        adventurer.replenish_chest_tiles()
-
-        super().visit_city(adventurer, abandoned)
-        
-        if self.game.game_over or abandoned:
-            return
-
-    def buy_maps(self, adventurer):
-        '''Lets the Adventurer choose to refrtesh all their Chest maps.
-
-        Args:
-            adventurer: the visiting Adventurer
-        '''
-        # Offer the chance to pay and completely swap out chest tiles
-        while (adventurer.game.player_wealths[adventurer.player] >= self.game.cost_refresh_maps
-               and adventurer.player.check_buy_maps(adventurer)):
-            adventurer.game.player_wealths[adventurer.player] -= self.game.cost_refresh_maps
-            adventurer.rechoose_chest_tiles()
-
-    def offer_purchases(self, adventurer):
-        '''Manages the sequence of purchasing options for players when their Adventurer reaches a city.
-
-        Args:
-            adventurer: the visiting Adventurer
-        '''
-        self.buy_adventurers(adventurer)
-        self.hire_companion(adventurer)
-        if adventurer.game.agents_from_city:
-            self.buy_agents(adventurer)
-        self.buy_maps(adventurer)
+    '''City tile for Regular mode: behaviour lives on GameRegular.'''
 
 class AgentRegular(AgentBeginner):
     '''Extends the AgentBeginner class to keep track of information relevant in the Regular mode of Cartolan'''
@@ -550,16 +506,16 @@ class DisasterTile(Tile):
                     token.pirate_token = True
                 # check if the Adventurer has a Pirate token
                 if token.pirate_token:
-                    print("Pirate moves onto disaster tile")
+                    logger.debug("Pirate moves onto disaster tile")
                     super().move_onto_tile(token)
 #                    if token.player.check_court_disaster(token, self): # get player input on whether to attack the disaster
 #                        self.attack_adventurer(token)
                 else: # otherwise send the Adventurer to the capital and keep their wealth and end their turn
-                    print("Adventurer moved onto disaster tile. Dropping wealth and returning to last city visited.")
+                    logger.debug("Adventurer moved onto disaster tile. Dropping wealth and returning to last city visited.")
                     self.dropped_wealth += token.wealth
                     token.end_expedition()
             elif isinstance(token, Agent):
-                print("Tried to add Agent to a disaster tile")
+                logger.debug("Tried to add Agent to a disaster tile")
                 return False
         else: raise Exception("Tried to move something other than a token onto a tile")
 

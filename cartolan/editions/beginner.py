@@ -5,6 +5,10 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 from cartolan.core.tokens import Adventurer, Agent
 from cartolan.core.tiles import CityTile, Tile, WindDirection, TileEdges
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 class AdventurerBeginner(Adventurer):
     '''Representing an Adventurer token with the movement and action possibilities from Beginner mode of Cartolan
     
@@ -28,7 +32,7 @@ class AdventurerBeginner(Adventurer):
     def __init__(self, game, player, starting_city):
         super().__init__(game, player, starting_city)
         
-        print("adding an adventurer for " +str(player.name))
+        logger.debug("adding an adventurer for " +str(player.name))
         
         #Mirror game variables, mostly in anticipation of Advanced mode and modifying these
         self.max_exploration_attempts = game.max_exploration_attempts
@@ -108,7 +112,7 @@ class AdventurerBeginner(Adventurer):
         
         # check that instruction is valid: a direction provided or an explicit general check through a None
         if compass_point is None:
-            print("Adventurer is checking whether any movement at all is possible")
+            logger.debug("Adventurer is checking whether any movement at all is possible")
             if ((self.game.movement_rules == "initial" or self.game.movement_rules == "budgetted")
                 and self.max_downwind_moves <= self.land_moves + self.downwind_moves + self.upwind_moves):
                 return False
@@ -120,12 +124,12 @@ class AdventurerBeginner(Adventurer):
             raise Exception("invalid direction given for movement")
         
         # check whether move is possible over the edge
-#        print("Adventurer is checking whether movement is possible over the " +compass_point
+#        logger.debug("Adventurer is checking whether movement is possible over the " +compass_point
 #              + " edge from their tile at " +str(self.current_tile.tile_position.longitude)+ "," 
 #              + str(self.current_tile.tile_position.latitude))
         if self.game.movement_rules == "initial": #this version 1 of movement allows land and upwind movement only initially after resting
             moves_since_rest = self.land_moves + self.downwind_moves + self.upwind_moves
-#            print("Adventurer has determined that they have moved " +str(moves_since_rest)+ " times since resting")
+#            logger.debug("Adventurer has determined that they have moved " +str(moves_since_rest)+ " times since resting")
             if not self.current_tile.compass_edge_water(compass_point): #land movement needed
                 if moves_since_rest < self.max_land_moves:
                     return True
@@ -143,7 +147,7 @@ class AdventurerBeginner(Adventurer):
                         return False
                 else: return False
         elif self.game.movement_rules == "budgetted": #this version 2 of movement allows land and upwind movement any time, but a limited number before resting
-            print("Adventurer has moved " +str(self.upwind_moves)+ " times upwind, " +str(self.land_moves)+ " times overland, and " +str(self.downwind_moves)+ " times downwind, since resting")
+            logger.debug("Adventurer has moved " +str(self.upwind_moves)+ " times upwind, " +str(self.land_moves)+ " times overland, and " +str(self.downwind_moves)+ " times downwind, since resting")
             if not self.current_tile.compass_edge_water(compass_point): #land movement needed
                 if self.land_moves < self.max_land_moves and self.upwind_moves == 0:
                     return True
@@ -175,13 +179,13 @@ class AdventurerBeginner(Adventurer):
     def choose_pile(self, compass_point):
         ''' establish which pile to draw from - always the water tile in beginner mode'''
         tile_pile = self.game.tile_piles["water"]
-        print("Identifying the " +tile_pile.tile_back+ " tile pile, which still has " +str(len(tile_pile.tiles)) +" tiles")
+        logger.debug("Identifying the " +tile_pile.tile_back+ " tile pile, which still has " +str(len(tile_pile.tiles)) +" tiles")
         return tile_pile
     
     def choose_discard_pile(self, compass_point):
         ''' establish which pile to draw from - always the water tile in beginner mode'''
         discard_pile = self.game.discard_piles["water"]
-        print("Identifying the " +discard_pile.tile_back+ " discard pile, which still has " +str(len(discard_pile.tiles)) +" tiles")
+        logger.debug("Identifying the " +discard_pile.tile_back+ " discard pile, which still has " +str(len(discard_pile.tiles)) +" tiles")
         return discard_pile 
     
     def interact_tokens(self):
@@ -252,13 +256,13 @@ class AdventurerBeginner(Adventurer):
         if self.can_move(compass_point):
             #include this in the number of moves so far since resting - even if exploration subsequently fails
             if not self.current_tile.compass_edge_water(compass_point): #land movement
-                print("Making a land move, with existing treasure "+str(self.wealth))
+                logger.debug("Making a land move, with existing treasure "+str(self.wealth))
                 self.land_moves += 1
             elif self.current_tile.compass_edge_downwind(compass_point): #downwind movement possible
-                print("Making a downwind water move, with existing treasure "+str(self.wealth))
+                logger.debug("Making a downwind water move, with existing treasure "+str(self.wealth))
                 self.downwind_moves += 1
             else: #if not land or downwind, then movement must have been upwind
-                print("Making an upwind water move, with existing treasure "+str(self.wealth))
+                logger.debug("Making an upwind water move, with existing treasure "+str(self.wealth))
                 self.upwind_moves += 1
             
             #locate the space in the play area that the Adventurer is moving into
@@ -282,7 +286,7 @@ class AdventurerBeginner(Adventurer):
                     self.discover(self.current_tile)
                     moved = True 
                 else:
-                    print("Exploration failed, but offering Adventurer available actions on original tile")
+                    logger.debug("Exploration failed, but offering Adventurer available actions on original tile")
                     if not isinstance(self.current_tile, CityTile): 
                         self.interact_tile()
                         self.interact_tokens()
@@ -302,7 +306,7 @@ class AdventurerBeginner(Adventurer):
         
         #check whether any more moves will be possible
         if not self.can_move(None):
-            print("Adventurer determined that cannot move any more, so finishing turn, with Chest treasure "+str(self.wealth)+", and Vault treasure "+str(self.game.player_wealths[self.player]))
+            logger.debug("Adventurer determined that cannot move any more, so finishing turn, with Chest treasure "+str(self.wealth)+", and Vault treasure "+str(self.game.player_wealths[self.player]))
             self.end_turn()
         
         return moved #even if exlploration fails this still counts as a move
@@ -310,7 +314,7 @@ class AdventurerBeginner(Adventurer):
     
     def wait(self):
         '''Allows the Adventurer to just wait in place rather than moving, to end a turn early'''
-        print("Adventurer is choosing to wait in place, with treasure "+str(self.wealth))
+        logger.debug("Adventurer is choosing to wait in place, with treasure "+str(self.wealth))
         #Reset records of actions taken from previous move, and record that this was a choice to wait in place
         self.moved = "wait"
         self.traded = False
@@ -337,7 +341,7 @@ class AdventurerBeginner(Adventurer):
             self.interact_tokens()
         
         if not self.can_move(None):
-            print("Adventurer determined that cannot move any more, so finishing turn, with Chest treasure "+str(self.wealth)+", and Vault treasure "+str(self.game.player_wealths[self.player]))
+            logger.debug("Adventurer determined that cannot move any more, so finishing turn, with Chest treasure "+str(self.wealth)+", and Vault treasure "+str(self.game.player_wealths[self.player]))
             self.end_turn()
         
         return True
@@ -363,7 +367,7 @@ class AdventurerBeginner(Adventurer):
                         adjoining_edges_water["s"] = neighbour_tile.compass_edge_water("north")
                     else:
                         adjoining_edges_water["n"] = neighbour_tile.compass_edge_water("south")
-        print("Identified adjoining edges as, North: " +str(adjoining_edges_water["n"])+ ", East: " +str(adjoining_edges_water["e"])
+        logger.debug("Identified adjoining edges as, North: " +str(adjoining_edges_water["n"])+ ", East: " +str(adjoining_edges_water["e"])
               + ", South: " +str(adjoining_edges_water["s"])+ ", West: " +str(adjoining_edges_water["w"]))
         return adjoining_edges_water
     
@@ -386,7 +390,7 @@ class AdventurerBeginner(Adventurer):
         self.last_exploration_adjacents = num_adjacent_water + num_adjacent_land
         #Calculate the score this represents
         exploration_value = self.value_fill_map_gap[num_adjacent_water][num_adjacent_land]
-        print(self.player.name+" the gap in the  map is adjacent to " +str(num_adjacent_water)
+        logger.debug(self.player.name+" the gap in the  map is adjacent to " +str(num_adjacent_water)
               + " water tiles and " +str(num_adjacent_land)+ " land tiles, and is worth "
               +str(exploration_value))
         return exploration_value
@@ -398,7 +402,7 @@ class AdventurerBeginner(Adventurer):
         while not (potential_tile.wind_direction.north == self.current_tile.wind_direction.north and 
                    potential_tile.wind_direction.east == self.current_tile.wind_direction.east):
             potential_tile.rotate_tile_clock()
-#            print("...after rotating to match wind, it has edges N:" +str(potential_tile.compass_edge_water("n"))
+#            logger.debug("...after rotating to match wind, it has edges N:" +str(potential_tile.compass_edge_water("n"))
 #                  +";E:"+str(potential_tile.compass_edge_water("e"))
 #                  +";S:"+str(potential_tile.compass_edge_water("s"))
 #                  +";W:"+str(potential_tile.compass_edge_water("w"))
@@ -466,7 +470,7 @@ class AdventurerBeginner(Adventurer):
             edge_matches = True
             while edge_matches and len(compass_points) > 0:
                 compass_point = compass_points.pop()
-#                    print("checking tile matches on the " +compass_point.upper()+ ", where an adjoining edge of "
+#                    logger.debug("checking tile matches on the " +compass_point.upper()+ ", where an adjoining edge of "
 #                         +str(adjoining_edges_water[compass_point])+ " must match with the tile's "
 #                          + str(potential_tile.compass_edge_water(compass_point)))
                 edge_matches = adjoining_edges_water[compass_point] is None or adjoining_edges_water[compass_point] == potential_tile.compass_edge_water(compass_point)
@@ -480,7 +484,7 @@ class AdventurerBeginner(Adventurer):
                     potential_tile.rotate_tile_anti()
                 # rotate the tile according to the alternative options in the exploration method
                 rotations.pop()()
-#                    print("rotated tile, so that its wind points N:" +str(potential_tile.wind_direction.north)
+#                    logger.debug("rotated tile, so that its wind points N:" +str(potential_tile.wind_direction.north)
 #                         + ";E:"+ str(potential_tile.wind_direction.east))
         return False
         
@@ -495,7 +499,7 @@ class AdventurerBeginner(Adventurer):
         int the latitude of the space to explore
         String giving the word or letter for cardinal compass direction from which the Adventurer is moving
         '''
-        print("Exploring to the " +compass_point_moving+ " into the slot at " +str(longitude)+ "," +str(latitude)+ " which has edges...")
+        logger.debug("Exploring to the " +compass_point_moving+ " into the slot at " +str(longitude)+ "," +str(latitude)+ " which has edges...")
         
         #establish what edges adjoin the given space
         adjoining_edges_water = self.get_adjoining_edges(longitude, latitude)
@@ -503,20 +507,19 @@ class AdventurerBeginner(Adventurer):
         # take multiple attempts at drawing a suitable tile from the pile
         for attempt in range(0, self.max_exploration_attempts):
             if tile_pile.tiles:
-                print("Drawing a tile from the " +tile_pile.tile_back+ " tile deck, which has " +str(len(tile_pile.tiles))+ " tiles")
+                logger.debug("Drawing a tile from the " +tile_pile.tile_back+ " tile deck, which has " +str(len(tile_pile.tiles))+ " tiles")
                 potential_tile = tile_pile.draw_tile()
             elif discard_pile.tiles:
-                print("Have found main tile pile empty, so shuffling Discard Pile")
+                logger.debug("Have found main tile pile empty, so shuffling Discard Pile")
                 self.game.refresh_pile(tile_pile, discard_pile)
                 tile_pile = self.game.tile_piles[tile_pile.tile_back]
                 discard_pile = self.game.discard_piles[discard_pile.tile_back]
                 potential_tile = tile_pile.draw_tile()
-            else: #the game is over, and so this exploration and the turn too
+            else: #both piles are exhausted, so this exploration fails and the turn ends; the game loop's win check will end the game
                 self.turns_moved += 1
                 self.game.player_wealths[self.player] += self.game.value_complete_map
-                self.game.game_over = True
                 break
-#            print("Have drawn a tile with edges N:" +str(potential_tile.compass_edge_water("n"))
+#            logger.debug("Have drawn a tile with edges N:" +str(potential_tile.compass_edge_water("n"))
 #                  +";E:"+str(potential_tile.compass_edge_water("e"))
 #                  +";S:"+str(potential_tile.compass_edge_water("s"))
 #                  +";W:"+str(potential_tile.compass_edge_water("w"))
@@ -530,7 +533,7 @@ class AdventurerBeginner(Adventurer):
                 self.game.exploration_attempts += 1
             
         # feed back to calling function that a tile has NOT been placed
-#        print("Exploration failed")
+#        logger.debug("Exploration failed")
         self.game.num_failed_explorations += 1
         return False
             
@@ -581,7 +584,7 @@ class AdventurerBeginner(Adventurer):
             return False
         
        # collect appropriate wealth into Chest
-        print("Adventurer is trading on tile "
+        logger.debug("Adventurer is trading on tile "
                   +str(tile.tile_position.longitude)+ "," +str(tile.tile_position.latitude))
         self.wealth += self.value_trade * self.num_characters
         
@@ -625,7 +628,7 @@ class AdventurerBeginner(Adventurer):
                 #Rest this adventurer
 #                 self.rest()
 #                 #End this Adventurer's turn
-#                 print("Adventurer has placed an Agent and must end their turn to set them up")
+#                 logger.debug("Adventurer has placed an Agent and must end their turn to set them up")
 #                 self.turns_moved += 1
                 #prevent the Adventurer using the Agent this turn
                 self.agents_rested.append(agent)
@@ -650,7 +653,7 @@ class AdventurerBeginner(Adventurer):
         '''rests with an Agent if there is one on the tile'''
         #Record the instruction to rest
         tile = self.current_tile
-        print("Adventurer is resting on tile " 
+        logger.debug("Adventurer is resting on tile " 
                   +str(tile.tile_position.longitude)+ "," +str(tile.tile_position.latitude))
         return token.give_rest(self)
     
@@ -681,7 +684,7 @@ class AdventurerBeginner(Adventurer):
             agent = tile.agent
             if tile.agent.player == self.player:
                 #transfer wealth
-                print("Adventurer is collecting " +str(agent.wealth)+ " wealth from the agent on tile "
+                logger.debug("Adventurer is collecting " +str(agent.wealth)+ " wealth from the agent on tile "
                      +str(agent.current_tile.tile_position.longitude)+","+str(agent.current_tile.tile_position.latitude))
                 self.wealth += agent.wealth
                 agent.wealth = 0
@@ -692,7 +695,7 @@ class AdventurerBeginner(Adventurer):
     def end_expedition(self, city=None):
         '''Prematurely returns an Adventurer to the last city they visited and empties their wealth.
         '''
-        print(self.player.name+ "'s expedition has been ended and they've returned to a city")
+        logger.debug(self.player.name+ "'s expedition has been ended and they've returned to a city")
         self.wealth = 0
         self.current_tile.move_off_tile(self)
         if isinstance(city, CityTile):
@@ -718,17 +721,17 @@ class AdventurerBeginner(Adventurer):
 
 # Unit test, rotation clockwise then anticlockwise returns wind direction and compass edges
 # tile = Tile(Game([Player(),Player()]),wind_direction=WindDirection(True,True),tile_edges = TileEdges(True, False, False, False))
-# print(str(tile.wind_direction.north)+str(tile.wind_direction.east))
+# logger.debug(str(tile.wind_direction.north)+str(tile.wind_direction.east))
 # rotations = [print, tile.rotate_tile_anti, tile.rotate_tile_clock]
-# print(str(tile.wind_direction.north)+str(tile.wind_direction.east))
+# logger.debug(str(tile.wind_direction.north)+str(tile.wind_direction.east))
 # rotations.pop()()
-# print(str(tile.wind_direction.north)+str(tile.wind_direction.east))
-# print(str(tile.compass_edge_water("w")))
+# logger.debug(str(tile.wind_direction.north)+str(tile.wind_direction.east))
+# logger.debug(str(tile.compass_edge_water("w")))
 # rotations.pop()()
-# print(str(tile.wind_direction.north)+str(tile.wind_direction.east))
-# print(str(tile.compass_edge_water("w")))
+# logger.debug(str(tile.wind_direction.north)+str(tile.wind_direction.east))
+# logger.debug(str(tile.compass_edge_water("w")))
 # rotations.pop()()
-# print(str(tile.wind_direction.north)+str(tile.wind_direction.east))
+# logger.debug(str(tile.wind_direction.north)+str(tile.wind_direction.east))
 
 
 class AgentBeginner(Agent):
@@ -775,184 +778,43 @@ class AgentBeginner(Agent):
 
 class CityTileBeginner(CityTile):
     '''Represents a city tile in the Beginner mode for the game Cartolan
-    
-    Methods:
-    move_off_tile takes a Cartolan.Token
-    visit_city takes a Cartolan.Adventurer
-    bank_wealth takes a Cartolan.Adventurer
-    buy_adventurer takes a Cartolan.Adventurer
-    buy_agent takes a Cartolan.Adventurer
+
+    City behaviour (banking, purchases) lives on the Game classes; this tile
+    delegates so that existing call sites keep working while tiles stay passive.
     '''
-       
+
     def move_off_tile(self, token):
         '''Adds a prompt to check how much wealth Adventurers want to take with them
         '''
-        if token.game.player_wealths[token.player] > 0:
-            travel_money = None
-            while not travel_money in range(0, token.game.player_wealths[token.player] +1):
-                travel_money = token.player.check_travel_money(token, token.game.player_wealths[token.player], 0)
+        vault_wealth = token.game.player_wealths[token.player]
+        if vault_wealth > 0:
+            travel_money = token.player.check_travel_money(token, vault_wealth, 0)
+            try:
+                travel_money = int(travel_money)
+            except (TypeError, ValueError):
+                travel_money = 0
+            travel_money = max(0, min(vault_wealth, travel_money))
             token.wealth += travel_money
             token.game.player_wealths[token.player] -= travel_money
         super().move_off_tile(token)
-    
-    def visit_city(self, adventurer, abandoned=False):
-        '''Initiates all the possible actions when a city is visited
-        
-        Arguments:
-        Cartolan.Adventurer the Adventurer arriving on the City tile
-        Boolean aborted prevents hiring option if the Adventurer has aborted their expedition, making it harder to replace opponents' Agents.
-        '''
-        # #reset Adventurer's list of visited Wonders
-        # adventurer.wonders_visited = []
-        
-        #record that this is the latest city visited
-        adventurer.latest_city = self
-        
-        self.bank_wealth(adventurer)
-        
-        self.game.game_over = self.game.check_win_conditions()
-        
-        if not self.game.game_over and not abandoned:
-            self.offer_purchases(adventurer)
-        
-        #End the Adventurer's turn and reset their moves
-        adventurer.end_turn()
-        
-        return True
-    
-    
-    def bank_wealth(self, adventurer):
-        '''Offers a player to move wealth from their Adventurer's Chest into their Vault
-        
-        Arguments:
-        Cartolan.Adventurer the Adventurer that has arrived at the City
-        '''
-        #check whether and how much the player wants to bank
-        wealth_to_bank = adventurer.player.check_deposit(adventurer, adventurer.wealth, adventurer.game.player_wealths[adventurer.player])
-        #record the decision about how much wealth will be banked
-        adventurer.banked = wealth_to_bank
-        
-        #check if wealth is available and move it from the adventurer's Chest to their Vault
-        if adventurer.wealth >= wealth_to_bank:
-            adventurer.wealth -= wealth_to_bank
-            adventurer.game.player_wealths[adventurer.player] += wealth_to_bank
-            print(adventurer.player.name+ " has banked " +str(wealth_to_bank)+ " in their Vault")
-            self.game.game_over = self.game.check_win_conditions()
-            return True
-        else:
-            return False
-    
-    def buy_adventurers(self, adventurer):
-        '''Offers the Player of an Adventurer arriving at the City Tile to buy another Adventurer
-        
-        Arguments:
-        Cartolan.Adventurer the Adventurer arriving at the City
-        '''
-        #record the decision to buy an adventurer this turn
-        adventurer.bought_adventurer += 1
-        
-        #keep checking whether the player has enough wealth and wants to buy another adventurer until they refuse
-        while (len(self.game.adventurers[adventurer.player]) < self.game.MAX_ADVENTURERS 
-                and adventurer.game.player_wealths[adventurer.player] >= adventurer.cost_adventurer):
-            if adventurer.player.check_buy_adventurer(adventurer):
-                #take payment of wealth from their Vault
-                adventurer.game.player_wealths[adventurer.player] -= adventurer.cost_adventurer
-                #place another Adventurer for this Player on the City tile
-#                 new_adventurer = AdventurerBeginner(adventurer.game, adventurer.player, self)
-                new_adventurer = adventurer.game.ADVENTURER_TYPE(adventurer.game, adventurer.player, self)
-#                 self.adventurers.append(new_adventurer)
-                self.move_onto_tile(new_adventurer)
-                #Allow this new Adventurer to move this turn
-#                 new_adventurer.turns_moved = adventurer.game.turn - 1 # This new Adventurer will play immediately
-                new_adventurer.turns_moved = adventurer.game.turn # This new Adventurer will play from the next turn
-                print(adventurer.player.name+ " has bought an adventurer from the city at " 
-                      +str(self.tile_position.longitude)+","+str(self.tile_position.latitude))
-            else:
-                return False
-        return True
-    
-    
-    def buy_agents(self, adventurer):
-        '''Offers the Player of an Adventurer arriving at the City Tile to buy another Agent and place it on any unclaimed tile
-        
-        Arguments:
-        Cartolan.Adventurer the Adventurer arriving at the City, if None, then the Player will no longer be prompted
-        '''
-        #Record the decision to buy an agent this move
-        adventurer.bought_agent += 1
-        
-        #keep checking whether the player can afford another Adventurer and wants one until they refuse
-        while adventurer.game.player_wealths[adventurer.player] >= adventurer.cost_agent_from_city:
-            tile = adventurer.player.check_buy_agent(adventurer, report="Do you want to place an agent, and where?") 
-#            if not tile is None:
-##                @deprecated #check whether this tile is inside a city's domain, four or less tiles from it by taxi norm
-##                for city_tile in self.game.cities:
-##                    city_longitude = city_tile.tile_position.longitude
-##                    city_latitude = city_tile.tile_position.latitude
-##                    if (abs(tile.tile_position.longitude - city_longitude) 
-##                        + abs(tile.tile_position.latitude - city_latitude) <= self.game.CITY_DOMAIN_RADIUS):
-##                        continue
-#            else:
-            if not tile:
-                return False
 
-            #check whether the tile already has an active Agent 
-            if not adventurer.check_tile_available(tile):
-                continue
-            else:
-                #pick up an existing Agent from its tile if there are no other agents available
-                #otherwise get a new agent
-                if len(self.game.agents[adventurer.player]) >= self.game.MAX_AGENTS:
-                    agent = adventurer.player.check_move_agent(adventurer)
-                    if not agent is None:
-                        print(adventurer.player.name+ " is recalling their agent from the tile at " 
-                          +str(agent.current_tile.tile_position.longitude)
-                              +","+str(agent.current_tile.tile_position.latitude))
-                        agent.current_tile.move_off_tile(agent)
-                        #place the Agent on that tile
-                        tile.move_onto_tile(agent)
-                    else:
-                        print(adventurer.player.name+ " did not want to move any existing Agents, so moving on.")
-                        return False
-                else:
-                    agent = adventurer.game.AGENT_TYPE(adventurer.game, adventurer.player, tile)
-                
-                #take payment from the Player's Vault
-                adventurer.game.player_wealths[adventurer.player] -= adventurer.cost_agent_from_city
-                print(adventurer.player.name+ " has hired an agent from the city at " 
-                  +str(self.tile_position.longitude)+","+str(self.tile_position.latitude)
-                     +" and sent them to the tile at "
-                     +str(tile.tile_position.longitude)+","+str(tile.tile_position.latitude))
-        return True
+    def visit_city(self, adventurer, abandoned=False):
+        return self.game.run_city_visit(adventurer, self, abandoned)
+
+    def bank_wealth(self, adventurer):
+        return self.game.bank_wealth(adventurer)
+
+    def buy_adventurers(self, adventurer):
+        return self.game.buy_adventurers(adventurer, self)
+
+    def buy_agents(self, adventurer):
+        return self.game.buy_agents(adventurer, self)
 
     def hire_companion(self, adventurer):
-        '''Offers the visiting Adventurer the chance to hire a Companion, scaling future trade and rest costs.
-
-        Args:
-            adventurer: the visiting Adventurer
-        '''
-        while (adventurer.num_companions < adventurer.max_companions
-               and adventurer.game.player_wealths[adventurer.player] >= adventurer.cost_companion):
-            if adventurer.player.check_hire_companion(adventurer):
-                adventurer.game.player_wealths[adventurer.player] -= adventurer.cost_companion
-                adventurer.num_companions += 1
-                print(adventurer.player.name + " hired a Companion (now "
-                      + str(adventurer.num_companions) + " companions, "
-                      + str(adventurer.num_characters) + " characters total)")
-            else:
-                return False
-        return True
+        return self.game.hire_companion(adventurer)
 
     def offer_purchases(self, adventurer):
-        '''Manages the sequence of purchasing options for players when their Adventurer reaches a city.
-
-        Args:
-            adventurer: the visiting Adventurer
-        '''
-        self.buy_adventurers(adventurer)
-        if adventurer.game.agents_from_city:
-            self.buy_agents(adventurer)
-        self.hire_companion(adventurer)
+        return self.game.offer_purchases(adventurer, self)
 
 class WonderTile(Tile):
      def __init__(self, game, tile_back = "water"

@@ -6,7 +6,7 @@ Based on this example from AlexiK: https://stackoverflow.com/questions/32595130/
 
 from SimpleWebSocketServer import WebSocket, SimpleWebSocketServer  # , SimpleSSLWebSocketServer
 from cartolan import REPO_ROOT
-from cartolan.apps.local_game import setup_simulation
+from cartolan.core.setup import create_game
 # from live_visuals import ClientGameVisualisation, WebServerVisualisation
 from cartolan.ui.web_visuals import WebServerVisualisation
 from cartolan.editions.modes import GameBeginner, GameRegular, GameAdvanced
@@ -460,11 +460,11 @@ class ClientSocket(WebSocket):
             print("Enough players have joined, so STARTING GAME #" + str(game_id))
         game_players = list(new_game_players[game_id].keys())
         random.shuffle(game_players)
-        self.game = setup_simulation(game_players
-                                     , GAME_MODES[new_game_types[game_id]]["game_type"]
-                                     , MOVEMENT_RULES
-                                     , EXPLORATION_RULES
-                                     , MYTHICAL_CITY)
+        self.game = create_game(GAME_MODES[new_game_types[game_id]]["game_type"]
+                                , game_players
+                                , MOVEMENT_RULES
+                                , EXPLORATION_RULES
+                                , MYTHICAL_CITY)
 
         # Move the game's lookups into the active list and clean up
         games[game_id] = {"game": self.game
