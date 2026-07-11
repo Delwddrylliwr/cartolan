@@ -3,8 +3,8 @@
 import contextlib
 import io
 
-from base import Tile, WindDirection, TileEdges
-from game import GameRegular
+from cartolan.core.tiles import Tile, WindDirection, TileEdges
+from cartolan.editions.modes import GameRegular
 
 
 def build_game(game_type, players, movement_rules="initial",

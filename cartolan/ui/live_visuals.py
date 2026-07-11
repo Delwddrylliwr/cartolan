@@ -1,0 +1,1588 @@
+'''
+Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
+'''
+
+import math
+import pygame
+#import pygame_menu
+import sys
+import os
+import json
+import time
+import json
+from collections import deque
+#from PodSixNet.Connection import ConnectionListener, connection
+#from time import sleep
+from cartolan.core.game import Game
+from cartolan.core.tokens import Agent, Adventurer
+from cartolan.core.tiles import CityTile, Tile
+from cartolan.core.cards import Card
+from cartolan.players.base import Player
+from cartolan.editions.regular import AdventurerRegular, AgentRegular, DisasterTile  # , MythicalTileRegular
+from cartolan.editions.advanced import AdventurerAdvanced
+from cartolan.editions.modes import GameBeginner, GameRegular, GameAdvanced
+# from players_human import PlayerHuman
+#from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
+#from players_heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
+#from players_heuristical import PlayerAdvancedExplorer, PlayerAdvancedTrader, PlayerAdvancedRouter, PlayerAdvancedPirate
+
+class GameVisualisation():
+    '''A pygame-based interactive visualisation for games of Cartolan
+    
+    Methods:
+    draw_move_options
+    draw_tokens
+    draw_play_area
+    draw_wealth_scores
+    draw_routes
+    draw_prompt
+    '''
+    #define some constants that will not vary game by game
+    MOVE_TIME_LIMIT = 10 #To force a timeout if players aren't responding
+    PLAYER_OFFSETS = [[0.25, 0.25],  [0.25, 0.75],  [0.75, 0.25], [0.75, 0.75]]
+    AGENT_OFFSET = [0.5, 0.5] #the placement of agents on the tile, the same for all players and agents, because there will only be one per tile
+    ADVENTURER_OFFSETS = [[0.0, 0.0], [0.1, -0.1], [-0.1, 0.1], [-0.1, -0.1], [0.1, 0.1]] #the offset to differentiate multiple adventurers on the same tile
+    DIMENSION_BUFFER = 1 #the number of tiles by which the play area is extended when methods are called
+    BACKGROUND_COLOUR = (255,255,255,0) #(38,50,60) #(38,50,66)
+    PLAIN_TEXT_COLOUR = (255,255,255)
+    WONDER_TEXT_COLOUR = (0,0,0)
+    ACCEPT_UNDO_COLOUR = (255, 0, 0)
+    CARD_TEXT_COLOUR = (0,0,0)
+    CARD_BACKGROUND_COLOUR = (255,255,255)
+    CHEST_HIGHLIGHT_COLOUR = (0, 255, 0)
+    TOGGLE_TRUE_COLOUR = (0, 255, 0)
+    TOGGLE_FALSE_COLOUR = (255, 0, 0)
+    TILE_BORDER = 0.02 #the share of grid width/height that is used for border
+    CARD_HEADER_SHARE = 0.15 # the share of card images that is the header, visually summarising the buffs of the card with colour and a logo
+    CARD_BODY_START = 0.7 # the share of the card before text starts
+    MENU_FONT = "stmary10" #The system font to try and match
+    LEFT_MENU_SCALE = 0.13
+    MENU_TILE_COLS = 2
+    RIGHT_MENU_SCALE = 0.13
+    OFFER_SCALE = 0.2
+    ROUTE_THICKNESS = 4.0
+    NUM_DASHES = 10
+    TOKEN_SCALE = 0.2 #relative to tile sizes
+    AGENT_SCALE = 1.75 #relative to Adventurer radius
+    TOKEN_OUTLINE_SCALE = 0.25 #relative to token scale
+    TOKEN_FONT_SCALE = 0.5 #relative to tile sizes
+    TOKEN_FONT_COLOURS = {"yellow":"black"}
+    SCORES_POSITION = [0.0, 0.0]
+    SCORES_FONT_SCALE = 0.05 #relative to window size
+    SCORES_SPACING = 1.5 #the multiple of the score pixel scale to leave for each number
+    CARD_FONT_SCALE = 0.03
+    MOVE_COUNT_POSITION = [0.8, 0.0]
+    METER_OPACITY = 128
+    ANY_DIRECTION_METER_COLOUR = (0,0,0)
+    DOWNWIND_WATER_METER_COLOUR = (0,0,0)
+    PROMPT_SHARE = 0 #@TODO move prompt into the bottom right corner, with multi-line
+    PROMPT_POSITION = [0.0, 0.95]
+    PROMPT_FONT_SCALE = 0.05 #relative to window size
+    
+    TILE_PATH = './images/tiles/'
+    TILE_EXTENSION = ".jpg"
+    CARDS_PATH = './images/cards/'
+    CARDS_EXTENSION = ".png"
+    SPECIAL_TILE_PATHS = {"water_disaster":'./images/water_disaster.png'
+                     , "land_disaster":'./images/land_disaster.png'
+                     , "capital":'./images/capital.png'
+                     , "mythical":'./images/mythical.png'
+                     } #file paths for special tiles
+    METERS_PATHS = {"any_direction":'./images/move_meters/any_direction.jpg'
+                  , "downwind_water":'./images/move_meters/downwind_water.jpg'
+                  }
+    HIGHLIGHT_PATHS = {"move":'./images/highlights/option_valid_move.png'
+                  , "abandon":'./images/highlights/option_abandon.png'
+                  , "invalid":'./images/highlights/option_invalid_move.png'
+                  , "buy":'./images/highlights/option_buy.png'
+                  , "attack":'./images/highlights/option_attack.png'
+                  , "rest":'./images/highlights/option_rest.png'
+                  , "buy_rest":'./images/highlights/option_buy.png'
+                  , "move_agent":'./images/highlights/option_valid_move.png'
+                  , "agent_transfer":'./images/highlights/option_buy.png'
+                  }
+    TOGGLE_HIGHLIGHTS = ["buy", "attack", "rest"]
+    CARD_TITLES = {"com+rests":"The Intrepid Academy"
+            , "com+transfers":"The Great Company"
+            , "com+earning":"The Merchants' Guild"
+            , "com+arrest":"The Harbour Authority"
+            , "com+refurnish":"The Privateer Brethren"
+            , "com+pool":"Order of the Lightbrary"
+            }
+    CARD_TEXTS = {"adv+agents":"Can place and immediately rest with Inns on existing tiles, for 3 Silk."
+             , "adv+attack":"Needs only win or draw Rock, Paper, Scissors to attack successfully."
+             , "adv+bank":"Can transfer Silk to your Inns when visiting anyone's Inn."
+             , "adv+damage":"Successfully attacked Adventurers are returned to their last city, and Inns are fully removed."
+             , "adv+defence":"Attacking opponents have to win Rock, Paper, Scissors twice to succeed."
+             , "adv+downwind":"Can move up to three times riding the wind after tiring, each turn and after resting."
+             , "adv+upwind":"Can move three times in any direction before getting tired, then one riding the wind, each turn or after resting."
+             , "adv+maps":"Carries up to three map tiles in Chest."
+             , "dis+agents":"This Adventurer can place Inns on existing tiles and immediately rest with them, for 3 Silk."
+             , "dis+attack":"This Adventurer needs only win or draw Rock, Paper, Scissors to attack successfully."
+             , "dis+bank":"This Adventurer can transfer Silk to your Inns when visiting anyone's Inn."
+             , "dis+damage":"Successfully attacked Adventurers are returned to their last city, and Inns are removed."
+             , "dis+defence":"Attacking opponents have to win an extra round of Rock, Paper, Scissors to succeed."
+             , "dis+downwind":"This Adventurer can move once more riding the wind after tiring, each turn and after resting."
+             , "dis+upwind":"This Adventurer can move once more before tiring, rather than after, each turn and after resting."
+             , "dis+maps":"This Adventurer carries an extra map tile in their chest."
+             , "com+rests":"Your Adventurers can rest with other Adventurers like Inns."
+            , "com+transfers":"Silk you earn on your Inns' tiles goes to your Vault."
+            , "com+earning":"Your Inns earn 1 Silk when opponents trade on their tile."
+            , "com+arrest":"Your Inns try to arrest pirates landing on their tile."
+            , "com+refurnish":"Your Adventurers can lose the pirate token by resting."
+            , "com+pool":"Swap maps once per visit for free at a city and 1 Silk at any Inn."
+            }
+    
+    def __init__(self, game, peer_visuals, player_colours):
+        #Retain game data
+        self.player_colours = player_colours
+        self.game = game
+        self.dimensions = [len(game.play_area), max([len(game.play_area[longitude]) for longitude in game.play_area])]
+        self.origin = [dimension // 2 for dimension in self.dimensions]
+        self.peer_visuals = peer_visuals
+        
+        print("Initialising state variables")
+#        self.clock = pygame.time.Clock()
+        self.move_timer = self.MOVE_TIME_LIMIT
+        self.current_player_colour = "black"
+        self.current_adventurer_number = 0
+        self.current_adventurer = None
+        self.viewed_player_colour = "black"
+        self.viewed_adventurer_number = 0
+        self.viewed_adventurer = None
+        self.highlights = {highlight_type:[] for highlight_type in self.HIGHLIGHT_PATHS}
+        self.highlight_rects = []
+        self.drawn_routes = []
+        self.offer_rects = []
+        #Placeholders for the various GUI elements
+        self.scores_rect = (0, 0, 0, 0)
+        self.stack_rect = (0, 0, 0, 0)
+        self.cadre_card_rect = (0, 0, 0, 0)
+        self.current_move_count = None
+        self.move_count_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
+        self.chest_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
+        self.toggles_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
+        self.action_rects = []
+        self.piles_rect = (self.MOVE_COUNT_POSITION[0], self.MOVE_COUNT_POSITION[1], 0, 0)
+        self.discard_pile = []
+        self.discarding_adventurer = None
+        self.undo_rect = (self.width, self.height, 0, 0)
+        self.undo_agreed = False
+        self.adventurer_centres = []
+        self.agent_rects = []
+        self.viewed_tile_num = None
+        self.viewed_longitude = None
+        self.viewed_latitude = None
+        if isinstance(self.game, GameAdvanced):
+            self.selected_cadre_card = False
+            self.selected_character_card = False
+            self.selected_card_num = None
+            self.card_images = {}
+        self.draw_all_routes = True
+        self.init_GUI()
+        
+    def init_GUI(self):
+        print("Initialising the pygame window and GUI")
+        pygame.init()
+        self.window = pygame.display.set_mode((0, 0), pygame.RESIZABLEf, depth=32)
+        self.width, self.height = pygame.display.get_surface().get_size()
+        pygame.display.set_caption("Cartolan - Trade Winds")
+        self.window.fill(self.BACKGROUND_COLOUR) #fill the screen with white
+#        self.window.fill(0) #fill the screen with black
+#        self.backing_image = pygame.transform.scale(pygame.image.load('./images/cartolan_backing.png'), [self.width, self.height])
+#        self.window.blit(self.backing_image, [0,0])
+        print("Initialising visual scale variables, to fit window of size "+str(self.width)+"x"+str(self.height))
+        self.tile_size = self.height // self.dimensions[1]
+        #We'll have a different tile size for dicards and chest tiles
+        self.menu_tile_size = round(self.RIGHT_MENU_SCALE * self.width) // self.MENU_TILE_COLS
+        #Where piracy is possible, we'll have a different tile size for choosing stolen ones
+        self.offer_tile_size = round(self.OFFER_SCALE * self.width)
+        #Before sizing against the horizontal dimension, we'll work out how much space the menus will take away
+        self.play_area_width = round(self.width * (1 - self.LEFT_MENU_SCALE - self.RIGHT_MENU_SCALE))
+        self.play_area_start = round(self.width * self.LEFT_MENU_SCALE)
+        self.right_menu_width = round(self.width * self.RIGHT_MENU_SCALE)
+        self.right_menu_start = self.play_area_start + self.play_area_width
+        self.right_text_start = self.MOVE_COUNT_POSITION[0] * self.width #All text indicators in the right menu will follow the same indent
+        self.menu_highlight_size = round(self.RIGHT_MENU_SCALE * self.width) // len(self.TOGGLE_HIGHLIGHTS)
+        self.menu_route_thickness = self.ROUTE_THICKNESS
+        self.menu_spacing = self.menu_route_thickness
+        #Tiles will be scaled to fit the smaller dimension
+        if self.play_area_width < self.tile_size * self.dimensions[0]:
+            self.tile_size = self.play_area_width // self.dimensions[0]
+        self.token_size = round(self.TOKEN_SCALE * self.tile_size) #token size will be proportional to the tiles
+        self.outline_width = math.ceil(self.TOKEN_OUTLINE_SCALE * self.token_size)
+        self.token_font = pygame.font.SysFont(None, round(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
+        self.scores_font = pygame.font.SysFont(self.MENU_FONT, round(self.height * self.SCORES_FONT_SCALE)) #the font size for scores will be proportionate to the window size
+        self.card_font = pygame.font.SysFont(None, round(self.height * self.CARD_FONT_SCALE)) #the font size for scores will be proportionate to the window size
+        self.prompt_font = pygame.font.SysFont(self.MENU_FONT, round(self.height * self.PROMPT_FONT_SCALE)) #the font size for prompt will be proportionate to the window size
+        self.prompt_position = [self.play_area_start + self.PROMPT_POSITION[0]*self.width
+                                , self.PROMPT_POSITION[1]*self.height]
+        pygame.font.init()
+        self.prompt_text = ""
+        #Make sure that the GUI menus are drawn on the correct sides from the start
+        self.scores_rect = (0, 0, 0, 0)
+        self.stack_rect = (0, 0, 0, 0)
+        self.current_move_count = None
+        self.move_count_rect = (self.MOVE_COUNT_POSITION[0]*self.width, self.MOVE_COUNT_POSITION[1]*self.height, 0, round(self.height * self.SCORES_FONT_SCALE) + self.menu_tile_size)
+        self.toggles_rect = (self.right_menu_start, self.move_count_rect[1]+self.move_count_rect[3]+round(self.height * self.SCORES_FONT_SCALE)+self.menu_highlight_size, 0, self.menu_tile_size+round(self.height * self.SCORES_FONT_SCALE))
+        self.chest_rect = (self.right_menu_start, self.toggles_rect[1]+self.toggles_rect[3]+round(self.height * self.SCORES_FONT_SCALE), 0, self.menu_tile_size)
+        self.piles_rect = (self.right_menu_start, self.toggles_rect[1]+self.toggles_rect[3]+round(self.height * self.SCORES_FONT_SCALE), 0, 0)
+        #Import images
+        self.init_graphics()
+        #Update the display
+        pygame.display.flip()
+#        self.init_sound()
+        
+    #    def init_sound(self):
+#        '''Imports sounds to accompany play
+#        '''
+#        self.winSound = pygame.mixer.Sound('win.wav')
+#        self.loseSound = pygame.mixer.Sound('lose.wav')
+#        self.placeSound = pygame.mixer.Sound('place.wav')
+#        # pygame.mixer.music.load("music.wav")
+#        # pygame.mixer.music.play()
+    
+        #Set the visual running
+#        while not self.game.game_over:
+#            self.update()
+    
+    # def save_tile_rotations(self, tile_name, tile_image):
+    #     '''For a particular tile image, adds all its rotations to the library
+    #     '''
+    #     #North East wind
+    #     self.tile_image_library[tile_name+"TrueTrue"] = tile_image
+    #     #South East wind
+    #     self.tile_image_library[tile_name+"FalseTrue"] = pygame.transform.rotate(tile_image.copy(), -90)
+    #     #South West wind
+    #     self.tile_image_library[tile_name+"FalseFalse"] = pygame.transform.rotate(tile_image.copy(), 180)
+    #     #North West wind
+    #     self.tile_image_library[tile_name+"TrueFalse"] = pygame.transform.rotate(tile_image.copy(), 90)
+    
+    def rotate_tile_image(self, tile, tile_image):
+        '''Translates a tile's wind direction into a rotation of its image
+        '''
+        wind_direction = tile.wind_direction
+        if wind_direction.north and wind_direction.east:
+            #North East wind
+            return tile_image
+        if not wind_direction.north and wind_direction.east:
+            #South East wind
+            return pygame.transform.rotate(tile_image.copy(), -90)
+        if not wind_direction.north and not wind_direction.east:
+            #South West wind
+            return pygame.transform.rotate(tile_image.copy(), 180)
+        if wind_direction.north and not wind_direction.east:
+            #North West wind
+            return pygame.transform.rotate(tile_image.copy(), 90)
+        
+    
+    def rescale_images(self, image_library, new_size):
+        '''For a particular image library, rescales all of the images
+        '''
+        for image_type in image_library:
+            image = image_library[image_type]
+            image_library[image_type] = pygame.transform.scale(image, [new_size, new_size])
+
+    def init_graphics(self):
+        '''Reads in the images for visualising play
+        '''
+        print("Importing tile and highlight images and establishing a mapping")
+        self.tile_images = {} #a dict of lists of tile images with a particular combination of land, sea and wind
+        self.tile_image_library = {} #a dict pairing particular tiles with particular art for the play area itself
+        self.menu_tile_library = {} #a dict pairing particular tiles with their art at a scale for the chest and discard piles
+        if isinstance(self.game, GameRegular):
+            #duplicate tile art for use in selection menu after piracy
+            self.offer_tile_library = {}
+            tile_image_names = [filename for filename in os.listdir(self.TILE_PATH) if self.TILE_EXTENSION in filename]
+            tile_image_names.sort() #Ensure it's deterministic which specific cards are assigned to each adventurer, so that this is consistent with the game's other visuals
+            print(tile_image_names)
+            for tile_image_name in tile_image_names:
+                tile_type = tile_image_name.split(".")[0].split("_")[0] #assumes that the tile type will be the image filename will start with the type as recognised by the game
+                tile_image = pygame.image.load(self.TILE_PATH + tile_image_name)
+                #Resize the tile image to the smallest that will still fit in each of its roles
+                min_size = max(self.tile_size, self.menu_tile_size, self.offer_tile_size)
+                scaled_image = pygame.transform.scale(tile_image.copy(), [min_size, min_size])
+                tile_type_set = self.tile_images.get(tile_type)
+                if tile_type_set is None:
+                    self.tile_images[tile_type] = [scaled_image]
+                else:
+                    tile_type_set.append(scaled_image)
+            # import the masks used to highlight movement options
+            self.highlight_library = {}
+            for highlight_name in self.HIGHLIGHT_PATHS:
+                highlight_image = self.HIGHLIGHT_PATHS[highlight_name]
+                self.highlight_library[highlight_name] = pygame.image.load(highlight_image)
+            # duplicate these tiles at a smaller size for use in menus
+            self.toggle_library = {}
+            for highlight_name in self.highlight_library:
+                highlight_image = self.highlight_library[highlight_name]
+                self.toggle_library[highlight_name] = pygame.transform.scale(highlight_image, [self.menu_highlight_size, self.menu_highlight_size])
+            # import the graphics for meters showing the remaining moves until rest
+            self.meters_library = {}
+            for meter_name in self.METERS_PATHS:
+                meter_image = pygame.image.load(self.METERS_PATHS[meter_name])
+                self.meters_library[meter_name] = pygame.transform.scale(meter_image, (self.menu_tile_size, self.menu_tile_size))
+            #import the cards that will award various rule buffs
+            if isinstance(self.game, GameAdvanced):
+                self.card_images = {}  # a dict of lists of tile images with a particular combination of land, sea and wind
+                self.card_image_library = {}  # a dict pairing particular tiles with particular art for the play area itself
+                # duplicate tile art for use in selection menu after piracy
+                self.card_offer_library = {}
+                # card_image_names = [filename for filename in os.listdir(self.CARDS_PATH) if self.CARDS_EXTENSION in filename]
+                card_image_names = [filename for filename in os.listdir(self.CARDS_PATH)]
+                card_image_names.sort()  # Ensure it's deterministic which specific cards are assigned to each adventurer, so that this is consistent with the game's other visuals
+                print(card_image_names)
+                for card_image_name in card_image_names:
+                    card_type = card_image_name.split(".")[0].split("_")[0]  # assumes that the tile type will be the image filename will start with the type as recognised by the game
+                    card_image = pygame.image.load(self.CARDS_PATH + card_image_name)
+                    # Resize the card image to fit in the menu
+                    new_width = self.play_area_start
+                    new_height = int(card_image.get_height() * new_width / card_image.get_width())
+                    offer_height = min(card_image.get_height(),
+                                       int(self.height * (1 - 2 * (1 - self.PROMPT_POSITION[1]))))
+                    offer_width = int(card_image.get_width() * offer_height / card_image.get_height())
+                    self.card_height = new_height
+                    self.card_width = new_width
+                    scaled_image = pygame.transform.scale(card_image.copy(), [offer_width, offer_height])
+                    card_type_set = self.card_images.get(card_type)
+                    if card_type_set is None:
+                        self.card_images[card_type] = [scaled_image]
+                    else:
+                        card_type_set.append(scaled_image)
+        #adjust the size of the imported images to fit the display size
+        self.rescale_graphics()
+    
+    def create_card(self, card_type):
+        '''For cards with no image, creates a placeholder.
+        '''
+        #@TODO differentiate Cadre vs Character/Manuscript cards, to determine orientation
+        card_width = self.play_area_start
+        card_height = self.play_area_start * self.play_area_start // self.card_height
+        card = pygame.Surface((card_width, card_height))
+        card.fill(self.CARD_BACKGROUND_COLOUR)
+        card_title = self.CARD_TITLES[card_type]
+        card_text = self.CARD_TEXTS[card_type]
+        #Create the text objects to add to the card
+        rendered_title = self.card_font.render(card_title, 1, self.CARD_TEXT_COLOUR)
+        rendered_text = self.wrap_text(card_text, card_width, card_height, self.card_font, self.CARD_TEXT_COLOUR, self.CARD_BACKGROUND_COLOUR)
+        #Work out positions that will centre the title as well as possible and place it on the card
+        title_horizontal = (card_width - rendered_title.get_width()) // 2
+        title_vertical = 0
+        card.blit(rendered_title, [title_horizontal, title_vertical])
+        #Work out positions that will centre the text as well as possible and place it on the card
+        if card_width - rendered_text.get_width() > 0:
+            text_horizontal = (card_width - rendered_text.get_width()) // 2
+        else:
+            text_horizontal = 0
+        if card_height - rendered_text.get_height():
+            text_vertical = rendered_title.get_height() + (card_height - rendered_title.get_height() - rendered_text.get_height()) // 2
+        else:
+            text_vertical = rendered_title.get_height()
+        card.blit(rendered_text, [text_horizontal, text_vertical])
+        return card
+
+    def update_card_text(self, card_image, card_type, orientation="vertical"):
+        '''Writes text over the top of that already on a card image
+        '''
+        card_text = self.CARD_TEXTS[card_type]
+        rendered_text = self.wrap_text(card_text, card_image.get_width()
+                            , card_image.get_height() - self.CARD_BODY_START*card_image.get_height()
+                            , self.card_font, self.CARD_TEXT_COLOUR, self.CARD_BACKGROUND_COLOUR)
+        card_image.blit(rendered_text
+                  , [(card_image.get_width() - rendered_text.get_width())//2
+                     , self.CARD_BODY_START*card_image.get_height()])
+        return card_image
+    
+    def wrap_text(self, text, width, height, font, text_colour, background_colour):
+        '''Given a particular width, introduces line breaks and returns a text surface.
+        
+        Arguments:
+        text takes a string to be rendered
+        width takes an int maximum width in pixels for the rendered image
+        height takes an int maximum height in pixels for the rendered image
+        
+        '''
+        text_fits = False
+        last_line_fits = False
+        font_too_big = False
+        lines = [deque(text.split())]
+        line_num = 0
+        max_line_width = 0
+        max_line_height = 0
+        while not text_fits:
+#            print("Text has structure...")
+#            for line in lines:
+#                print(len(line))
+#                if len(line)==0:
+#                    print("Empty line of text when wrapping "+text)
+#                    exit()
+            while not last_line_fits:
+                #Check whether the current line of text will fit within the speicfied width when rendered
+                line_width, line_height = font.size(" ".join(lines[line_num]))
+                if line_width < width:
+                    last_line_fits = True
+                    line_num += 1
+                    #Before proceeding, check whether this line was any higher than others
+                    if line_width > max_line_width:
+#                        print("Updating line width to "+str(line_width))
+                        max_line_width = line_width
+                    if line_height > max_line_height:
+#                        print("Updating line height to "+str(line_height))
+                        max_line_height = line_height
+                elif len(lines[line_num]) > 1:
+                    #Try moving the last word of the current line to the next line
+                    last_word = lines[line_num].pop()
+                    if line_num+1 < len(lines):
+                        lines[line_num+1].appendleft(last_word)
+                    else:
+                        lines.append(deque([last_word]))
+                else:
+                    #This font is too big to render one of the words in a single line
+                    font_too_big = True
+                    break
+            #Check whether the font was too big or the text box size has been exceeded
+            if font_too_big or max_line_height * len(lines) > height:
+                #Rescale the font
+                font = pygame.font.SysFont(None, font.get_linesize() - 1) #increment the font size down by one
+                #Reset the text to a single line
+                font_too_big = False
+                lines = [deque(text.split())]
+                line_num = 0
+                max_line_width = 0
+                max_line_height = 0
+                continue
+            #Check whether there are any more lines to render
+            if line_num >= len(lines):
+                text_fits = True
+            else:
+                last_line_fits = False
+        paragraph = pygame.Surface((max_line_width, max_line_height * len(lines)),pygame.SRCALPHA, 32)
+        paragraph.fill(background_colour)
+        line_vertical = 0
+        for line in lines:
+            rendered_line = font.render(" ".join(line), 1, pygame.Color(text_colour))
+            line_horizontal = (paragraph.get_width() - rendered_line.get_width()) // 2
+#            print("Adding line to paragraph with position: "+str(line_horizontal)+", "+str(line_vertical))
+            paragraph.blit(rendered_line, (line_horizontal, line_vertical))
+            line_vertical += max_line_height
+        return paragraph
+    
+    def rescale_graphics(self):
+        '''Rescales images in response to updated dimensions for the play grid
+        '''
+        print("Updating the dimensions that will be used for drawing the play area")
+#        self.dimensions = dimensions        
+        #Tiles, tokens and text will need adjusting to the new dimensions
+        #Tiles will be scaled to fit the smaller dimension
+        max_tile_height = self.height // self.dimensions[1]
+        max_tile_width = self.play_area_width // self.dimensions[0]
+        if max_tile_height < max_tile_width:
+            self.tile_size = max_tile_height
+        else:
+            self.tile_size = max_tile_width
+        self.token_size = round(self.TOKEN_SCALE * self.tile_size) #token size will be proportional to the tiles
+        self.outline_width = math.ceil(self.TOKEN_OUTLINE_SCALE * self.token_size)
+        self.route_thickness = self.ROUTE_THICKNESS
+        self.chest_highlight_thickness = int(self.route_thickness)
+        self.token_font = pygame.font.SysFont(None, int(self.tile_size * self.TOKEN_FONT_SCALE)) #the font size for tokens will be proportionate to the window size
+        #scale down the images as the dimensions of the grid are changed, rather than when placing
+        #the tiles' scale will be slightly smaller than the space in the grid, to givea discernible margin
+        bordered_tile_size = round(self.tile_size * (1 - self.TILE_BORDER))
+        print("Updated tile size to be " +str(self.tile_size)+ " pixels, and with border: " +str(bordered_tile_size))
+        self.rescale_images(self.tile_image_library, bordered_tile_size)
+        self.rescale_images(self.highlight_library, self.tile_size)
+#        self.rescale_images(self.menu_tile_library, self.menu_tile_size)
+    
+    def increase_max_longitude(self):
+        '''Deprecated to allow legacy PlayerHuman interaction'''
+        pass
+    
+    def decrease_min_longitude(self):
+        '''Deprecated to allow legacy PlayerHuman interaction'''
+        pass
+    
+    def increase_max_latitude(self):
+        '''Deprecated to allow legacy PlayerHuman interaction'''
+        pass
+    
+    def decrease_min_latitude(self):
+        '''Deprecated to allow legacy PlayerHuman interaction'''
+        pass
+    
+    def rescale_as_needed(self):
+        '''Checks the extremes of the play_area and rescales visual elements as needed
+        '''
+#        print("Checking whether the current play area needs a bigger visuals grid")
+        min_longitude, max_longitude = 0, 0
+        min_latitude, max_latitude = 0, 0
+        for longitude in self.game.play_area:
+            if longitude < min_longitude:
+                min_longitude = longitude
+            elif longitude > max_longitude:
+                max_longitude = longitude
+            for latitude in self.game.play_area[longitude]:
+                if latitude < min_latitude:
+                    min_latitude = latitude
+                elif latitude > max_latitude:
+                    max_latitude = latitude
+        self.dimensions[0] = max_longitude - min_longitude + 1 + 2*self.DIMENSION_BUFFER
+        self.dimensions[1] = max_latitude - min_latitude + 1 + 2*self.DIMENSION_BUFFER
+        #Check whether the current dimensions are too great for the display size
+        if (self.dimensions[0]*self.tile_size > self.play_area_width
+                or self.dimensions[1]*self.tile_size > self.height):
+#            print("Reducing the size of tile graphics to fit within the new dimensions")
+            self.rescale_graphics()
+        #Check whether one of the dimensions has slack space and displace the origin to centre the play
+        #Set the origin so that the play will be as central as possible
+        self.origin[0] = -min_longitude + self.DIMENSION_BUFFER
+        width_needed = self.dimensions[0]*self.tile_size
+        if width_needed + 2*self.tile_size < self.play_area_width:
+#            print("Extending grid width because the screen width is more generous than needed")
+            extra_cols = math.floor((self.play_area_width - width_needed)/self.tile_size) #the excess in tiles
+            self.dimensions[0] += extra_cols
+            self.origin[0] += extra_cols // 2
+        self.origin[1] = -min_latitude + self.DIMENSION_BUFFER
+        height_needed = self.dimensions[1]*self.tile_size
+        if height_needed + 2*self.tile_size < self.height:
+#            print("Extending grid height because the screen height is more generous than needed")
+            extra_rows = math.floor((self.height - height_needed)/self.tile_size) #the excess in tiles
+            self.dimensions[1] += extra_rows
+            self.origin[1] += extra_rows // 2
+#        print("Dimensions are now: "+str(self.dimensions[0])+", "+str(self.dimensions[1]))
+#        print("Origin is now: "+str(self.origin[0])+", "+str(self.origin[1]))
+        return True
+        
+    
+    def window_resize(self, resize_event):
+        '''Deals with resizing of the window
+        '''
+        new_width, new_height = resize_event.w, resize_event.h 
+        reload_needed = False #keep track of whether graphics are being scaled up, which would need the original PNGs to be reloaded
+        if new_width > self.width or new_height > self.height:
+            reload_needed = True
+        self.width, self.height = new_width, new_height
+        pygame.display.set_mode((new_width, new_height), pygame.RESIZABLE, depth=32)
+        if reload_needed:
+            self.init_graphics() #reload the PNG images
+        else:
+            self.rescale_graphics()
+        #Now update text sizes too
+        self.scores_font = pygame.font.SysFont(None, round(self.height * self.SCORES_FONT_SCALE)) #the font size for scores will be proportionate to the window size
+        self.prompt_font = pygame.font.SysFont(None, round(self.height * self.PROMPT_FONT_SCALE)) #the font size for prompt will be proportionate to the window size
+        self.prompt_position = [self.play_area_start + self.PROMPT_POSITION[0]*self.width
+                                , self.PROMPT_POSITION[1]*self.height]
+        pygame.font.init()
+        self.draw_play_area()
+        self.draw_move_options()
+        self.draw_routes()
+        self.draw_tokens()
+        self.draw_scores()
+        self.draw_prompt()
+        pygame.display.flip()
+       
+            
+    def get_horizontal(self, longitude):
+        '''Translates a play area horiztonal position into visual grid position
+        '''
+        return self.origin[0] + longitude
+    
+    def get_vertical(self, latitude):
+        '''Translates a play area vertical position into visual grid position
+        '''
+        return self.dimensions[1] - self.origin[1] - latitude - 1
+    
+    def establish_tilename(self, tile):
+        '''Works out what the image file will be called, corresponding to a Cartolan tile
+        '''
+        e = tile.tile_edges
+        if isinstance(tile, CityTile):
+            if tile.is_capital:
+                return "capital"
+            else:
+                return "mythical"
+        elif isinstance(tile, DisasterTile):
+            if tile.tile_back == "water":
+                return "water_disaster"
+            else:
+                return "land_disaster"
+        else:
+            uc = str(e.upwind_clock_water)[0].lower()
+            ua = str(e.upwind_anti_water)[0].lower()
+            dc = str(e.downwind_clock_water)[0].lower()
+            da = str(e.downwind_anti_water)[0].lower()
+            wonder = str(tile.is_wonder)[0].lower()
+            return uc + ua + dc + da + wonder
+    
+    def assign_tile_image(self, tile):
+        '''Assigns a suitable tile image for a particular tile
+        '''
+        tile_name = self.establish_tilename(tile)
+        available_tiles = self.tile_images[tile_name]
+        tile_image = available_tiles.pop()
+        bordered_tile_size = round(self.tile_size * (1 - self.TILE_BORDER))
+        self.tile_image_library[tile] = pygame.transform.scale(tile_image.copy(), [bordered_tile_size, bordered_tile_size])
+        self.menu_tile_library[tile] = pygame.transform.scale(tile_image.copy(), [self.menu_tile_size, self.menu_tile_size])
+        if isinstance(self.game, GameRegular):
+            self.offer_tile_library[tile] = pygame.transform.scale(tile_image.copy(), [self.offer_tile_size, self.offer_tile_size])
+        available_tiles.insert(0, tile_image) #Prepend this image back into the library so that it won't get used again unless other images run out
+        return tile_image
+
+    def assign_card_image(self, card):
+        '''Assigns a suitable card image for a particular card
+        '''
+        available_cards = self.card_images[card.card_type]
+        card_image = available_cards.pop()
+        self.card_image_library[card] = pygame.transform.scale(card_image.copy(), [self.card_width, self.card_height])
+        if isinstance(self.game, GameAdvanced):
+            offer_height = min(card_image.get_height(), int(self.height * (1 - 2 * (1 - self.PROMPT_POSITION[1]))))
+            offer_width = int(card_image.get_width() * offer_height / card_image.get_height())
+            self.card_offer_library[card] = pygame.transform.scale(card_image.copy(), [offer_width, offer_height])
+        available_cards.insert(0, card_image) #Prepend this image back into the library so that it won't get used again unless other images run out
+        return card_image
+
+    def draw_play_area(self):
+        '''Renders the tiles that have been laid in a particular game of Cartolan - Trade Winds
+        '''
+        play_area_update = self.game.play_area
+#        print("Drawing the play area, with " +str(len(play_area_update))+" columns of tiles")
+        #Check whether the visuals need to be rescaled
+        self.rescale_as_needed()
+        #Clear what's already been drawn
+        self.window.fill(self.BACKGROUND_COLOUR)
+#        self.window.fill(0)
+#        self.window.blit(self.backing_image, [0,0])
+        #For each location in the play area draw the tile
+        for longitude in play_area_update:
+            for latitude in play_area_update[longitude]:
+                #bring in the relevant image from the library
+                tile = play_area_update[longitude][latitude]
+                tile_image = self.tile_image_library.get(tile)
+                if tile_image is None:
+                    self.assign_tile_image(tile)
+                    tile_image = self.tile_image_library.get(tile)
+                rotated_image = self.rotate_tile_image(tile, tile_image)
+                #place the tile image in the grid
+                horizontal = self.play_area_start + self.get_horizontal(longitude) * self.tile_size
+                vertical = self.get_vertical(latitude) * self.tile_size
+#                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
+                self.window.blit(rotated_image, [horizontal, vertical])
+                #Print a number on this tile showing the dropped wealth there
+                if tile.dropped_wealth > 0:
+                    if tile.is_wonder:
+                        text_colour = self.WONDER_TEXT_COLOUR
+                    else:
+                        text_colour = self.PLAIN_TEXT_COLOUR
+                    horizontal += int(self.tile_size * (1 - self.TOKEN_FONT_SCALE/2) / 2)
+                    vertical += int(self.tile_size * (1 - self.TOKEN_FONT_SCALE/2) / 2)
+                    wealth_label = self.token_font.render(str(tile.dropped_wealth), 1, text_colour)
+                    self.window.blit(wealth_label, [horizontal, vertical])
+        # # Keep track of what the latest play_area to have been visualised was
+        # self.play_area = self.play_area_union(self.play_area, play_area_update)
+        return True
+    
+    #@TODO highlight the particular token(s) that an action relates to
+    #display the number of moves since resting
+    def draw_move_options(self, highlight_coords={}):
+        '''Outlines tiles where moves or actions are possible, designated by colour
+        
+        Arguments:
+        moves_since_rest expects an integer
+        highlight_coords expects a library of strings mapped to lists of integer 2-tuples
+        '''
+#        print("Updating the dict of highlight positions, based on optional arguments")
+#        highlight_count = 0
+        self.highlight_rects = {} #Reset the record of where highlights have been drawn for click detection
+        for highlight_type in self.highlights:
+            coords = highlight_coords.get(highlight_type)
+            if coords:
+                self.highlights[highlight_type] = coords
+#                print(highlight_type + " highlight provided coords at "+str(coords) )
+#                highlight_count += len(coords)
+            else:
+#                print("No coords provided for highight type: "+highlight_type)
+                self.highlights[highlight_type] = []
+#        print("Cycling through the various highlights' grid coordinates, outlining the " +str(highlight_count)+ " tiles that can and can't be subject to moves")
+        for highlight_type in self.highlight_library:
+            if self.highlights[highlight_type]:
+                self.highlight_rects[highlight_type] = []
+                highlight_image = self.highlight_library[highlight_type]
+                for tile_coords in self.highlights[highlight_type]:
+                    #place the highlight image on the grid
+#                    print(highlight_type + " has coords "+str(tile_coords))
+                    horizontal = self.play_area_start + self.get_horizontal(tile_coords[0]) *self.tile_size
+                    vertical = self.get_vertical(tile_coords[1]) *self.tile_size
+#                    print("Drawing a highlight at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
+                    self.window.blit(highlight_image, [horizontal, vertical])
+                    #remember where this highlight was drawn, to detect input later
+                    self.highlight_rects[highlight_type].append((horizontal, vertical, highlight_image.get_width(), highlight_image.get_height()))
+        
+    def draw_move_count(self):
+        '''report the number of moves that have been used so far:
+        '''
+        # horizontal = self.MOVE_COUNT_POSITION[0] * self.width
+        horizontal = self.right_menu_start
+#            vertical = self.MOVE_COUNT_POSITION[1] * self.height + len(self.game.tile_piles) * self.SCORES_FONT_SCALE * self.height
+        vertical = 0
+        #Only show moves available in meters if the current player is viewed
+        if self.current_adventurer == self.viewed_adventurer:
+            #Work out how many moves remain of each type, and get ready to overlay the move type icon with a greyed-out meter and numbers
+            report = "Moves until rest:"
+            move_title = self.scores_font.render(report, 1, self.viewed_player_colour)
+            moves_since_rest = self.current_adventurer.downwind_moves + self.current_adventurer.upwind_moves + self.current_adventurer.land_moves
+            # any_direction_moves = self.current_adventurer.upwind_moves + self.current_adventurer.land_moves
+            max_any_direction_moves = self.current_adventurer.max_upwind_moves
+            only_downwind_moves = self.current_adventurer.max_downwind_moves - max_any_direction_moves
+            extra_downwind_moves = max(moves_since_rest - max_any_direction_moves, 0)
+            any_direction_share = min(moves_since_rest / max_any_direction_moves, 1)
+            any_direction_meter = pygame.Surface((int(round(any_direction_share*self.menu_tile_size)), self.menu_tile_size))
+            count = str(max(max_any_direction_moves - moves_since_rest, 0)) + " / " + str(max_any_direction_moves)
+            any_direction_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
+            try:
+                downwind_water_share = extra_downwind_moves / only_downwind_moves
+            except:
+                downwind_water_share = 1.0
+            downwind_water_meter = pygame.Surface((int(round(downwind_water_share*self.menu_tile_size)), self.menu_tile_size))
+            count = str(only_downwind_moves - extra_downwind_moves) + " / " + str(only_downwind_moves)
+            downwind_water_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
+        else:
+            report = "Not #" +str(self.viewed_adventurer_number+1)+ "'s turn"
+            move_title = self.scores_font.render(report, 1, self.viewed_player_colour)
+            any_direction_meter = pygame.Surface((self.menu_tile_size, self.menu_tile_size))
+            any_direction_text = self.scores_font.render("", 1, self.PLAIN_TEXT_COLOUR)
+            downwind_water_meter = pygame.Surface((self.menu_tile_size, self.menu_tile_size))
+            downwind_water_text = self.scores_font.render("", 1, self.PLAIN_TEXT_COLOUR)
+        any_direction_meter.set_alpha(self.METER_OPACITY)
+        any_direction_meter.fill(self.ANY_DIRECTION_METER_COLOUR)
+        downwind_water_meter.set_alpha(self.METER_OPACITY)
+        downwind_water_meter.fill(self.DOWNWIND_WATER_METER_COLOUR)
+        if move_title.get_width() > self.right_text_start:
+            self.right_text_start = move_title.get_width() #permanently adjust the text margin on this setup if it doesn't fit
+        self.window.blit(move_title, [horizontal, vertical])
+        self.move_count_rect = (horizontal, vertical, move_title.get_width(), move_title.get_height() + self.menu_tile_size)
+        #Render the icons for each move type, greyed out to the extent that they are still available
+        vertical += move_title.get_height()
+        self.window.blit(self.meters_library["any_direction"], (horizontal, vertical))
+        self.window.blit(any_direction_meter, (horizontal, vertical))
+        self.window.blit(any_direction_text, (horizontal, vertical))
+        horizontal += self.menu_tile_size
+        self.window.blit(self.meters_library["downwind_water"], (horizontal, vertical))
+        self.window.blit(downwind_water_meter, (horizontal, vertical))
+        self.window.blit(downwind_water_text, (horizontal, vertical))
+        
+    def draw_discard_pile(self):
+        '''Draw small versions of the tiles that have been discarded so far
+        '''
+        #If the player has changed then empty the discard list
+        if not self.discarding_adventurer == self.current_adventurer:
+            self.discard_pile = []
+        horizontal = self.right_menu_start
+        vertical = self.piles_rect[1] + self.piles_rect[3]
+        discard_title = self.scores_font.render("Failed map draws:", 1, self.PLAIN_TEXT_COLOUR)
+        self.window.blit(discard_title, [horizontal, vertical])
+        horizontal = self.right_menu_start
+        vertical += self.SCORES_FONT_SCALE * self.height
+        tile_count = 0
+        for pile in list(self.game.discard_piles.values()):
+            new_discards = [tile for tile in pile.tiles if not tile in self.discard_pile]
+            self.discard_pile += new_discards
+        for tile in reversed(self.discard_pile):
+            tile_image = self.menu_tile_library.get(tile)
+            if tile_image is None:
+                self.assign_tile_image(tile)
+                tile_image = self.menu_tile_library.get(tile)
+            rotated_image = self.rotate_tile_image(tile, tile_image)
+#                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
+            self.window.blit(rotated_image, [horizontal, vertical])
+            #Draw a frame to keep distinct from play area
+            pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
+                             , (horizontal, vertical, self.menu_tile_size, self.menu_tile_size)
+                             , self.chest_highlight_thickness)
+            tile_count += 1
+            if tile_count % self.MENU_TILE_COLS == 0:
+                vertical += self.menu_tile_size
+                horizontal = self.right_menu_start
+            else:
+                horizontal += self.menu_tile_size
+     
+    def check_highlighted(self, input_longitude, input_latitude):
+        '''Given play area grid coordinates, checks whether this is highlighted as a valid move/action
+        '''
+#        print("Checking whether there is a valid move option at: " +str(input_longitude)+ ", " +str(input_latitude))
+        is_option_available = False
+        for highlight_type in self.highlight_library:
+#            print("There are " +str(len(self.highlights[highlight_type]))+ " options of type " +highlight_type)
+            if self.highlights[highlight_type]:
+                is_option_available = True
+                for tile_coords in self.highlights[highlight_type]:
+                    #compare the input coordinates to the highlighted tile's coordinates
+                    longitude = tile_coords[0]
+                    latitude = tile_coords[1]
+                    if longitude == input_longitude and latitude == input_latitude:
+                        return highlight_type
+        if is_option_available:
+            return None
+        else:
+            return "confirmed"
+    
+    def clear_move_options(self):
+        '''
+        '''
+#        print("Clearing out the list of valid moves")
+        # for highlight_type in self.highlight_library:
+        #     self.highlights[highlight_type] = []
+    
+    def draw_tokens(self):
+        '''Illustrates the current location of Adventurers and Agents in a game, along with their paths over the last turn
+        '''
+#        print("Cycling through the players, drawing the adventurers and agents as markers")
+        game = self.game
+        players = self.game.players
+        #Reset the records of where Agents and Adventurers have been
+        self.adventurer_centres = []
+        self.agent_rects = []
+        for player in players:
+            #We'll want to differentiate players by colour and the offset from the tile location
+            colour = pygame.Color(self.player_colours[player])
+            player_offset = self.PLAYER_OFFSETS[players.index(player)]
+            token_label_colour = self.PLAIN_TEXT_COLOUR
+            if self.TOKEN_FONT_COLOURS.get(self.player_colours[player]) is not None:
+                token_label_colour = self.TOKEN_FONT_COLOURS[self.player_colours[player]]
+            #Each player may have multiple Adventurers to draw
+            adventurers = self.game.adventurers[player]
+            for adventurer in adventurers:
+                # we want to draw a circle anywhere an Adventurer is, differentiating with offsets
+                tile = adventurer.current_tile
+                adventurer_offset = self.ADVENTURER_OFFSETS[adventurers.index(adventurer)]
+                location = [int(self.play_area_start + self.tile_size * (self.get_horizontal(tile.tile_position.longitude) + player_offset[0] + adventurer_offset[0]))
+                            , int(self.tile_size * (self.get_vertical(tile.tile_position.latitude) + player_offset[1] + adventurer_offset[1]))]
+                # we want it to be coloured differently for each player
+#                print("Drawing the filled circle at " +str(location[0])+ ", " +str(location[1])+ " with radius " +str(self.token_size))
+                pygame.draw.circle(self.window, colour, location, self.token_size)
+                if isinstance(adventurer, AdventurerRegular):
+                    if adventurer.pirate_token:
+                        # we'll outline pirates in black
+#                        print("Drawing an outline")
+                        pygame.draw.circle(self.window, (0, 0, 0), location, self.token_size, self.outline_width)
+#                if adventurer in (self.viewed_adventurer, self.current_adventurer):
+                if adventurer == self.viewed_adventurer:
+                    pygame.draw.circle(self.window, self.PLAIN_TEXT_COLOUR, location, self.token_size+self.outline_width, self.outline_width)
+                else:
+                    self.adventurer_centres.append([(location[0], location[1]), adventurer]) #We'll retain the centre, to contstruct a hit-box for selecting this Adventurer instead
+                #For the text label we'll change the indent
+                token_label = self.token_font.render(str(adventurers.index(adventurer)+1), 1, token_label_colour)
+                location[0] -= self.token_size // 2
+                location[1] -= self.token_size
+                self.window.blit(token_label, location)
+            # we want to draw a square anywhere that an agent is
+            for agent in game.agents[player]: 
+                tile = agent.current_tile
+                if not tile:
+                    continue
+                agent_offset = self.AGENT_OFFSET
+                location = [int(self.play_area_start + self.tile_size * (self.get_horizontal(tile.tile_position.longitude) + agent_offset[0]))
+                            , int(self.tile_size * (self.get_vertical(tile.tile_position.latitude) + agent_offset[1]))]
+                #Agents will be differentiated by colour, but they will always have the same position because there will only be one per tile
+                agent_shape = pygame.Rect(location[0], location[1]
+                  , self.AGENT_SCALE*self.token_size, self.AGENT_SCALE*self.token_size)
+                if agent.player != self.viewed_adventurer.player:
+                    self.agent_rects.append([(location[0], location[1]
+                            , self.AGENT_SCALE*self.token_size, self.AGENT_SCALE*self.token_size)
+                        , agent.player])
+                # we'll only outline the Agents that are dispossessed
+                if isinstance(agent, AgentRegular) and agent.is_dispossessed:
+                        pygame.draw.rect(self.window, colour, agent_shape, self.outline_width)
+                else:
+                    #for a filled rectangle the fill method could be quicker: https://www.pygame.org/docs/ref/draw.html#pygame.draw.rect
+                    self.window.fill(colour, rect=agent_shape)
+                token_label = self.token_font.render(str(agent.wealth), 1, token_label_colour)
+                location[0] += self.token_size // 2
+                self.window.blit(token_label, location)
+        return True
+    
+    # it will be useful to see how players moved around the play area during the game, and relative to agents
+    def draw_routes(self):
+        '''Illustrates the paths that different Adventurers have taken during the course of a game, and the location of Agents
+        
+        Arguments:
+        List of Carolan.Players the Adventurers and Agents that will be rendered
+        '''
+        #This sub-method will draw a dashed line instead of a continuous one
+        def draw_dash_line(window, colour, start, end, thickness):
+            dash_size = [round((end[0]-start[0])/self.NUM_DASHES), round((end[1]-start[1])/self.NUM_DASHES)]
+            for dash_num in range(self.NUM_DASHES):
+                if dash_num % 2 == 1:
+                    #Draw only odd line increments
+                    inc_start = [start[0] + dash_num*dash_size[0], start[1] + dash_num*dash_size[1]]
+                    inc_end = [start[0] + (dash_num+1)*dash_size[0], start[1] + (dash_num+1)*dash_size[1]]
+                    pygame.draw.line(window, colour, inc_start, inc_end, thickness)
+            return [min(start[0], end[0]), min(start[1], end[1]), abs(end[0]-start[0]), abs(end[1]-start[1])]
+        
+#        print("Drawing a series of lines to mark out the route travelled by players since the last move")
+        players = self.game.players
+        self.drawn_routes = [] #Clear out old routes
+        for player in players:
+            #only draw routes for the current and viewed adventurers' players
+            if not (self.draw_all_routes 
+                    or player in [self.current_adventurer.player
+                                  , self.viewed_adventurer.player]):
+                continue
+            player_offset = self.PLAYER_OFFSETS[players.index(player)]
+            adventurers = self.game.adventurers[player]
+            colour = pygame.Color(self.player_colours[player])
+            for adventurer in adventurers:
+                adventurer_offset = self.ADVENTURER_OFFSETS[adventurers.index(adventurer)]
+                adventurer_offset = [adventurer_offset[i] + player_offset[i] for i in [0, 1]]
+                #Draw the route for this expedition, between City visits
+                if adventurer.route:
+                    previous_step = [int(self.play_area_start + self.tile_size * (self.get_horizontal(adventurer.route[0].tile_position.longitude) + adventurer_offset[0]))
+                            , int(self.tile_size * (self.get_vertical(adventurer.route[0].tile_position.latitude) + adventurer_offset[1]))]
+                    move = 0
+                    drawn_route = []
+                    for tile in adventurer.route:
+                        step = [int(self.play_area_start + self.tile_size * (self.get_horizontal(tile.tile_position.longitude) + adventurer_offset[0]))
+                                , int(self.tile_size * (self.get_vertical(tile.tile_position.latitude) + adventurer_offset[1]))]
+                        segment = draw_dash_line(self.window, colour
+                                         , [previous_step[0], previous_step[1]]
+                                         , [step[0], step[1]]
+                                         , math.ceil(self.route_thickness 
+                                                     * float(move)/float(len(adventurer.route))
+                                                     )
+                                         )
+                        # print(segment)
+                        previous_step = step
+                        drawn_route.append(segment)
+                        move += 1
+                    #retain this for detecting clicks, providing it doesn't end with abandoning
+                    route_to_follow = adventurer.route[:]
+                    if (drawn_route[-1][2] > self.tile_size and drawn_route[-1][3] > self.tile_size):
+                        route_to_follow.pop()
+                    if len(drawn_route) > 1:
+#                        print("Recording route of "+self.player_colours[adventurer.player]+" player, for fast travel.")
+#                        print("Route length: "+str(len(drawn_route)))
+                        self.drawn_routes.append([drawn_route, route_to_follow])
+                #Draw the route for the latest turn
+                if adventurer.turn_route:
+                    previous_step = [int(self.play_area_start + self.tile_size * (self.get_horizontal(adventurer.turn_route[0].tile_position.longitude) + adventurer_offset[0]))
+                            , int(self.tile_size * (self.get_vertical(adventurer.turn_route[0].tile_position.latitude) + adventurer_offset[1]))]
+                    move = 0
+                    for tile in adventurer.turn_route:
+                        # you'll need to get the centre-point for each tile_image
+                        step = [int(self.play_area_start + self.tile_size * (self.get_horizontal(tile.tile_position.longitude) + adventurer_offset[0]))
+                                , int(self.tile_size * (self.get_vertical(tile.tile_position.latitude) + adventurer_offset[1]))]
+                        segment = pygame.draw.line(self.window, colour
+                                         , [previous_step[0], previous_step[1]]
+                                         , [step[0], step[1]]
+                                         , math.ceil(self.route_thickness 
+                                                     * float(len(adventurer.route)-len(adventurer.turn_route)+move)/float(len(adventurer.route))
+                                                     )
+                                         )
+                        previous_step = step
+                        move += 1
+            
+#            if isinstance(player, PlayerRegularExplorer):
+#                for attack in player.attack_history: 
+#                    # we want to draw a cross anywhere that an attack happened, the attack_history is full of pairs with a tile and a bool for the attack's success
+#                    if attack[1]:
+#                        face_colour = self.player_colours[player]
+#                    else:
+#                        face_colour = "none"
+#                    tile = attack[0]
+#                    location = [self.origin[0] + tile.tile_position.longitude + player_offset[0]
+#                                , self.origin[1] + tile.tile_position.latitude + player_offset[1]]
+#                    routeax.scatter([location[0]],[location[1]]
+#                                  , linewidth=1, edgecolors=self.player_colours[player], facecolor=face_colour, marker="X", s=self.token_width)
+    
+    def draw_scores(self):
+        '''Prints a table of current wealth scores in players' Vaults and Adventurers' Chests
+        '''        
+#        print("Creating a table of the wealth held by Players and their Adventurers")
+        #Draw the column headings
+        game = self.game
+        horizontal = self.SCORES_POSITION[0] * self.width
+        vertical = self.SCORES_POSITION[1] * self.height
+        score_title = self.scores_font.render("At turn "+str(game.turn)+", players have this much Silk in their...", 1, self.PLAIN_TEXT_COLOUR)
+        self.window.blit(score_title, [horizontal, vertical])
+        vertical += score_title.get_height()
+        scores_texts = [[], [], []] #Start with three columns: name, vault Silk, 1st adventurer's chest Silk
+        scores_widths = []
+        #Leave the top cell of the names column blank
+        scores_texts[0].append([self.scores_font.render("", 1, self.PLAIN_TEXT_COLOUR), None]) #2-array kept to allow click-detection
+        scores_widths.append(0)
+        #Label the Vault column
+        score_text = self.scores_font.render("  Vault", 1, self.PLAIN_TEXT_COLOUR)
+        scores_texts[1].append([score_text, None]) #2-array kept to allow click-detection
+        scores_widths.append(score_text.get_width())
+        #Label the first Adventurer Chest column, as there will always be one
+        score_text = self.scores_font.render("  Chest #1", 1, self.PLAIN_TEXT_COLOUR)
+        scores_texts[2].append([score_text, None]) #2-array kept to allow click-detection
+        scores_widths.append(score_text.get_width())
+        #Work out the maximum number of Adventurers in play, to only draw this many columns
+        max_num_adventurers = 1
+        for player in self.game.players:
+            if len(game.adventurers[player]) > max_num_adventurers:
+                max_num_adventurers = len(game.adventurers[player])
+        if max_num_adventurers > 1:
+            for adventurer_num in range(2, max_num_adventurers + 1):    
+                score_title = self.scores_font.render("  #"+str(adventurer_num)+"  ", 1, self.PLAIN_TEXT_COLOUR)
+                scores_texts.append([[score_title, None]]) #2-array kept to allow click-detection
+                scores_widths.append(score_title.get_width())
+        #There will now be a row for each player
+        for player in self.game.players:
+            colour = pygame.Color(self.player_colours[player])
+            #First we have the Player's name
+            score_text = self.scores_font.render(player.name, 1, colour)
+            scores_texts[0].append([score_text, player])
+            #Update the column width if needed
+            if score_text.get_width() > scores_widths[0]:
+                scores_widths[0] = score_text.get_width()
+            #Now the Player's Vault Silk (score)
+            if player == game.winning_player:
+                text = " "+str(self.game.player_wealths[player])+" (+"+str(game.wealth_difference)+")"
+            #Highlight the second placed player too, because lower ranked players can behave differently
+            elif (game.winning_player is not None 
+                  and self.game.player_wealths[game.winning_player] - self.game.player_wealths[player] == game.wealth_difference):
+                text = " "+str(self.game.player_wealths[player])+" (2nd)"
+            # elif game.winning_player is not None:
+            #     text = str(self.game.player_wealths[player])+" (-"+str(self.game.player_wealths[self.game.winning_player] - self.game.player_wealths[player])+")"
+            else:
+                text = " "+str(self.game.player_wealths[player])
+            score_text = self.scores_font.render("  "+text, 1, colour)
+            scores_texts[1].append([score_text, player])
+            #Update the column width if needed
+            if score_text.get_width() > scores_widths[1]:
+                scores_widths[1] = score_text.get_width()
+            #Now the Player's first Adventurer's Chest 
+            adventurer = game.adventurers[player][0]
+            score_text = self.scores_font.render("  "+str(adventurer.wealth), 1, colour)
+            scores_texts[2].append([score_text, adventurer])
+            #Update the column width if needed
+            if score_text.get_width() > scores_widths[2]:
+                scores_widths[2] = score_text.get_width()
+            #Now any further Adventurers
+            for adventurer_num in range(2, max_num_adventurers+1):
+                if len(self.game.adventurers[player]) >= adventurer_num:
+                    adventurer = self.game.adventurers[player][adventurer_num-1]
+                    score_text = self.scores_font.render("  "+str(adventurer.wealth), 1, colour)
+                else:
+                    adventurer = None
+                    score_text = self.scores_font.render("", 1, colour)
+                scores_texts[adventurer_num+1].append([score_text, adventurer])
+                #Update the column width if needed
+                if score_text.get_width() > scores_widths[adventurer_num+1]:
+                    scores_widths[adventurer_num+1] = score_text.get_width()
+                
+        #Add all of the table cells to the canvas
+        left_edge = right_edge = horizontal = self.SCORES_POSITION[0] * self.width #reset the scores position before going through other rows below
+        #Start recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
+        self.scores_rect = [horizontal, vertical, 0, 0]
+        self.score_rects = []
+        for column in scores_texts:
+            #Calculate the right edge of this column
+            right_edge += scores_widths[scores_texts.index(column)]
+            #Reset the vertical position
+            vertical = self.SCORES_POSITION[1] * self.height #reset the scores position before going through other rows below
+            for score_text, score_owner in column:
+                vertical += self.SCORES_FONT_SCALE * self.height #increment the vertical position to a new row
+                #Draw this in the window
+                if scores_texts.index(column) > 1:
+                    horizontal = right_edge - score_text.get_width() #Right-align Chest Silk
+                else:
+                    horizontal = left_edge
+                self.window.blit(score_text, [horizontal, vertical])
+                #Remember where for click detection
+                self.score_rects.append([(horizontal, vertical, score_text.get_width(), score_text.get_height()), score_owner])
+                #If this is the moving Adventurer, then highlight their score
+                if score_owner == self.current_adventurer:
+                    pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
+                                 , (horizontal
+                                    , vertical + score_text.get_height()
+                                    , score_text.get_width()
+                                    , 0)
+                                 , self.chest_highlight_thickness)
+                #If this is the Adventurer whose cards are being viewed then mark with a dot underneath
+                if score_owner == self.viewed_adventurer:
+                    pygame.draw.circle(self.window, self.PLAIN_TEXT_COLOUR
+                                 , (horizontal + score_text.get_width()//2
+                                    , vertical + score_text.get_height())
+                                 , self.chest_highlight_thickness)
+            #Update the left edge for the next column
+            left_edge += scores_widths[scores_texts.index(column)]
+        #Remember the outer dimensions of the whole table
+        self.scores_rect[2] = right_edge
+        self.scores_rect[3] = vertical + self.SCORES_FONT_SCALE * self.height
+                
+        #State the current player and Adventurer
+        vertical += self.SCORES_FONT_SCALE * self.height
+        horizontal = self.SCORES_POSITION[0] * self.width
+        active_prompt = self.scores_font.render(self.current_adventurer.player.name+"'s Adventurer #"+str(self.current_adventurer_number+1)+"'s turn", 1, pygame.Color(self.current_player_colour))
+        self.window.blit(active_prompt, [horizontal, vertical])
+        #Finish recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
+        self.scores_rect = (self.scores_rect[0]
+            , self.scores_rect[1]
+            , self.SCORES_FONT_SCALE * self.SCORES_SPACING * self.width * (max_num_adventurers + 1)
+            , vertical + self.SCORES_FONT_SCALE * self.height - self.scores_rect[1])
+        
+    def draw_tile_piles(self):
+        '''Draw the numbers of tiles in each pile
+        '''
+        horizontal = self.right_menu_start
+        vertical = self.chest_rect[1] + self.chest_rect[3]
+        #Start recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
+        self.piles_rect = (horizontal, vertical, 0, 0)
+        piles_title = self.scores_font.render("Maps to draw:", 1, self.PLAIN_TEXT_COLOUR)
+        self.window.blit(piles_title, (horizontal, vertical))
+        vertical += piles_title.get_height()
+        for tile_back in self.game.tile_piles:
+            tiles = self.game.tile_piles[tile_back].tiles
+            tile_count = len(tiles)
+            pile_size = self.game.NUM_TILES[tile_back]
+            pile_share = 1 - tile_count/pile_size
+            tile_meter = pygame.Surface((self.menu_tile_size, round(pile_share*self.menu_tile_size)))
+            tile_meter.set_alpha(self.METER_OPACITY)
+            count = str(tile_count) + " / " + str(pile_size)
+            pile_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
+            tile_count_position = [horizontal, vertical]
+            tile_back_image = pygame.transform.scale(self.tile_images[tile_back][0].copy(), [self.menu_tile_size, self.menu_tile_size])
+            self.window.blit(tile_back_image, tile_count_position)
+            self.window.blit(tile_meter, tile_count_position)
+            self.window.blit(pile_text, tile_count_position)
+            horizontal += tile_meter.get_width()
+        #Finish recording the surrounding rect for click detection, but will need to count max adventurers below to finalise this
+        self.piles_rect = (self.piles_rect[0]
+            , self.piles_rect[1]
+            , 2 * self.menu_tile_size
+            , piles_title.get_height() + self.menu_tile_size)
+    
+    def draw_toggle_menu(self, fixed_responses = {}):
+        '''Visualises a set of highlights for action prompts that can have a fixed True/False response set for them 
+        '''
+        #Draw a box to surround the toggle menu, and remember its coordinates for player input
+        horizontal = self.right_menu_start
+        vertical = self.move_count_rect[1] + self.move_count_rect[3] 
+        menu_height = self.SCORES_FONT_SCALE * self.height + self.menu_highlight_size + self.menu_spacing
+        if self.draw_all_routes:
+            #If all players' routes are to be drawn then there will need to be space for a horizontal line each in the toggle menu
+            menu_height += len(self.player_colours) * self.menu_route_thickness
+        else:
+            menu_height += self.menu_route_thickness
+            if not self.current_adventurer.player == self.viewed_adventurer.player:
+                menu_height += self.menu_route_thickness #two routes will be drawn if the viewed Adventurer is for another player
+        self.toggles_rect = (horizontal, vertical, self.play_area_start, menu_height )
+        if not self.current_adventurer.player == self.viewed_adventurer.player:
+            return #This menu isn't relevant if the adventurer doesn't belong to the player viewing
+        self.action_rects = [] #Reset the record of where the toggle menu buttons have been drawn
+        #Establish the top left coordinate below the table of Silk scores
+#        horizontal = self.MOVE_COUNT_POSITION[0] * self.width
+#        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.game.tile_piles) + 1)
+        toggle_title = self.scores_font.render("Auto-Actions:", 1, self.PLAIN_TEXT_COLOUR)
+        self.window.blit(toggle_title, (horizontal, vertical))
+
+#        print("Chest map menu corners defined at pixels...")
+#        print(self.chest_rect)
+#        pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
+#                                 , self.chest_rect
+#                                 , self.chest_highlight_thickness)
+        #Cycle through the auto-actions, drawing their highlight over the toggle button that will decide their auto-response
+        horizontal = self.right_menu_start
+        vertical += self.SCORES_FONT_SCALE * self.height
+        for highlight_type in fixed_responses:
+            #If there is a fixed response set for this action type, then give it a colour to indicate True / False
+            if fixed_responses[highlight_type]:
+                pygame.draw.rect(self.window, self.TOGGLE_TRUE_COLOUR
+                                 , (horizontal, vertical, self.menu_highlight_size, self.menu_highlight_size))
+            elif fixed_responses[highlight_type] is not None:
+                pygame.draw.rect(self.window, self.TOGGLE_FALSE_COLOUR
+                                 , (horizontal, vertical, self.menu_highlight_size, self.menu_highlight_size))
+            else:
+                pygame.draw.rect(self.window, self.BACKGROUND_COLOUR
+                                 , (horizontal, vertical, self.menu_highlight_size, self.menu_highlight_size))
+            #Now draw the highlight over the top
+            highlight_image = self.toggle_library[highlight_type]
+            self.window.blit(highlight_image, [horizontal, vertical])
+            #Remember the position of this highlight's toggle
+            self.action_rects.append([(horizontal, vertical, self.menu_highlight_size, self.menu_highlight_size), highlight_type])
+            horizontal += self.menu_highlight_size #increment the horizontal placement before the next toggle is drawn
+    
+    def draw_routes_menu(self):
+        ''''Add a toggle below the auto-actions menu for whether to draw all routes, or just the current and viewed players'
+        '''
+        horizontal = self.right_menu_start
+        vertical = self.move_count_rect[1] + self.move_count_rect[3]
+        vertical += self.SCORES_FONT_SCALE * self.height
+        vertical += self.menu_highlight_size + self.menu_spacing #increment down below the highlighht menu with a space
+        for player in self.player_colours:
+            if (self.draw_all_routes 
+                or self.current_adventurer.player == player
+                or self.viewed_adventurer.player == player):
+                colour = self.player_colours[player]
+                pygame.draw.line(self.window, colour
+                                 , [horizontal, vertical]
+                                 , [self.width, vertical]
+                                 , math.ceil(self.menu_route_thickness)
+                                 )
+                vertical += self.menu_route_thickness
+        
+    
+    def draw_undo_button(self):
+        '''Adds an undo button and a click hit-box that will allow the game to be reset to a preceding state, providing all players agree.
+        '''
+        #Check whether the other clients to the game have proposed/agreed to an undo
+        undo_asked = False
+        for peer in self.peer_visuals:
+            if not peer == self and peer.undo_agreed:
+                undo_asked = True
+                break
+        if self.undo_agreed:
+            undo_button = self.scores_font.render("Reject undo", 1, self.ACCEPT_UNDO_COLOUR)
+        elif undo_asked:
+            undo_button = self.scores_font.render("Accept undo?", 1, self.ACCEPT_UNDO_COLOUR)
+        else:
+            undo_button = self.scores_font.render("Undo turn?", 1, self.PLAIN_TEXT_COLOUR)
+        horizontal = self.width - undo_button.get_width()
+        vertical = self.height - undo_button.get_height()
+        self.window.blit(undo_button, (horizontal, vertical))
+        self.undo_rect = (horizontal, vertical, undo_button.get_width(), undo_button.get_height())
+            
+    def draw_chest_tiles(self):
+        '''Visualises a set of tiles in the Adventurer's Chest, and highlights one if it is selected for use
+        '''
+        #Get the information from the viewed adventurer
+        if self.viewed_adventurer is None:
+            return
+        chest_tiles = self.viewed_adventurer.chest_tiles
+        preferred_tile_num = self.viewed_adventurer.preferred_tile_num
+        max_chest_tiles = self.viewed_adventurer.num_chest_tiles
+        #Establish the top left coordinate of the column of tiles to choose from, below the table of Silk scores
+#        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.game.players) + 1)
+        # horizontal = self.right_text_start
+        horizontal = self.right_menu_start
+#        vertical = (len(self.game.players) + 1) * self.SCORES_FONT_SCALE * self.height
+        vertical = self.toggles_rect[1] + self.toggles_rect[3] 
+        title_text = "#"+str(self.viewed_adventurer_number+1)+"'s chest maps:"
+        chest_title = self.scores_font.render(title_text, 1, self.viewed_player_colour)
+        self.window.blit(chest_title, (horizontal, vertical))
+        #Draw a box to surround the Chest menu, and remember its coordinates for player input
+        horizontal = self.right_menu_start
+        vertical += self.SCORES_FONT_SCALE * self.height
+        menu_size = self.menu_tile_size * math.ceil(max_chest_tiles / self.MENU_TILE_COLS)
+        self.chest_rect = (horizontal, vertical, self.play_area_start, menu_size)
+#        print("Chest map menu corners defined at pixels...")
+#        print(self.chest_rect)
+        pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
+                                 , self.chest_rect
+                                 , self.chest_highlight_thickness)
+        #Cycle through the chest tiles, drawing them
+        for tile in chest_tiles:
+            tile_image = self.menu_tile_library.get(tile)
+            if tile_image is None:
+                self.assign_tile_image(tile)
+                tile_image = self.menu_tile_library.get(tile)
+            rotated_image = self.rotate_tile_image(tile, tile_image)
+#                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
+            horizontal = self.chest_rect[0] + (chest_tiles.index(tile) % self.MENU_TILE_COLS) * self.menu_tile_size
+#            vertical += (chest_tiles.index(tile) // self.MENU_TILE_COLS) * self.menu_tile_size
+            vertical = self.chest_rect[1] + (chest_tiles.index(tile) // self.MENU_TILE_COLS) * self.menu_tile_size
+            self.window.blit(rotated_image, [horizontal, vertical])
+            #If this is the tile selected then highlight this with a hollow rectangle
+            if chest_tiles.index(tile) == preferred_tile_num:
+                pygame.draw.rect(self.window, self.CHEST_HIGHLIGHT_COLOUR
+                                 , (horizontal, vertical, self.menu_tile_size, self.menu_tile_size)
+                                 , self.chest_highlight_thickness)
+            else:
+                pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
+                                 , (horizontal, vertical, self.menu_tile_size, self.menu_tile_size)
+                                 , self.chest_highlight_thickness)
+            #If this tile has been selected to be viewed in more detail then draw it as an offer
+            if self.viewed_tile_num is not None:
+                viewed_tile = self.viewed_adventurer.chest_tiles[self.viewed_tile_num]
+                self.draw_tile_offers([viewed_tile])
+    
+    def draw_cards(self):
+        '''Adds images of the current Adventurer's character and discovery cards to the menu below their Chest
+        
+        Arguments:
+        Adventurer takes a Cartolan Adventurer
+        '''
+        #Identify the adventurer that has been selected to focus on in this visual
+        game = self.game
+        for player in game.players:
+            if player == self.viewed_adventurer.player:
+                break
+        adventurer = game.adventurers[player][self.viewed_adventurer_number]
+        #Establish the top left coordinate of the stack of cards
+        horizontal = 0
+#        vertical = self.SCORES_FONT_SCALE * self.height * (len(self.game.players) + 1) 
+        vertical = self.scores_rect[1] + self.scores_rect[3]
+#        vertical = self.chest_rect[1] + self.chest_rect[3]
+        #draw the Adventurer's Player's Cadre Card        
+        if self.game.assigned_cadres.get(adventurer.player) is not None:
+            card_title = self.scores_font.render(adventurer.player.name+"'s Culture card:", 1, self.PLAIN_TEXT_COLOUR)
+            self.window.blit(card_title, [horizontal, vertical])
+            #Now draw the card itself
+            card = self.game.assigned_cadres.get(adventurer.player)
+            card_image = self.card_image_library.get(card)
+            if card_image is None:
+                card_image = self.assign_card_image(card)
+            vertical += self.SCORES_FONT_SCALE * self.height
+            self.window.blit(card_image, [horizontal, vertical], [0, 0, card_image.get_width(), card_image.get_height() * self.CARD_HEADER_SHARE ])
+            self.cadre_card_rect = (horizontal, vertical, self.play_area_start, card_image.get_height() * self.CARD_HEADER_SHARE)
+            vertical += card_image.get_height() * self.CARD_HEADER_SHARE
+            if self.selected_cadre_card:
+                self.draw_card_offers([card])
+        #Procede to draw any other cards
+        if adventurer.character_card is not None:
+            card_title = self.scores_font.render("Adventurer #"+str(self.game.adventurers[adventurer.player].index(adventurer)+1)+" cards:", 1, self.PLAIN_TEXT_COLOUR)
+            self.window.blit(card_title, [horizontal, vertical])
+        vertical += self.SCORES_FONT_SCALE * self.height
+#        stack_size = self.card_height * (1 + self.CARD_HEADER_SHARE * len(adventurer.character_cards))
+        stack_size = self.card_height + self.card_height * self.CARD_HEADER_SHARE * len(adventurer.discovery_cards)  #one character card plus all the manuscripts
+        self.stack_rect = (horizontal, vertical, self.play_area_start, stack_size)
+#        print("Card stack corners defined at pixels...")
+#        print(self.stack_rect)
+                
+        #Cycle through the Discovery Cards, drawing them
+        for card in adventurer.discovery_cards:
+            if self.selected_card_num is not None:
+                if adventurer.discovery_cards.index(card) == self.selected_card_num:
+                    self.draw_card_offers([card])
+#            print("Drawing a card of type "+card.card_type)
+            card_image = self.card_image_library.get(card)
+            if card_image is None:
+                card_image = self.assign_card_image(card)
+            self.window.blit(card_image, [horizontal, vertical])
+            vertical += self.CARD_HEADER_SHARE * card_image.get_height()
+        
+        #Draw the Adventurer's Character Card over the top
+        if adventurer.character_card is not None:
+            card = adventurer.character_card
+            card_image = self.card_image_library.get(card)
+            if card_image is None:
+                card_image = self.assign_card_image(card)
+
+                #        card_horizontal = 0
+            vertical = self.stack_rect[1] + card_image.get_height() * self.CARD_HEADER_SHARE * len(adventurer.discovery_cards)
+            self.window.blit(card_image, [horizontal, vertical])
+            # If one of the cards has been selected then draw it mid screen
+            if self.selected_character_card:
+                self.draw_card_offers([adventurer.character_card])
+#        card_rect = (0, card_stack_position, self.play_area_start, stack_size)
+#        pygame.draw.rect(self.window, self.PLAIN_TEXT_COLOUR
+#                                 , self.chest_rect
+#                                 , self.chest_highlight_thickness)
+#         #If one of the discovery/manuscript cards has been selected then draw cards back over the current ones in reverse up to that one
+#         if self.selected_card_num is not None:
+#             for card in reversed(adventurer.discovery_cards):
+#                 vertical -= self.CARD_HEADER_SHARE * card_image.get_height()
+# #                print("Drawing a card of type "+card.card_type)
+#                 card_image = self.get_card_image(adventurer, card)
+#                 self.window.blit(card_image, [horizontal, vertical])
+#                 if adventurer.discovery_cards.index(card) == self.selected_card_num:
+#                     break
+
+    def draw_card_offers(self, cards):
+        '''Prominently displays an array of cards from which the player can choose
+        
+        Arguments:
+        Cards takes a list of Cartolan Cards
+        '''
+        # self.offer_images = [] #reset the record of card images in use
+        self.offer_rects = [] #reset the record of card positions for selection
+        #Cycle through the offered Cards, drawing them
+        horizontal_increment = self.width // (len(cards) + 1)
+        card_horizontal = horizontal_increment
+        for card in cards:
+            print("Drawing a card of type "+card.card_type)
+            card_image = self.card_offer_library.get(card)
+            if card_image is None:
+                self.assign_card_image(card)
+                card_image = self.card_offer_library.get(card)
+            #            card_type = card.card_type
+#            available_cards = self.card_image_library[card_type]
+#            if available_cards:
+#                card_image =  available_cards[0] #Choose the first image available
+#            else:
+#                card_image = self.used_card_images[card_type][0]
+            card_vertical = (self.height - card_image.get_height()) // 2  # Centre the cards vertically
+            adjusted_horizontal = card_horizontal - card_image.get_width() // 2
+            self.window.blit(card_image, [adjusted_horizontal, card_vertical])
+            card_horizontal += horizontal_increment
+            # self.offer_images.append(card_image)
+            self.offer_rects.append((adjusted_horizontal, card_vertical, card_image.get_width(), card_image.get_height()))
+    
+    #@TODO combine the two methods for choosing cards and tiles, once there are multiple tile images too
+    def draw_tile_offers(self, tiles):
+        '''Prominently displays an array of tiles from which the player can choose
+        
+        Arguments:
+        tiles takes a list of Cartolan Tiles
+        '''
+        # self.offer_images = [] #reset the record of card images in use
+        self.offer_rects = [] #reset the record of card positions for selection
+        #Cycle through the offered Cards, drawing them
+        horizontal_increment = self.width // (len(tiles) + 1)
+        tile_horizontal = horizontal_increment
+        tile_vertical = (self.height - self.offer_tile_size) // 2 #Centre the cards vertically
+        for tile in tiles:
+            tile_image = self.offer_tile_library.get(tile)
+            if tile_image is None:
+                self.assign_tile_image(tile)
+                tile_image = self.offer_tile_library.get(tile)
+            rotated_image = self.rotate_tile_image(tile, tile_image)
+#                print("Placing a tile at pixel coordinates " +str(horizontal*self.tile_size)+ ", " +str(vertical*self.tile_size))
+            adjusted_horizontal = tile_horizontal - self.offer_tile_size // 2
+            self.window.blit(rotated_image, [adjusted_horizontal, tile_vertical])
+            tile_horizontal += horizontal_increment
+            # self.offer_images.append(tile_image)
+            self.offer_rects.append((adjusted_horizontal, tile_vertical, self.offer_tile_size, self.offer_tile_size))
+    
+    def draw_prompt(self):
+        '''Prints a prompt on what moves/actions are available to the current player
+        '''        
+#        print("Creating a prompt for the current player")
+        #Establish the colour (as the current player's)
+#        prompt = self.prompt_font.render(self.prompt_text, 1, pygame.Color(self.current_player_colour))
+        prompt_width = self.width - self.play_area_start - self.right_menu_width
+        prompt = self.wrap_text(self.prompt_text, prompt_width, self.height, self.prompt_font, pygame.Color(self.current_player_colour), self.BACKGROUND_COLOUR)
+        self.window.blit(prompt, (self.play_area_start, self.height - prompt.get_height()))
+        
+    def start_turn(self, adventurer):
+        '''Identifies the current player by their colour, affecting prompts
+        '''
+        player_colour = self.player_colours[adventurer.player]
+        adventurer_number = self.game.adventurers[adventurer.player].index(adventurer)
+#        #Reset the request for an undo
+#        self.undo_agreed = False
+#        self.undo_asked = False
+        for game_vis in self.peer_visuals:
+            game_vis.current_player_colour = player_colour
+            game_vis.current_adventurer_number = adventurer_number
+            game_vis.current_adventurer = adventurer
+            game_vis.current_adventurer.preferred_tile_num = None #deselect any chest map
+            #Also reset which adventurer's cards are being viewed
+            game_vis.viewed_player_colour = player_colour
+            game_vis.viewed_adventurer_number = adventurer_number
+            game_vis.viewed_adventurer = adventurer
+            #Reset the request for an undo
+            game_vis.undo_agreed = False
+    
+    def give_prompt(self, prompt_text):
+        '''Pushes text to the prompt buffer for the visual
+        
+        Arguments:
+        prompt_text should be a string
+        '''
+        self.prompt_text = prompt_text
+        #Replace all the visuals, rather than overlaying text on old text
+#        self.draw_play_area()
+#        self.draw_tokens()
+#        self.draw_routes()
+#        self.draw_move_options()
+        self.draw_prompt()
+        
+    
+    def clear_prompt(self):
+        '''Empties the prompt buffer for the visual
+        '''
+        self.promp_text = ""
+        
+    #@TODO introduce text input in pygame window
+    def get_input_value(self, prompt_text, maximum):
+        '''ends a prompt to the player, and waits for numerical input.
+        
+        Arguments
+        prompt takes a string
+        '''
+        return None
+        
+        
+    def get_input_coords(self, adventurer):
+        '''Passes mouseclick input from the user and converts it into the position of a game tile.
+        
+        Arguments
+        adventurer takes a Cartolan.Adventurer
+        '''
+#        print("Waiting for input from the user")
+        pygame.display.flip()
+        while True:
+            event = pygame.event.wait()
+            #quit if the quit button was pressed
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.VIDEORESIZE:
+                self.window_resize(event)
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                self.move_timer = self.MOVE_TIME_LIMIT #reset the timelimit on moving
+                #check whether the click was within the menu, and return the index within the chest
+                if (event.pos[0] in range(self.chest_rect[0], self.chest_rect[2])
+                    and event.pos[1] in range(self.chest_rect[1], self.chest_rect[3])):
+                    menu_row = (event.pos[1] - self.chest_rect[1]) // self.menu_tile_size
+                    menu_column = (event.pos[0] - self.chest_rect[0]) // self.menu_tile_size
+                    return self.MENU_TILE_COLS * menu_row + menu_column
+                # Check whether the click was within the cadre/culture card, and update the index of the selected card
+                if (event.pos[0] in range(self.cadre_card_rect[0], self.cadre_card_rect[2])
+                            and event.pos[1] in range(self.cadre_card_rect[1], self.cadre_card_rect[3])):
+                    print("Click was within the Cadre Card")
+                    self.selected_cadre_card = True
+                    self.selected_character_card = False
+                    self.selected_card_num = None
+                #Check whether the click was within the card stack, and update the index of the selected card
+                elif (event.pos[0] in range(self.stack_rect[0], self.stack_rect[2])
+                    and event.pos[1] in range(self.stack_rect[1], self.stack_rect[3])):
+                    if event.pos[1] < self.stack_rect[3] - self.card_height:
+                        print("The click was within a Manuscript Card")
+                        self.selected_cadre_card = False
+                        self.selected_character_card = False
+                        self.selected_card_num = (event.pos[1] - self.stack_rect[1]) // (self.card_height * self.CARD_HEADER_SHARE)
+                    else:
+                        print("The click was within the Character Card")
+                        self.selected_cadre_card = False
+                        self.selected_character_card = True
+                        self.selected_card_num = None
+                else:
+                    #None of the cards were selected
+                    self.selected_cadre_card = False
+                    self.selected_character_card = False
+                    self.selected_card_num = None
+                #Otherwise return the coordinates
+                longitude = int(math.ceil((event.pos[0])/self.tile_size)) - self.origin[0] - 1
+                latitude = self.dimensions[1] - int(math.ceil((event.pos[1])/self.tile_size)) - self.origin[1]
+                #check whether the click was within the highlighted space and whether it's a local turn
+#                highlighted_option = self.check_highlighted(longitude, latitude)
+#                print("Click was a valid option of type: " + highlighted_option)
+                if True:
+#                if highlighted_option is not None:
+                    self.highlights = {highlight_type:[] for highlight_type in self.HIGHLIGHT_PATHS} #clear the highlights until the server offers more
+#                    print("Have identified a move available at " +str(longitude)+ ", " +str(latitude)+ " of type " +str(highlighted_option))
+                    return [longitude, latitude]
+            if self.move_timer < 0:
+                return False
+#                if self.local_player_turn and highlighted_option is not None:
+#                    self.Send({"action": highlighted_option, "longitude":longitude, "latitude":latitude, "player": self.current_player_colour, "adventurer": self.current_adventurer_number, "gameid": self.gameid})
+#                    self.highlights = [] #clear the highlights until the server offers more
+#       #Otherwise wait for suitable input
+        
+        #update the window
+        #at the point of seeking player input for an Adventurer for the first time this turn, clear its route history
+        
+        #@TODO alternatively, take keyboard input from the cursor keys and Enter key
+        
+        #Refresh the display
+        pygame.display.flip()
+        
+        return False
+    
+    def close(self):
+        '''Closes the server-side visualisation (no pygame to shut down).'''
+        pass
+        
+    def finished(self):
+        self.window.blit(self.gameover if not self.local_win else self.winningscreen, (0,0))
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+            pygame.display.flip()
+
+

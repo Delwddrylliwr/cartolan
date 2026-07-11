@@ -12,8 +12,8 @@ import io
 import json
 import random
 
-from game import GameRegular
-from players_heuristical import PlayerRegularExplorer, PlayerRegularTrader
+from cartolan.editions.modes import GameRegular
+from cartolan.players.heuristical import PlayerRegularExplorer, PlayerRegularTrader
 from tests.helpers import build_game
 
 

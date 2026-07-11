@@ -1,0 +1,1 @@
+'''Rule value configuration.'''

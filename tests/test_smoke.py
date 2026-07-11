@@ -8,8 +8,8 @@ import random
 
 import pytest
 
-from game import GameBeginner, GameRegular, GameAdvanced
-from players_heuristical import (
+from cartolan.editions.modes import GameBeginner, GameRegular, GameAdvanced
+from cartolan.players.heuristical import (
     PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter,
     PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate,
     PlayerAdvancedExplorer, PlayerAdvancedTrader, PlayerAdvancedRouter, PlayerAdvancedPirate,

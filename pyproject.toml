@@ -17,9 +17,11 @@ ui = ["pygame", "matplotlib"]
 ann = ["keras", "tensorflow"]
 dev = ["pytest"]
 
-[tool.setuptools]
-# Flat modules for now; replaced by the cartolan/ package layout in the repackaging stage.
-py-modules = []
+[tool.setuptools.packages.find]
+include = ["cartolan*"]
+
+[tool.setuptools.package-data]
+"cartolan.data" = ["*.csv"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "test_ann.py"]
