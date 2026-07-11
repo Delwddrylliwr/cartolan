@@ -690,11 +690,9 @@ class GameVisualisation {
     this._drawMoveOptions();
     this._updateScoresTable();
 
-    if (s.game_mode !== 'Beginner') {
-      this._drawMoveCount();
-    }
+    this._drawMoveCount();
     this._drawToggleMenu();
-    if (s.game_mode !== 'Beginner') {
+    if (!s.features || s.features.maps) {
       this._drawChestTiles();
       this._drawTilePiles();
       this._drawDiscardPile();
@@ -1033,7 +1031,7 @@ class GameVisualisation {
     el.style.height  = (this.canvas.height - this.scoresBottomY) + 'px';
     el.style.padding = pad + 'px';
 
-    if (s.game_mode !== 'Advanced') { el.innerHTML = ''; return; }
+    if (s.features && !s.features.cards) { el.innerHTML = ''; return; }
 
     const viewedAdv = (s.adventurers[s.viewed_player_name] || [])[s.viewed_adventurer_index] || null;
     if (!viewedAdv) { el.innerHTML = ''; return; }

@@ -1,7 +1,7 @@
 from matplotlib import pyplot
 
 from cartolan.players.base import Player
-from cartolan.editions.modes import GameRegular
+from cartolan.editions.shady_routes import GameShadyRoutes
 
 class PlayerNetworkHuman(Player): # do you need to give this access to the visualisation?
     # from ipywidgets import widgets # bring in widgets to receive player input
@@ -321,7 +321,7 @@ class PlayerNetworkHuman(Player): # do you need to give this access to the visua
                         tile = play_area[longitude][latitude] 
                         if tile.inn is None:
                             buy_coords.append([tile.tile_position.longitude, tile.tile_position.latitude])
-                        elif isinstance(adventurer.game, GameRegular):
+                        elif isinstance(adventurer.game, GameShadyRoutes):
                             if tile.inn.is_ransacked:
                                 buy_coords.append([tile.tile_position.longitude, tile.tile_position.latitude])
             

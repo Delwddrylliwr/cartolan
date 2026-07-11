@@ -8,29 +8,32 @@ from matplotlib import pyplot
 import pandas
 import random
 from cartolan.core.setup import create_game
-from cartolan.editions.modes import GameBeginner, GameRegular, GameAdvanced
-from cartolan.players.heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
-from cartolan.players.heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
+from cartolan.editions import GameLiteWinds, GameShadyRoutes, GameSilkRoads
+from cartolan.players.heuristical import PlayerExplorer, PlayerTrader, PlayerRouter, PlayerPirate
 from cartolan.players.ann import PlayerFeedFwd
 from cartolan.core.tiles import Tile, WindDirection, TileEdges
 from cartolan.ui.static_visuals import PlayAreaVisualisation, PlayStatsVisualisation
 
 #Default parameters
-GAME_MODE = "Beginner"
+GAME_MODE = "LiteWinds"
 MOVEMENT_RULE = "initial" #"budgetted"
 EXPLORATION_RULE = "continuous" #"clockwise" #,
 MYTHICAL_CITY = True
 NUM_PLAYERS = 2
 NUM_GAMES = 1000
 # Option sets and corresponding information
-GAME_MODES = { 'Beginner':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeginnerExplorer
-                                                                        , "red":PlayerBeginnerTrader
-                                                                        , "yellow":PlayerBeginnerRouter
-                                                                  , "orange":PlayerBeginnerTrader}}
-                  , 'Regular':{'game_type':GameRegular, 'player_set':{"blue":PlayerRegularExplorer
-                                                                        , "red":PlayerRegularTrader
-                                                                        , "yellow":PlayerRegularRouter
-                                                                      , "orange":PlayerRegularPirate}}
+GAME_MODES = { 'LiteWinds':{'game_type':GameLiteWinds, 'player_set':{"blue":PlayerExplorer
+                                                                        , "red":PlayerTrader
+                                                                        , "yellow":PlayerRouter
+                                                                  , "orange":PlayerTrader}}
+                  , 'ShadyRoutes':{'game_type':GameShadyRoutes, 'player_set':{"blue":PlayerExplorer
+                                                                        , "red":PlayerTrader
+                                                                        , "yellow":PlayerRouter
+                                                                      , "orange":PlayerPirate}}
+                  , 'SilkRoads':{'game_type':GameSilkRoads, 'player_set':{"blue":PlayerExplorer
+                                                                        , "red":PlayerTrader
+                                                                        , "yellow":PlayerRouter
+                                                                      , "orange":PlayerPirate}}
                   }
 MOVEMENT_RULES = ['initial', 'budgetted']
 EXPLORATION_RULES = ['clockwise', 'continuous']
@@ -143,12 +146,7 @@ class Simulations():
             def player_strip(player_type):
                 '''Reduces the name of a player type down '''
                 name = player_type.__name__
-                if "Beginner" in name:
-                    return name[name.find("Beginner")+len("Beginner"):]
-                elif "Regular" in name:
-                    return name[name.find("Regular")+len("Regular"):]
-                else:
-                    return name[name.find("Player")+len("Player"):]
+                return name[name.find("Player")+len("Player"):]
 
             if game.silks_difference > 0 and self.num_players ==2:
                 self.sim_stats = append_row(self.sim_stats, {"simulation_id":sim_id, "num_players":self.num_players

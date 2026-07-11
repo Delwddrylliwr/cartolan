@@ -4,10 +4,9 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 
 import random
 from cartolan.core.setup import create_game
-from cartolan.editions.modes import GameBeginner, GameRegular, GameAdvanced
+from cartolan.editions import GameLiteWinds, GameShadyRoutes, GameSilkRoads
 from cartolan.players.human_local import PlayerLocalHuman
-from cartolan.players.heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
-from cartolan.players.heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
+from cartolan.players.heuristical import PlayerExplorer, PlayerTrader, PlayerRouter, PlayerPirate
 from cartolan.core.tiles import Tile, WindDirection, TileEdges
 from cartolan.ui.live_visuals import GameVisualisation #, ClientGameVisualisation
 
@@ -21,8 +20,9 @@ class InteractiveGame:
     '''A wrapper for Game class objects to refresh visuals as play progresses'''
     # Now for the constants
     HUMAN_PLAYER_COLOURS = ["purple", "pink", "brown", "white"]
-    GAME_MODES = { 'Beginner':{'game_type':GameBeginner}
-              , 'Regular':{'game_type':GameRegular}
+    GAME_MODES = { 'LiteWinds':{'game_type':GameLiteWinds}
+              , 'ShadyRoutes':{'game_type':GameShadyRoutes}
+              , 'SilkRoads':{'game_type':GameSilkRoads}
               }
     MOVEMENT_RULES = ['initial', 'budgetted']
     EXPLORATION_RULES = ['clockwise', 'continuous']
@@ -32,7 +32,7 @@ class InteractiveGame:
     
     def __init__(self):
         # These parameters will likely be changed each game
-        self.game_mode = "Regular"
+        self.game_mode = "ShadyRoutes"
         self.movement_rules = "initial"
         self.exploration_rules = "continuous"
         self.mythical_city = True
@@ -139,18 +139,23 @@ class InteractiveSimulation(InteractiveGame):
     '''Extends the InteractiveGame class to include virtual, computer-controlled, players'''
     # Now for the constants
     HUMAN_PLAYER_COLOURS = ["purple", "pink", "brown", "black"]
-    GAME_MODES = { 'Beginner':{'game_type':GameBeginner, 'player_set':{"blue":PlayerBeginnerExplorer
-                                                                   , "red":PlayerBeginnerTrader
-                                                                   , "yellow":PlayerBeginnerRouter
-#                                                                    , "green":PlayerBeginnerGenetic
+    GAME_MODES = { 'LiteWinds':{'game_type':GameLiteWinds, 'player_set':{"blue":PlayerExplorer
+                                                                   , "red":PlayerTrader
+                                                                   , "yellow":PlayerRouter
                                                                       }}
-              , 'Regular':{'game_type':GameRegular, 'player_set':{
-                                                                  "orange":PlayerRegularPirate
-#                                                                    , "blue":PlayerRegularExplorer
-                                                                   , "red":PlayerRegularTrader
-                                                                   , "yellow":PlayerRegularRouter
-#                                                                    , "green":PlayerRegularGenetic
+              , 'ShadyRoutes':{'game_type':GameShadyRoutes, 'player_set':{
+                                                                  "orange":PlayerPirate
+                                                                   , "red":PlayerTrader
+                                                                   , "yellow":PlayerRouter
                                                                   }
+                          }
+              , 'SilkRoads':{'game_type':GameSilkRoads, 'player_set':{
+                                                                  "orange":PlayerPirate
+                                                                   , "red":PlayerTrader
+                                                                   , "yellow":PlayerRouter
+                                                                  }
+                          }
+                 }
                           }
                  }
     

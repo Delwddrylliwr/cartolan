@@ -12,9 +12,8 @@ from matplotlib import pyplot # for plotting the tiles in a grid
 from scipy import ndimage # for rotating tiles
 import numpy
 from cartolan.core.tiles import CityTile
-from cartolan.editions.regular import DisasterTile
-from cartolan.editions.modes import GameBeginner, GameRegular, GameAdvanced
-from cartolan.players.heuristical import PlayerRegularExplorer
+from cartolan.editions.lite_winds import GameLiteWinds
+from cartolan.players.heuristical import PlayerExplorerShady
 
      
 class PlayAreaVisualisation:
@@ -102,8 +101,6 @@ class PlayAreaVisualisation:
         # import tile images and establish a mapping
         if len(self.tile_image_library) == 0:
             self.tile_image_library = {}
-            self.tile_image_library["water_disaster"] = mpimg.imread('./images/water_disaster.png') 
-            self.tile_image_library["land_disaster"] = mpimg.imread('./images/land_disaster.png') 
             self.tile_image_library["home_city"] = mpimg.imread('./images/capital.png') 
             self.tile_image_library["mythical_city"] = mpimg.imread('./images/mythical.png') 
             for uc_water in [True, False]: 
@@ -305,11 +302,6 @@ class PlayAreaVisualisation:
                                 tile_image = self.tile_image_library["home_city"]
                             else:
                                 tile_image = self.tile_image_library["mythical_city"]
-                        elif isinstance(tile, DisasterTile):
-                            if tile.tile_back == "water":
-                                tile_image = self.tile_image_library["water_disaster"]
-                            else:
-                                tile_image = self.tile_image_library["land_disaster"]
                         else:
                             wonder = tile.has_trade_port
                             tile_image = self.tile_image_library[str(e.upwind_clock_water)+str(e.upwind_anti_water)
@@ -406,7 +398,7 @@ class PlayAreaVisualisation:
 #                     routeax.scatter([location[0]+self.INN_OFFSET[0]],[location[1]+self.INN_OFFSET[1]]
 #                                   , linewidth=1, edgecolors=player.colour, facecolor=face_colour, marker="s", s=self.token_width)
                 
-            if isinstance(player, PlayerRegularExplorer):
+            if isinstance(player, PlayerExplorerShady):
                 for attack in player.attack_history[self.game]: 
                     # we want to draw a cross anywhere that an attack happened, the attack_history is full of pairs with a tile and a bool for the attack's success
                     if attack[1]:
@@ -454,7 +446,7 @@ class PlayAreaVisualisation:
                 location = [self.origin[0] + tile.tile_position.longitude
                             , self.origin[1] + tile.tile_position.latitude]
                 edge_colour = player.colour
-                if type(adventurer.game) in [GameRegular, GameAdvanced]:
+                if isinstance(adventurer.game, GameLiteWinds):
                     if adventurer.pirate_token:
                         edge_colour = "black" # we'll outline pirates in black
                 adventurer_offset = player_offset + self.game.adventurers[player].index(adventurer)*self.ADVENTURER_OFFSET
@@ -472,7 +464,7 @@ class PlayAreaVisualisation:
                 location = [self.origin[0] + tile.tile_position.longitude
                             , self.origin[1] + tile.tile_position.latitude]
                 face_colour = player.colour
-                if type(adventurer.game) in [GameRegular, GameAdvanced]:
+                if isinstance(adventurer.game, GameLiteWinds):
                     if inn.is_ransacked:
                         face_colour = "None" # we'll outline only the inns that are ransacked
                 tokenax.scatter([location[0]+self.INN_OFFSET[0]],[location[1]+self.INN_OFFSET[1]]

@@ -248,7 +248,7 @@ class Tile:
                     logger.debug("Moving inn for " +str(token.player.name)+ " onto tile at " +str(self.tile_position.longitude)+ ", " +str(self.tile_position.latitude))
                     self.inn = token
                     self.inn.current_tile = self
-                    token.route.append(self) # relevant only in Regular and Advanced mode
+                    token.route.append(self)
                     token.turn_route.append(self)
                 else: raise Exception("Tried to add multiple Inns to a tile: adding and inn of " +token.player.name+ " where there was an existing inn of " +self.inn.player.name)
             else: raise Exception("Didn't know how to handle this kind of token")

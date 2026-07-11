@@ -5,9 +5,8 @@ Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
 from cartolan.players.base import Player
 from cartolan.core.tokens import Inn
 from cartolan.core.tiles import CityTile
-from cartolan.editions.modes import GameRegular, GameAdvanced
-from cartolan.editions.regular import AdventurerRegular
-from cartolan.editions.advanced import AdventurerAdvanced
+from cartolan.editions.lite_winds import AdventurerLiteWinds
+from cartolan.editions.shady_routes import GameShadyRoutes, AdventurerShadyRoutes
 #import copy
 
 class PlayerLocalHuman(Player):
@@ -87,7 +86,7 @@ class PlayerLocalHuman(Player):
                 else:
                     self.auto_actions[toggled_action] = None
                 game_vis.draw_toggle_menu(self.auto_actions)
-            if isinstance(adventurer, AdventurerRegular):
+            if isinstance(adventurer, AdventurerLiteWinds):
                 chosen_map = gui_input.get("chosen_map")
                 if isinstance(chosen_map, int):
                     print("Player received menu input, choosing chest map #"+str(chosen_map+1))
@@ -110,7 +109,7 @@ class PlayerLocalHuman(Player):
                     adventurer.chosen_map_index = chest_rotate_clock
                     adventurer.match_chest_directions()
                     game_vis.draw_chest_maps()
-            if isinstance(adventurer, AdventurerAdvanced):
+            if isinstance(adventurer, AdventurerLiteWinds):
                 game_vis.draw_cards()
     
     def move_to_tile(self, adventurer, tile):
@@ -203,13 +202,13 @@ class PlayerLocalHuman(Player):
         game_vis.draw_routes()
         #Draw the left menu items
         game_vis.draw_scores()
-        if isinstance(adventurer, AdventurerAdvanced):
+        if isinstance(adventurer, AdventurerLiteWinds):
             game_vis.draw_cards()
         #Draw the right menu items
         game_vis.draw_move_count()
         game_vis.draw_toggle_menu(self.auto_actions)
         game_vis.draw_routes_menu()
-        if isinstance(adventurer, AdventurerRegular):
+        if isinstance(adventurer, AdventurerLiteWinds):
             adventurer.match_chest_directions()
             game_vis.draw_chest_maps()
         game_vis.draw_tile_piles()
@@ -231,12 +230,12 @@ class PlayerLocalHuman(Player):
 
         # Draw the left menu items
         game_vis.draw_scores()
-        if isinstance(adventurer, AdventurerAdvanced):
+        if isinstance(adventurer, AdventurerLiteWinds):
             game_vis.draw_cards()
         # Draw the right menu items
         game_vis.draw_move_count()
         game_vis.draw_toggle_menu(self.auto_actions)
-        if isinstance(adventurer, AdventurerRegular):
+        if isinstance(adventurer, AdventurerLiteWinds):
             adventurer.match_chest_directions()
             game_vis.draw_chest_maps()
         game_vis.draw_tile_piles()
@@ -296,13 +295,13 @@ class PlayerLocalHuman(Player):
                 game_vis.give_prompt(prompt)
                 # Draw the left menu items
                 game_vis.draw_scores()
-                if isinstance(adventurer, AdventurerAdvanced):
+                if isinstance(adventurer, AdventurerLiteWinds):
                     game_vis.draw_cards()
                 # Draw the right menu items
                 game_vis.draw_move_count()
                 game_vis.draw_toggle_menu(self.auto_actions)
                 game_vis.draw_routes_menu()
-                if isinstance(adventurer, AdventurerRegular):
+                if isinstance(adventurer, AdventurerLiteWinds):
                     adventurer.match_chest_directions()
                     game_vis.draw_chest_maps()
                 game_vis.draw_tile_piles()
@@ -383,10 +382,10 @@ class PlayerLocalHuman(Player):
         
         if self not in game.adventurers:
             return  # swapped out while awaiting turn acknowledgement
-        if isinstance(game, GameAdvanced):
+        if isinstance(game, GameShadyRoutes):
             if game.assigned_cultures.get(self) is None:
                 game.choose_culture(self)
-        if isinstance(adventurer, AdventurerAdvanced):
+        if isinstance(adventurer, AdventurerLiteWinds):
             if adventurer.character_card is None:
                 adventurer.choose_character()
         
@@ -463,13 +462,13 @@ class PlayerLocalHuman(Player):
         game_vis.draw_routes()
         #Draw the left menu items
         game_vis.draw_scores()
-        if isinstance(adventurer, AdventurerAdvanced):
+        if isinstance(adventurer, AdventurerLiteWinds):
             game_vis.draw_cards()
         #Draw the right menu items
         game_vis.draw_move_count()
         game_vis.draw_toggle_menu(self.auto_actions)
         game_vis.draw_routes_menu()
-        if isinstance(adventurer, AdventurerRegular):
+        if isinstance(adventurer, AdventurerLiteWinds):
             adventurer.match_chest_directions()
             game_vis.draw_chest_maps()
         game_vis.draw_tile_piles()
@@ -501,12 +500,12 @@ class PlayerLocalHuman(Player):
 
         # Draw the left menu items
         game_vis.draw_scores()
-        if isinstance(adventurer, AdventurerAdvanced):
+        if isinstance(adventurer, AdventurerLiteWinds):
             game_vis.draw_cards()
         # Draw the right menu items
         game_vis.draw_move_count()
         game_vis.draw_toggle_menu(self.auto_actions)
-        if isinstance(adventurer, AdventurerRegular):
+        if isinstance(adventurer, AdventurerLiteWinds):
             adventurer.match_chest_directions()
             game_vis.draw_chest_maps()
         game_vis.draw_tile_piles()
@@ -548,13 +547,13 @@ class PlayerLocalHuman(Player):
             game_vis.give_prompt(prompt)
             # Draw the left menu items
             game_vis.draw_scores()
-            if isinstance(adventurer, AdventurerAdvanced):
+            if isinstance(adventurer, AdventurerLiteWinds):
                 game_vis.draw_cards()
             # Draw the right menu items
             game_vis.draw_move_count()
             game_vis.draw_toggle_menu(self.auto_actions)
             game_vis.draw_routes_menu()
-            if isinstance(adventurer, AdventurerRegular):
+            if isinstance(adventurer, AdventurerLiteWinds):
                 adventurer.match_chest_directions()
                 game_vis.draw_chest_maps()
 
@@ -615,7 +614,7 @@ class PlayerLocalHuman(Player):
         actions = {}
         if isinstance(token, Inn):
             token_description = " the Inn "
-        elif isinstance(token, AdventurerAdvanced):
+        elif isinstance(token, AdventurerShadyRoutes):
             token_description = token.player.name.capitalize()+"'s Adventurer #"+str(game.adventurers[token.player].index(token)+1)+" "
         else:
             print("Skipping asking player about rest because the token offered can't provide it.")
@@ -627,7 +626,7 @@ class PlayerLocalHuman(Player):
             prompt = ("If you want "+str(self.name)+"'s Adventurer #" 
                                            +str(game.adventurers[self].index(adventurer)+1) 
                                            +" to rest with "+token_description+" then click their tile, otherwise click elsewhere.")
-        elif isinstance(adventurer, AdventurerAdvanced) and adventurer.num_free_rests > 0:
+        elif isinstance(adventurer, AdventurerShadyRoutes) and adventurer.num_free_rests > 0:
             action_type = "rest"
             actions[action_type] = [[adventurer.current_tile.tile_position.longitude
                                         , adventurer.current_tile.tile_position.latitude]]
@@ -774,7 +773,7 @@ class PlayerLocalHuman(Player):
                 if tile.inn is None:
                     if not isinstance(tile, CityTile):
                         actions[action_type].append([tile.tile_position.longitude, tile.tile_position.latitude])
-                elif isinstance(adventurer.game, GameRegular):
+                elif isinstance(adventurer.game, GameShadyRoutes):
                     if tile.inn.is_ransacked:
                         actions[action_type].append([tile.tile_position.longitude, tile.tile_position.latitude])
         return self.check_action(adventurer, action_type, actions, prompt)
@@ -918,20 +917,6 @@ class PlayerLocalHuman(Player):
         else:
             return False
         
-    # if half Disaster tile dropped silks exceeds own silks then try to collect it
-    def check_court_disaster(self, adventurer, disaster_tile):
-        if self.undone: 
-            print("automatically responding false to action")
-            return False
-        action_type = "attack"
-        actions = {action_type:[[adventurer.current_tile.tile_position.longitude
-                    , adventurer.current_tile.tile_position.latitude]]}
-        prompt = ("If you want your pirate Adventurer to try and recover "+str(disaster_tile.dropped_silks // 2)
-                        +" from the tile then click it, otherwise click elsewhere.")
-        if self.check_action(adventurer, action_type, actions, prompt):
-            return True
-        else:
-            return False
         
     def choose_card(self, adventurer, cards):
         '''Responds to option from the game to pick from a list of cards, based on player input
@@ -955,9 +940,9 @@ class PlayerLocalHuman(Player):
         game_vis.draw_tokens()
         game_vis.draw_scores()
         game_vis.draw_move_count()
-        if isinstance(adventurer, AdventurerRegular) and card_variety not in ["com", "adv"]:
+        if isinstance(adventurer, AdventurerLiteWinds) and card_variety not in ["cul", "chr"]:
             game_vis.draw_chest_maps()
-        if isinstance(adventurer, AdventurerAdvanced):
+        if isinstance(adventurer, AdventurerLiteWinds):
             game_vis.draw_cards()
         
         #prompt the player to input
@@ -985,9 +970,9 @@ class PlayerLocalHuman(Player):
         game_vis.draw_tokens()
         game_vis.draw_scores()
         game_vis.draw_move_count()
-        if isinstance(adventurer, AdventurerRegular):
+        if isinstance(adventurer, AdventurerLiteWinds):
             game_vis.draw_chest_maps()
-        if isinstance(adventurer, AdventurerAdvanced):
+        if isinstance(adventurer, AdventurerLiteWinds):
             game_vis.draw_cards()
         
         #prompt the player to input

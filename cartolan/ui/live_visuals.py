@@ -18,9 +18,8 @@ from cartolan.core.tokens import Inn, Adventurer
 from cartolan.core.tiles import CityTile, Tile
 from cartolan.core.cards import Card
 from cartolan.players.base import Player
-from cartolan.editions.regular import AdventurerRegular, InnRegular, DisasterTile  # , MythicalCityTileRegular
-from cartolan.editions.advanced import AdventurerAdvanced
-from cartolan.editions.modes import GameBeginner, GameRegular, GameAdvanced
+from cartolan.editions.lite_winds import GameLiteWinds, AdventurerLiteWinds, InnLiteWinds
+from cartolan.editions.shady_routes import GameShadyRoutes, AdventurerShadyRoutes, InnShadyRoutes
 # from players_human import PlayerHuman
 #from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
 #from players_heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
@@ -83,9 +82,7 @@ class GameVisualisation():
     TILE_EXTENSION = ".jpg"
     CARDS_PATH = './images/cards/'
     CARDS_EXTENSION = ".png"
-    SPECIAL_TILE_PATHS = {"water_disaster":'./images/water_disaster.png'
-                     , "land_disaster":'./images/land_disaster.png'
-                     , "home_city":'./images/capital.png'
+    SPECIAL_TILE_PATHS = {"home_city":'./images/capital.png'
                      , "mythical_city":'./images/mythical.png'
                      } #file paths for special tiles
     METERS_PATHS = {"any_direction":'./images/move_meters/any_direction.jpg'
@@ -173,7 +170,7 @@ class GameVisualisation():
         self.viewed_tile_num = None
         self.viewed_longitude = None
         self.viewed_latitude = None
-        if isinstance(self.game, GameAdvanced):
+        if isinstance(self.game, GameLiteWinds):
             self.selected_culture_card = False
             self.selected_character_card = False
             self.selected_card_num = None
@@ -290,7 +287,7 @@ class GameVisualisation():
         self.tile_images = {} #a dict of lists of tile images with a particular combination of land, sea and wind
         self.tile_image_library = {} #a dict pairing particular tiles with particular art for the play area itself
         self.menu_tile_library = {} #a dict pairing particular tiles with their art at a scale for the chest and discard piles
-        if isinstance(self.game, GameRegular):
+        if isinstance(self.game, GameLiteWinds):
             #duplicate tile art for use in selection menu after piracy
             self.offer_tile_library = {}
             tile_image_names = [filename for filename in os.listdir(self.TILE_PATH) if self.TILE_EXTENSION in filename]
@@ -323,7 +320,7 @@ class GameVisualisation():
                 meter_image = pygame.image.load(self.METERS_PATHS[meter_name])
                 self.meters_library[meter_name] = pygame.transform.scale(meter_image, (self.menu_tile_size, self.menu_tile_size))
             #import the cards that will award various rule buffs
-            if isinstance(self.game, GameAdvanced):
+            if isinstance(self.game, GameLiteWinds):
                 self.card_images = {}  # a dict of lists of tile images with a particular combination of land, sea and wind
                 self.card_image_library = {}  # a dict pairing particular tiles with particular art for the play area itself
                 # duplicate tile art for use in selection menu after piracy
@@ -600,11 +597,6 @@ class GameVisualisation():
                 return "home_city"
             else:
                 return "mythical_city"
-        elif isinstance(tile, DisasterTile):
-            if tile.tile_back == "water":
-                return "water_disaster"
-            else:
-                return "land_disaster"
         else:
             uc = str(e.upwind_clock_water)[0].lower()
             ua = str(e.upwind_anti_water)[0].lower()
@@ -622,7 +614,7 @@ class GameVisualisation():
         bordered_tile_size = round(self.tile_size * (1 - self.TILE_BORDER))
         self.tile_image_library[tile] = pygame.transform.scale(tile_image.copy(), [bordered_tile_size, bordered_tile_size])
         self.menu_tile_library[tile] = pygame.transform.scale(tile_image.copy(), [self.menu_tile_size, self.menu_tile_size])
-        if isinstance(self.game, GameRegular):
+        if isinstance(self.game, GameLiteWinds):
             self.offer_tile_library[tile] = pygame.transform.scale(tile_image.copy(), [self.offer_tile_size, self.offer_tile_size])
         available_tiles.insert(0, tile_image) #Prepend this image back into the library so that it won't get used again unless other images run out
         return tile_image
@@ -633,7 +625,7 @@ class GameVisualisation():
         available_cards = self.card_images[card.card_type]
         card_image = available_cards.pop()
         self.card_image_library[card] = pygame.transform.scale(card_image.copy(), [self.card_width, self.card_height])
-        if isinstance(self.game, GameAdvanced):
+        if isinstance(self.game, GameLiteWinds):
             offer_height = min(card_image.get_height(), int(self.height * (1 - 2 * (1 - self.PROMPT_POSITION[1]))))
             offer_width = int(card_image.get_width() * offer_height / card_image.get_height())
             self.card_offer_library[card] = pygame.transform.scale(card_image.copy(), [offer_width, offer_height])
@@ -858,7 +850,7 @@ class GameVisualisation():
                 # we want it to be coloured differently for each player
 #                print("Drawing the filled circle at " +str(location[0])+ ", " +str(location[1])+ " with radius " +str(self.token_size))
                 pygame.draw.circle(self.window, colour, location, self.token_size)
-                if isinstance(adventurer, AdventurerRegular):
+                if isinstance(adventurer, AdventurerLiteWinds):
                     if adventurer.pirate_token:
                         # we'll outline pirates in black
 #                        print("Drawing an outline")
@@ -889,7 +881,7 @@ class GameVisualisation():
                             , self.INN_SCALE*self.token_size, self.INN_SCALE*self.token_size)
                         , inn.player])
                 # we'll only outline the Inns that are ransacked
-                if isinstance(inn, InnRegular) and inn.is_ransacked:
+                if isinstance(inn, InnShadyRoutes) and inn.is_ransacked:
                         pygame.draw.rect(self.window, colour, inn_shape, self.outline_width)
                 else:
                     #for a filled rectangle the fill method could be quicker: https://www.pygame.org/docs/ref/draw.html#pygame.draw.rect

@@ -10,20 +10,16 @@ import random
 
 import pytest
 
-from cartolan.editions.modes import GameBeginner, GameRegular, GameAdvanced
-from cartolan.players.heuristical import (
-    PlayerBeginnerExplorer, PlayerBeginnerTrader,
-    PlayerRegularExplorer, PlayerRegularTrader,
-    PlayerAdvancedExplorer, PlayerAdvancedTrader,
-)
+from cartolan.editions import GameLiteWinds, GameShadyRoutes, GameSilkRoads
+from cartolan.players.heuristical import PlayerExplorer, PlayerTrader
 from tests.helpers import build_game, run_to_completion
 
 CONTRACT_PATH = os.path.join(os.path.dirname(__file__), "state_contract.json")
 
 MODES = {
-    "Beginner": (GameBeginner, [PlayerBeginnerExplorer, PlayerBeginnerTrader]),
-    "Regular": (GameRegular, [PlayerRegularExplorer, PlayerRegularTrader]),
-    "Advanced": (GameAdvanced, [PlayerAdvancedExplorer, PlayerAdvancedTrader]),
+    "LiteWinds": (GameLiteWinds, [PlayerExplorer, PlayerTrader]),
+    "ShadyRoutes": (GameShadyRoutes, [PlayerExplorer, PlayerTrader]),
+    "SilkRoads": (GameSilkRoads, [PlayerExplorer, PlayerTrader]),
 }
 
 

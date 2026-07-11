@@ -8,23 +8,19 @@ import random
 
 import pytest
 
-from cartolan.editions.modes import GameBeginner, GameRegular, GameAdvanced
-from cartolan.players.heuristical import (
-    PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter,
-    PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate,
-    PlayerAdvancedExplorer, PlayerAdvancedTrader, PlayerAdvancedRouter, PlayerAdvancedPirate,
-)
+from cartolan.editions import GameLiteWinds, GameShadyRoutes, GameSilkRoads
+from cartolan.players.heuristical import PlayerExplorer, PlayerTrader, PlayerRouter, PlayerPirate
 from tests.helpers import build_game, run_to_completion
 
 COLOURS = ["blue", "red", "yellow", "orange"]
 
 MODES = {
-    "Beginner": (GameBeginner, [PlayerBeginnerExplorer, PlayerBeginnerTrader,
-                                PlayerBeginnerRouter, PlayerBeginnerTrader]),
-    "Regular": (GameRegular, [PlayerRegularExplorer, PlayerRegularTrader,
-                              PlayerRegularRouter, PlayerRegularPirate]),
-    "Advanced": (GameAdvanced, [PlayerAdvancedExplorer, PlayerAdvancedTrader,
-                                PlayerAdvancedRouter, PlayerAdvancedPirate]),
+    "LiteWinds": (GameLiteWinds, [PlayerExplorer, PlayerTrader,
+                                  PlayerRouter, PlayerTrader]),
+    "ShadyRoutes": (GameShadyRoutes, [PlayerExplorer, PlayerTrader,
+                                      PlayerRouter, PlayerPirate]),
+    "SilkRoads": (GameSilkRoads, [PlayerExplorer, PlayerTrader,
+                                  PlayerRouter, PlayerPirate]),
 }
 
 

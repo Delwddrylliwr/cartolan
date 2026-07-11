@@ -12,8 +12,8 @@ import io
 import json
 import random
 
-from cartolan.editions.modes import GameRegular
-from cartolan.players.heuristical import PlayerRegularExplorer, PlayerRegularTrader
+from cartolan.editions import GameShadyRoutes
+from cartolan.players.heuristical import PlayerExplorer, PlayerTrader
 from tests.helpers import build_game
 
 
@@ -27,8 +27,8 @@ def silent():
 
 def make_game(seed):
     random.seed(seed)
-    players = [PlayerRegularExplorer("blue"), PlayerRegularTrader("red")]
-    return build_game(GameRegular, players), players
+    players = [PlayerExplorer("blue"), PlayerTrader("red")]
+    return build_game(GameShadyRoutes, players), players
 
 
 def test_save_restore_round_trip_from_setup():

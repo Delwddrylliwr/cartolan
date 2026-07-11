@@ -10,7 +10,9 @@ import time
 import pygame
 
 from cartolan import REPO_ROOT
-from cartolan.editions.modes import GameAdvanced
+from cartolan.editions.lite_winds import GameLiteWinds
+from cartolan.editions.shady_routes import GameShadyRoutes
+from cartolan.editions.silk_roads import GameSilkRoads
 from cartolan.players.base import Player
 from cartolan.ui.live_visuals import GameVisualisation
 
@@ -185,6 +187,13 @@ class WebServerVisualisation(GameVisualisation):
         '''Assembles the complete game and UI state as a JSON-serialisable dict.'''
         self._assign_all_card_images()
         state = self.game.to_json()
+        state["features"] = {
+            "maps": isinstance(self.game, GameLiteWinds),
+            "cards": isinstance(self.game, GameLiteWinds),
+            "piracy": isinstance(self.game, GameShadyRoutes),
+            "manuscripts": isinstance(self.game, GameShadyRoutes),
+            "roads": isinstance(self.game, GameSilkRoads),
+        }
         state["player_colours"] = {p.name: c for p, c in self.player_colours.items()}
         current_adv = self.current_adventurer
         viewed_adv = self.viewed_adventurer
@@ -400,7 +409,7 @@ class WebServerVisualisation(GameVisualisation):
             menu_column = (horizontal - int(self.chest_rect[0])) // self.menu_tile_size
             self.viewed_tile_num = menu_row * self.MENU_TILE_COLS + menu_column
             return True
-        elif (isinstance(self.game, GameAdvanced) and (self.selected_culture_card or self.selected_character_card or self.selected_card_num is not None
+        elif (isinstance(self.game, GameLiteWinds) and (self.selected_culture_card or self.selected_character_card or self.selected_card_num is not None
                                                        or self.viewed_tile_num is not None or self.viewed_longitude is not None)):
             # Remove focus on any card
             # None of the cards were selected

@@ -24,7 +24,7 @@ class Ruleset:
     winning_silks_difference: Optional[int] = None
 
     #Board composition
-    num_pile_tiles: dict = field(default_factory=lambda: {"water": 60})
+    num_pile_tiles: dict = field(default_factory=lambda: {"water": 60, "land": 30})
 
     #Token counts and prices
     max_adventurers: int = 1
@@ -34,7 +34,7 @@ class Ruleset:
     cost_companion: int = 15
 
     #Values earned
-    value_discover_port: dict = field(default_factory=lambda: {"water": 0})
+    value_discover_port: dict = field(default_factory=lambda: {"water": 1, "land": 1})
     value_trade: int = 1                # per character, on first visit to a port each turn
     value_fill_map_gap: list = field(default_factory=lambda: [
         [3 * land_edges + 3 * water_edges for land_edges in range(0, 5)]
@@ -55,7 +55,7 @@ class Ruleset:
     max_land_moves: int = 2
     max_upwind_moves: int = 2
 
-    #--- Regular-mode (piracy) rules ---
+    #--- Shady Routes (piracy) rules ---
     num_chest_maps: int = 2
     num_tile_choices: int = 2
     value_discover_city: int = 5
@@ -66,7 +66,7 @@ class Ruleset:
     attack_success_prob: float = 1.0 / 3.0
     defence_rounds: int = 1
 
-    #--- Advanced-mode (cards) rules ---
+    #--- Card-modified rules ---
     cost_manuscript: int = 5
     num_culture_choices: int = 2
     num_character_choices: int = 2
@@ -92,18 +92,28 @@ class Ruleset:
     culture_cards: tuple = CULTURE_CARDS
 
 
-BEGINNER = Ruleset(edition="Beginner")
+#Character cards referring to piracy (attack, damage, defence) are removed for
+#Lite Winds, per its rulebook's card-filtering note.
+LITE_WINDS_CHARACTER_CARDS = tuple(
+    card for card in CHARACTER_CARDS
+    if card not in ("chr+attack", "chr+damage", "chr+defence"))
 
-REGULAR = replace(
-    BEGINNER,
-    edition="Regular",
+LITE_WINDS = Ruleset(
+    edition="LiteWinds",
     num_pile_tiles={"water": 60, "land": 30},
     value_discover_port={"water": 1, "land": 1},
+    character_cards=LITE_WINDS_CHARACTER_CARDS,
 )
 
-#Note: the pre-refactor Advanced config declared inn_on_existing=False, but its
-#init order meant the Beginner value (True) always won; the effective rule is kept.
-ADVANCED = replace(
-    REGULAR,
-    edition="Advanced",
+SHADY_ROUTES = replace(
+    LITE_WINDS,
+    edition="ShadyRoutes",
+    character_cards=CHARACTER_CARDS,
+)
+
+#Road building, blind-draw exploration, and the alternate setup arrive with the
+#Silk Roads implementation stage; the edition currently plays as Shady Routes.
+SILK_ROADS = replace(
+    SHADY_ROUTES,
+    edition="SilkRoads",
 )

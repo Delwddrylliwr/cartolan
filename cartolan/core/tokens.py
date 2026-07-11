@@ -65,7 +65,7 @@ class Adventurer(Token):
         pass
     
     def attack(self, token):
-        '''placeholder for attacking other tokens in Regular and Advanced modes'''
+        '''placeholder for attacking other tokens in Shady Routes and Silk Roads'''
         pass
 
     def to_json(self):

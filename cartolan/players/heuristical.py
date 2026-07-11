@@ -4,11 +4,10 @@
 
 from cartolan.players.base import Player
 from cartolan.core.tiles import CityTile
-from cartolan.editions.advanced import AdventurerAdvanced
-from cartolan.editions.modes import GameAdvanced
+from cartolan.editions.shady_routes import AdventurerShadyRoutes, GameShadyRoutes
 import random
 
-class PlayerBeginnerExplorer(Player):    
+class PlayerExplorerBase(Player):    
     #CPU behaviour tuning
     P_DEVIATE = 0.1 #The probability of randomly deviating from the heuristic
     P_BUY_ADVENTURER = 0.5 #The probability of spending Vault silks on further Adventurers when affordable
@@ -229,7 +228,7 @@ class PlayerBeginnerExplorer(Player):
               +str(adventurer.current_tile.tile_position.latitude))
         
         game = adventurer.game
-        if isinstance(game, GameAdvanced):
+        if isinstance(game, GameShadyRoutes):
             if game.assigned_cultures.get(self) is None:
                 game.choose_culture(self)
         
@@ -361,8 +360,8 @@ class PlayerBeginnerExplorer(Player):
         return default
 
 
-class PlayerBeginnerTrader(PlayerBeginnerExplorer):    
-    '''A virtual player for Beginner mode of Cartolan, that makes decisions that maximises income from each trade
+class PlayerTraderBase(PlayerExplorerBase):    
+    '''A base virtual player for Cartolan, that makes decisions that maximises income from each trade
 
     this crude computer player will always move away from the Capital while its Chest has less than the points difference and then towards the Capital once it has collected enough silks
     if it can't move away from the Capital as desired, but can move, it will avoid the clockwise rotation of the wind, by heading downwind to the left
@@ -447,8 +446,8 @@ class PlayerBeginnerTrader(PlayerBeginnerExplorer):
         
     
     
-class PlayerBeginnerRouter(PlayerBeginnerTrader):    
-    '''A virtual plaer for Beginner mode of the game Cartolan, who makes decisions that maximise route length
+class PlayerRouterBase(PlayerTraderBase):    
+    '''A base virtual player for the game Cartolan, who makes decisions that maximise route length
     
     this crude computer player will always move away from the Capital while its Chest has less than the points difference and then towards the Capital once it has collected enough silks
     if it can't move away from the Capital as desired, but can move, it will avoid the clockwise rotation of the wind, by heading downwind to the left
@@ -505,10 +504,10 @@ class PlayerBeginnerRouter(PlayerBeginnerTrader):
         return inns.pop(0)
 
 
-class PlayerRegularExplorer(PlayerBeginnerExplorer):    
-    '''A virtual player for Regular Cartolan, that favours exploration
+class PlayerExplorerShady(PlayerExplorerBase):    
+    '''A virtual player for Cartolan with piracy, that favours exploration
     
-    this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates and restore ransacked inns
+    this crude computer player behaves like the base version, but has additional behaviour for trying to arrest pirates and restore ransacked inns
     
     Methods:
     continue_turn takes a Cartolan.Adventurer
@@ -595,10 +594,8 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
               +str(adventurer.current_tile.tile_position.longitude)+ "," 
               +str(adventurer.current_tile.tile_position.latitude))
         
-        #update awareness of disaster tiles, to avoid them, and reset the record of tiles already visited this turn
+        #reset the record of tiles already visited this turn
         self.locations_to_avoid = []
-        for disaster_tile in adventurer.game.disaster_tiles:
-            self.locations_to_avoid.append([disaster_tile.tile_position.longitude, disaster_tile.tile_position.latitude])
         
         #check whether already on a tile with an adventurer, and wait here in order to attack/arrest
         for other_adventurer in adventurer.current_tile.adventurers:
@@ -614,6 +611,9 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
         return True    
         
     def check_attack_adventurer(self, adventurer, other_adventurer):
+        # attacks only exist from Shady Routes up
+        if not isinstance(adventurer.game, GameShadyRoutes):
+            return False
         # if the adventurer has a pirate token and the silks from an arrest exceeds the loss from piracy then stick around and fight
         if (other_adventurer.pirate_token and other_adventurer.player != self
            and adventurer.silks < adventurer.game.value_arrest):
@@ -632,10 +632,6 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
             return True
         return False
     
-    # if half Disaster tile dropped silks exceeds own silks then try to collect it
-    def check_court_disaster(self, adventurer, disaster_tile):
-        return False
-    
     #Never refresh map tiles
     def check_buy_maps(self, adventurer):
         return False
@@ -645,38 +641,33 @@ class PlayerRegularExplorer(PlayerBeginnerExplorer):
         return random.choice(tiles) 
 
         
-class PlayerRegularTrader(PlayerBeginnerTrader, PlayerRegularExplorer):    
-    '''A virtual player for Regular Cartolan that favours maximising trade value
+class PlayerTraderShady(PlayerTraderBase, PlayerExplorerShady):    
+    '''A virtual player for Cartolan with piracy that favours maximising trade value
     
-    this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
+    this crude computer player behaves like the base version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
 
-class PlayerRegularRouter(PlayerBeginnerRouter, PlayerRegularExplorer):    
-    '''A virtual player for Regular Cartolan that favours building trade routes
+class PlayerRouterShady(PlayerRouterBase, PlayerExplorerShady):    
+    '''A virtual player for Cartolan with piracy that favours building trade routes
     
-    this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
+    this crude computer player behaves like the base version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
 
-class PlayerRegularPirate(PlayerRegularExplorer):    
-    '''A virtual player for Regular Cartolan that favour attacking other players' tokens
+class PlayerPirateShady(PlayerExplorerShady):    
+    '''A virtual player for Cartolan with piracy that favour attacking other players' tokens
     
     this crude computer player seeks out opponents adventurers and inns to attack, and otherwise behaves like the Explorer 
     
     Methods:
     continue_move takes a Cartolan.Adventurer
     check_attack_adventurer takes two Cartolan.Adventurers
-    check_court_disaster takes a Cartolan.Adventurer and a Cartolan.DisasterTile
     check_attack_inn takes a Cartolan.Adventurer and a Cartolan.Inn
     '''
     def continue_move(self, adventurer):    
     # seek out the other player's Adventurer or Inn or Disaster tile with the most silks
         
-#        #update awareness of disaster tiles, to avoid them, if not a pirate
-#        for disaster_tile in adventurer.game.disaster_tiles:
-#            if not disaster_tile in self.locations_to_avoid and not adventurer.pirate_token:
-#                self.locations_to_avoid.append([disaster_tile.tile_position.longitude, disaster_tile.tile_position.latitude])
 #        
         #check whether already on a tile with an adventurer, and wait here in order to attack/arrest
         for other_adventurer in adventurer.current_tile.adventurers:
@@ -694,7 +685,6 @@ class PlayerRegularPirate(PlayerRegularExplorer):
             self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
             # if there is an adventurer on the same tile then attack them
-            #update awareness of disaster tiles, to avoid them
             for other_adventurer in adventurer.current_tile.adventurers:
                 if self.check_attack_adventurer(adventurer, other_adventurer):
                     print(self.name+ "'s adventurer is waiting on their current tile to attack an adventurer belonging to " 
@@ -730,23 +720,20 @@ class PlayerRegularPirate(PlayerRegularExplorer):
     
     # attack adventurers or inns when encountered
     def check_attack_adventurer(self, adventurer, other_adventurer):
+        # attacks only exist from Shady Routes up
+        if not isinstance(adventurer.game, GameShadyRoutes):
+            return False
         # if the adventurer has less silks to steal than the pirate has to bank they leave it
         if (other_adventurer.player != self
            and adventurer.silks < other_adventurer.silks // 2 + other_adventurer.silks % 2):
             return True
         return False
     
-    # if half Disaster tile dropped silks exceeds own silks then try to collect it
-    def check_court_disaster(self, adventurer, disaster_tile):
-        if adventurer.silks < disaster_tile.dropped_silks // 2 + disaster_tile.dropped_silks % 2:
-            return True
-        return False
-    
     def check_attack_inn(self, adventurer, inn):
         return True
 
-class PlayerAdvancedExplorer(PlayerRegularExplorer):
-    '''Extends Regular to incorporate buying cards.
+class PlayerExplorer(PlayerExplorerShady):
+    '''Extends the piracy layer to incorporate buying cards.
     '''
     P_BUY_MANUSCRIPT = 0.25 #The probability of spending Vault silks on Manuscript cards when affordable
     RETURN_CITY_ATTR = "cost_manuscript"
@@ -757,10 +744,10 @@ class PlayerAdvancedExplorer(PlayerRegularExplorer):
         self.return_city_attr = self.RETURN_CITY_ATTR
     
     def continue_turn(self, adventurer):
-        if isinstance(adventurer.game, GameAdvanced):
+        if isinstance(adventurer.game, GameShadyRoutes):
             if adventurer.game.assigned_cultures.get(self) is None:
                 adventurer.game.choose_culture(self)
-        if isinstance(adventurer, AdventurerAdvanced):
+        if isinstance(adventurer, AdventurerShadyRoutes):
             if adventurer.character_card is None:
                 adventurer.choose_character()
         
@@ -804,28 +791,28 @@ class PlayerAdvancedExplorer(PlayerRegularExplorer):
         #randomly choose one
         return random.choice(cards)
 
-class PlayerAdvancedTrader(PlayerRegularTrader, PlayerAdvancedExplorer):    
-    '''A virtual player for Regular Cartolan that favours maximising trade value
+class PlayerTrader(PlayerTraderShady, PlayerExplorer):    
+    '''A virtual player for Cartolan with piracy that favours maximising trade value
     
-    this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
+    this crude computer player behaves like the base version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
         self.p_buy_manuscript = self.P_BUY_MANUSCRIPT
         self.return_city_attr = self.RETURN_CITY_ATTR
     
-class PlayerAdvancedRouter(PlayerRegularRouter, PlayerAdvancedExplorer):    
-    '''A virtual player for Regular Cartolan that favours maximising trade value
+class PlayerRouter(PlayerRouterShady, PlayerExplorer):    
+    '''A virtual player for Cartolan with piracy that favours maximising trade value
     
-    this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
+    this crude computer player behaves like the base version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
         self.p_buy_manuscript = self.P_BUY_MANUSCRIPT
         self.return_city_attr = self.RETURN_CITY_ATTR
     
-class PlayerAdvancedPirate(PlayerRegularPirate, PlayerAdvancedExplorer):    
-    '''A virtual player for Regular Cartolan that favours maximising trade value
+class PlayerPirate(PlayerPirateShady, PlayerExplorer):    
+    '''A virtual player for Cartolan with piracy that favours maximising trade value
     
-    this crude computer player behaves like the Beginner mode version, but has additional behaviour for trying to arrest pirates'''
+    this crude computer player behaves like the base version, but has additional behaviour for trying to arrest pirates'''
     def __init__(self, name):
         super().__init__(name)
         self.p_buy_manuscript = self.P_BUY_MANUSCRIPT

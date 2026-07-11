@@ -16,16 +16,16 @@ import pytest
 
 pytest.importorskip('keras', reason='keras not installed — pip install keras tensorflow')
 
-from game import GameBeginner
-from players_ann import PlayerFeedFwd
-from players_heuristical import PlayerBeginnerExplorer
-from base import Tile, WindDirection, TileEdges
+from cartolan.editions import GameLiteWinds
+from cartolan.players.ann import PlayerFeedFwd
+from cartolan.players.heuristical import PlayerExplorer
+from cartolan.core.tiles import Tile, WindDirection, TileEdges
 
 
 def _setup_game(players):
     '''Minimal game setup equivalent to main_sim.setup_simulation, without the
     matplotlib/scipy visualisation imports that main_sim drags in.'''
-    game = GameBeginner(players, 'initial', 'continuous')
+    game = GameLiteWinds(players, 'initial', 'continuous')
     game.CITY_TYPE(game, WindDirection(True, True), TileEdges(True, True, True, True),
                    True, True).place_tile(0, 0)
     for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
@@ -47,9 +47,9 @@ def _make_game(tmp_path=None):
     ai_player.LOAD_OLD_MODEL = False
     if tmp_path is not None:
         ai_player.SAVED_MODEL_PATH = str(tmp_path / 'model.weights.h5')
-    heuristic = PlayerBeginnerExplorer('blue')
+    heuristic = PlayerExplorer('blue')
     game = _setup_game([ai_player, heuristic])
-    ai_player.build_network(GameBeginner)
+    ai_player.build_network(GameLiteWinds)
     return ai_player, game
 
 
@@ -156,5 +156,5 @@ class TestTrainingSmoke:
         fresh_player = PlayerFeedFwd('red')
         fresh_player.LOAD_OLD_MODEL = False
         fresh_player.SAVED_MODEL_PATH = save_path
-        fresh_player.build_network(GameBeginner)
+        fresh_player.build_network(GameLiteWinds)
         fresh_player.model.load_weights(save_path)

@@ -9,11 +9,9 @@ from cartolan import REPO_ROOT
 from cartolan.core.setup import create_game
 # from live_visuals import ClientGameVisualisation, WebServerVisualisation
 from cartolan.ui.web_visuals import WebServerVisualisation
-from cartolan.editions.modes import GameBeginner, GameRegular, GameAdvanced
+from cartolan.editions import GameLiteWinds, GameShadyRoutes, GameSilkRoads
 from cartolan.players.human_local import PlayerLocalHuman
-from cartolan.players.heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
-from cartolan.players.heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
-from cartolan.players.heuristical import PlayerAdvancedExplorer, PlayerAdvancedTrader, PlayerAdvancedRouter, PlayerAdvancedPirate
+from cartolan.players.heuristical import PlayerExplorer, PlayerTrader, PlayerRouter, PlayerPirate
 # import zmq
 # import zmq.auth
 # from zmq.auth.thread import ThreadAuthenticator
@@ -34,30 +32,28 @@ DEFAULT_HEIGHT = int(0.8 * 768)
 DIMENSION_INCREMENT = 2
 
 GAME_MODES = {
-    #               'Exploratory':{'game_type':GameBeginner, 'player_set':{"blueviolet":PlayerBeginnerExplorer
-    #                                                                    , "red":PlayerBeginnerTrader
-    #                                                                    , "yellow":PlayerBeginnerRouter
-    # #                                                                    , "green":PlayerBeginnerGenetic
-    #                                                                    , "orange":PlayerBeginnerExplorer
-    #                                                                       }}
-    #               ,
-    'Quick': {'game_type': GameRegular, 'player_set': {
-        "orange": PlayerRegularPirate
-        , "blueviolet": PlayerRegularExplorer
-        , "red": PlayerRegularTrader
-        , "yellow": PlayerRegularRouter
-        #                                                                    , "green":PlayerRegularGenetic
+    'LiteWinds': {'game_type': GameLiteWinds, 'player_set': {
+        "blueviolet": PlayerExplorer
+        , "red": PlayerTrader
+        , "yellow": PlayerRouter
+        , "orange": PlayerExplorer
     }}
     ,
-    'Deep': {'game_type': GameAdvanced, 'player_set': {
-        "orange": PlayerAdvancedPirate
-        , "blueviolet": PlayerAdvancedExplorer
-        , "red": PlayerAdvancedTrader
-        , "yellow": PlayerAdvancedRouter
-        #                                                                    , "green":PlayerRegularGenetic
+    'ShadyRoutes': {'game_type': GameShadyRoutes, 'player_set': {
+        "orange": PlayerPirate
+        , "blueviolet": PlayerExplorer
+        , "red": PlayerTrader
+        , "yellow": PlayerRouter
+    }}
+    ,
+    'SilkRoads': {'game_type': GameSilkRoads, 'player_set': {
+        "orange": PlayerPirate
+        , "blueviolet": PlayerExplorer
+        , "red": PlayerTrader
+        , "yellow": PlayerRouter
     }}
 }
-DEFAULT_GAME_MODE = "Deep"
+DEFAULT_GAME_MODE = "ShadyRoutes"
 DEFAULT_LOCAL_PLAYERS = 1
 DEFAULT_VIRTUAL_PLAYERS = 3
 DEFAULT_REMOTE_PLAYERS = 0

@@ -16,6 +16,7 @@ class Player:
     def __init__(self, name = "red"):
         self.name = name
         self.games = {}
+        self.attack_history = {} #per-game record of attacks, for visualisation
         self.player_id = name+str(random.random())
         
     def __hash__(self):
