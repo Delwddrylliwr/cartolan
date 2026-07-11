@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cartolan"
+version = "0.9.0"
+description = "Digital implementation of the Cartolan board game (Lite Winds, Shady Routes, Silk Roads)"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "pandas",
+]
+
+[project.optional-dependencies]
+ui = ["pygame", "matplotlib"]
+ann = ["keras", "tensorflow"]
+dev = ["pytest"]
+
+[tool.setuptools]
+# Flat modules for now; replaced by the cartolan/ package layout in the repackaging stage.
+py-modules = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "test_ann.py"]

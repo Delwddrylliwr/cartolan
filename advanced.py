@@ -134,7 +134,10 @@ class AdventurerAdvanced(AdventurerRegular):
         '''Lets the player choose a character card from a random subset
         '''
         character_cards = self.game.character_cards
-        card_options = random.sample(character_cards, k=self.game.num_character_choices[self.player])
+        num_choices = min(self.game.num_character_choices[self.player], len(character_cards))
+        if num_choices == 0: #the deck has run out, so no card can be assigned
+            return
+        card_options = random.sample(character_cards, k=num_choices)
         self.character_card = self.player.choose_card(self, card_options)
         character_cards.remove(self.character_card)
         #Take on the changes to rules based on the Character card
@@ -223,7 +226,10 @@ class AdventurerAdvanced(AdventurerRegular):
         '''Draws a character card for a newly hired Companion and applies its buffs to this Adventurer.
         '''
         character_cards = self.game.character_cards
-        card_options = random.sample(character_cards, k=self.game.num_character_choices[self.player])
+        num_choices = min(self.game.num_character_choices[self.player], len(character_cards))
+        if num_choices == 0: #the deck has run out, so the new Companion goes without a card
+            return
+        card_options = random.sample(character_cards, k=num_choices)
         companion_card = self.player.choose_card(self, card_options)
         character_cards.remove(companion_card)
         self.companion_cards.append(companion_card)
@@ -422,7 +428,7 @@ class AdventurerAdvanced(AdventurerRegular):
     def arrest(self, pirate):
         '''Extends regular behaviour to allow capture of wealth for particular buffs.
         '''
-        if self.confiscate_treasure and self.pirate.wealth > 0:
+        if self.confiscate_treasure and pirate.wealth > 0:
             self.wealth += pirate.wealth
             pirate.wealth = 0
         AdventurerRegular.arrest(self, pirate)

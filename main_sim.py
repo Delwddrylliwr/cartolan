@@ -35,6 +35,10 @@ MOVEMENT_RULES = ['initial', 'budgetted']
 EXPLORATION_RULES = ['clockwise', 'continuous']
 NUM_PLAYERS_OPTIONS = [2, 3, 4]
 
+def append_row(dataframe, row):
+    '''Appends a dict as a row, replacing pandas.DataFrame.append (removed in pandas 2.0)'''
+    return pandas.concat([dataframe, pandas.DataFrame([row])], ignore_index=True)
+
 #First some global functions to set up the game area
 def setup_tiles(players, game_mode, movement_rules, exploration_rules, mythical_city):
     '''Part of game setup for Cartolan, this places the intital tiles ready for play
@@ -163,6 +167,7 @@ class Simulations():
         #determine logging
         # stdout_backup = sys.stdout
 #         sys.stdout = open(os.devnull, 'w')
+        os.makedirs("./logs", exist_ok=True)
         sys.stdout = open("./logs/cartolan_log.txt", 'w')
         # sys.stdout = sys.__stdout__
 
@@ -227,7 +232,7 @@ class Simulations():
                     return name[name.find("Player")+len("Player"):]
 
             if game.wealth_difference > 0 and self.num_players ==2:
-                self.sim_stats = self.sim_stats.append( {"simulation_id":sim_id, "num_players":self.num_players
+                self.sim_stats = append_row(self.sim_stats, {"simulation_id":sim_id, "num_players":self.num_players
                                     , "win_type":game.win_type, "turns":game.turn
                                     , "remaining_water_tiles":len(game.tile_piles["water"].tiles)+len(game.discard_piles["water"].tiles)
                                     , "remaining_land_tiles":len(game.tile_piles["land"].tiles)+len(game.discard_piles["land"].tiles)
@@ -241,17 +246,17 @@ class Simulations():
                                     , "winning_player_adventurers":len(game.adventurers[game.winning_player])
                                     , "exploration_attempts":game.exploration_attempts
                                     , "failed_explorations":game.num_failed_explorations
-                                    , "wealth_p1":game.players[0].vault_wealth
-                                    , "wealth_p2":game.players[1].vault_wealth
+                                    , "wealth_p1":game.player_wealths[game.players[0]]
+                                    , "wealth_p2":game.player_wealths[game.players[1]]
                                     , "num_adventurers_p1":len(game.adventurers[players[0]])
                                     , "num_adventurers_p2":len(game.adventurers[players[1]])
                                     , "num_agents_p1":len(game.agents[players[0]])
                                     , "num_agents_p2":len(game.agents[players[1]])
                                     , "avg_route_p1":avg_route_length(players[0], game)
                                     , "avg_route_p2":avg_route_length(players[1], game)
-                                              }, ignore_index=True)
+                                              })
             elif game.wealth_difference > 0 and self.num_players ==3:
-                self.sim_stats = self.sim_stats.append( {"simulation_id":sim_id, "num_players":self.num_players
+                self.sim_stats = append_row(self.sim_stats, {"simulation_id":sim_id, "num_players":self.num_players
                                     , "win_type":game.win_type, "turns":game.turn
                                     , "remaining_water_tiles":len(game.tile_piles["water"].tiles)+len(game.discard_piles["water"].tiles)
                                     , "remaining_land_tiles":len(game.tile_piles["land"].tiles)+len(game.discard_piles["land"].tiles)
@@ -265,9 +270,9 @@ class Simulations():
                                     , "winning_player_adventurers":len(game.adventurers[game.winning_player])
                                     , "exploration_attempts":game.exploration_attempts
                                     , "failed_explorations":game.num_failed_explorations
-                                    , "wealth_p1":game.players[0].vault_wealth
-                                    , "wealth_p2":game.players[1].vault_wealth
-                                    , "wealth_p3":game.players[2].vault_wealth
+                                    , "wealth_p1":game.player_wealths[game.players[0]]
+                                    , "wealth_p2":game.player_wealths[game.players[1]]
+                                    , "wealth_p3":game.player_wealths[game.players[2]]
                                     , "num_adventurers_p1":len(game.adventurers[game.players[0]])
                                     , "num_adventurers_p2":len(game.adventurers[game.players[1]])
                                     , "num_adventurers_p3":len(game.adventurers[game.players[2]])
@@ -277,9 +282,9 @@ class Simulations():
                                     , "avg_route_p1":avg_route_length(players[0], game)
                                     , "avg_route_p2":avg_route_length(players[1], game)
                                     , "avg_route_p3":avg_route_length(players[2], game)
-                                              }, ignore_index=True)
+                                              })
             elif game.wealth_difference > 0 and self.num_players ==4:
-                self.sim_stats = self.sim_stats.append( {"simulation_id":sim_id, "num_players":self.num_players
+                self.sim_stats = append_row(self.sim_stats, {"simulation_id":sim_id, "num_players":self.num_players
                                     , "win_type":game.win_type, "turns":game.turn
                                     , "remaining_water_tiles":len(game.tile_piles["water"].tiles)+len(game.discard_piles["water"].tiles)
                                     , "remaining_land_tiles":len(game.tile_piles["land"].tiles)+len(game.discard_piles["land"].tiles)
@@ -293,8 +298,8 @@ class Simulations():
                                     , "winning_player_adventurers":len(game.adventurers[game.winning_player])
                                     , "exploration_attempts":game.exploration_attempts
                                     , "failed_explorations":game.num_failed_explorations
-                                    , "wealth_p1":game.players[0].vault_wealth, "wealth_p2":game.players[1].vault_wealth
-                                    , "wealth_p3":game.players[2].vault_wealth, "wealth_p4":game.players[3].vault_wealth
+                                    , "wealth_p1":game.player_wealths[game.players[0]], "wealth_p2":game.player_wealths[game.players[1]]
+                                    , "wealth_p3":game.player_wealths[game.players[2]], "wealth_p4":game.player_wealths[game.players[3]]
                                     , "num_adventurers_p1":len(game.adventurers[game.players[0]])
                                     , "num_adventurers_p2":len(game.adventurers[game.players[1]])
                                     , "num_adventurers_p3":len(game.adventurers[game.players[2]])
@@ -307,7 +312,7 @@ class Simulations():
                                     , "avg_route_p2":avg_route_length(players[1], game)
                                     , "avg_route_p3":avg_route_length(players[2], game)
                                     , "avg_route_p4":avg_route_length(players[3], game)
-                                              }, ignore_index=True)
+                                              })
             play_areas[sim_id] = game.play_area
             player_sets[sim_id] = game.players
 

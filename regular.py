@@ -82,28 +82,15 @@ class AdventurerRegular(AdventurerBeginner):
             #Select the tile pile to draw from
             tile_pile = self.game.tile_piles[list(self.game.tile_piles.keys())[pile_num]] #WARNING - this isn't deterministic, so an undo that somehow changes the dict may get different results
             #Choose the next tile from the bag / pile and add it to their Chest
-            tile_chosen = False
-            num_bad_tiles = 0 #keep track of the number of unsuitable tiles, in case there are no suitable ones
-            while not tile_chosen:
-                if len(tile_pile.tiles) > num_bad_tiles: #check that there are at least some suitable tiles  
-                    chosen_tile = tile_pile.tiles.pop()
-                    if False:
-                    # if (isinstance(chosen_tile, CityTile) 
-                    #     or isinstance(chosen_tile, DisasterTile)):
-                        tile_pile.tiles.insert(0, chosen_tile)
-                        num_bad_tiles += 1
-                    else:
-                        tile_chosen = True
-                        chosen_tiles.append(chosen_tile)
-                else:
-                    break
+            if tile_pile.tiles:
+                chosen_tiles.append(tile_pile.tiles.pop())
         return chosen_tiles
             
     # Whether movement is possible is handled much like the Beginner mode, except that carrying no wealth increases upwind and land moves, and a dice roll can allow upwind movement
     def can_move(self, compass_point): 
         '''Before checking any further, make sure that the total possible moves havne't been used
         '''
-        if not self.has_remaining_moves:
+        if not self.has_remaining_moves():
             return False
         
         #Check whether attack is possible
@@ -122,10 +109,7 @@ class AdventurerRegular(AdventurerBeginner):
             if ((self.downwind_moves + self.land_moves + self.upwind_moves < self.max_upwind_moves + 1
                 or self.downwind_moves + self.land_moves + self.upwind_moves < self.max_land_moves + 1)
                 and self.downwind_moves + self.land_moves + self.upwind_moves < self.max_downwind_moves):
-                return True #give an estra opportunity to retreat
-                if self.current_tile.agent:
-                    if self.current_tile.agent not in self.agents_rested:
-                        return True
+                return True #give an extra opportunity to retreat
         
         # check that instruction is valid: a direction provided or an explicit general check through a None
         if compass_point is None:
