@@ -17,6 +17,7 @@ import logging
 import os
 
 from cartolan.core.game import Game, GLOBAL_RNG
+from cartolan.core.movement import classify_move, legal_directions, spend_move, rest_moves
 from cartolan.core.tokens import Adventurer, Inn
 from cartolan.core.tiles import Tile, TilePile, CityTile, WindDirection, TileEdges
 from cartolan.core.cards import Card
@@ -115,9 +116,8 @@ class AdventurerLiteWinds(Adventurer):
 
         #Mirror game variables, so that cards can modify them per token
         self.max_exploration_attempts = game.max_exploration_attempts
-        self.max_downwind_moves = game.max_downwind_moves
-        self.max_land_moves = game.max_land_moves
-        self.max_upwind_moves = game.max_upwind_moves
+        self.fresh_move_budget = game.fresh_move_budget
+        self.tired_move_budget = game.tired_move_budget
         self.value_trade = game.value_trade
         self.value_discover_port = game.value_discover_port
         self.value_fill_map_gap = game.value_fill_map_gap
@@ -132,9 +132,8 @@ class AdventurerLiteWinds(Adventurer):
         self.num_chest_maps = game.num_chest_maps
 
         #Some variables that determine valid moves
-        self.downwind_moves = 0
-        self.upwind_moves = 0
-        self.land_moves = 0
+        self.fresh_moves_used = 0
+        self.tired_moves_used = 0
         self.turns_moved = 0
         self.latest_city = starting_city
         self.ports_traded = []
@@ -169,14 +168,23 @@ class AdventurerLiteWinds(Adventurer):
     def num_characters(self):
         return self.num_companions + 1
 
+    @property
+    def is_tired(self):
+        '''A tired Adventurer has used their fresh moves and can only ride the wind.'''
+        return self.fresh_moves_used >= self.fresh_move_budget
+
+    @property
+    def is_exhausted(self):
+        '''An exhausted Adventurer has no moves left and their turn ends.'''
+        return self.is_tired and self.tired_moves_used >= self.tired_move_budget
+
     def to_json(self):
         d = super().to_json()
         d.update({
-            "downwind_moves": self.downwind_moves,
-            "upwind_moves": self.upwind_moves,
-            "land_moves": self.land_moves,
-            "max_upwind_moves": self.max_upwind_moves,
-            "max_downwind_moves": self.max_downwind_moves,
+            "fresh_moves_used": self.fresh_moves_used,
+            "tired_moves_used": self.tired_moves_used,
+            "fresh_move_budget": self.fresh_move_budget,
+            "tired_move_budget": self.tired_move_budget,
             "pirate_token": None,
             "chest_maps": [t.to_json() for t in self.chest_maps],
             "chosen_map_index": self.chosen_map_index,
@@ -221,70 +229,21 @@ class AdventurerLiteWinds(Adventurer):
     # --- Movement ---
 
     def has_remaining_moves(self):
-        '''Checks whether there are moves left for the Adventurer, regardless of whether there are direction they can move
+        '''Checks whether there are moves left for the Adventurer, regardless of whether there are directions they can move
         '''
-        return not self.downwind_moves + self.land_moves + self.upwind_moves >= self.max_downwind_moves
+        return not self.is_exhausted
 
     def can_move(self, compass_point):
         '''confirm whether the Adventurer can move in a given cardinal compass direction
 
         key arguments:
-        String word or letter cardinal compass direction
+        String word or letter cardinal compass direction, or None to check whether any move is possible
         '''
         if compass_point is None:
-            #Check whether there are moves left for the Adventurer, regardless of whether there are direction they can move
-            if not self.has_remaining_moves():
-               return False
-
-        # check that instruction is valid: a direction provided or an explicit general check through a None
-        if compass_point is None:
-            logger.debug("Adventurer is checking whether any movement at all is possible")
-            if ((self.game.movement_rules == "initial" or self.game.movement_rules == "budgetted")
-                and self.max_downwind_moves <= self.land_moves + self.downwind_moves + self.upwind_moves):
-                return False
-            for compass_point in ["n","e","s","w"]:
-                if self.can_move(compass_point):
-                    return True
-            return False
-        elif not (compass_point.lower() in ["north","n","east","e","south","s","west","w"]):
+            return bool(legal_directions(self))
+        if not (compass_point.lower() in ["north","n","east","e","south","s","west","w"]):
             raise Exception("invalid direction given for movement")
-
-        # check whether move is possible over the edge
-        if self.game.movement_rules == "initial": #this version 1 of movement allows land and upwind movement only initially after resting
-            moves_since_rest = self.land_moves + self.downwind_moves + self.upwind_moves
-            if not self.current_tile.compass_edge_water(compass_point): #land movement needed
-                if moves_since_rest < self.max_land_moves:
-                    return True
-                else: return False
-            elif (self.current_tile.compass_edge_water(compass_point)
-                  and self.current_tile.compass_edge_downwind(compass_point)): #downwind movement possible
-                if (moves_since_rest < self.max_downwind_moves):
-                    return True
-                else: return False
-            else: #if not land or downwind, then movement must be upwind
-                if moves_since_rest < self.max_upwind_moves:
-                    return True
-                elif self.downwind_moves < self.max_downwind_moves:
-                        return False
-                else: return False
-        elif self.game.movement_rules == "budgetted": #this version 2 of movement allows land and upwind movement any time, but a limited number before resting
-            logger.debug("Adventurer has moved " +str(self.upwind_moves)+ " times upwind, " +str(self.land_moves)+ " times overland, and " +str(self.downwind_moves)+ " times downwind, since resting")
-            if not self.current_tile.compass_edge_water(compass_point): #land movement needed
-                if self.land_moves < self.max_land_moves and self.upwind_moves == 0:
-                    return True
-                else: return False
-            elif (self.current_tile.compass_edge_water(compass_point)
-                  and self.current_tile.compass_edge_downwind(compass_point)): #downwind movement possible
-                if (self.downwind_moves + self.land_moves + self.upwind_moves < self.max_downwind_moves):
-                    return True
-                else: return False
-            else: #if not land or downwind, then movement must be upwind
-                if self.upwind_moves < self.max_upwind_moves and self.land_moves == 0:
-                    return True
-                elif self.downwind_moves < self.max_downwind_moves:
-                    return False
-                else: return False
-        else: raise Exception("Invalid movement rules specified")
+        return classify_move(self, compass_point) is not None
 
     def exploration_needed(self, longitude, latitude):
         '''check whether there is a tile already in a given space, or if exploration is needed
@@ -340,8 +299,23 @@ class AdventurerLiteWinds(Adventurer):
             for _ in range(offset):
                 chest_map.rotate_tile_clock()
 
-    def interact_tokens(self):
-        #check whether there is an inn here and then check rest
+    def run_tile_actions(self):
+        '''Offers the rulebook's sequence of actions on the tile the move finished on.
+
+        Lite Winds C.3: trade, then rest with a preexisting Inn, then hire an Inn.
+        (Shady Routes inserts attacking between trading and resting.)
+        '''
+        for action in self.game.ACTION_ORDER:
+            getattr(self, "offer_" + action)()
+
+    def offer_trade(self):
+        #check whether this is a trade port, and if the player wants to trade
+        if self.current_tile.has_trade_port:
+            if self.player.check_trade(self, self.current_tile):
+                self.trade(self.current_tile)
+
+    def offer_rest(self):
+        #check whether there is an inn here, collect any silks left with it, and then check rest
         if self.current_tile.inn:
             inn = self.current_tile.inn
             if inn.player == self.player:
@@ -353,11 +327,8 @@ class AdventurerLiteWinds(Adventurer):
                     if self.rest(inn) and inn not in self.inns_rested:
                         self.inns_rested.append(inn)
 
-    def interact_tile(self):
-        #check whether this is a trade port, and if the player wants to trade
-        if self.current_tile.has_trade_port:
-            if self.player.check_trade(self, self.current_tile):
-                self.trade(self.current_tile)
+    def offer_hire_inn(self):
+        #check whether an Inn can be hired on this pre-existing tile
         if self.inn_on_existing and self.check_tile_available(self.current_tile):
             if self.silks >= self.cost_inn_from_city:
                 cost_exploring = self.cost_inn_exploring
@@ -370,9 +341,7 @@ class AdventurerLiteWinds(Adventurer):
         '''
         self.turns_moved += 1
         #the adventurer will rest now before the next turn and be ready
-        self.downwind_moves = 0
-        self.land_moves = 0
-        self.upwind_moves = 0
+        rest_moves(self)
         #the list of inns rested with is reset
         self.inns_rested = []
         #reset Adventurer's list of visited Trade Ports
@@ -404,17 +373,11 @@ class AdventurerLiteWinds(Adventurer):
 
         # check whether the next tile exists and explore if needed
         moved = False
-        if self.can_move(compass_point):
-            #include this in the number of moves so far since resting - even if exploration subsequently fails
-            if not self.current_tile.compass_edge_water(compass_point): #land movement
-                logger.debug("Making a land move, with existing silks "+str(self.silks))
-                self.land_moves += 1
-            elif self.current_tile.compass_edge_downwind(compass_point): #downwind movement possible
-                logger.debug("Making a downwind water move, with existing silks "+str(self.silks))
-                self.downwind_moves += 1
-            else: #if not land or downwind, then movement must have been upwind
-                logger.debug("Making an upwind water move, with existing silks "+str(self.silks))
-                self.upwind_moves += 1
+        move_kind = classify_move(self, compass_point)
+        if move_kind is not None:
+            #spend this move from the budgets - even if exploration subsequently fails
+            logger.debug("Making a " +move_kind.value+ " move, with existing silks "+str(self.silks))
+            spend_move(self, move_kind)
 
             #locate the space in the play area that the Adventurer is moving into
             longitude_increment = int(compass_point.lower() in ["east","e"]) - int(compass_point.lower() in ["west","w"])
@@ -439,8 +402,7 @@ class AdventurerLiteWinds(Adventurer):
                 else:
                     logger.debug("Exploration failed, but offering Adventurer available actions on original tile")
                     if not isinstance(self.current_tile, CityTile):
-                        self.interact_tile()
-                        self.interact_tokens()
+                        self.run_tile_actions()
                     moved = False
             else:
                 #place the Adventurer on the next existing Tile
@@ -451,8 +413,7 @@ class AdventurerLiteWinds(Adventurer):
                 if isinstance(self.current_tile, CityTile):
                     self.current_tile.visit_city(self, False)
                 else:
-                    self.interact_tile()
-                    self.interact_tokens()
+                    self.run_tile_actions()
                 moved = True
 
         #check whether any more moves will be possible
@@ -476,8 +437,11 @@ class AdventurerLiteWinds(Adventurer):
         self.bought_inn = 0
         self.moved_inn = None
 
-        #Treat this as if it was a move
-        self.downwind_moves += 1
+        #Treat this as if it was a move, spending fresh budget first
+        if not self.is_tired:
+            self.fresh_moves_used += 1
+        else:
+            self.tired_moves_used += 1
 
         #carry out any actions that are possible given this tile or tokens on it
         tile = self.current_tile
@@ -487,8 +451,7 @@ class AdventurerLiteWinds(Adventurer):
             if tile.dropped_silks > 0:
                 self.silks += tile.dropped_silks
                 tile.dropped_silks = 0
-            self.interact_tile()
-            self.interact_tokens()
+            self.run_tile_actions()
 
         if not self.can_move(None):
             logger.debug("Adventurer determined that cannot move any more, so finishing turn, with Chest silks "+str(self.silks)+", and Vault silks "+str(self.game.vault_silks[self.player]))
@@ -919,10 +882,8 @@ class InnLiteWinds(Inn):
             adventurer.silks -= rest_cost
             self.silks += rest_cost
 
-        # reset move count
-        adventurer.downwind_moves = 0
-        adventurer.upwind_moves = 0
-        adventurer.land_moves = 0
+        # reset move budgets
+        rest_moves(adventurer)
 
         #remember that this Inn has been used already this turn
         if self not in adventurer.inns_rested:
@@ -1025,9 +986,11 @@ class GameLiteWinds(Game):
 
     #The rule values for this edition; instances mirror the fields as attributes
     RULESET = LITE_WINDS
+    #Lite Winds C.3: the order of actions offered after each move
+    ACTION_ORDER = ("trade", "rest", "hire_inn")
 
 
-    def __init__(self, players, movement_rules = 'initial', exploration_rules = 'continuous', rng=None):
+    def __init__(self, players, exploration_rules = 'continuous', rng=None):
 
         super().__init__(players)
 
@@ -1041,10 +1004,6 @@ class GameLiteWinds(Game):
         self.ruleset = self.RULESET
         for rule_field in dataclasses.fields(self.ruleset):
             setattr(self, rule_field.name, copy.deepcopy(getattr(self.ruleset, rule_field.name)))
-
-        if movement_rules in ["initial", "budgetted"]:
-            self.movement_rules = movement_rules
-        else: raise Exception("Invalid movement rules specified")
 
         if exploration_rules in ["clockwise", "continuous"]:
             self.exploration_rules = exploration_rules

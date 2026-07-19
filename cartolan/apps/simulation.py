@@ -16,7 +16,6 @@ from cartolan.ui.static_visuals import PlayAreaVisualisation, PlayStatsVisualisa
 
 #Default parameters
 GAME_MODE = "LiteWinds"
-MOVEMENT_RULE = "initial" #"budgetted"
 EXPLORATION_RULE = "continuous" #"clockwise" #,
 MYTHICAL_CITY = True
 NUM_PLAYERS = 2
@@ -35,7 +34,6 @@ GAME_MODES = { 'LiteWinds':{'game_type':GameLiteWinds, 'player_set':{"blue":Play
                                                                         , "yellow":PlayerRouter
                                                                       , "orange":PlayerPirate}}
                   }
-MOVEMENT_RULES = ['initial', 'budgetted']
 EXPLORATION_RULES = ['clockwise', 'continuous']
 NUM_PLAYERS_OPTIONS = [2, 3, 4]
 
@@ -49,7 +47,6 @@ class Simulations():
 
     def __init__(self, num_games=NUM_GAMES):
         self.game_mode = GAME_MODE
-        self.movement_rule = MOVEMENT_RULE
         self.exploration_rule = EXPLORATION_RULE
         self.mythical_city = MYTHICAL_CITY
         self.num_players = NUM_PLAYERS
@@ -61,9 +58,6 @@ class Simulations():
 
     def select_mode(self, label):
         self.game_mode = label
-
-    def select_movement(self, label):
-        self.movement_rule = label
 
     def select_exploration(self, label):
         self.exploration_rule = label
@@ -130,13 +124,13 @@ class Simulations():
 
             #Instantiate a game
             if self.mythical_city:
-                print("Setting up a "+self.game_mode+"-mode game, with "+self.movement_rule+" movement rules, and "
+                print("Setting up a "+self.game_mode+"-mode game, with "
                   +self.exploration_rule+" exploration rules, and a mythical city")
             else:
-                print("Setting up a "+self.game_mode+"-mode game, with "+self.movement_rule+" movement rules, and "
+                print("Setting up a "+self.game_mode+"-mode game, with "
                   +self.exploration_rule+" exploration rules, and no mythical city")
             game = create_game(self.game_modes[self.game_mode]["game_type"], players,
-                               self.movement_rule, self.exploration_rule, self.mythical_city)
+                               self.exploration_rule, self.mythical_city)
 
             #run the game
             print("Starting simulation #"+str(sim_id)+" of "+self.game_mode+"-mode Cartolan, with " +str(self.num_players)+ " players")
@@ -398,7 +392,6 @@ class AISimulations(Simulations):
             game = create_game(
                 self.game_modes[self.game_mode]["game_type"],
                 players,
-                self.movement_rule,
                 self.exploration_rule,
                 self.mythical_city,
             )

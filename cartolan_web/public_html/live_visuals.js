@@ -1263,15 +1263,15 @@ class GameVisualisation {
                        && s.viewed_adventurer_index === s.current_adventurer_index;
 
     let title, anyDirShare = 1, downwindShare = 1, anyDirCount = '', downwindCount = '';
-    if (isCurrentTurn && viewedAdv && viewedAdv.max_upwind_moves != null) {
-      const moved    = (viewedAdv.downwind_moves || 0) + (viewedAdv.upwind_moves || 0) + (viewedAdv.land_moves || 0);
-      const maxAny   = viewedAdv.max_upwind_moves;
-      const onlyDown = Math.max((viewedAdv.max_downwind_moves || 0) - maxAny, 0);
-      const extraDown = Math.max(moved - maxAny, 0);
+    if (isCurrentTurn && viewedAdv && viewedAdv.fresh_move_budget != null) {
+      const moved    = viewedAdv.fresh_moves_used || 0;
+      const maxAny   = viewedAdv.fresh_move_budget;
+      const onlyDown = viewedAdv.tired_move_budget || 0;
+      const tiredUsed = viewedAdv.tired_moves_used || 0;
       anyDirShare   = maxAny > 0 ? Math.min(moved / maxAny, 1) : 1;
-      downwindShare = onlyDown > 0 ? extraDown / onlyDown : 1;
+      downwindShare = onlyDown > 0 ? Math.min(tiredUsed / onlyDown, 1) : 1;
       anyDirCount   = `${Math.max(maxAny - moved, 0)} / ${maxAny}`;
-      downwindCount = `${Math.max(onlyDown - extraDown, 0)} / ${onlyDown}`;
+      downwindCount = `${Math.max(onlyDown - tiredUsed, 0)} / ${onlyDown}`;
       title = 'Moves until rest:';
     } else {
       title = `Not #${(s.viewed_adventurer_index || 0) + 1}'s turn`;

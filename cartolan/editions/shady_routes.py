@@ -50,9 +50,6 @@ class AdventurerShadyRoutes(AdventurerLiteWinds):
         self.pool_maps = game.pool_maps[player]
         self.rechoose_at_inns = game.rechoose_at_inns[player]
 
-        #Unburdened movement is deprecated
-        self.max_upwind_moves_unburdened = self.max_upwind_moves
-        self.max_land_moves_unburdened = self.max_land_moves
 
         #Record some additional instructions
         self.attacked = 0
@@ -60,87 +57,6 @@ class AdventurerShadyRoutes(AdventurerLiteWinds):
 
         #Prepare to hold Manuscript cards
         self.manuscript_cards = []
-
-    # Whether movement is possible is handled much like Lite Winds, except that carrying no silks increases upwind and land moves
-    def can_move(self, compass_point):
-        '''Before checking any further, make sure that the total possible moves haven't been used
-        '''
-        if not self.has_remaining_moves():
-            return False
-
-        #Check whether attack is possible
-        if compass_point is None:
-            if self.downwind_moves + self.land_moves + self.upwind_moves < self.max_downwind_moves:
-                if len(self.current_tile.adventurers) > 1:
-                    for adventurer in self.current_tile.adventurers:
-                        if adventurer is not self and adventurer.silks > 0:
-                            return True
-                if self.current_tile.inn:
-                    if self.current_tile.inn not in self.inns_rested:
-                        return True
-
-        #Check whether rest is possible and otherwise give an extra opportunity to retreat
-        if compass_point is None:
-            if ((self.downwind_moves + self.land_moves + self.upwind_moves < self.max_upwind_moves + 1
-                or self.downwind_moves + self.land_moves + self.upwind_moves < self.max_land_moves + 1)
-                and self.downwind_moves + self.land_moves + self.upwind_moves < self.max_downwind_moves):
-                return True #give an extra opportunity to retreat
-
-        # check that instruction is valid: a direction provided or an explicit general check through a None
-        if compass_point is None:
-            logger.debug("Adventurer is checking whether any movement at all is possible")
-            if ((self.game.movement_rules == "initial" or self.game.movement_rules == "budgetted")
-                and self.max_downwind_moves <= self.land_moves + self.downwind_moves + self.upwind_moves):
-                return False
-            for compass_point in ["n","e","s","w"]:
-                if self.can_move(compass_point):
-                    return True
-            return False
-        elif not (compass_point.lower() in ["north","n","east","e","south","s","west","w"]):
-            raise Exception("invalid direction given for movement")
-
-        # check whether move is possible over the edge
-        if self.game.movement_rules == "initial": #this version 1 of movement allows land and upwind movement only initially after resting
-            moves_since_rest = self.land_moves + self.downwind_moves + self.upwind_moves
-            if not self.current_tile.compass_edge_water(compass_point): #land movement needed
-                if(moves_since_rest < self.max_land_moves
-                   or (self.silks == 0 and moves_since_rest < self.max_land_moves_unburdened)):
-                    return True
-                else: return False
-            elif (self.current_tile.compass_edge_water(compass_point)
-                  and self.current_tile.compass_edge_downwind(compass_point)): #downwind movement possible
-                if (moves_since_rest < self.max_downwind_moves):
-                    return True
-                else: return False
-            else: #if not land or downwind, then movement must be upwind
-                if(moves_since_rest < self.max_upwind_moves
-                   or (self.silks == 0 and moves_since_rest < self.max_upwind_moves_unburdened)):
-                    return True
-                elif self.downwind_moves < self.max_downwind_moves:
-                        return False
-                else: return False
-        elif self.game.movement_rules == "budgetted": #this version 2 of movement allows land and upwind movement any time, but a limited number before resting
-            logger.debug("Adventurer has moved " +str(self.upwind_moves)+ " times upwind, " +str(self.land_moves)+ " times overland, and " +str(self.downwind_moves)+ " times downwind, since resting")
-            if not self.current_tile.compass_edge_water(compass_point): #land movement needed
-                if(self.land_moves < self.max_land_moves
-                   or (self.silks == 0 and self.land_moves < self.max_land_moves_unburdened)
-                   and self.upwind_moves == 0):
-                    return True
-                else: return False
-            elif (self.current_tile.compass_edge_water(compass_point)
-                  and self.current_tile.compass_edge_downwind(compass_point)): #downwind movement possible
-                if (self.downwind_moves + self.land_moves + self.upwind_moves < self.max_downwind_moves):
-                    return True
-                else: return False
-            else: #if not land or downwind, then movement must be upwind
-                if ((self.upwind_moves < self.max_upwind_moves
-                   or (self.silks == 0 and self.upwind_moves < self.max_upwind_moves_unburdened))
-                   and self.land_moves == 0):
-                    return True
-                elif self.downwind_moves < self.max_downwind_moves:
-                    return False
-                else: return False
-        else: raise Exception("Invalid movement rules specified")
 
     # --- Manuscript cards ---
 
@@ -313,9 +229,12 @@ class AdventurerShadyRoutes(AdventurerLiteWinds):
                         if 0 < len(self.chest_maps) < self.num_chest_maps:
                             victim_chest = token.chest_maps
                             if len(victim_chest) > 0:
-                                stolen_tile = self.player.choose_tile(self, victim_chest)
-                                victim_chest.remove(stolen_tile)
+                                stolen_index = victim_chest.index(self.player.choose_tile(self, victim_chest))
+                                stolen_tile = victim_chest.pop(stolen_index)
+                                if stolen_index < len(token.chest_map_offsets):
+                                    token.chest_map_offsets.pop(stolen_index)
                                 self.chest_maps.append(stolen_tile)
+                                self.chest_map_offsets.append(0)
         elif isinstance(token, Inn):
             if not token.is_ransacked:
                 self.pirate_token = True #just trying will make them a pirate
@@ -416,17 +335,17 @@ class AdventurerShadyRoutes(AdventurerLiteWinds):
             logger.debug("Didn't need to restore this Inn")
             return False
 
-    def interact_tile(self):
+    def offer_hire_inn(self):
         '''Extends to allow same-turn resting after placing an inn (rest_after_placing buff)
         '''
-        super().interact_tile()
+        super().offer_hire_inn()
         if (self.rest_after_placing
                 and self.current_tile.inn is not None
                 and self.current_tile.inn in self.inns_rested):
             self.inns_rested.remove(self.current_tile.inn)
 
-    def interact_tokens(self):
-        '''Handles attacks, rest, Inn restoration, and card-modified interactions on the tile.'''
+    def offer_attack(self):
+        '''Offers attacks against Adventurers and Inns on this tile (Shady Routes C.1-2).'''
         #check whether there is an adventurer here and attack if the player wants
         if self.current_tile.adventurers:
             for adventurer in self.current_tile.adventurers:
@@ -434,26 +353,32 @@ class AdventurerShadyRoutes(AdventurerLiteWinds):
                     and (adventurer.silks > 0 or adventurer.pirate_token)):
                     if self.player.check_attack_adventurer(self, adventurer):
                         self.attack(adventurer)
+                #Card-modified: the option to send an opponent home even with no silks
+                elif (self.attacks_abandon and adventurer.silks == 0
+                    and not self == adventurer and adventurer.player != self.player):
+                    if self.player.check_attack_adventurer(self, adventurer):
+                        self.attack(adventurer)
 
-        #check whether there is an inn here and then check rest, attack if active or restore if ransacked
+        #check whether there is an active opponent Inn here to attack
+        if self.current_tile.inn:
+            inn = self.current_tile.inn
+            if not inn.is_ransacked and inn.player != self.player:
+                if inn.silks + self.value_ransack_inn > 0:
+                    if self.player.check_attack_inn(self, inn):
+                        self.attack(inn)
+                #Card-modified: Inns that arrest visiting pirates
+            if (inn.inns_arrest and not inn.is_ransacked
+                and self.pirate_token and not inn.player == self.player):
+                if self.game.rng.random() < self.game.attack_success_prob:
+                    AdventurerShadyRoutes.arrest(inn, self) #The arrest function should only use common features of the common parent Token class
+                    self.end_turn()
+
+    def offer_rest(self):
+        '''Extends resting with ransack-awareness, restoration, and card-modified rests.'''
         if self.current_tile.inn:
             inn = self.current_tile.inn
             if not inn.is_ransacked:
-                if inn.player == self.player:
-                    if inn.silks > 0:
-                        if self.player.check_collect_silks(inn):
-                            self.collect_silks()
-                    if self.can_rest(inn):
-                        if self.player.check_rest(self, inn):
-                            self.rest(inn)
-                else:
-                    if inn.silks + self.value_ransack_inn > 0:
-                        if self.player.check_attack_inn(self, inn):
-                            self.attack(inn)
-                    #If not attacking, then offer rest
-                    if self.can_rest(inn):
-                        if self.player.check_rest(self, inn):
-                            self.rest(inn)
+                super().offer_rest()
             #Restore the Inn if they are ransacked
             else:
                 if (inn.player == self.player
@@ -461,23 +386,13 @@ class AdventurerShadyRoutes(AdventurerLiteWinds):
                     if self.player.check_restore_inn(self, inn):
                         self.restore_inn(inn)
 
-        #Card-modified interactions: attacks that send poor Adventurers home, resting with Adventurers
+        #Card-modified interactions: resting with Adventurers, transfers to Inns
         if self.current_tile.adventurers:
             for adventurer in self.current_tile.adventurers:
-                if (self.attacks_abandon and adventurer.silks == 0 #give the option to send the opponent to a city even if they have no silks
-                    and not self == adventurer):
-                    if self.player.check_attack_adventurer(self, adventurer):
-                        self.attack(adventurer)
                 if self.rest_with_adventurers and self.can_rest(adventurer):
                     if self.player.check_rest(self, adventurer):
                         self.rest(adventurer)
         if self.current_tile.inn is not None:
-            inn = self.current_tile.inn
-            if (inn.inns_arrest and not inn.is_ransacked
-                and self.pirate_token and not inn.player == self.player):
-                if self.game.rng.random() < self.game.attack_success_prob:
-                    AdventurerShadyRoutes.arrest(inn, self) #The arrest function should only use common features of the common parent Token class
-                    self.end_turn()
             if (self.transfers_to_inns
                 and len(self.game.inns[self.player]) > 0
                 and self.silks > 0):
@@ -623,9 +538,11 @@ class GameShadyRoutes(GameLiteWinds):
     CITY_TYPE = CityTileShadyRoutes
 
     RULESET = SHADY_ROUTES
+    #Shady Routes C.1: attacking slots in after trading and before resting
+    ACTION_ORDER = ("trade", "attack", "rest", "hire_inn")
 
-    def __init__(self, players, movement_rules='initial', exploration_rules='continuous', rng=None):
-        super().__init__(players, movement_rules, exploration_rules, rng)
+    def __init__(self, players, exploration_rules='continuous', rng=None):
+        super().__init__(players, exploration_rules, rng)
 
         #Some rule values apply per player, so they can be modified by Culture cards
         self.num_manuscript_choices = {}

@@ -14,8 +14,7 @@ stage; this module currently provides the edition chain and rule values.
 
 from cartolan.rules.ruleset import SILK_ROADS
 from cartolan.editions.shady_routes import (GameShadyRoutes, AdventurerShadyRoutes,
-                                            InnShadyRoutes, CityTileShadyRoutes,
-                                            HomeCityTileShadyRoutes, MythicalCityTileShadyRoutes)
+                                            InnShadyRoutes, CityTileShadyRoutes)
 
 
 class AdventurerSilkRoads(AdventurerShadyRoutes):

@@ -169,12 +169,14 @@ def test_rest_with_opponents_inn_costs_one_silk_per_character():
     inn = game.INN_TYPE(game, players[1], tile)
     adventurer.current_tile = tile
     adventurer.silks = 5
-    adventurer.downwind_moves = 2
+    adventurer.fresh_moves_used = 2
+    adventurer.tired_moves_used = 1
 
     assert adventurer.rest(inn)
     assert adventurer.silks == 4      # paid 1 Silk x 1 character
     assert inn.silks == 1             # left on the tile for the Inn's player
-    assert adventurer.downwind_moves == 0  # move budget reset
+    assert adventurer.fresh_moves_used == 0  # move budgets reset
+    assert adventurer.tired_moves_used == 0
 
 
 def test_rest_once_per_inn_per_turn():
@@ -219,12 +221,67 @@ def test_map_hand_capacity_is_three():
 
 # --- Movement (Lite Winds C.4) ---
 
-@pytest.mark.xfail(reason="Stage 6: two fresh moves in any direction, then two downwind moves", strict=True)
 def test_fresh_and_tired_move_budgets():
+    '''Lite Winds C.4: two moves in any direction while fresh, then two downwind.'''
     game, players = make_game()
     adventurer = game.adventurers[players[0]][0]
     assert adventurer.fresh_move_budget == 2
     assert adventurer.tired_move_budget == 2
+
+
+def test_fresh_moves_any_direction_then_downwind_only():
+    '''Lite Winds C.4: fresh Adventurers move over water or land in any direction;
+    tired ones only over water edges in the wind arrow's direction.'''
+    game, players = make_game()
+    adventurer = game.adventurers[players[0]][0]
+    # wind on the starting water tiles points north-east
+    adventurer.current_tile = game.play_area[0][1]
+
+    # fresh: all four directions are legal, regardless of wind
+    for direction in ("n", "e", "s", "w"):
+        assert adventurer.can_move(direction)
+
+    adventurer.fresh_moves_used = 2  # now tired
+    assert adventurer.is_tired and not adventurer.is_exhausted
+    # tired: only downwind water edges (wind points north and east)
+    assert adventurer.can_move("n")
+    assert adventurer.can_move("e")
+    assert not adventurer.can_move("s")
+    assert not adventurer.can_move("w")
+
+    adventurer.tired_moves_used = 2  # now exhausted
+    assert adventurer.is_exhausted
+    for direction in ("n", "e", "s", "w"):
+        assert not adventurer.can_move(direction)
+    assert not adventurer.can_move(None)
+
+
+def test_wind_is_read_from_the_tile_moved_from():
+    '''Lite Winds C.4: the wind arrow on the tile they move FROM governs riding the wind.'''
+    game, players = make_game()
+    adventurer = game.adventurers[players[0]][0]
+    # a tile whose wind points south-west
+    tile = place_water(game, 5, 5, wind_north=False, wind_east=False)
+    adventurer.current_tile = tile
+    adventurer.fresh_moves_used = 2  # tired
+    assert adventurer.can_move("s")
+    assert adventurer.can_move("w")
+    assert not adventurer.can_move("n")
+    assert not adventurer.can_move("e")
+
+
+def test_rest_resets_move_budgets_mid_turn():
+    '''Lite Winds C.4: Adventurers keep moving until exhausted, unless they rest at an Inn.'''
+    game, players = make_game()
+    adventurer = game.adventurers[players[0]][0]
+    tile = place_water(game, 3, 0)
+    inn = game.INN_TYPE(game, players[0], tile)
+    adventurer.current_tile = tile
+    adventurer.fresh_moves_used = 2
+    adventurer.tired_moves_used = 1
+    assert adventurer.rest(inn)
+    assert not adventurer.is_tired
+    assert adventurer.fresh_moves_used == 0 and adventurer.tired_moves_used == 0
 
 
 # --- Piracy (Shady Routes C.2) ---

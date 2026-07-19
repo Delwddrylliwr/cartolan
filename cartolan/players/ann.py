@@ -368,7 +368,7 @@ class PlayerFeedFwd(Player):
         state = np.concatenate([
             *windows,
             [game.vault_silks.get(adventurer.player, 0)],
-            [adventurer.downwind_moves, adventurer.upwind_moves, adventurer.land_moves],
+            [adventurer.tired_moves_used, adventurer.fresh_moves_used, 0],
             [current_tile.tile_edges.upwind_clock_water, current_tile.tile_edges.upwind_anti_water,
              current_tile.tile_edges.downwind_clock_water, current_tile.tile_edges.downwind_anti_water],
             [current_tile.wind_direction.north, current_tile.wind_direction.east],

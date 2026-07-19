@@ -63,7 +63,6 @@ ORDINALS = ["first", "second", "third", "fourth"]
 NAMES = ["Ron", "Ali", "Jim", "Jon", "Bill", "Sam", "Nic", "Mel", "Su", "Mo", "Don", "Hal", "Sal", "Cat"]
 MAX_NAME_USES = 100  # Allow names to be extended by up to two digits
 # @TODO the below should be moved to the config file for all simulation and game versions
-MOVEMENT_RULES = "initial"
 EXPLORATION_RULES = "continuous"
 MYTHICAL_CITY = True
 
@@ -459,7 +458,6 @@ class ClientSocket(WebSocket):
         random.shuffle(game_players)
         self.game = create_game(GAME_MODES[new_game_types[game_id]]["game_type"]
                                 , game_players
-                                , MOVEMENT_RULES
                                 , EXPLORATION_RULES
                                 , MYTHICAL_CITY)
 

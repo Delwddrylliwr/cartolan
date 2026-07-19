@@ -720,21 +720,17 @@ class GameVisualisation():
             #Work out how many moves remain of each type, and get ready to overlay the move type icon with a greyed-out meter and numbers
             report = "Moves until rest:"
             move_title = self.scores_font.render(report, 1, self.viewed_player_colour)
-            moves_since_rest = self.current_adventurer.downwind_moves + self.current_adventurer.upwind_moves + self.current_adventurer.land_moves
-            # any_direction_moves = self.current_adventurer.upwind_moves + self.current_adventurer.land_moves
-            max_any_direction_moves = self.current_adventurer.max_upwind_moves
-            only_downwind_moves = self.current_adventurer.max_downwind_moves - max_any_direction_moves
-            extra_downwind_moves = max(moves_since_rest - max_any_direction_moves, 0)
-            any_direction_share = min(moves_since_rest / max_any_direction_moves, 1)
+            fresh_used = self.current_adventurer.fresh_moves_used
+            fresh_budget = self.current_adventurer.fresh_move_budget
+            tired_used = self.current_adventurer.tired_moves_used
+            tired_budget = self.current_adventurer.tired_move_budget
+            any_direction_share = min(fresh_used / fresh_budget, 1) if fresh_budget else 1.0
             any_direction_meter = pygame.Surface((int(round(any_direction_share*self.menu_tile_size)), self.menu_tile_size))
-            count = str(max(max_any_direction_moves - moves_since_rest, 0)) + " / " + str(max_any_direction_moves)
+            count = str(max(fresh_budget - fresh_used, 0)) + " / " + str(fresh_budget)
             any_direction_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
-            try:
-                downwind_water_share = extra_downwind_moves / only_downwind_moves
-            except:
-                downwind_water_share = 1.0
+            downwind_water_share = min(tired_used / tired_budget, 1) if tired_budget else 1.0
             downwind_water_meter = pygame.Surface((int(round(downwind_water_share*self.menu_tile_size)), self.menu_tile_size))
-            count = str(only_downwind_moves - extra_downwind_moves) + " / " + str(only_downwind_moves)
+            count = str(max(tired_budget - tired_used, 0)) + " / " + str(tired_budget)
             downwind_water_text = self.scores_font.render(count, 1, self.PLAIN_TEXT_COLOUR)
         else:
             report = "Not #" +str(self.viewed_adventurer_number+1)+ "'s turn"

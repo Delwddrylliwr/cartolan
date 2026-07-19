@@ -11,18 +11,18 @@ from cartolan.core.tiles import Tile, WindDirection, TileEdges
 logger = logging.getLogger(__name__)
 
 
-def create_game(game_type, players, movement_rules="initial",
-                exploration_rules="continuous", mythical_city=True, rng=None):
+def create_game(game_type, players, exploration_rules="continuous",
+                mythical_city=True, rng=None):
     '''Builds a ready-to-play game: initial tiles, one Adventurer per player, and tile piles.
 
     Arguments:
     game_type: the Game subclass for the edition being played
     players: list of Cartolan.Player
-    movement_rules / exploration_rules: rule variant strings
+    exploration_rules: rule variant string (until the exploration engine lands)
     mythical_city: whether to shuffle the Mythical City into the land pile
     rng: optional seeded random.Random; defaults to the global random module
     '''
-    game = game_type(players, movement_rules, exploration_rules, rng=rng)
+    game = game_type(players, exploration_rules, rng=rng)
 
     #place the Capital tile with a water tile on each of its four sides, sharing the same wind
     game.CITY_TYPE(game, WindDirection(True, True), TileEdges(True, True, True, True),

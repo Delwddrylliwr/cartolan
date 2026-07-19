@@ -49,11 +49,10 @@ class Ruleset:
     inns_from_city: bool = False        # whether Inns can be hired remotely from cities
     inn_on_existing: bool = True        # whether Inns can be hired on already-explored tiles
 
-    #Movement
+    #Movement: fresh Adventurers move in any direction, tired ones ride the wind
     max_exploration_attempts: int = 1
-    max_downwind_moves: int = 4
-    max_land_moves: int = 2
-    max_upwind_moves: int = 2
+    fresh_move_budget: int = 2
+    tired_move_budget: int = 2
 
     #--- Shady Routes (piracy) rules ---
     num_chest_maps: int = 2
