@@ -1,7 +1,7 @@
 '''
-Tests for the ANN player (PlayerFeedFwd) in players_ann.py.
+Tests for the ANN player (PlayerFeedFwd) in cartolan/players/ann.py.
 
-Run with:  pytest test_ann.py -v
+Run with:  pytest tests/test_ann.py -v
 
 Two test classes:
   TestStateVector  — fast unit tests that check the observation vector shape and content.
@@ -25,7 +25,7 @@ from cartolan.core.tiles import Tile, WindDirection, TileEdges
 def _setup_game(players):
     '''Minimal game setup equivalent to main_sim.setup_simulation, without the
     matplotlib/scipy visualisation imports that main_sim drags in.'''
-    game = GameLiteWinds(players, 'initial', 'continuous')
+    game = GameLiteWinds(players)
     game.CITY_TYPE(game, WindDirection(True, True), TileEdges(True, True, True, True),
                    True, True).place_tile(0, 0)
     for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
@@ -42,7 +42,7 @@ def _setup_game(players):
 # ---------------------------------------------------------------------------
 
 def _make_game(tmp_path=None):
-    '''Returns (ai_player, game) with the AI player seated in a 2-player Beginner game.'''
+    '''Returns (ai_player, game) with the AI player seated in a 2-player LiteWinds game.'''
     ai_player = PlayerFeedFwd('green')
     ai_player.LOAD_OLD_MODEL = False
     if tmp_path is not None:

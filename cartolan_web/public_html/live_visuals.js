@@ -55,7 +55,7 @@ class GameVisualisation {
 
   // ── Colours ───────────────────────────────────────────────────────────────
   static PLAIN_TEXT_COLOUR      = 'rgb(255,255,255)';
-  static WONDER_TEXT_COLOUR     = 'rgb(0,0,0)';
+  static TRADE_PORT_TEXT_COLOUR     = 'rgb(0,0,0)';
   static ACCEPT_UNDO_COLOUR     = 'rgb(255,0,0)';
   static CARD_BACKGROUND_COLOUR = 'rgb(255,255,255)';
   static CARD_TEXT_COLOUR       = 'rgb(0,0,0)';
@@ -460,7 +460,7 @@ class GameVisualisation {
     } else {
       const n       = tile.tile_name;
       const isCity   = n === 'home_city' || n === 'mythical_city';
-      const isWonder = !isCity && n[4] === 't';
+      const isTradePort = !isCity && n[4] === 't';
       const WATER = '#336699', LAND = '#669933', WHITE = '#ffffff';
       const half = size / 2;
 
@@ -511,7 +511,7 @@ class GameVisualisation {
         ctx.closePath();
         ctx.fillStyle = WHITE;
         ctx.fill();
-      } else if (isWonder) {
+      } else if (isTradePort) {
         ctx.beginPath();
         ctx.arc(cx, cy, cr, 0, Math.PI * 2);
         ctx.fillStyle = WHITE;
@@ -767,7 +767,7 @@ class GameVisualisation {
           ctx.font      = `${fontSize}px ${GameVisualisation.MENU_FONT}`;
           ctx.textAlign = 'center';
           ctx.fillStyle = tile.tile_name.endsWith('t')
-            ? GameVisualisation.WONDER_TEXT_COLOUR
+            ? GameVisualisation.TRADE_PORT_TEXT_COLOUR
             : GameVisualisation.PLAIN_TEXT_COLOUR;
           ctx.fillText(String(tile.dropped_silks), x + size / 2, y + size / 2);
         }

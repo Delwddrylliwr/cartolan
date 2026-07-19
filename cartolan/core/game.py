@@ -6,11 +6,9 @@ import copy
 import random
 import uuid
 
-from cartolan.core.utils import replace_references
 from cartolan.core.events import GameEvent
-from cartolan.core.tokens import Token
 from cartolan.core.cards import Card
-from cartolan.core.tiles import Tile, TilePile
+from cartolan.core.tiles import Tile
 
 import logging
 
@@ -114,62 +112,49 @@ class Game:
         for subscriber in self.event_subscribers:
             subscriber(event)
 
+    def _shared_identity_memo(self):
+        '''A deepcopy memo pre-seeded with the objects whose identity must survive
+        a save/restore round trip: the Game itself and its Players, which own live
+        UI and network connections.'''
+        memo = {id(self): self}
+        for player in self.players:
+            memo[id(player)] = player
+        return memo
+
     def save(self):
-        '''Backs up the game and tokens' states, so that they can be restored later e.g. to undo a mistake
+        '''Backs up the game state, so that it can be restored later e.g. to undo a mistake.
+
+        The backup is a deep copy of the game's attributes; the Game, its Players
+        and the event subscribers are shared by reference rather than cloned.
         '''
-#        logger.debug("Backing up game state")
-        self.backup = None #Avoid recursively backing up deep copies of earlier versions
-        self.backup = copy.deepcopy(self)
-#        memo = {}
-#        try: 
-#            self.backup = copy.deepcopy(self, memo)
-#        except Exception as error:
-#            logger.debug(error)
-#            logger.debug(memo)
-#            exit()
-        
+        state = {name: value for name, value in self.__dict__.items() if name != "backup"}
+        self.backup = copy.deepcopy(state, self._shared_identity_memo())
+
     def restore(self):
-        '''Restores a previous game state.
-        
-        Thanks to Nithin: https://stackoverflow.com/questions/1216356/is-it-safe-to-replace-a-self-object-by-another-object-of-the-same-type-in-a-meth
+        '''Restores the last saved game state.
+
+        The identity of the Game, its Players, and the Adventurers present at the
+        save is preserved, since UIs and players hold direct references to them
+        across an undo. The backup itself is copied rather than consumed, so
+        repeated restores return to the same save point.
         '''
-        valid_classes = [Game, Token, Card, Tile, TilePile, list, dict]
-        memo = []
-        replace_references(self.backup, self, self.backup, memo, valid_classes) #Make sure that all elements within the backup copy of the game refer up to the true game
-#        logger.debug("Investigated objects:")
-#        logger.debug(memo)
-        adventurers = self.adventurers #retain the list currently used for adventurers
-        self.__dict__.update(self.backup.__dict__)
-        #Now for each adventurer return to the original object reference, but 
-        #swap its attributes for the deep copy's - so that restoring in the 
-        #middle of an Adventurer's move doesn't break references around it
-        for player in adventurers:
-            backup_adventurers = self.adventurers.get(player, [])
-            for adventurer in adventurers[player]:
-                adventurer_num = adventurers[player].index(adventurer)
-                if len(backup_adventurers) > adventurer_num:
-                    restored_copy = backup_adventurers[adventurer_num]
-    #                logger.debug("Restoring attributes of "+str(adventurer)+" from backup "+str(restored_copy)+"but keeping the reference.")
-                    adventurer.__dict__.update(restored_copy.__dict__)
-    #                #Because the adventurers came from the deep-copied game they will have references to the "copy" that has been abandoned
-#                    adventurer.game = self
-                    #adventurers are also referenced by tiles, so these will need updating
-                    memo = []
-                    replace_references(restored_copy, adventurer, self, memo, valid_classes)
-#                    logger.debug("Investigated objects:")
-#                    logger.debug(memo)
-                else:
-                    #If this adventurer wasn't in the backup, then discard it
-                    adventurers[player].pop(adventurer)
-            for inn in self.inns.get(player, []):
-                #Because the inns came from the deep-copied game they will have references to the "copy" that has been abandoned
-                inn.game = self        
-#        logger.debug("Replacing the new replica of the game's Adventurer's list, "+str(self.adventurers)+", with the original full of original Adventurer references, "+str(adventurers))
-        self.adventurers = adventurers
-        #Tiles may still have references to the 
-        #Now make sure there is a backup still in place for subsequent restores (the backup had no backup iteself)
-        self.save()
-    
-#    def establish_turn_order(self):
-#        '''Randomises the order in which Player objects will be activated'''
-#        random.shuffle(self.players)
+        memo = self._shared_identity_memo()
+        #each backed-up Adventurer stands in for the live token it was copied from
+        live_adventurers = {}
+        for player, adventurers in self.adventurers.items():
+            backups = self.backup["adventurers"].get(player, [])
+            for adventurer, backup_copy in zip(adventurers, backups):
+                memo[id(backup_copy)] = adventurer
+                live_adventurers[adventurer] = backup_copy
+        state = copy.deepcopy(self.backup, memo)
+        #the live Adventurers adopt their backed-up attributes, resolved against
+        #the same memo so they point into the restored play area
+        for adventurer, backup_copy in live_adventurers.items():
+            restored = copy.deepcopy(backup_copy.__dict__, memo)
+            adventurer.__dict__.clear()
+            adventurer.__dict__.update(restored)
+        #attributes gained since the save are dropped along with the update
+        for name in list(self.__dict__):
+            if name != "backup" and name not in state:
+                delattr(self, name)
+        self.__dict__.update(state)

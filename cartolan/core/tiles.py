@@ -80,10 +80,10 @@ class Tile:
         ua = 't' if e.upwind_anti_water else 'f'
         dc = 't' if e.downwind_clock_water else 'f'
         da = 't' if e.downwind_anti_water else 'f'
-        wonder = 't' if self.has_trade_port else 'f'
+        port = 't' if self.has_trade_port else 'f'
         return {
             "tile_id": self.tile_id,
-            "tile_name": uc + ua + dc + da + wonder,
+            "tile_name": uc + ua + dc + da + port,
             "wind_north": self.wind_direction.north,
             "wind_east": self.wind_direction.east,
             "longitude": self.tile_position.longitude,

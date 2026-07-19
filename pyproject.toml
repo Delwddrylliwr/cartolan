@@ -24,4 +24,4 @@ include = ["cartolan*"]
 "cartolan.data" = ["*.csv"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "test_ann.py"]
+testpaths = ["tests"]

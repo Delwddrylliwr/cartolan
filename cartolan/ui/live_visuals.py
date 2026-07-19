@@ -20,10 +20,6 @@ from cartolan.core.cards import Card
 from cartolan.players.base import Player
 from cartolan.editions.lite_winds import GameLiteWinds, AdventurerLiteWinds, InnLiteWinds
 from cartolan.editions.shady_routes import GameShadyRoutes, AdventurerShadyRoutes, InnShadyRoutes
-# from players_human import PlayerHuman
-#from players_heuristical import PlayerBeginnerExplorer, PlayerBeginnerTrader, PlayerBeginnerRouter
-#from players_heuristical import PlayerRegularExplorer, PlayerRegularTrader, PlayerRegularRouter, PlayerRegularPirate
-#from players_heuristical import PlayerAdvancedExplorer, PlayerAdvancedTrader, PlayerAdvancedRouter, PlayerAdvancedPirate
 
 class GameVisualisation():
     '''A pygame-based interactive visualisation for games of Cartolan
@@ -32,7 +28,7 @@ class GameVisualisation():
     draw_move_options
     draw_tokens
     draw_play_area
-    draw_wealth_scores
+    draw_scores
     draw_routes
     draw_prompt
     '''
@@ -44,7 +40,7 @@ class GameVisualisation():
     DIMENSION_BUFFER = 1 #the number of tiles by which the play area is extended when methods are called
     BACKGROUND_COLOUR = (255,255,255,0) #(38,50,60) #(38,50,66)
     PLAIN_TEXT_COLOUR = (255,255,255)
-    WONDER_TEXT_COLOUR = (0,0,0)
+    TRADE_PORT_TEXT_COLOUR = (0,0,0)
     ACCEPT_UNDO_COLOUR = (255, 0, 0)
     CARD_TEXT_COLOUR = (0,0,0)
     CARD_BACKGROUND_COLOUR = (255,255,255)
@@ -602,8 +598,8 @@ class GameVisualisation():
             ua = str(e.upwind_anti_water)[0].lower()
             dc = str(e.downwind_clock_water)[0].lower()
             da = str(e.downwind_anti_water)[0].lower()
-            wonder = str(tile.has_trade_port)[0].lower()
-            return uc + ua + dc + da + wonder
+            port = str(tile.has_trade_port)[0].lower()
+            return uc + ua + dc + da + port
     
     def assign_tile_image(self, tile):
         '''Assigns a suitable tile image for a particular tile
@@ -661,13 +657,13 @@ class GameVisualisation():
                 #Print a number on this tile showing the dropped silks there
                 if tile.dropped_silks > 0:
                     if tile.has_trade_port:
-                        text_colour = self.WONDER_TEXT_COLOUR
+                        text_colour = self.TRADE_PORT_TEXT_COLOUR
                     else:
                         text_colour = self.PLAIN_TEXT_COLOUR
                     horizontal += int(self.tile_size * (1 - self.TOKEN_FONT_SCALE/2) / 2)
                     vertical += int(self.tile_size * (1 - self.TOKEN_FONT_SCALE/2) / 2)
-                    wealth_label = self.token_font.render(str(tile.dropped_silks), 1, text_colour)
-                    self.window.blit(wealth_label, [horizontal, vertical])
+                    silks_label = self.token_font.render(str(tile.dropped_silks), 1, text_colour)
+                    self.window.blit(silks_label, [horizontal, vertical])
         # # Keep track of what the latest play_area to have been visualised was
         # self.play_area = self.play_area_union(self.play_area, play_area_update)
         return True
@@ -967,18 +963,6 @@ class GameVisualisation():
                         previous_step = step
                         move += 1
             
-#            if isinstance(player, PlayerRegularExplorer):
-#                for attack in player.attack_history: 
-#                    # we want to draw a cross anywhere that an attack happened, the attack_history is full of pairs with a tile and a bool for the attack's success
-#                    if attack[1]:
-#                        face_colour = self.player_colours[player]
-#                    else:
-#                        face_colour = "none"
-#                    tile = attack[0]
-#                    location = [self.origin[0] + tile.tile_position.longitude + player_offset[0]
-#                                , self.origin[1] + tile.tile_position.latitude + player_offset[1]]
-#                    routeax.scatter([location[0]],[location[1]]
-#                                  , linewidth=1, edgecolors=self.player_colours[player], facecolor=face_colour, marker="X", s=self.token_width)
     
     def draw_scores(self):
         '''Prints a table of current silks scores in players' Vaults and Adventurers' Chests

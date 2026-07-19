@@ -1,5 +1,12 @@
 '''
 Copyright 2020 Tom Wilkinson, delwddrylliwr@gmail.com
+
+STALE: this ANN player predates the rulebook-alignment refactor. It still
+imports and runs, but its observation vector and reward shaping were tuned
+against the old Beginner/Regular/Advanced rules, and the saved weights in
+ann_models/ were trained against them. Expect weak play until the state
+vector is revisited and the models are retrained against the current
+LiteWinds/ShadyRoutes/SilkRoads editions.
 '''
 
 import os
@@ -111,7 +118,7 @@ class PlayerFeedFwd(Player):
           offset  4: downwind-anticlockwise edge is water
           offset  5: wind points north
           offset  6: wind points east
-          offset  7: tile is a wonder
+          offset  7: tile is a trade port
           offset  8: tile back is land (vs water)
           offset  9: city type  (0.0=none, 0.5=mythical city, 1.0=capital)
           offset 10: an inn is present
@@ -293,30 +300,30 @@ class PlayerFeedFwd(Player):
         own_inns = game.inns.get(adventurer.player, [])
         players = game.players
 
-        state_own_adventurers_wealth = [0] * game.max_adventurers
+        state_own_adventurers_silks = [0] * game.max_adventurers
         state_own_adventurers_companions = [0] * game.max_adventurers
         state_own_adventurers_positions = [0] * (2 * game.max_adventurers)
         for own_adventurer in own_adventurers:
             idx = own_adventurers.index(own_adventurer)
-            state_own_adventurers_wealth[idx] = own_adventurer.silks
+            state_own_adventurers_silks[idx] = own_adventurer.silks
             state_own_adventurers_companions[idx] = getattr(own_adventurer, 'num_companions', 0)
             state_own_adventurers_positions[2 * idx] = own_adventurer.current_tile.tile_position.longitude
             state_own_adventurers_positions[2 * idx + 1] = own_adventurer.current_tile.tile_position.latitude
 
-        state_own_inns_wealth = [0] * game.max_inns
+        state_own_inns_silks = [0] * game.max_inns
         state_own_inns_positions = [0] * (2 * game.max_inns)
         for own_inn in own_inns:
             idx = own_inns.index(own_inn)
-            state_own_inns_wealth[idx] = own_inn.silks
+            state_own_inns_silks[idx] = own_inn.silks
             state_own_inns_positions[2 * idx] = own_inn.current_tile.tile_position.longitude
             state_own_inns_positions[2 * idx + 1] = own_inn.current_tile.tile_position.latitude
 
         state_opp_vault_silkss = [0] * 3
-        state_opp_adventurers_wealths = [0] * (3 * game.max_adventurers)
+        state_opp_adventurers_silks = [0] * (3 * game.max_adventurers)
         state_opp_adventurers_companions = [0] * (3 * game.max_adventurers)
         state_opp_adventurers_pirates = [0] * (3 * game.max_adventurers)
         state_opp_adventurers_positions = [0] * (2 * 3 * game.max_adventurers)
-        state_opp_inns_wealths = [0] * (3 * game.max_inns)
+        state_opp_inns_silks = [0] * (3 * game.max_inns)
         state_opp_inns_ransacked = [0] * (3 * game.max_inns)
         state_opp_inns_positions = [0] * (2 * 3 * game.max_inns)
 
@@ -331,7 +338,7 @@ class PlayerFeedFwd(Player):
             for opp_adventurer in opp_adventurers:
                 oa_idx = opp_adventurers.index(opp_adventurer)
                 flat = game.max_adventurers * opponent_index + oa_idx
-                state_opp_adventurers_wealths[flat] = opp_adventurer.silks
+                state_opp_adventurers_silks[flat] = opp_adventurer.silks
                 state_opp_adventurers_companions[flat] = getattr(opp_adventurer, 'num_companions', 0)
                 state_opp_adventurers_pirates[flat] = int(getattr(opp_adventurer, 'pirate_token', False))
                 state_opp_adventurers_positions[2 * flat] = opp_adventurer.current_tile.tile_position.longitude
@@ -340,7 +347,7 @@ class PlayerFeedFwd(Player):
             for opp_inn in opp_inns:
                 oa_idx = opp_inns.index(opp_inn)
                 flat = game.max_inns * opponent_index + oa_idx
-                state_opp_inns_wealths[flat] = opp_inn.silks
+                state_opp_inns_silks[flat] = opp_inn.silks
                 state_opp_inns_ransacked[flat] = int(getattr(opp_inn, 'is_ransacked', False))
                 state_opp_inns_positions[2 * flat] = opp_inn.current_tile.tile_position.longitude
                 state_opp_inns_positions[2 * flat + 1] = opp_inn.current_tile.tile_position.latitude
@@ -374,17 +381,17 @@ class PlayerFeedFwd(Player):
             [current_tile.wind_direction.north, current_tile.wind_direction.east],
             preceding_positions,
             [own_adventurers.index(adventurer)],
-            state_own_adventurers_wealth,
+            state_own_adventurers_silks,
             state_own_adventurers_companions,
             state_own_adventurers_positions,
-            state_own_inns_wealth,
+            state_own_inns_silks,
             state_own_inns_positions,
             state_opp_vault_silkss,
-            state_opp_adventurers_wealths,
+            state_opp_adventurers_silks,
             state_opp_adventurers_companions,
             state_opp_adventurers_pirates,
             state_opp_adventurers_positions,
-            state_opp_inns_wealths,
+            state_opp_inns_silks,
             state_opp_inns_ransacked,
             state_opp_inns_positions,
         ]).astype(float)

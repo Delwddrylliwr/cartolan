@@ -274,22 +274,22 @@ class PlayerExplorerBase(Player):
             winning_difference = adventurer.game.winning_silks_difference
             if winning_difference is None:
                 return self._check_purchase_worthwhile(adventurer, adventurer.game.cost_adventurer)
-            #Check whether player has won compared to wealthiest opponent
-            wealthiest_opponent_silks = 0
+            #Check whether player has won compared to richest opponent
+            richest_opponent_silks = 0
             #Check whether any opponent is in a position to win based just on their incoming silks, if an Adventurer were hired
             opponent_near_win = False
             for player in adventurer.game.players:
                 if player is not self:
-                    if adventurer.game.vault_silks[player] > wealthiest_opponent_silks:
-                        wealthiest_opponent_silks = adventurer.game.vault_silks[player]
+                    if adventurer.game.vault_silks[player] > richest_opponent_silks:
+                        richest_opponent_silks = adventurer.game.vault_silks[player]
                     player_chest_silks = 0
                     for other_adventurer in adventurer.game.adventurers[player]:
                         player_chest_silks += other_adventurer.silks
                     if (adventurer.game.vault_silks[player] + player_chest_silks
                         > winning_difference + adventurer.game.vault_silks[adventurer.player] - adventurer.game.cost_adventurer):
                         opponent_near_win = True
-            #Don't hire if player has won compared to wealthiest opponent
-            if adventurer.game.vault_silks[adventurer.player] > wealthiest_opponent_silks + winning_difference:
+            #Don't hire if player has won compared to richest opponent
+            if adventurer.game.vault_silks[adventurer.player] > richest_opponent_silks + winning_difference:
                 return False
             #Hire if no opponent can then win based on their incoming silks
             if not opponent_near_win:
@@ -324,17 +324,17 @@ class PlayerExplorerBase(Player):
             winning_difference = adventurer.game.winning_silks_difference
             if winning_difference is None:
                 return self._check_purchase_worthwhile(adventurer, adventurer.cost_companion)
-            wealthiest_opponent_silks = 0
+            richest_opponent_silks = 0
             opponent_near_win = False
             for player in adventurer.game.players:
                 if player is not self:
-                    if adventurer.game.vault_silks[player] > wealthiest_opponent_silks:
-                        wealthiest_opponent_silks = adventurer.game.vault_silks[player]
+                    if adventurer.game.vault_silks[player] > richest_opponent_silks:
+                        richest_opponent_silks = adventurer.game.vault_silks[player]
                     player_chest_silks = sum(a.silks for a in adventurer.game.adventurers[player])
                     if (adventurer.game.vault_silks[player] + player_chest_silks
                             > winning_difference + adventurer.game.vault_silks[adventurer.player] - adventurer.cost_companion):
                         opponent_near_win = True
-            if adventurer.game.vault_silks[adventurer.player] > wealthiest_opponent_silks + winning_difference:
+            if adventurer.game.vault_silks[adventurer.player] > richest_opponent_silks + winning_difference:
                 return False
             if not opponent_near_win:
                 return True
@@ -763,22 +763,22 @@ class PlayerExplorer(PlayerExplorerShady):
             winning_difference = adventurer.game.winning_silks_difference
             if winning_difference is None:
                 return self._check_purchase_worthwhile(adventurer, adventurer.game.cost_manuscript)
-            #Check whether player has won compared to wealthiest opponent
-            wealthiest_opponent_silks = 0
+            #Check whether player has won compared to richest opponent
+            richest_opponent_silks = 0
             #Check whether any opponent is in a position to win based just on their incoming silks, if tech is bought
             opponent_near_win = False
             for player in adventurer.game.players:
                 if player is not self:
-                    if adventurer.game.vault_silks[player] > wealthiest_opponent_silks:
-                        wealthiest_opponent_silks = adventurer.game.vault_silks[player]
+                    if adventurer.game.vault_silks[player] > richest_opponent_silks:
+                        richest_opponent_silks = adventurer.game.vault_silks[player]
                     player_chest_silks = 0
                     for other_adventurer in adventurer.game.adventurers[player]:
                         player_chest_silks += other_adventurer.silks
                     if (adventurer.game.vault_silks[player] + player_chest_silks
                         > winning_difference + adventurer.game.vault_silks[adventurer.player] - adventurer.game.cost_manuscript):
                         opponent_near_win = True
-            #Don't buy if player has won compared to wealthiest opponent
-            if adventurer.game.vault_silks[adventurer.player] > wealthiest_opponent_silks + winning_difference:
+            #Don't buy if player has won compared to richest opponent
+            if adventurer.game.vault_silks[adventurer.player] > richest_opponent_silks + winning_difference:
                 return False
             #Buy if no opponent can then win based on their incoming silks
             if not opponent_near_win:

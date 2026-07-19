@@ -1,10 +1,10 @@
 '''Canary for the save/restore (undo) machinery.
 
-The deepcopy + replace_references undo subsystem is the most fragile part of
-the codebase and is not touched until the final refactor stage; this test
-pins down the behaviour it must keep: a save/mutate/restore round-trip
-returns the game to an identical serialized state while preserving the
-object identity of adventurers (which UIs and players hold references to).
+A save/mutate/restore round-trip must return the game to an identical
+serialized state while preserving the object identity of the game, its
+players, and its adventurers (which UIs and players hold references to).
+The backup survives a restore, so repeated restores return to the same
+save point.
 '''
 
 import contextlib
@@ -50,6 +50,19 @@ def test_save_restore_round_trip_from_setup():
     assert game.adventurers[players[0]][0] is adventurer
     assert adventurer.silks == 0
     assert game.vault_silks[players[0]] == 0
+    # players keep their identity too, including as dict keys
+    assert game.players[0] is players[0]
+    assert players[0] in game.vault_silks
+    # the restored adventurer points into the restored play area
+    tile = adventurer.current_tile
+    assert game.play_area[tile.tile_position.longitude][tile.tile_position.latitude] is tile
+
+    # the backup survives a restore: mutate and restore again
+    adventurer.silks += 5
+    with silent():
+        game.restore()
+    assert snapshot(game) == before
+    assert adventurer.silks == 0
 
 
 def test_save_restore_round_trip_mid_game():

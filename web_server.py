@@ -1,4 +1,4 @@
-'''Deprecated entry-point shim: use python -m cartolan.server.websocket_server instead.'''
+'''Web game server entry point: thin wrapper over cartolan.server.websocket_server.'''
 
 from cartolan.server.websocket_server import *  # noqa: F401,F403
 from cartolan.server.websocket_server import main

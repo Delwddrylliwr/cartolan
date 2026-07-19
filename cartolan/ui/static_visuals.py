@@ -33,7 +33,7 @@ class PlayAreaVisualisation:
     draw_routes takes a List of Cartolan.Player
     draw_tokens takes a List of Cartolan.Player
     draw_move_options takes two lists of two Ints
-    draw_wealth_scores takes a list of Cartolan.Player
+    draw_scores takes a list of Cartolan.Player
     clear_move_options
     give_prompt takes a String
     clear_prompt
@@ -107,7 +107,7 @@ class PlayAreaVisualisation:
                 for ua_water in [True, False]:
                     for dc_water in [True, False]:
                         for da_water in [True, False]:
-                            for wonder in [True, False]:
+                            for port in [True, False]:
                                 filename = ""
                                 if uc_water:
                                     filename += "t"
@@ -125,13 +125,13 @@ class PlayAreaVisualisation:
                                     filename += "t"
                                 else:
                                     filename += "f"
-                                if wonder:
+                                if port:
                                     filename += "t"
                                 else:
                                     filename += "f"
 
                                 self.tile_image_library[str(uc_water)+str(ua_water)+str(dc_water)+str(da_water)
-                                                        +str(wonder)] = mpimg.imread('./images/' +filename+ '.png')
+                                                        +str(port)] = mpimg.imread('./images/' +filename+ '.png')
     
     def get_screen_width(self):
         '''Checks what the horizontal screen resolution is, to scale visuals accordingly'''
@@ -303,10 +303,10 @@ class PlayAreaVisualisation:
                             else:
                                 tile_image = self.tile_image_library["mythical_city"]
                         else:
-                            wonder = tile.has_trade_port
+                            port = tile.has_trade_port
                             tile_image = self.tile_image_library[str(e.upwind_clock_water)+str(e.upwind_anti_water)
                                                                  +str(e.downwind_clock_water)+str(e.downwind_anti_water)
-                                                                 +str(wonder)]            
+                                                                 +str(port)]            
 
                         #rotate the image appropriately
                         if not tile.wind_direction.north and tile.wind_direction.east:

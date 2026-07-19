@@ -144,9 +144,7 @@ class InteractiveSimulation(InteractiveGame):
                                                                   }
                           }
                  }
-                          }
-                 }
-    
+
     def __init__(self):
         # These parameters will likely be changed each game
         super().__init__()
