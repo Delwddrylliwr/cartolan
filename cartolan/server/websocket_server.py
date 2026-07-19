@@ -549,9 +549,8 @@ class ClientSocket(WebSocket):
 
         # Transfer all other player-keyed dicts on the game object
         for attr in ('vault_silks', 'num_character_choices',
-                     'num_manuscript_choices', 'value_inn_trade', 'rest_with_adventurers',
-                     'transfer_inn_earnings', 'inns_arrest', 'confiscate_silks',
-                     'resting_refurnishes', 'pool_maps', 'rechoose_at_inns', 'assigned_cultures'):
+                     'num_manuscript_choices', 'value_inn_trade',
+                     'transfer_inn_earnings', 'assigned_cultures'):
             d = getattr(game, attr, None)
             if d is not None and old_player in d:
                 d[new_player] = d.pop(old_player)

@@ -60,8 +60,9 @@ class Ruleset:
     value_ransack_inn: int = 1
     cost_inn_restore: int = 1
     cost_refresh_maps: int = 1
-    attack_success_prob: float = 1.0 / 3.0
-    defence_rounds: int = 1
+    #Attacks resolve like a die roll: 1-2 loss, 3-4 draw, 5-6 win; only a WIN succeeds
+    attack_die_bonus: int = 0
+    defence_die_bonus: int = 0
 
     #--- Card-modified rules ---
     cost_manuscript: int = 5
@@ -70,17 +71,8 @@ class Ruleset:
     num_manuscript_choices: int = 2
     #Baseline values for traits that cards can modify
     value_inn_trade: int = 0
-    attacks_abandon: bool = False
     rest_after_placing: bool = False
-    transfers_to_inns: bool = False
-    num_free_rests: int = 0
-    rest_with_adventurers: bool = False
     transfer_inn_earnings: bool = False
-    inns_arrest: bool = False
-    confiscate_silks: bool = False
-    resting_refurnishes: bool = False
-    pool_maps: bool = False
-    rechoose_at_inns: bool = False
 
     #Card decks and their rule modifiers
     card_modifiers: dict = field(default_factory=lambda: dict(CARD_MODIFIERS))

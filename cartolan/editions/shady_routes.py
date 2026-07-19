@@ -34,21 +34,12 @@ class AdventurerShadyRoutes(AdventurerLiteWinds):
         self.pirate_token = False
 
         #Mirror game variables, so that cards can modify them per token
-        self.attack_success_prob = game.attack_success_prob
+        self.attack_die_bonus = game.attack_die_bonus
+        self.defence_die_bonus = game.defence_die_bonus
         self.value_arrest = game.value_arrest
         self.value_ransack_inn = game.value_ransack_inn
         self.cost_inn_restore = game.cost_inn_restore
-        self.defence_rounds = game.defence_rounds
         self.rest_after_placing = game.rest_after_placing
-        self.transfers_to_inns = game.transfers_to_inns
-        self.attacks_abandon = game.attacks_abandon
-        self.num_free_rests = game.num_free_rests
-        self.free_rests = 0
-        #Also player-specific characteristics
-        self.rest_with_adventurers = game.rest_with_adventurers[player]
-        self.confiscate_silks = game.confiscate_silks[player]
-        self.pool_maps = game.pool_maps[player]
-        self.rechoose_at_inns = game.rechoose_at_inns[player]
 
 
         #Record some additional instructions
@@ -69,12 +60,32 @@ class AdventurerShadyRoutes(AdventurerLiteWinds):
         self.replenish_chest_maps()  # in case the buffs increased the chest map capacity
 
     def lose_card(self, card):
-        '''Removes a Manuscript card from the Adventurer, reverting the buffs it was providing
+        '''Removes a Manuscript card from the Adventurer, recomputing rules from the cards left
         '''
         logger.debug(self.player.name+"'s Adventurer has lost a card of type "+card.card_type)
         self.manuscript_cards.remove(card)
-        card.remove_buffs(self)
-        self.replenish_chest_maps()
+        self.recompute_card_buffs()
+
+    def recompute_card_buffs(self):
+        '''Resets every card-modifiable rule to the game's base value, then re-applies the
+        modifiers of all cards still held (Culture, Character, Companions, Manuscripts).
+
+        This keeps rules correct when cards are lost or stolen, even when several
+        cards modified the same rule.
+        '''
+        modifiable = set()
+        for modifiers in self.game.card_modifiers.values():
+            modifiable.update(modifiers.keys())
+        import copy as _copy
+        for attr in modifiable:
+            if hasattr(self, attr):
+                setattr(self, attr, _copy.deepcopy(getattr(self.game, attr)))
+        culture = self.game.assigned_cultures.get(self.player)
+        cards = ([culture] if culture else []) + \
+                ([self.character_card] if self.character_card else []) + \
+                self.companion_cards + self.manuscript_cards
+        for held_card in cards:
+            held_card.apply_buffs(self)
 
     def _offer_manuscript_choice(self):
         '''Draws a filtered set of manuscript options, lets the player choose one, and applies it.
@@ -139,111 +150,81 @@ class AdventurerShadyRoutes(AdventurerLiteWinds):
         else: return False
 
     def can_rest(self, token):
-        '''Extends Lite Winds by preventing pirates resting with others' Inns, and
-        allowing card-modified rests with Adventurers and free rests.'''
-        restable = False
-        scaled_cost = self.game.cost_inn_rest * self.num_characters
-        #Make sure that silks aren't a barrier when free rests are available
-        if self.free_rests > 0:
-            self.silks += scaled_cost
-        #check whether this is a pirate and refuse them rest, unless the Inn belongs to the same player
+        '''Extends Lite Winds by preventing pirates resting with others' Inns.'''
         if self.pirate_token and not self.player == token.player:
-            restable = False
-        elif super().can_rest(token):
-            restable = True
-        # can the adventurer rest with an adventurer instead?
-        elif (self.rest_with_adventurers
-              and isinstance(token, AdventurerShadyRoutes)
-              and token not in self.inns_rested
-              and not token == self):
-            if (token.player == self.player
-                or (self.silks >= scaled_cost
-                and not self.pirate_token)
-                or (self.free_rests > 0
-                and not self.pirate_token)):
-                restable = True
-        else:
-            restable = False
-        if self.free_rests > 0:
-            self.silks -= scaled_cost
-        return restable
+            return False
+        return super().can_rest(token)
 
-    def rest(self, token):
-        '''Extends Lite Winds to allow for resting with Adventurers in some circumstances
+    def resolve_attack(self, defender):
+        '''Resolves an attack like a die roll: 1-2 loss, 3-4 draw, 5-6 win; only a win succeeds.
 
-        Arguments:
-            token accepts a Cartolan Token
+        Card bonuses shift the roll in the attacker's or defender's favour.
         '''
-        scaled_cost = self.game.cost_inn_rest * self.num_characters
-        #Ensure that silks aren't a barrier when free rests are available
-        if self.free_rests > 0:
-            self.silks += scaled_cost
-        if isinstance(token, InnShadyRoutes):
-            rested = token.give_rest(self)
-        elif self.rest_with_adventurers and not callable(getattr(token, "give_rest", None)):
-            token.cost_inn_rest = token.game.cost_inn_rest
-            rested = InnLiteWinds._give_rest_core(token, self)
-        else:
-            rested = False
-        #Remove any silks compensation for free rest
-        if self.free_rests > 0:
-            if rested and not token.player == self.player:
-                self.free_rests -= 1
-                token.silks -= scaled_cost  #If the rest was free then the Inn shouldn't be rewarded
-            else:
-                self.silks -= scaled_cost
-        return rested
+        roll = self.game.rng.randint(1, 6)
+        roll += self.attack_die_bonus - getattr(defender, "defence_die_bonus", 0)
+        return roll >= 5
 
-    def _attack_core(self, token):
-        '''Resolves an attack against another token: piracy, arrest, or ransacking.
+    def attack(self, token):
+        '''Attacks another Adventurer or Inn on this tile (Shady Routes C.2).
+
+        A successful attack on a non-pirate makes this Adventurer a Pirate. Success
+        lets them take as many of the victim's Chest Silks as they choose, plus any
+        one Chest map and/or one Manuscript card. Attacking a pirate is an arrest.
+        Ransacking an Inn earns its Silks plus a bonus and flips it over.
         '''
+        if isinstance(self.current_tile, CityTile): #there is no attacking at cities
+            return False
+
         #Record the decision to attack this move
         self.attacked += 1
 
-        success = False
-        # have opponent roll for defence, roll for attack, compare rolls
-        if self.game.rng.random() < self.attack_success_prob:
-            success = True
+        success = self.resolve_attack(token)
 
-        # resolve conflict
-        # check whether adventurer or inn
         if isinstance(token, Adventurer):
             adventurer = token
-            # check whether the defender adventurer is a pirate, and remove the pirate token
             if adventurer.pirate_token:
-                # arrest them
+                # attacking a pirate is an arrest, and doesn't make the attacker a pirate
                 if success:
                     self.arrest(adventurer)
-            else: # rob them
-                self.pirate_token = True #just trying will make them a pirate
-                if success:
-                    logger.debug(self.player.name+" successfully attacked "+token.player.name+"'s Adventurer.")
-                    default_steal = adventurer.silks//2 + adventurer.silks%2
-                    chosen_steal = None
-                    while not chosen_steal in range(0, adventurer.silks + 1):
-                        chosen_steal = self.player.check_steal_amount(adventurer, adventurer.silks, default_steal)
-                    self.silks += chosen_steal
-                    adventurer.silks -= chosen_steal
-                    #Steal chest maps to top up
-                    if isinstance(token, AdventurerLiteWinds):
-                        if 0 < len(self.chest_maps) < self.num_chest_maps:
-                            victim_chest = token.chest_maps
-                            if len(victim_chest) > 0:
-                                stolen_index = victim_chest.index(self.player.choose_tile(self, victim_chest))
-                                stolen_tile = victim_chest.pop(stolen_index)
-                                if stolen_index < len(token.chest_map_offsets):
-                                    token.chest_map_offsets.pop(stolen_index)
-                                self.chest_maps.append(stolen_tile)
-                                self.chest_map_offsets.append(0)
+            elif success:
+                logger.debug(self.player.name+" successfully attacked "+token.player.name+"'s Adventurer.")
+                #a successful attack on polite society makes the attacker a Pirate
+                self.pirate_token = True
+                #take as many of the victim's Silks as chosen
+                default_steal = adventurer.silks//2 + adventurer.silks%2
+                chosen_steal = None
+                while not chosen_steal in range(0, adventurer.silks + 1):
+                    chosen_steal = self.player.check_steal_amount(adventurer, adventurer.silks, default_steal)
+                self.silks += chosen_steal
+                adventurer.silks -= chosen_steal
+                #optionally take any one Chest map
+                if (adventurer.chest_maps and len(self.chest_maps) < self.num_chest_maps
+                        and self.player.check_steal_map(self, adventurer)):
+                    stolen_index = adventurer.chest_maps.index(self.player.choose_tile(self, adventurer.chest_maps))
+                    stolen_tile = adventurer.chest_maps.pop(stolen_index)
+                    if stolen_index < len(adventurer.chest_map_offsets):
+                        adventurer.chest_map_offsets.pop(stolen_index)
+                    self.chest_maps.append(stolen_tile)
+                    self.chest_map_offsets.append(0)
+                #and/or any one Manuscript card
+                if (getattr(adventurer, "manuscript_cards", None)
+                        and self.player.check_steal_manuscript(self, adventurer)):
+                    stolen_card = self.player.choose_card(self, adventurer.manuscript_cards)
+                    adventurer.lose_card(stolen_card)
+                    self.discover_card(stolen_card)
         elif isinstance(token, Inn):
-            if not token.is_ransacked:
-                self.pirate_token = True #just trying will make them a pirate
-                if success:
-                    logger.debug(self.player.name+" successfully attacked "+token.player.name+"'s Inn.")
-                    inn = token
-                    self.silks += inn.silks + self.value_ransack_inn
-                    inn.is_ransacked = True
-                    inn.silks = 0
+            inn = token
+            if not inn.is_ransacked and success:
+                logger.debug(self.player.name+" successfully attacked "+token.player.name+"'s Inn.")
+                self.pirate_token = True
+                #take as many of the Inn's Silks as chosen, plus the ransacking bonus
+                default_steal = inn.silks
+                chosen_steal = None
+                while not chosen_steal in range(0, inn.silks + 1):
+                    chosen_steal = self.player.check_steal_amount(inn, inn.silks, default_steal)
+                self.silks += chosen_steal + self.value_ransack_inn
+                inn.silks -= chosen_steal
+                inn.is_ransacked = True
         else: raise Exception("Not able to deal with this kind of token.")
 
         #Keep track of attacks for static visualisation
@@ -253,39 +234,10 @@ class AdventurerShadyRoutes(AdventurerLiteWinds):
         attack_history.append([self.current_tile, success])
         return success
 
-    def attack(self, token):
-        '''Attacks another token, with defensive buffs and card stealing taken into account.
-        '''
-        #If the target Adventurer has a defensive buff to force multiple rounds of attack then these need to be won first
-        if isinstance(token, AdventurerShadyRoutes):
-            for defence_round in range(0, token.defence_rounds-1):
-                if self.game.rng.random() > self.attack_success_prob:
-                    return False
-        if self._attack_core(token):
-            if isinstance(self.current_tile, CityTile): #If on a city then there's no attacking
-                return True
-            #Steal Manuscript cards
-            if isinstance(token, AdventurerShadyRoutes):
-                if len(token.manuscript_cards) > 0:
-                    stolen_card = self.player.choose_card(self, token.manuscript_cards)
-                    token.lose_card(stolen_card)
-                    self.discover_card(stolen_card)
-            if self.attacks_abandon: #Adventurers will return to cities, Inns are removed
-                if isinstance(token, AdventurerLiteWinds):
-                    if not isinstance(token.current_tile, CityTile): #in case they were a Pirate already sent back to a city
-                        token.end_expedition()
-                elif isinstance(token, InnShadyRoutes):
-                    token.dismiss()
-            return True
-        else:
-            return False
-
     def arrest(self, pirate):
-        '''Sends pirates back to their last city and claims a reward.
+        '''Arrests a pirate: a reward to the Chest, while the pirate's Silks are lost
+        and they retreat to their last-visited city (Shady Routes C.2).
         '''
-        if self.confiscate_silks and pirate.silks > 0:
-            self.silks += pirate.silks
-            pirate.silks = 0
         logger.debug(self.player.name+" successfully arrested "+pirate.player.name+"'s Adventurer.")
         self.silks += self.value_arrest # get a reward
         pirate.end_expedition()
@@ -323,10 +275,9 @@ class AdventurerShadyRoutes(AdventurerLiteWinds):
                      +","+ str(inn.current_tile.tile_position.latitude))
                 self.silks -= self.cost_inn_restore
                 inn.is_ransacked = False
-                #Make sure that the Adventurer can't use this Inn this turn
+                #the Inn can't give rest until after the turn it was restored
+                inn.restored_on_turn = self.game.turn
                 self.inns_rested.append(inn)
-                if self.rest_after_placing:
-                    self.inns_rested.remove(self.current_tile.inn)
                 return True
             else:
                 logger.debug("Cannot afford to restore an inn")
@@ -353,11 +304,6 @@ class AdventurerShadyRoutes(AdventurerLiteWinds):
                     and (adventurer.silks > 0 or adventurer.pirate_token)):
                     if self.player.check_attack_adventurer(self, adventurer):
                         self.attack(adventurer)
-                #Card-modified: the option to send an opponent home even with no silks
-                elif (self.attacks_abandon and adventurer.silks == 0
-                    and not self == adventurer and adventurer.player != self.player):
-                    if self.player.check_attack_adventurer(self, adventurer):
-                        self.attack(adventurer)
 
         #check whether there is an active opponent Inn here to attack
         if self.current_tile.inn:
@@ -366,38 +312,28 @@ class AdventurerShadyRoutes(AdventurerLiteWinds):
                 if inn.silks + self.value_ransack_inn > 0:
                     if self.player.check_attack_inn(self, inn):
                         self.attack(inn)
-                #Card-modified: Inns that arrest visiting pirates
-            if (inn.inns_arrest and not inn.is_ransacked
-                and self.pirate_token and not inn.player == self.player):
-                if self.game.rng.random() < self.game.attack_success_prob:
-                    AdventurerShadyRoutes.arrest(inn, self) #The arrest function should only use common features of the common parent Token class
-                    self.end_turn()
 
     def offer_rest(self):
-        '''Extends resting with ransack-awareness, restoration, and card-modified rests.'''
+        '''Extends resting with ransack-awareness and restoration by visitors.'''
         if self.current_tile.inn:
             inn = self.current_tile.inn
             if not inn.is_ransacked:
                 super().offer_rest()
-            #Restore the Inn if they are ransacked
-            else:
-                if (inn.player == self.player
-                    and self.silks >= self.cost_inn_restore):
-                    if self.player.check_restore_inn(self, inn):
-                        self.restore_inn(inn)
+            #Any visitor except a pirate can pay to restore a ransacked Inn
+            elif not self.pirate_token and self.silks >= self.cost_inn_restore:
+                if self.player.check_restore_inn(self, inn):
+                    self.restore_inn(inn)
 
-        #Card-modified interactions: resting with Adventurers, transfers to Inns
-        if self.current_tile.adventurers:
-            for adventurer in self.current_tile.adventurers:
-                if self.rest_with_adventurers and self.can_rest(adventurer):
-                    if self.player.check_rest(self, adventurer):
-                        self.rest(adventurer)
+        #Card-modified: move silks to the player's Inns
         if self.current_tile.inn is not None:
-            if (self.transfers_to_inns
+            if (self.transfer_inn_earnings_available()
                 and len(self.game.inns[self.player]) > 0
                 and self.silks > 0):
-                #Offer the opportunity to move silks around between Inns
                 self.transfer_to_inn()
+
+    def transfer_inn_earnings_available(self):
+        '''Whether this player's Culture sends earnings via their Inns.'''
+        return self.game.transfer_inn_earnings.get(self.player, False)
 
     def transfer_to_inn(self):
         '''Offers the opportunity to transfer current silks to any of the player's Inns
@@ -410,11 +346,6 @@ class AdventurerShadyRoutes(AdventurerLiteWinds):
             transfer_inn.silks += transfer_amount
             #See if another transfer is desired
             transfer_inn = self.player.check_transfer_inn(self)
-
-    def end_turn(self):
-        '''Extends Lite Winds behaviour to keep track of free rests each turn.'''
-        self.free_rests = self.num_free_rests
-        super().end_turn()
 
     def to_json(self):
         d = super().to_json()
@@ -429,42 +360,27 @@ class InnShadyRoutes(InnLiteWinds):
     '''Extends the Lite Winds Inn with ransacking and card-modified behaviours'''
     def __init__(self, game, player, tile):
         super().__init__(game, player, tile)
-        # Need to keep track of whether this Inn has been ransacked
+        # Need to keep track of whether this Inn has been ransacked, and when restored
         self.is_ransacked = False
+        self.restored_on_turn = None
         #Inherit player-specific characteristics that have been buffed
         self.value_inn_trade = game.value_inn_trade[player]
         self.transfer_inn_earnings = game.transfer_inn_earnings[player]
-        self.inns_arrest = game.inns_arrest[player]
-        self.confiscate_silks = game.confiscate_silks[player]
-        self.resting_refurnishes = game.resting_refurnishes[player]
-        if self.inns_arrest:
-            #Enable arresting
-            self.value_arrest = game.value_arrest
 
     def give_rest(self, adventurer):
-        '''Takes into account whether this Inn has been ransacked, and applies card buffs
+        '''Takes into account ransacking: no rest while ransacked, nor until after the
+        turn a visitor restored the Inn (Shady Routes C.2).
         '''
         if self.is_ransacked:
             return False
+        if self.restored_on_turn is not None and not self.game.turn > self.restored_on_turn:
+            return False
         if super().give_rest(adventurer):
             rest_cost = self.game.cost_inn_rest * adventurer.num_characters
-            if self.resting_refurnishes and adventurer.pirate_token:
-                logger.debug("Inn is refurnishing Adventurer, getting rid of their Pirate token.")
-                adventurer.pirate_token = False
             if self.transfer_inn_earnings and self.silks > 0:
                 logger.debug("Inn is moving income from providing rest directly to player's Vault")
                 self.game.vault_silks[self.player] += rest_cost
                 self.silks -= rest_cost
-            if adventurer.rechoose_at_inns and adventurer.silks > self.game.cost_refresh_maps:
-                logger.debug("Inn is offering Adventurer the chance to swap all their Chest maps.")
-                if adventurer.player.check_buy_maps(adventurer):
-                    adventurer.silks -= self.game.cost_refresh_maps
-                    adventurer.swap_chest_maps()
-            if adventurer.num_free_rests > 0:
-                logger.debug("Inn is refunding Adventurer for free rest perk,")
-                adventurer.silks += rest_cost
-                self.silks -= rest_cost
-                adventurer.num_free_rests -= 1  #a free rest has been used up
             return True
         else:
             return False
@@ -547,25 +463,13 @@ class GameShadyRoutes(GameLiteWinds):
         #Some rule values apply per player, so they can be modified by Culture cards
         self.num_manuscript_choices = {}
         self.value_inn_trade = {}
-        self.rest_with_adventurers = {}
         self.transfer_inn_earnings = {}
-        self.inns_arrest = {}
-        self.confiscate_silks = {}
-        self.resting_refurnishes = {}
-        self.pool_maps = {}
-        self.rechoose_at_inns = {}
         #And a placeholder for players to choose a Culture
         self.assigned_cultures = {}
         for player in players:
             self.num_manuscript_choices[player] = self.ruleset.num_manuscript_choices
             self.value_inn_trade[player] = self.ruleset.value_inn_trade
-            self.rest_with_adventurers[player] = self.ruleset.rest_with_adventurers
             self.transfer_inn_earnings[player] = self.ruleset.transfer_inn_earnings
-            self.inns_arrest[player] = self.ruleset.inns_arrest
-            self.confiscate_silks[player] = self.ruleset.confiscate_silks
-            self.resting_refurnishes[player] = self.ruleset.resting_refurnishes
-            self.pool_maps[player] = self.ruleset.pool_maps
-            self.rechoose_at_inns[player] = self.ruleset.rechoose_at_inns
             self.assigned_cultures[player] = None
 
         #Rebuild the card decks so that Culture and Manuscript cards join the Character deck
@@ -573,6 +477,14 @@ class GameShadyRoutes(GameLiteWinds):
         self.culture_cards = [self.CARD_TYPE(self, card_type) for card_type in self.ruleset.culture_cards]
         self.character_cards = [self.CARD_TYPE(self, card_type) for card_type in self.ruleset.character_cards]
         self.manuscript_cards = [self.CARD_TYPE(self, card_type) for card_type in self.ruleset.manuscript_cards]
+
+    def start_game(self):
+        '''Extends to draw Culture cards at the start of the game (Shady Routes C.4:
+        each player draws 2 Culture cards and keeps 1).'''
+        for player in self.players:
+            if self.assigned_cultures.get(player) is None:
+                self.choose_culture(player)
+        return super().start_game()
 
     def run_city_visit(self, adventurer, city, abandoned=False):
         '''Extends to redeem pirates when they visit a city
@@ -597,21 +509,6 @@ class GameShadyRoutes(GameLiteWinds):
             logger.debug(adventurer.player.name + "'s has chosen to buy a Manuscript card")
             if adventurer._offer_manuscript_choice():
                 self.vault_silks[adventurer.player] -= self.cost_manuscript
-
-    def buy_maps(self, adventurer):
-        '''Extends the parent with the potential for a free refresh of maps.
-
-        Args:
-            adventurer: the visiting Adventurer
-        '''
-        # If they have the perk, let them have one swap of maps for free
-        if adventurer.rechoose_at_inns:
-            cost_refresh_maps = self.cost_refresh_maps
-            self.cost_refresh_maps = 0
-            if adventurer.player.check_buy_maps(adventurer):
-                adventurer.swap_chest_maps()
-            self.cost_refresh_maps = cost_refresh_maps
-        super().buy_maps(adventurer)
 
     def offer_purchases(self, adventurer, city):
         '''Extends to offer Manuscript cards

@@ -321,7 +321,7 @@ def test_successful_ransack_flips_inn_and_pays_one_silk():
     inn = game.INN_TYPE(game, players[1], tile)
     inn.silks = 2
     attacker.current_tile = tile
-    attacker.attack_success_prob = 1.1  # force success under the current probability model
+    attacker.attack_die_bonus = 10  # force a winning roll
     assert attacker.attack(inn)
     assert inn.is_ransacked
     assert inn.silks == 0
@@ -353,7 +353,7 @@ def test_successful_arrest_rewards_five_and_ends_pirate_expedition():
     tile.move_onto_tile(pirate)
     pirate.pirate_token = True
     pirate.silks = 7
-    attacker.attack_success_prob = 1.1  # force success
+    attacker.attack_die_bonus = 10  # force a winning roll
     assert attacker.attack(pirate)
     assert attacker.silks == 5           # arrest reward
     assert pirate.silks == 0             # pirate's Silks are lost
@@ -361,8 +361,8 @@ def test_successful_arrest_rewards_five_and_ends_pirate_expedition():
     assert pirate.current_tile is pirate.latest_city  # retreated
 
 
-@pytest.mark.xfail(reason="Stage 8: attacker becomes a pirate only on SUCCESS", strict=True)
 def test_failed_attack_does_not_make_a_pirate():
+    '''Shady Routes C.2: an attacker becomes a pirate only when their attack succeeds.''' 
     game, players = make_game(GameShadyRoutes)
     attacker = game.adventurers[players[0]][0]
     victim = game.adventurers[players[1]][0]
@@ -370,15 +370,24 @@ def test_failed_attack_does_not_make_a_pirate():
     attacker.current_tile = tile
     tile.move_onto_tile(victim)
     victim.silks = 4
-    attacker.attack_success_prob = -0.1  # force failure
+    attacker.attack_die_bonus = -10  # force a losing roll
     assert not attacker.attack(victim)
     assert not attacker.pirate_token
 
 
-@pytest.mark.xfail(reason="Stage 8: attacks resolve by die roll 1-2 loss, 3-4 draw, 5-6 win", strict=True)
 def test_attack_resolver_uses_die_semantics():
-    game, _ = make_game(GameShadyRoutes)
-    assert hasattr(game, "attack_resolver")
+    '''Shady Routes A: 1-2 = loss, 3-4 = draw, 5-6 = win; only a win succeeds.'''
+    game, players = make_game(GameShadyRoutes)
+    attacker = game.adventurers[players[0]][0]
+    defender = game.adventurers[players[1]][0]
+
+    class FixedRoll:
+        def __init__(self, value): self.value = value
+        def randint(self, a, b): return self.value
+
+    for roll, expected in [(1, False), (2, False), (3, False), (4, False), (5, True), (6, True)]:
+        game.rng = FixedRoll(roll)
+        assert attacker.resolve_attack(defender) is expected
 
 
 # --- Roads (Silk Roads) ---

@@ -63,6 +63,14 @@ class Player:
         '''placeholder — subclasses override to allow hiring Companions at cities'''
         return False
 
+    def check_steal_map(self, adventurer, victim):
+        '''Whether to take one of the victim's Chest maps after successful piracy.'''
+        return True
+
+    def check_steal_manuscript(self, adventurer, victim):
+        '''Whether to take one of the victim's Manuscript cards after successful piracy.'''
+        return True
+
     def choose_map_pile(self, adventurer, options):
         '''Chooses which tile pile to draw a map from (blue water or green land).
 
