@@ -541,8 +541,8 @@ class GameShadyRoutes(GameLiteWinds):
     #Shady Routes C.1: attacking slots in after trading and before resting
     ACTION_ORDER = ("trade", "attack", "rest", "hire_inn")
 
-    def __init__(self, players, exploration_rules='continuous', rng=None):
-        super().__init__(players, exploration_rules, rng)
+    def __init__(self, players, rng=None):
+        super().__init__(players, rng)
 
         #Some rule values apply per player, so they can be modified by Culture cards
         self.num_manuscript_choices = {}

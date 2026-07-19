@@ -63,5 +63,12 @@ class Player:
         '''placeholder — subclasses override to allow hiring Companions at cities'''
         return False
 
+    def choose_map_pile(self, adventurer, options):
+        '''Chooses which tile pile to draw a map from (blue water or green land).
+
+        Defaults to the fullest pile; subclasses may prompt the player instead.
+        '''
+        return max(options, key=lambda tile_back: len(adventurer.game.tile_piles[tile_back].tiles))
+
     def to_json(self):
         return {"name": self.name}

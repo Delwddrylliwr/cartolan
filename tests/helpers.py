@@ -6,8 +6,8 @@ import io
 from cartolan.core.setup import create_game
 
 
-def build_game(game_type, players, exploration_rules="continuous", mythical_city=True):
-    return create_game(game_type, players, exploration_rules, mythical_city)
+def build_game(game_type, players, mythical_city=True):
+    return create_game(game_type, players, mythical_city)
 
 
 def run_to_completion(game):

@@ -115,7 +115,6 @@ class AdventurerLiteWinds(Adventurer):
         logger.debug("adding an adventurer for " +str(player.name))
 
         #Mirror game variables, so that cards can modify them per token
-        self.max_exploration_attempts = game.max_exploration_attempts
         self.fresh_move_budget = game.fresh_move_budget
         self.tired_move_budget = game.tired_move_budget
         self.value_trade = game.value_trade
@@ -150,12 +149,13 @@ class AdventurerLiteWinds(Adventurer):
         self.bought_inn = 0
         self.moved_inn = None
 
-        #Draw some tiles randomly to the Adventurer's Chest
-        self.chest_maps = self.choose_tiles(self.num_chest_maps)
+        #The Chest holds maps for exploring; drawn once the tile piles exist
+        self.chest_maps = []
         #Keep track of which of these should be tried for movement
         self.chosen_map_index = None
         #Track manual clockwise rotation offsets (int 0-3) per chest map, applied on top of wind-matching
-        self.chest_map_offsets = [0] * len(self.chest_maps)
+        self.chest_map_offsets = []
+        self.replenish_chest_maps()
 
         #Prepare to hold cards
         self.character_card = None
@@ -273,20 +273,6 @@ class AdventurerLiteWinds(Adventurer):
             discard_pile = self.game.discard_piles["land"]
         logger.debug("Identified the " +discard_pile.tile_back+ " discard pile, which still has " +str(len(discard_pile.tiles)) +" tiles")
         return discard_pile
-
-    def choose_tiles(self, num_tiles):
-        '''For a given number of tiles, select tiles from across the bags / tile_piles
-        '''
-        chosen_tiles = []
-        for tile_num in range(num_tiles):
-            #Alternate between bags
-            pile_num = tile_num % len(self.game.tile_piles)
-            #Select the tile pile to draw from
-            tile_pile = self.game.tile_piles[list(self.game.tile_piles.keys())[pile_num]]
-            #Choose the next tile from the bag / pile and add it to their Chest
-            if tile_pile.tiles:
-                chosen_tiles.append(tile_pile.tiles.pop())
-        return chosen_tiles
 
     def match_chest_directions(self):
         '''Rotates all chest maps to match the current tile's wind direction, then applies any manual offsets.
@@ -546,147 +532,111 @@ class AdventurerLiteWinds(Adventurer):
         return False
 
     def rotated_tile_fits(self, potential_tile, compass_point_moving, adjoining_edges_water):
-        '''Check whether a given tile will fit into an adjacent space to the Adventurer
-        '''
-        # first establish the set of rotations under this ruleset
-        def null():
-            pass
-        if self.game.exploration_rules == "clockwise": # this version 1 of exploration rules will just try a clockwise rotation and then an anti
-            rotations = [null, potential_tile.rotate_tile_anti, potential_tile.rotate_tile_clock] # remember these will pop in reverse order
-        elif  self.game.exploration_rules == "continuous": # this version 2 of the exploration rules will try to line up arrows head to toe as a first preference
-            #the rotation will be anti first if the wind direction is north-east or south-west and the movement is north or south
-            if ((self.current_tile.wind_direction.north and self.current_tile.wind_direction.east)
-                or (not self.current_tile.wind_direction.north and not self.current_tile.wind_direction.east)):
-                if compass_point_moving in ["n","s"]:
-                    rotations = [null, potential_tile.rotate_tile_anti]
-                else:
-                    rotations = [null, potential_tile.rotate_tile_clock]
-            #the rotation will be anti first if the wind direction is north-west or south-east and the movement is west or east
-            elif ((self.current_tile.wind_direction.north and not self.current_tile.wind_direction.east)
-                or (not self.current_tile.wind_direction.north and self.current_tile.wind_direction.east)):
-                if compass_point_moving in ["n","s"]:
-                    rotations = [null, potential_tile.rotate_tile_clock]
-                else:
-                    rotations = [null, potential_tile.rotate_tile_anti]
-            else: raise Exception("Failed to exhaust wind directions")
+        '''Checks whether a tile fits the space in any orientation, rotating it into a fitting one.
 
-        while len(rotations) > 0:
+        Lite Winds C.6 places no restriction on orientation, so all four are tried,
+        starting from the wind direction of the tile being moved from.
+        '''
+        # start from the orientation of the current tile
+        while not (potential_tile.wind_direction.north == self.current_tile.wind_direction.north and
+                   potential_tile.wind_direction.east == self.current_tile.wind_direction.east):
+            potential_tile.rotate_tile_clock()
+
+        for rotation in range(4):
             compass_points = ["n", "e", "s", "w"]
             edge_matches = True
             while edge_matches and len(compass_points) > 0:
                 compass_point = compass_points.pop()
-                edge_matches = adjoining_edges_water[compass_point] is None or adjoining_edges_water[compass_point] == potential_tile.compass_edge_water(compass_point)
-
+                edge_matches = (adjoining_edges_water[compass_point] is None
+                                or adjoining_edges_water[compass_point] == potential_tile.compass_edge_water(compass_point))
             if edge_matches:
                 return True
-            else:
-                #return the tile to the same wind direction as the original
-                while not (potential_tile.wind_direction.north == self.current_tile.wind_direction.north and
-                       potential_tile.wind_direction.east == self.current_tile.wind_direction.east):
-                    potential_tile.rotate_tile_anti()
-                # rotate the tile according to the alternative options in the exploration method
-                rotations.pop()()
+            potential_tile.rotate_tile_clock()
         return False
 
     def explore(self, tile_pile, discard_pile, longitude, latitude, compass_point_moving):
-        '''Tries to place a tile where an Adventurer moves into an empty space,
-        preferring a chosen Chest map and falling back to a random draw from the pile.
+        '''Tries to place one of the Adventurer's carried Chest maps into the empty space.
+
+        Lite Winds C.6: the Adventurer chooses a tile from the maps they carry, and can
+        only place it if its edges match all adjacent tiles; otherwise exploration fails
+        and the move ends on the current tile.
         '''
-        #check if there is a chest map selected and try to place it
-        if isinstance(self.chosen_map_index, int):
-            chosen_map = self.chest_maps[self.chosen_map_index]
-            adjoining_edges_water = self.get_adjoining_edges(longitude, latitude)
-            tile_idx = self.chosen_map_index
-            offset = self.chest_map_offsets[tile_idx] if tile_idx < len(self.chest_map_offsets) else 0
-            if offset != 0:
-                # Player manually rotated this tile: only succeed if it fits in its displayed orientation
-                if self.place_tile_exact(chosen_map, longitude, latitude, compass_point_moving, adjoining_edges_water):
-                    self.chest_maps.pop(tile_idx)
-                    self.chest_map_offsets.pop(tile_idx)
-                    self.chosen_map_index = None
-                    return True
-                self.game.num_failed_explorations += 1
-                return False
-            else:
-                # No manual rotation: use the standard auto-rotating placement
-                if self.rotate_and_place(chosen_map, longitude, latitude, compass_point_moving, adjoining_edges_water):
-                    self.chest_maps.pop(tile_idx)
-                    self.chest_map_offsets.pop(tile_idx)
-                    self.chosen_map_index = None
-                    return True
-        #If there was no tile selected, or the unrotated chest map didn't fit, explore from the pile
-        return self.explore_from_pile(tile_pile, discard_pile, longitude, latitude, compass_point_moving)
-
-    def explore_from_pile(self, tile_pile, discard_pile, longitude, latitude, compass_point_moving):
-        '''Randomly draws and suitably places a Tile from the pile matching the crossed edge
-
-        key arguments:
-        TilePile the pile that should be drawn from given the edge that is being moved over
-        TilePile the corresponding discard pile for unsuitable tiles
-        int the longitude of the space to explore
-        int the latitude of the space to explore
-        String giving the word or letter for cardinal compass direction from which the Adventurer is moving
-        '''
-        logger.debug("Exploring to the " +compass_point_moving+ " into the slot at " +str(longitude)+ "," +str(latitude)+ " which has edges...")
-
-        #establish what edges adjoin the given space
         adjoining_edges_water = self.get_adjoining_edges(longitude, latitude)
 
-        # take multiple attempts at drawing a suitable tile from the pile
-        for attempt in range(0, self.max_exploration_attempts):
-            if tile_pile.tiles:
-                logger.debug("Drawing a tile from the " +tile_pile.tile_back+ " tile deck, which has " +str(len(tile_pile.tiles))+ " tiles")
-                potential_tile = tile_pile.draw_tile()
-            elif discard_pile.tiles:
-                logger.debug("Have found main tile pile empty, so shuffling Discard Pile")
-                self.game.refresh_pile(tile_pile, discard_pile)
-                tile_pile = self.game.tile_piles[tile_pile.tile_back]
-                discard_pile = self.game.discard_piles[discard_pile.tile_back]
-                potential_tile = tile_pile.draw_tile()
-            else: #both piles are exhausted, so this exploration fails and the turn ends; the game loop's win check will end the game
-                self.turns_moved += 1
-                self.game.vault_silks[self.player] += self.game.value_complete_map
-                break
-            if self.rotate_and_place(potential_tile, longitude, latitude, compass_point_moving, adjoining_edges_water):
-                return True
-            # discard the tile
+        #if the player chose a specific map, only that map (and orientation) is tried
+        if isinstance(self.chosen_map_index, int) and self.chosen_map_index < len(self.chest_maps):
+            tile_idx = self.chosen_map_index
+            chosen_map = self.chest_maps[tile_idx]
+            offset = self.chest_map_offsets[tile_idx] if tile_idx < len(self.chest_map_offsets) else 0
+            if offset != 0:
+                # Player manually rotated this map: only succeed in its displayed orientation
+                placed = self.place_tile_exact(chosen_map, longitude, latitude, compass_point_moving, adjoining_edges_water)
             else:
-                discard_pile.add_tile(potential_tile)
-                self.game.exploration_attempts += 1
+                placed = self.rotate_and_place(chosen_map, longitude, latitude, compass_point_moving, adjoining_edges_water)
+            if placed:
+                self.chest_maps.pop(tile_idx)
+                if tile_idx < len(self.chest_map_offsets):
+                    self.chest_map_offsets.pop(tile_idx)
+                self.chosen_map_index = None
+                return True
+            self.game.num_failed_explorations += 1
+            return False
 
-        # feed back to calling function that a tile has NOT been placed
+        #otherwise try each carried map in turn, in any orientation
+        for tile_idx, chest_map in enumerate(self.chest_maps):
+            if self.rotate_and_place(chest_map, longitude, latitude, compass_point_moving, adjoining_edges_water):
+                self.chest_maps.pop(tile_idx)
+                if tile_idx < len(self.chest_map_offsets):
+                    self.chest_map_offsets.pop(tile_idx)
+                return True
+
+        #no carried map fits, so this exploration fails
         self.game.num_failed_explorations += 1
         return False
 
-    def replenish_chest_maps(self):
-        '''If this Adventurer has fewer chest maps than the max, then draw more
+    def draw_map(self):
+        '''Draws one map into the Chest, from a pile of the player's choosing (blue or green backed).
+
+        Returns the drawn tile, or None if the hand is full or no pile has tiles.
         '''
-        #Count how many tiles they are short of the max chest maps
-        num_tiles_to_choose = self.num_chest_maps - len(self.chest_maps)
-        #Add this many extra tiles to their chest, with zero manual rotation offsets
-        new_tiles = self.choose_tiles(num_tiles_to_choose)
-        self.chest_maps += new_tiles
-        self.chest_map_offsets += [0] * len(new_tiles)
+        if len(self.chest_maps) >= self.num_chest_maps:
+            return None
+        options = [back for back, pile in self.game.tile_piles.items() if pile.tiles]
+        if not options:
+            return None
+        tile_back = self.player.choose_map_pile(self, options)
+        if tile_back not in options:
+            tile_back = options[0]
+        tile = self.game.tile_piles[tile_back].draw_tile()
+        if tile is not None:
+            self.chest_maps.append(tile)
+            self.chest_map_offsets.append(0)
+        return tile
+
+    def replenish_chest_maps(self):
+        '''Tops the Chest up to its map capacity, drawing from piles of the player's choosing.
+
+        Lite Winds C.9: at any city an Adventurer can top up their Chest maps for free,
+        drawing either blue- or green-backed, until they have their full hand.
+        '''
+        while len(self.chest_maps) < self.num_chest_maps:
+            if self.draw_map() is None:
+                break
 
     def swap_chest_maps(self):
-        '''Checks whether the player will pay to replace all an Adventurer's chest maps
+        '''Swaps all the Adventurer's Chest maps: returns them to their piles and redraws.
+
+        Lite Winds C.9: swap any or all of their maps, for 1 Silk (the payment is
+        handled by the city offering the swap).
         '''
-        #For each current tile offer replacements, and return the rest to the piles
-        new_chest_maps = []
+        num_to_redraw = len(self.chest_maps)
         for tile in self.chest_maps:
-            # Alternate between piles for forming the selection
-            tile_options = self.choose_tiles(self.game.num_tile_choices[self.player])
-            if tile_options:
-                #Offer the current tile too
-                tile_options.append(tile)
-                chosen_tile = self.player.choose_tile(self, tile_options)
-                tile_options.remove(chosen_tile)
-                new_chest_maps.append(chosen_tile)
-                #Return all the other tiles to the relevant piles
-                for rejected_tile in tile_options:
-                    self.return_to_pile(rejected_tile)
-        self.chest_maps = new_chest_maps
-        self.chest_map_offsets = [0] * len(new_chest_maps)
+            self.return_to_pile(tile)
+        self.chest_maps = []
+        self.chest_map_offsets = []
+        for _ in range(num_to_redraw):
+            if self.draw_map() is None:
+                break
 
     def return_to_pile(self, tile):
         '''Identifies the pile associated with a particular tile and returns it there
@@ -892,9 +842,15 @@ class InnLiteWinds(Inn):
         return True
 
     def give_rest(self, adventurer):
-        '''Rests the Adventurer, and replenishes their Chest maps.'''
-        adventurer.replenish_chest_maps()
-        return self._give_rest_core(adventurer)
+        '''Rests the Adventurer, who also draws one map to refill their Chest.
+
+        Lite Winds C.7: resting Adventurers get a map to refill their Chest,
+        drawing either blue- or green-backed.
+        '''
+        if not self._give_rest_core(adventurer):
+            return False
+        adventurer.draw_map()
+        return True
 
 
 class TradePortTile(Tile):
@@ -990,7 +946,7 @@ class GameLiteWinds(Game):
     ACTION_ORDER = ("trade", "rest", "hire_inn")
 
 
-    def __init__(self, players, exploration_rules = 'continuous', rng=None):
+    def __init__(self, players, rng=None):
 
         super().__init__(players)
 
@@ -1005,9 +961,6 @@ class GameLiteWinds(Game):
         for rule_field in dataclasses.fields(self.ruleset):
             setattr(self, rule_field.name, copy.deepcopy(getattr(self.ruleset, rule_field.name)))
 
-        if exploration_rules in ["clockwise", "continuous"]:
-            self.exploration_rules = exploration_rules
-        else: raise Exception("Invalid exploration rules specfied")
 
         self.cities = []
 
@@ -1015,7 +968,6 @@ class GameLiteWinds(Game):
         self.discard_piles = {"water":TilePile("water",[]), "land":TilePile("land",[])}
 
         #Some rule values apply per player, so they can be modified by Culture cards
-        self.num_tile_choices = {player: self.ruleset.num_tile_choices for player in players}
         self.num_character_choices = {player: self.ruleset.num_character_choices for player in players}
 
         #Set up the deck of Character cards

@@ -50,13 +50,11 @@ class Ruleset:
     inn_on_existing: bool = True        # whether Inns can be hired on already-explored tiles
 
     #Movement: fresh Adventurers move in any direction, tired ones ride the wind
-    max_exploration_attempts: int = 1
     fresh_move_budget: int = 2
     tired_move_budget: int = 2
 
     #--- Shady Routes (piracy) rules ---
-    num_chest_maps: int = 2
-    num_tile_choices: int = 2
+    num_chest_maps: int = 3             # Chest map hand capacity (Silk Roads: 2)
     value_discover_city: int = 5
     value_arrest: int = 5
     value_ransack_inn: int = 1
@@ -115,4 +113,5 @@ SHADY_ROUTES = replace(
 SILK_ROADS = replace(
     SHADY_ROUTES,
     edition="SilkRoads",
+    num_chest_maps=2,  # Silk Roads B.6: each Adventurer's Chest holds 2 maps
 )

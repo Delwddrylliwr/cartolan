@@ -84,6 +84,9 @@ class ScriptedPlayer(Player):
     def check_transfer_inn(self, adventurer):
         return self._answer("check_transfer_inn", None)
 
+    def choose_map_pile(self, adventurer, options):
+        return self._answer("choose_map_pile", options[0])
+
     def choose_card(self, adventurer, cards):
         return self._answer("choose_card", cards[0])
 

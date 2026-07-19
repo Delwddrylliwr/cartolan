@@ -200,10 +200,9 @@ def test_own_inn_rest_is_free():
     assert adventurer.silks == 5
 
 
-@pytest.mark.xfail(reason="Stage 7: resting grants exactly one map with pile choice", strict=True)
 def test_rest_grants_exactly_one_map():
+    '''Lite Winds C.7: resting Adventurers get a map to refill their Chest.'''
     game, players = make_game()
-    game.setup_tile_pile("water")  # ensure draws available
     adventurer = game.adventurers[players[0]][0]
     tile = place_water(game, 3, 0)
     inn = game.INN_TYPE(game, players[0], tile)
@@ -214,9 +213,38 @@ def test_rest_grants_exactly_one_map():
     assert len(adventurer.chest_maps) == 1
 
 
-@pytest.mark.xfail(reason="Stage 7: map hand capacity is 3 in Lite Winds", strict=True)
 def test_map_hand_capacity_is_three():
+    '''Lite Winds C.7: the Chest can hold 3 maps.'''
     assert LITE_WINDS.num_chest_maps == 3
+
+
+def test_exploration_fails_without_a_fitting_map():
+    '''Lite Winds D.13: exploration can fail, leaving the Adventurer in place.'''
+    game, players = make_game()
+    adventurer = game.adventurers[players[0]][0]
+    adventurer.chest_maps = []
+    adventurer.chest_map_offsets = []
+    adventurer.current_tile = game.play_area[0][1]
+    failed_before = game.num_failed_explorations
+    assert not adventurer.explore(None, None, 1, 1, "e")
+    assert game.num_failed_explorations == failed_before + 1
+
+
+def test_setup_deals_a_full_hand_of_maps():
+    '''Lite Winds B.6: each player draws maps for their Adventurer at setup.'''
+    game, players = make_game()
+    for player in players:
+        adventurer = game.adventurers[player][0]
+        assert len(adventurer.chest_maps) == adventurer.num_chest_maps == 3
+
+
+def test_swap_maps_redraws_the_whole_hand():
+    '''Lite Winds C.9: swap any or all of their maps.'''
+    game, players = make_game()
+    adventurer = game.adventurers[players[0]][0]
+    old_hand = list(adventurer.chest_maps)
+    adventurer.swap_chest_maps()
+    assert len(adventurer.chest_maps) == len(old_hand)
 
 
 # --- Movement (Lite Winds C.4) ---

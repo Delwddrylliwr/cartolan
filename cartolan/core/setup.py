@@ -11,18 +11,16 @@ from cartolan.core.tiles import Tile, WindDirection, TileEdges
 logger = logging.getLogger(__name__)
 
 
-def create_game(game_type, players, exploration_rules="continuous",
-                mythical_city=True, rng=None):
-    '''Builds a ready-to-play game: initial tiles, one Adventurer per player, and tile piles.
+def create_game(game_type, players, mythical_city=True, rng=None):
+    '''Builds a ready-to-play game: initial tiles, Adventurers, tile piles, and starting maps.
 
     Arguments:
     game_type: the Game subclass for the edition being played
     players: list of Cartolan.Player
-    exploration_rules: rule variant string (until the exploration engine lands)
     mythical_city: whether to shuffle the Mythical City into the land pile
     rng: optional seeded random.Random; defaults to the global random module
     '''
-    game = game_type(players, exploration_rules, rng=rng)
+    game = game_type(players, rng=rng)
 
     #place the Capital tile with a water tile on each of its four sides, sharing the same wind
     game.CITY_TYPE(game, WindDirection(True, True), TileEdges(True, True, True, True),
@@ -41,8 +39,15 @@ def create_game(game_type, players, exploration_rules="continuous",
     if "land" in game.tile_piles:
         game.setup_tile_pile("land")
         if mythical_city:
+            #the Mythical City hides among the green-backed maps (Lite Winds C.9)
             game.tile_piles["land"].tiles.append(
                 game.CITY_TYPE(game, WindDirection(True, True),
                                TileEdges(False, False, False, False), False, True))
+            game.tile_piles["land"].shuffle_tiles(game.rng)
+
+    #deal each Adventurer their starting hand of maps (Lite Winds B.6)
+    for player in players:
+        for adventurer in game.adventurers[player]:
+            adventurer.replenish_chest_maps()
 
     return game

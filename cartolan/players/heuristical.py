@@ -212,11 +212,12 @@ class PlayerExplorerBase(Player):
             adventurer.move(random.choice(['n','e','s','w']))
 #        #move towards a city while banking will put the player ahead, and explore otherwise
 #        elif(adventurer.silks > adventurer.game.silks_difference):
-        #move towards a city while banking will increase earning potential
-        elif(adventurer.silks >= getattr(adventurer.game, self.return_city_attr)):
+        #move towards a city while banking will increase earning potential, or when
+        #there are no maps left in the Chest to explore with
+        elif(adventurer.silks >= getattr(adventurer.game, self.return_city_attr)
+             or not adventurer.chest_maps):
             self.move_towards_tile(adventurer, adventurer.latest_city)
         else:
-#             self.explore_away_from_tile(adventurer, adventurer.latest_city)
             self.explore_best_space(adventurer)
         return True
     
@@ -396,9 +397,9 @@ class PlayerTraderBase(PlayerExplorerBase):
         else:
             if self.next_inn_num.get(adventurer) is not None:
                 print("As a Trader, "+self.name+" has visited all their "+str(self.next_inn_num.get(adventurer)+1)+" Inns")
-            if (adventurer.silks < getattr(adventurer.game, self.return_city_attr) and len(inns) < adventurer.game.max_inns):
+            if (adventurer.silks < getattr(adventurer.game, self.return_city_attr)
+                    and len(inns) < adventurer.game.max_inns and adventurer.chest_maps):
                 self.explore_best_space(adventurer)
-#                   self.explore_above_distance(adventurer, adventurer.latest_city, adventurer.game.CITY_DOMAIN_RADIUS)
             else:
                 self.move_towards_tile(adventurer, adventurer.latest_city)
         
@@ -472,10 +473,9 @@ class PlayerRouterBase(PlayerTraderBase):
         else:
             if self.next_inn_num.get(adventurer):
                 print("As a Router, "+self.name+" has visited all their "+str(self.next_inn_num.get(adventurer) + 1)+" Inns")
-#            if (adventurer.silks <= adventurer.game.silks_difference):
-            if (adventurer.silks < getattr(adventurer.game, self.return_city_attr)):
+            if (adventurer.silks < getattr(adventurer.game, self.return_city_attr)
+                    and adventurer.chest_maps):
                 self.explore_best_space(adventurer)
-#                 self.explore_above_distance(adventurer, adventurer.latest_city, adventurer.game.CITY_DOMAIN_RADIUS)
             else:
                 self.move_towards_tile(adventurer, adventurer.latest_city)
 

@@ -11,9 +11,9 @@ from cartolan.core.tiles import Tile, WindDirection, TileEdges
 from cartolan.ui.live_visuals import GameVisualisation #, ClientGameVisualisation
 
 #First some global functions to set up the game area
-def setup_simulation(players, game_mode, exploration_rules="continuous", mythical_city=True):
+def setup_simulation(players, game_mode, mythical_city=True):
     '''Deprecated wrapper: use cartolan.core.setup.create_game instead.'''
-    return create_game(game_mode, players, exploration_rules, mythical_city)
+    return create_game(game_mode, players, mythical_city)
 
 
 class InteractiveGame:
@@ -24,7 +24,6 @@ class InteractiveGame:
               , 'ShadyRoutes':{'game_type':GameShadyRoutes}
               , 'SilkRoads':{'game_type':GameSilkRoads}
               }
-    EXPLORATION_RULES = ['clockwise', 'continuous']
     NUM_PLAYERS_OPTIONS = [2, 3, 4]
     STARTING_DIMENSIONS = [20, 10]
     STARTING_ORIGIN = [9, 4]
@@ -32,7 +31,6 @@ class InteractiveGame:
     def __init__(self):
         # These parameters will likely be changed each game
         self.game_mode = "ShadyRoutes"
-        self.exploration_rules = "continuous"
         self.mythical_city = True
         self.num_players = 2
         self.num_human_players = self.num_players
@@ -44,9 +42,6 @@ class InteractiveGame:
     def select_mode(self, label):
         self.game_mode = label
         
-    def select_exploration(self, label):
-        self.exploration_rules = label
-    
     def set_num_human_players(self, label):
         self.num_human_players = int(label)
     
@@ -73,7 +68,6 @@ class InteractiveGame:
         print("setting up the play area")
         self.game = setup_simulation(self.players
                                      , self.GAME_MODES[self.game_mode]["game_type"]
-                                     , self.exploration_rules
                                      , self.mythical_city)
         
 #        min_longitude, max_longitude = 0, 0

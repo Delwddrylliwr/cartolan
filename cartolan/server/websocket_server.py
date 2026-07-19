@@ -63,7 +63,6 @@ ORDINALS = ["first", "second", "third", "fourth"]
 NAMES = ["Ron", "Ali", "Jim", "Jon", "Bill", "Sam", "Nic", "Mel", "Su", "Mo", "Don", "Hal", "Sal", "Cat"]
 MAX_NAME_USES = 100  # Allow names to be extended by up to two digits
 # @TODO the below should be moved to the config file for all simulation and game versions
-EXPLORATION_RULES = "continuous"
 MYTHICAL_CITY = True
 
 next_game_id = 0
@@ -458,7 +457,6 @@ class ClientSocket(WebSocket):
         random.shuffle(game_players)
         self.game = create_game(GAME_MODES[new_game_types[game_id]]["game_type"]
                                 , game_players
-                                , EXPLORATION_RULES
                                 , MYTHICAL_CITY)
 
         # Move the game's lookups into the active list and clean up
@@ -550,7 +548,7 @@ class ClientSocket(WebSocket):
         game.inns[new_player] = inns
 
         # Transfer all other player-keyed dicts on the game object
-        for attr in ('vault_silks', 'num_tile_choices', 'num_character_choices',
+        for attr in ('vault_silks', 'num_character_choices',
                      'num_manuscript_choices', 'value_inn_trade', 'rest_with_adventurers',
                      'transfer_inn_earnings', 'inns_arrest', 'confiscate_silks',
                      'resting_refurnishes', 'pool_maps', 'rechoose_at_inns', 'assigned_cultures'):
