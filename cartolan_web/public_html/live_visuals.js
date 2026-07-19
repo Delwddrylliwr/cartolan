@@ -687,6 +687,7 @@ class GameVisualisation {
     this._drawPlayArea();
     this._drawRoutes();
     this._drawTokens();
+    this._drawRoads();
     this._drawMoveOptions();
     this._updateScoresTable();
 
@@ -773,6 +774,34 @@ class GameVisualisation {
       }
     }
     ctx.textAlign = 'left';
+  }
+
+  _drawRoads() {
+    const s = this.state;
+    if (!s || !s.roads) return;
+    const ctx = this.ctx;
+    for (const [playerName, roads] of Object.entries(s.roads)) {
+      for (const road of roads) {
+        const [ax, ay] = this._tileCentre(road.a[0], road.a[1]);
+        const [bx, by] = this._tileCentre(road.b[0], road.b[1]);
+        ctx.save();
+        ctx.strokeStyle = s.player_colours[playerName] || '#8B5A2B';
+        ctx.globalAlpha = road.active ? 0.9 : 0.45;
+        ctx.lineWidth = Math.max(4, this.tileSize * 0.12);
+        ctx.setLineDash(road.active ? [] : [8, 6]);
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+
+  _tileCentre(lon, lat) {
+    const x = this.playAreaStart + (this.origin[0] + lon) * this.tileSize + this.tileSize / 2;
+    const y = (this.dimensions[1] - this.origin[1] - lat - 1) * this.tileSize + this.tileSize / 2;
+    return [x, y];
   }
 
   _drawMoveOptions() {

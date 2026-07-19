@@ -147,9 +147,8 @@ def test_mythical_city_awards_five_silks_when_placed():
     '''Lite Winds C.9: the Mythical City awards 5 Silks when placed.'''
     game, players = make_game()
     adventurer = game.adventurers[players[0]][0]
-    mythical = game.tile_piles["land"].tiles[-1]  # appended by create_game... find it
-    from cartolan.core.tiles import CityTile
-    mythical = next(t for t in game.tile_piles["land"].tiles if isinstance(t, CityTile))
+    from cartolan.editions.lite_winds import MythicalCityTileLiteWinds
+    mythical = MythicalCityTileLiteWinds(game)
     mythical.place_tile(5, 5)
     adventurer.current_tile = mythical
     silks_before = adventurer.silks + game.vault_silks[players[0]]
@@ -392,10 +391,107 @@ def test_attack_resolver_uses_die_semantics():
 
 # --- Roads (Silk Roads) ---
 
-@pytest.mark.xfail(reason="Stage 9: Roads are implemented for Silk Roads", strict=True)
 def test_roads_exist_in_silk_roads():
     game, players = make_game(GameSilkRoads)
     assert hasattr(game, "roads")
+
+
+def test_road_build_costs_and_limit():
+    '''Silk Roads C.3: free on tiles newly laid that move, 5 Silks between existing
+    tiles; up to 4 Roads, which can be moved.'''
+    game, players = make_game(GameSilkRoads)
+    adventurer = game.adventurers[players[0]][0]
+    place_water(game, 0, 1)
+    adventurer.current_tile = game.play_area[0][1]
+    adventurer.silks = 7
+    adventurer.laid_tile_this_move = False
+    players[0].script("check_build_road", "s")
+    adventurer.offer_build_road()
+    assert len(game.roads[players[0]]) == 1
+    assert adventurer.silks == 2  # 5 Silks between existing tiles
+
+    adventurer.laid_tile_this_move = True
+    place_water(game, 1, 1)
+    players[0].script("check_build_road", "e")
+    adventurer.offer_build_road()
+    assert len(game.roads[players[0]]) == 2
+    assert adventurer.silks == 2  # free on a newly laid tile
+
+
+def test_road_activates_only_after_the_turn_it_was_built():
+    '''Silk Roads C.3: after the turn the Road was placed, it allows movement even when tired.'''
+    game, players = make_game(GameSilkRoads)
+    adventurer = game.adventurers[players[0]][0]
+    # a tile whose wind points north-east; a road heading south (upwind, land-blocked when tired)
+    tile = place_water(game, 5, 5)
+    place_water(game, 5, 4)
+    adventurer.current_tile = tile
+    game.build_road(players[0], (tuple(sorted([(5, 5), (5, 4)]))[0], tuple(sorted([(5, 5), (5, 4)]))[1]))
+    adventurer.fresh_moves_used = 2  # tired
+
+    assert not adventurer.can_move("s")  # built this turn: not yet active
+    game.turn += 1
+    assert adventurer.can_move("s")      # active from the next turn
+
+
+def test_road_toll_past_another_players_inn():
+    '''Silk Roads C.3: a Road sharing a tile with another player's Inn charges a toll.'''
+    game, players = make_game(GameSilkRoads)
+    adventurer = game.adventurers[players[0]][0]
+    tile_a = place_water(game, 5, 5)
+    tile_b = place_water(game, 5, 4)
+    inn = game.INN_TYPE(game, players[1], tile_b)
+    adventurer.current_tile = tile_a
+    game.build_road(players[0], tuple(sorted([(5, 5), (5, 4)])))
+    game.turn += 1
+    adventurer.fresh_moves_used = 2  # tired: this must be a Road move
+    adventurer.silks = 3
+    inn_silks_before = inn.silks
+    assert adventurer.move("s")
+    assert inn.silks == inn_silks_before + 1  # 1 Silk x 1 character
+    assert adventurer.current_tile is tile_b
+
+
+def test_blind_draw_places_wind_matched_or_fails_to_pile_bottom():
+    '''Silk Roads C.4: blind draws place wind-matched (or tip-to-tail), else the tile
+    returns to the bottom of its pile at the end of the turn.'''
+    game, players = make_game(GameSilkRoads)
+    adventurer = game.adventurers[players[0]][0]
+    tile = place_water(game, 5, 5)
+    adventurer.current_tile = tile
+    adventurer.chest_maps = []
+    adventurer.chest_map_offsets = []
+    pile = game.tile_piles["water"]
+    pile_size = len(pile.tiles)
+    result = adventurer.explore(pile, game.discard_piles["water"], 6, 5, "e")
+    if result:
+        placed = game.play_area[6][5]
+        # placed wind-matched to the current tile, or tip-to-tail across the crossed edge
+        assert ((placed.wind_direction.north == tile.wind_direction.north
+                 and placed.wind_direction.east == tile.wind_direction.east)
+                or adventurer.wind_tip_to_tail(placed, "e"))
+    else:
+        # the failed tile is pending, and returns to the bottom of the pile at end of turn
+        assert sum(len(p) for p in game.pending_discards.values()) == 1
+        pending_tile = game.pending_discards["water"][0]
+        adventurer.end_turn()
+        assert game.tile_piles["water"].tiles[0] is pending_tile
+
+
+def test_silk_roads_setup_starts_from_the_mythical_city_alone():
+    '''Silk Roads B.1/B.6: the Mythical City is placed alone, and each Chest starts
+    with 2 maps drawn green then blue.'''
+    game, players = make_game(GameSilkRoads)
+    assert len(game.cities) >= 1
+    starting_city = game.play_area[0][0]
+    assert not starting_city.is_home_city
+    board_tiles = sum(len(v) for v in game.play_area.values())
+    assert board_tiles == 1  # the Mythical City alone
+    for player in players:
+        adventurer = game.adventurers[player][0]
+        assert len(adventurer.chest_maps) == 2
+        assert adventurer.chest_maps[0].tile_back == "land"   # green first
+        assert adventurer.chest_maps[1].tile_back == "water"  # then blue
 
 
 def test_silk_roads_map_hand_is_two():

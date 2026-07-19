@@ -136,6 +136,7 @@
       "num_tiles",
       "play_area",
       "players",
+      "roads",
       "silks_difference",
       "tile_piles",
       "turn",

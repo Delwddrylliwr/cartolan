@@ -74,6 +74,12 @@ class Ruleset:
     rest_after_placing: bool = False
     transfer_inn_earnings: bool = False
 
+    #--- Silk Roads (roads) rules ---
+    max_roads: int = 4
+    cost_road_new_tile: int = 0         # build a Road on a tile newly laid this move
+    cost_road_existing: int = 5         # build a Road between existing tiles
+    road_toll_per_character: int = 1    # toll when moving a Road past another player's Inn
+
     #Card decks and their rule modifiers
     card_modifiers: dict = field(default_factory=lambda: dict(CARD_MODIFIERS))
     character_cards: tuple = CHARACTER_CARDS

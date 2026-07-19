@@ -71,6 +71,19 @@ class Player:
         '''Whether to take one of the victim's Manuscript cards after successful piracy.'''
         return True
 
+    def check_build_road(self, adventurer, options, cost):
+        '''Chooses a direction to build a Road towards, or None to decline.
+
+        Defaults to building only when free, towards the first available neighbour.
+        '''
+        if cost == 0 and options:
+            return options[0]
+        return None
+
+    def check_move_road(self, adventurer):
+        '''Chooses one of the player's Roads to pick up when at the limit, or None.'''
+        return None
+
     def choose_map_pile(self, adventurer, options):
         '''Chooses which tile pile to draw a map from (blue water or green land).
 

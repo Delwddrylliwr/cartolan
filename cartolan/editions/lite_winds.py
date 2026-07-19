@@ -148,6 +148,7 @@ class AdventurerLiteWinds(Adventurer):
         self.bought_adventurer = 0
         self.bought_inn = 0
         self.moved_inn = None
+        self.laid_tile_this_move = False
 
         #The Chest holds maps for exploring; drawn once the tile piles exist
         self.chest_maps = []
@@ -356,6 +357,7 @@ class AdventurerLiteWinds(Adventurer):
         self.bought_adventurer = 0
         self.bought_inn = 0
         self.moved_inn = None
+        self.laid_tile_this_move = False
 
         # check whether the next tile exists and explore if needed
         moved = False
@@ -378,6 +380,7 @@ class AdventurerLiteWinds(Adventurer):
                 discard_pile = self.choose_discard_pile(compass_point)
 
                 if self.explore(tile_pile, discard_pile, new_longitude, new_latitude, compass_point):
+                    self.laid_tile_this_move = True
                     #place the Adventurer on the newly placed Tile
                     self.current_tile.move_off_tile(self)
                     self.current_tile = self.game.play_area.get(new_longitude).get(new_latitude)

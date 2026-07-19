@@ -84,6 +84,12 @@ class ScriptedPlayer(Player):
     def check_transfer_inn(self, adventurer):
         return self._answer("check_transfer_inn", None)
 
+    def check_build_road(self, adventurer, options, cost):
+        return self._answer("check_build_road", None)
+
+    def check_move_road(self, adventurer):
+        return self._answer("check_move_road", None)
+
     def check_steal_map(self, adventurer, victim):
         return self._answer("check_steal_map", False)
 

@@ -22,12 +22,18 @@ def create_game(game_type, players, mythical_city=True, rng=None):
     '''
     game = game_type(players, rng=rng)
 
-    #place the Capital tile with a water tile on each of its four sides, sharing the same wind
-    game.CITY_TYPE(game, WindDirection(True, True), TileEdges(True, True, True, True),
-                   True, True).place_tile(0, 0)
-    for longitude, latitude in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
-        Tile(game, "water", WindDirection(True, True), TileEdges(True, True, True, True),
-             False).place_tile(longitude, latitude)
+    if getattr(game_type, "SOLO_MYTHICAL_SETUP", False):
+        #Silk Roads B.1: place the Mythical City tile alone
+        game.CITY_TYPE(game, WindDirection(True, True), TileEdges(False, False, False, False),
+                       False, True).place_tile(0, 0)
+        mythical_city = False  #the Mythical City is already on the board
+    else:
+        #place the Home City with a water tile on each of its four sides, sharing the same wind
+        game.CITY_TYPE(game, WindDirection(True, True), TileEdges(True, True, True, True),
+                       True, True).place_tile(0, 0)
+        for longitude, latitude in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+            Tile(game, "water", WindDirection(True, True), TileEdges(True, True, True, True),
+                 False).place_tile(longitude, latitude)
 
     #place a starting Adventurer for each player
     for player in players:
@@ -45,9 +51,16 @@ def create_game(game_type, players, mythical_city=True, rng=None):
                                TileEdges(False, False, False, False), False, True))
             game.tile_piles["land"].shuffle_tiles(game.rng)
 
-    #deal each Adventurer their starting hand of maps (Lite Winds B.6)
+    #deal each Adventurer their starting hand of maps, alternating between the piles
+    #(Lite Winds B.6: blue then green; Silk Roads B.6: green then blue)
+    deal_order = getattr(game_type, "SETUP_MAP_ORDER", ("water", "land"))
     for player in players:
         for adventurer in game.adventurers[player]:
-            adventurer.replenish_chest_maps()
+            for map_num in range(adventurer.num_chest_maps):
+                pile = game.tile_piles[deal_order[map_num % len(deal_order)]]
+                tile = pile.draw_tile()
+                if tile is not None:
+                    adventurer.chest_maps.append(tile)
+                    adventurer.chest_map_offsets.append(0)
 
     return game
