@@ -13,8 +13,8 @@
     "chr+defence_queen_shi.png"
   ],
   "chr+downwind": [
-    "chr+downwind_General_He.png",
-    "chr+downwind_Ferdinand_Fetichero.png"
+    "chr+downwind_Ferdinand_Fetichero.png",
+    "chr+downwind_General_He.png"
   ],
   "chr+freerests": [
     "chr+freerests_ewo_mekelle.png",
@@ -24,16 +24,16 @@
     "chr+inns_Jan_van_jansen.png"
   ],
   "chr+maps": [
-    "chr+maps_Ragnar_the_Red.png",
-    "chr+maps_mapaia.png"
+    "chr+maps_mapaia.png",
+    "chr+maps_Ragnar_the_Red.png"
   ],
   "chr+rewards": [
     "chr+rewards_christina_americi.png",
     "chr+rewards_marco_pilota.png"
   ],
   "chr+upwind": [
-    "chr+upwind_Seekagaway.png",
-    "chr+upwind_marco_afanasy_tabakin.png"
+    "chr+upwind_marco_afanasy_tabakin.png",
+    "chr+upwind_Seekagaway.png"
   ],
   "cul+arrest": [
     "cul+arrest_port_authority.png"
@@ -63,30 +63,30 @@
     "man+damage_guided_fire.jpg"
   ],
   "man+defence": [
-    "man+defence_spyglass.jpg",
-    "man+defence_scalemail.jpg"
+    "man+defence_scalemail.jpg",
+    "man+defence_spyglass.jpg"
   ],
   "man+downwind": [
-    "man+downwind_water wing.jpg",
-    "man+downwind_sea_kite.jpg"
+    "man+downwind_sea_kite.jpg",
+    "man+downwind_water wing.jpg"
   ],
   "man+freerests": [
-    "man+freerests_rhapsody.jpg",
-    "man+freerests_pentatonics.jpg"
+    "man+freerests_pentatonics.jpg",
+    "man+freerests_rhapsody.jpg"
   ],
   "man+inns": [
     "man+inns_contracts.jpg"
   ],
   "man+maps": [
-    "man+maps_compass.jpg",
-    "man+maps_chronometer.jpg"
+    "man+maps_chronometer.jpg",
+    "man+maps_compass.jpg"
   ],
   "man+rewards": [
     "man+rewards_rhumb_tattoos.jpg",
     "man+rewards_typometry.jpg"
   ],
   "man+upwind": [
-    "man+upwind_pin_pulley.jpg",
-    "man+upwind_fermented_tea.jpg"
+    "man+upwind_fermented_tea.jpg",
+    "man+upwind_pin_pulley.jpg"
   ]
 }
